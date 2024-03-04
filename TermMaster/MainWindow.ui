@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>659</width>
+    <height>462</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout"/>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>659</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuTerminal">
+    <property name="title">
+     <string>Terminal</string>
+    </property>
+    <widget class="QMenu" name="menuNew_2">
+     <property name="title">
+      <string>New</string>
+     </property>
+     <addaction name="actionTerminal_NewSerial"/>
+     <addaction name="actionTerminal_NewConsole"/>
+     <addaction name="actionTerminal_NewSsh"/>
+     <addaction name="actionTerminal_Socket"/>
+     <addaction name="actionTerminal_Stdio"/>
+     <addaction name="actionTerminal_Intermediate"/>
+    </widget>
+    <addaction name="menuNew_2"/>
+    <addaction name="separator"/>
+    <addaction name="actionOpen"/>
+    <addaction name="actionSave"/>
+    <addaction name="separator"/>
+    <addaction name="actionConfigure"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuControl">
+    <property name="title">
+     <string>Control</string>
+    </property>
+    <addaction name="actionControl_ResetTerminal"/>
+    <addaction name="actionControl_Configure"/>
+    <addaction name="separator"/>
+    <addaction name="actionControl_MakeBridge"/>
+   </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>Edit</string>
+    </property>
+    <addaction name="actionEdit_ClearScreen"/>
+    <addaction name="actionEdit_SelectAll"/>
+    <addaction name="actionEdit_SelectScreen"/>
+    <addaction name="actionEdit_Copy"/>
+    <addaction name="actionEdit_Paste"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionHelp_HomePage"/>
+    <addaction name="actionHelp_Sources"/>
+    <addaction name="separator"/>
+    <addaction name="actionHelp_About"/>
+   </widget>
+   <addaction name="menuTerminal"/>
+   <addaction name="menuEdit"/>
+   <addaction name="menuControl"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionSerial">
+   <property name="text">
+    <string>Serial</string>
+   </property>
+  </action>
+  <action name="actionTerminal_NewSerial">
+   <property name="text">
+    <string>Serial</string>
+   </property>
+  </action>
+  <action name="actionTerminal_NewConsole">
+   <property name="text">
+    <string>Console</string>
+   </property>
+  </action>
+  <action name="actionTerminal_NewSsh">
+   <property name="text">
+    <string>SSH</string>
+   </property>
+  </action>
+  <action name="actionTerminal_Socket">
+   <property name="text">
+    <string>Socket</string>
+   </property>
+  </action>
+  <action name="actionOpen">
+   <property name="text">
+    <string>Open</string>
+   </property>
+  </action>
+  <action name="actionSave">
+   <property name="text">
+    <string>Save</string>
+   </property>
+  </action>
+  <action name="actionTerminal_Intermediate">
+   <property name="text">
+    <string>Intermediate</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionControl_ResetTerminal">
+   <property name="text">
+    <string>Reset terminal</string>
+   </property>
+  </action>
+  <action name="actionControl_Configure">
+   <property name="text">
+    <string>Settings</string>
+   </property>
+  </action>
+  <action name="actionEdit_SelectAll">
+   <property name="text">
+    <string>Select All</string>
+   </property>
+  </action>
+  <action name="actionEdit_ClearScreen">
+   <property name="text">
+    <string>Clear screen</string>
+   </property>
+  </action>
+  <action name="actionHelp_Sources">
+   <property name="text">
+    <string>Sources</string>
+   </property>
+  </action>
+  <action name="actionHelp_HomePage">
+   <property name="text">
+    <string>Home page</string>
+   </property>
+  </action>
+  <action name="actionHelp_About">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+  <action name="actionEdit_Copy">
+   <property name="text">
+    <string>Copy</string>
+   </property>
+  </action>
+  <action name="actionEdit_Paste">
+   <property name="text">
+    <string>Paste</string>
+   </property>
+  </action>
+  <action name="actionEdit_SelectScreen">
+   <property name="text">
+    <string>Select screen</string>
+   </property>
+  </action>
+  <action name="actionTerminal_Stdio">
+   <property name="text">
+    <string>Stdio</string>
+   </property>
+  </action>
+  <action name="actionControl_MakeBridge">
+   <property name="text">
+    <string>Make bridge</string>
+   </property>
+  </action>
+  <action name="actionConfigure">
+   <property name="text">
+    <string>Configure</string>
+   </property>
+  </action>
+  <action name="actiondasd">
+   <property name="text">
+    <string>dasd</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
