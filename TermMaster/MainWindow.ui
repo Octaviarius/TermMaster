@@ -27,34 +27,33 @@
    </property>
    <widget class="QMenu" name="menuTerminal">
     <property name="title">
-     <string>Terminal</string>
+     <string>File</string>
     </property>
-    <widget class="QMenu" name="menuNew_2">
+    <widget class="QMenu" name="actionFile_New">
+     <property name="tearOffEnabled">
+      <bool>false</bool>
+     </property>
      <property name="title">
       <string>New</string>
      </property>
-     <addaction name="actionTerminal_NewSerial"/>
-     <addaction name="actionTerminal_NewConsole"/>
-     <addaction name="actionTerminal_NewSsh"/>
-     <addaction name="actionTerminal_Socket"/>
-     <addaction name="actionTerminal_Stdio"/>
-     <addaction name="actionTerminal_Intermediate"/>
+     <property name="separatorsCollapsible">
+      <bool>false</bool>
+     </property>
+     <addaction name="actionFile_New_Serial"/>
+     <addaction name="actionFile_New_Socket"/>
     </widget>
-    <addaction name="menuNew_2"/>
+    <addaction name="actionFile_New"/>
     <addaction name="separator"/>
-    <addaction name="actionOpen"/>
-    <addaction name="actionSave"/>
+    <addaction name="actionFile_Open"/>
+    <addaction name="actionFile_Save"/>
     <addaction name="separator"/>
-    <addaction name="actionConfigure"/>
-    <addaction name="separator"/>
-    <addaction name="actionExit"/>
+    <addaction name="actionFile_Exit"/>
    </widget>
    <widget class="QMenu" name="menuControl">
     <property name="title">
      <string>Control</string>
     </property>
     <addaction name="actionControl_ResetTerminal"/>
-    <addaction name="actionControl_Configure"/>
     <addaction name="separator"/>
     <addaction name="actionControl_MakeBridge"/>
    </widget>
@@ -77,8 +76,16 @@
     <addaction name="separator"/>
     <addaction name="actionHelp_About"/>
    </widget>
+   <widget class="QMenu" name="menuSetup">
+    <property name="title">
+     <string>Setup</string>
+    </property>
+    <addaction name="actionSetup_Terminal"/>
+    <addaction name="actionSetup_Settings"/>
+   </widget>
    <addaction name="menuTerminal"/>
    <addaction name="menuEdit"/>
+   <addaction name="menuSetup"/>
    <addaction name="menuControl"/>
    <addaction name="menuHelp"/>
   </widget>
@@ -88,32 +95,32 @@
     <string>Serial</string>
    </property>
   </action>
-  <action name="actionTerminal_NewSerial">
+  <action name="actionFile_New_Serial">
    <property name="text">
     <string>Serial</string>
    </property>
   </action>
-  <action name="actionTerminal_NewConsole">
+  <action name="actionFile_NewConsole">
    <property name="text">
     <string>Console</string>
    </property>
   </action>
-  <action name="actionTerminal_NewSsh">
+  <action name="actionFile_NewSsh">
    <property name="text">
     <string>SSH</string>
    </property>
   </action>
-  <action name="actionTerminal_Socket">
+  <action name="actionFile_New_Socket">
    <property name="text">
     <string>Socket</string>
    </property>
   </action>
-  <action name="actionOpen">
+  <action name="actionFile_Open">
    <property name="text">
     <string>Open</string>
    </property>
   </action>
-  <action name="actionSave">
+  <action name="actionFile_Save">
    <property name="text">
     <string>Save</string>
    </property>
@@ -123,7 +130,7 @@
     <string>Intermediate</string>
    </property>
   </action>
-  <action name="actionExit">
+  <action name="actionFile_Exit">
    <property name="text">
     <string>Exit</string>
    </property>
@@ -190,12 +197,22 @@
   </action>
   <action name="actionConfigure">
    <property name="text">
-    <string>Configure</string>
+    <string>Configure Terminal</string>
    </property>
   </action>
   <action name="actiondasd">
    <property name="text">
     <string>dasd</string>
+   </property>
+  </action>
+  <action name="actionSetup_Settings">
+   <property name="text">
+    <string>Settings</string>
+   </property>
+  </action>
+  <action name="actionSetup_Terminal">
+   <property name="text">
+    <string>Terminal</string>
    </property>
   </action>
  </widget>

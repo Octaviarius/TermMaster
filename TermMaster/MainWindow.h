@@ -23,5 +23,8 @@ private slots:
     void _onActionHelp_Sources();
     void _onActionHelp_Homepage();
     void _onActionHelp_About();
+    void _onActionFile_NewSerial();
+
+    void _onActionSetup_Terminal();
 };
 #endif // MAINWINDOW_H
