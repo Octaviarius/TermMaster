@@ -6,40 +6,43 @@ CONFIG += c++17
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    ConfigSerialDialog.cpp \
-    ConfigTerminalDialog.cpp \
+    Registree.cpp \
+    widgets/ConfigSerialWidget.cpp \
+    widgets/ConfigTerminalEmulationWidget.cpp \
     SerialTerminal.cpp \
-    SettingsDialog.cpp \
+    dialogs/SettingsDialog.cpp \
     Terminal.cpp \
     main.cpp \
     MainWindow.cpp \
-    utils.cpp
+    widgets/ConfigBaseWidget.cpp \
+    widgets/ConfigTerminalWindowWidget.cpp
 
 HEADERS += \
-    ConfigSerialDialog.h \
-    ConfigTerminalDialog.h \
+    Registree.h \
+    utils.h \
+    widgets/ConfigSerialWidget.h \
+    widgets/ConfigTerminalEmulationWidget.h \
     MainWindow.h \
     SerialTerminal.h \
-    SettingsDialog.h \
+    dialogs/SettingsDialog.h \
     Terminal.h \
-    utils.h \
-    version.h
+    version.h \
+    widgets/ConfigBaseWidget.h \
+    widgets/ConfigTerminalWindowWidget.h
 
 FORMS += \
-    ConfigSerialDialog.ui \
-    ConfigTerminalDialog.ui \
+    widgets/ConfigSerialWidget.ui \
+    widgets/ConfigTerminalEmulationWidget.ui \
     MainWindow.ui \
-    SettingsDialog.ui
+    dialogs/SettingsDialog.ui \
+    widgets/ConfigTerminalWindowWidget.ui
 
-CONFIG(debug, debug|release)
-{
-    LIBS += -L$$PWD/../3dparty/build-yaml-cpp-Desktop_Qt_6_4_0_MinGW_64_bit-Debug/ -lyaml-cppd
-}
 
-CONFIG(release, debug|release)
-{
-    LIBS += -L$$PWD/../3dparty/build-yaml-cpp-Desktop_Qt_6_4_0_MinGW_64_bit-Release/ -lyaml-cpp
-}
+LIBS += -L$$PWD/../libs
+LIBS += -lyaml-cpp
 
 INCLUDEPATH += $$PWD/../3dparty/yaml-cpp/include
 DEPENDPATH += $$PWD/../3dparty/yaml-cpp/include
+
+RESOURCES += \
+    res.qrc

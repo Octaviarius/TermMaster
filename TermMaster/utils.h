@@ -1,36 +1,47 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include <QList>
 #include <QMap>
-#include <QSharedPointer>
-#include <QString>
-#include <QVariant>
+#include <QStringList>
+#include <QVector>
 
-class PathedValue
+template <typename K, typename V>
+constexpr QMap<V, K> inverseQMap(const QMap<K, V>& map)
 {
-public:
-    PathedValue();
-    PathedValue(const PathedValue& copy);
-    PathedValue(QVariant& root);
-    ~PathedValue();
+    QMap<V, K> res;
 
-    QVariant get(const QString& path, QVariant defaultValue = QVariant(), bool autocreate = false);
-    void set(const QVariant& value, const QStringList& path);
-    void set(const QVariant& value, const QString& path);
+    for (auto it = map.constKeyValueBegin(); it != map.constKeyValueEnd(); ++it)
+    {
+        res[(*it).second] = (*it).first;
+    }
 
-    bool merge(const PathedValue& other);
-    void clear();
+    return res;
+}
 
-    QVariant& operator[](const QStringList& path);
-    QVariant& operator[](const QString& path);
+template <typename V>
+constexpr QMap<int, V> qVectorToQMap(const QVector<V>& vec)
+{
+    QMap<int, V> res;
 
-    const QVariant& operator[](const QStringList& path) const;
-    const QVariant& operator[](const QString& path) const;
+    for (int i = 0; i < vec.size(); i++)
+    {
+        res[i] = vec[i];
+    }
 
-protected:
-    QVariant* _root;
-    bool _createdByRef;
-};
+    return res;
+}
+
+template <typename V>
+constexpr QMap<V, int> qVectorToInversedQMap(const QVector<V>& vec)
+{
+    QMap<V, int> res;
+
+    for (int i = 0; i < vec.size(); i++)
+    {
+        res[vec[i]] = i;
+    }
+
+    return res;
+}
 
 #endif // UTILS_H

@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/">
+        <file>res/icon/cat-connections.svg</file>
+        <file>res/icon/cat-terminal.svg</file>
+        <file>res/icon/connected.svg</file>
+        <file>res/icon/disconnected.svg</file>
+        <file>res/icon/new-terminal.svg</file>
+        <file>res/icon/new-terminal-console.svg</file>
+        <file>res/icon/new-terminal-serial.svg</file>
+        <file>res/icon/new-terminal-socket.svg</file>
+        <file>res/icon/new-terminal-ssh.svg</file>
+    </qresource>
+</RCC>

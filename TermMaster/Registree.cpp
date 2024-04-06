@@ -1,53 +1,46 @@
-#include "utils.h"
+#include "Registree.h"
+
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 
-PathedValue::PathedValue() : _root(nullptr), _createdByRef(false)
+static QVariant& makeNodeInMap(QVariantMap& map, const QString& index, const QString& nextIndex);
+static QVariant& makeNodeInList(QVariantList& list, int index, const QString& nextIndex);
+static QVariant& makeNodeInUnknown(QVariant& var, const QString& index);
+
+Registree::Registree() : _root(new QVariant())
 {
 }
 
-PathedValue::PathedValue(const PathedValue& copy)
+Registree::Registree(const Registree& copy)
 {
-    _createdByRef = false;
-    _root         = new QVariant();
-    *_root        = *copy._root;
+    _relPath = copy._relPath;
+    _root    = copy._root;
 }
 
-PathedValue::PathedValue(QVariant& root) : _root(&root), _createdByRef(false)
+Registree::~Registree()
 {
 }
 
-PathedValue::~PathedValue()
+Registree Registree::node(QString path)
 {
-    if (!_createdByRef && _root != nullptr)
-    {
-        delete _root;
-    }
+    Registree res(*this);
+    res._relPath += path.split('/');
+    return res;
 }
 
-QVariant PathedValue::get(const QString& path, QVariant defaultValue, bool autocreate)
+QVariant Registree::get(const QString& path, QVariant defaultValue) const
 {
-    auto parts = path.split('/');
+    auto parts = _relPath + path.split('/');
     bool ok;
-    int idx;
+    int  idx;
 
-    if (!_root)
+    QVariant* obj = _root.data();
+
+    if (obj->isNull())
     {
-        _root = new QVariant();
-
-        parts[0].toInt(&ok);
-        if (ok)
-        {
-            *_root = QVariantList();
-        }
-        else
-        {
-            *_root = QVariantMap();
-        }
+        return defaultValue;
     }
-
-    QVariant* obj = _root;
 
     foreach (auto p, parts)
     {
@@ -63,10 +56,6 @@ QVariant PathedValue::get(const QString& path, QVariant defaultValue, bool autoc
                 }
                 else
                 {
-                    if (autocreate)
-                    {
-                        set(defaultValue, parts);
-                    }
                     return defaultValue;
                 }
                 break;
@@ -83,10 +72,6 @@ QVariant PathedValue::get(const QString& path, QVariant defaultValue, bool autoc
                 }
                 else
                 {
-                    if (autocreate)
-                    {
-                        set(defaultValue, parts);
-                    }
                     return defaultValue;
                 }
 
@@ -100,27 +85,33 @@ QVariant PathedValue::get(const QString& path, QVariant defaultValue, bool autoc
     return *obj;
 }
 
-void PathedValue::set(const QVariant& value, const QStringList& path)
+QVariant& Registree::get(const QString& path, const QVariant& defaultValue)
 {
-    bool ok;
-    int idx;
+    auto& ret = (*this)[path];
 
-    if (!_root)
+    if (ret.isNull())
     {
-        _root = new QVariant();
-
-        path[0].toInt(&ok);
-        if (ok)
-        {
-            *_root = QVariantList();
-        }
-        else
-        {
-            *_root = QVariantMap();
-        }
+        ret = defaultValue;
     }
 
-    QVariant* obj = _root;
+    return ret;
+}
+
+void Registree::set(const QVariant& value, QStringList path)
+{
+    bool ok;
+    int  idx;
+
+    if (_relPath.size() > 0)
+    {
+        path = _relPath + path;
+    }
+
+    QVariant* obj = _root.data();
+
+    if (obj->isNull())
+    {
+    }
 
     for (auto p = path.constBegin(), nextP = path.constBegin() + 1; p != path.constEnd(); p++, nextP++)
     {
@@ -209,41 +200,36 @@ void PathedValue::set(const QVariant& value, const QStringList& path)
     }
 }
 
-void PathedValue::set(const QVariant& value, const QString& path)
+void Registree::set(const QVariant& value, const QString& path)
 {
     set(value, path.split('/'));
 }
 
-bool PathedValue::merge(const PathedValue& other)
+bool Registree::merge(const Registree& other)
 {
 }
 
-void PathedValue::clear()
+void Registree::clear()
 {
     _root->clear();
 }
 
-QVariant& PathedValue::operator[](const QStringList& path)
+QVariant& Registree::operator[](QStringList path)
 {
     bool ok;
-    int idx;
+    int  idx;
 
-    if (!_root)
+    if (_relPath.size() > 0)
     {
-        _root = new QVariant();
-
-        path[0].toInt(&ok);
-        if (ok)
-        {
-            *_root = QVariantList();
-        }
-        else
-        {
-            *_root = QVariantMap();
-        }
+        path = _relPath + path;
     }
 
-    QVariant* obj = _root;
+    QVariant* obj = _root.data();
+
+    if (obj->userType() == QMetaType::UnknownType)
+    {
+        obj = &makeNodeInUnknown(*obj, path[0]);
+    }
 
     for (auto p = path.constBegin(), nextP = path.constBegin() + 1; p != path.constEnd(); p++, nextP++)
     {
@@ -253,75 +239,65 @@ QVariant& PathedValue::operator[](const QStringList& path)
         {
             case QMetaType::QVariantMap:
             {
-                QVariantMap& map = *reinterpret_cast<QVariantMap*>(obj);
+                QVariantMap& map = reinterpret_cast<QVariantMap&>(*obj);
 
                 if (isLast)
                 {
-                    return map[*p];
+                    if (!map.contains(*p))
+                    {
+                        map[*p] = QVariant();
+                    }
+
+                    obj = &map[*p];
                 }
                 else
                 {
-                    if (map.contains(*p))
-                    {
-                        obj = &map[*p];
-                    }
-                    else
-                    {
-                        idx = nextP->toInt(&ok);
-
-                        if (ok)
-                        {
-                            map[*p]            = QVariantList();
-                            obj                = &map[*p];
-                            QVariantList& list = *reinterpret_cast<QVariantList*>(obj);
-                            list.resize(idx + 1);
-                        }
-                        else
-                        {
-                            map[*p] = QVariantMap();
-                            obj     = &map[*p];
-                        }
-                    }
+                    obj = &makeNodeInMap(map, *p, *nextP);
                 }
                 break;
             }
 
             case QMetaType::QVariantList:
             {
-                QVariantList& list = *reinterpret_cast<QVariantList*>(obj);
+                QVariantList& list = reinterpret_cast<QVariantList&>(*obj);
                 idx                = p->toInt(&ok);
 
                 if (ok && idx >= 0)
                 {
                     if (isLast)
                     {
-                        return list[idx];
+                        obj = &list[idx];
                     }
                     else
                     {
-                        if (list.size() < idx)
-                        {
-                            list.resize(idx + 1);
-                        }
-
-                        obj = &list[idx];
-                        if (obj->isNull())
-                        {
-                            idx = nextP->toInt(&ok);
-                            if (ok)
-                            {
-                                obj->setValue(QVariantList());
-                                reinterpret_cast<QVariantList*>(obj)->resize(idx + 1);
-                            }
-                            else
-                            {
-                                obj->setValue(QVariantMap());
-                            }
-                        }
+                        obj = &makeNodeInList(list, idx, *nextP);
                     }
                 }
                 else
                 {
+                    auto mp = QVariantMap();
+
+                    for (int i = 0; i < list.size(); i++)
+                    {
+                        mp[QString("%1").arg(i)] = list[i];
+                    }
+
+                    obj->setValue(mp);
+
+                    QVariantMap& map = reinterpret_cast<QVariantMap&>(*obj);
+                    if (isLast)
+                    {
+                        if (!map.contains(*p))
+                        {
+                            map[*p] = QVariant();
+                        }
+
+                        obj = &map[*p];
+                    }
+                    else
+                    {
+                        obj = &makeNodeInMap(map, *p, *nextP);
+                    }
                 }
 
                 break;
@@ -332,17 +308,49 @@ QVariant& PathedValue::operator[](const QStringList& path)
     return *obj;
 }
 
-QVariant& PathedValue::operator[](const QString& path)
+QVariant& Registree::operator[](const QString& path)
 {
     return (*this)[path.split('/')];
 }
 
-const QVariant& PathedValue::operator[](const QStringList& path) const
+static QVariant& makeNodeInMap(QVariantMap& map, const QString& index, const QString& nextIndex)
 {
-    return (*this)[path];
+    if (!map.contains(index))
+    {
+        map[index] = QVariant();
+    }
+
+    return makeNodeInUnknown(map[index], nextIndex);
 }
 
-const QVariant& PathedValue::operator[](const QString& path) const
+static QVariant& makeNodeInList(QVariantList& list, int index, const QString& nextIndex)
 {
-    return (*this)[path];
+    if (list.size() <= index)
+    {
+        list.resize(index + 1);
+    }
+
+    return makeNodeInUnknown(list[index], nextIndex);
+}
+
+static QVariant& makeNodeInUnknown(QVariant& var, const QString& index)
+{
+    if (var.isNull())
+    {
+        bool ok;
+        auto idx = index.toInt(&ok);
+
+        if (ok)
+        {
+            var = QVariantList();
+            reinterpret_cast<QVariantList&>(var).resize(idx + 1);
+        }
+        else
+        {
+            var                                        = QVariantMap();
+            reinterpret_cast<QVariantMap&>(var)[index] = QVariant();
+        }
+    }
+
+    return var;
 }

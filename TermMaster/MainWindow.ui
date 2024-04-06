@@ -6,22 +6,26 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>659</width>
-    <height>462</height>
+    <width>858</width>
+    <height>536</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QGridLayout" name="gridLayout"/>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="0">
+     <widget class="QTabWidget" name="tabTerminals"/>
+    </item>
+   </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>659</width>
+     <width>858</width>
      <height>22</height>
     </rect>
    </property>
@@ -54,6 +58,10 @@
      <string>Control</string>
     </property>
     <addaction name="actionControl_ResetTerminal"/>
+    <addaction name="actionReset_buffer"/>
+    <addaction name="separator"/>
+    <addaction name="actionConnect"/>
+    <addaction name="actionDisconnect"/>
     <addaction name="separator"/>
     <addaction name="actionControl_MakeBridge"/>
    </widget>
@@ -81,7 +89,7 @@
      <string>Setup</string>
     </property>
     <addaction name="actionSetup_Terminal"/>
-    <addaction name="actionSetup_Settings"/>
+    <addaction name="actionSetup_Application"/>
    </widget>
    <addaction name="menuTerminal"/>
    <addaction name="menuEdit"/>
@@ -90,29 +98,76 @@
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QToolBar" name="toolBar">
+   <property name="windowTitle">
+    <string>toolBar</string>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="actionFile_New_Serial"/>
+   <addaction name="actionFile_NewConsole"/>
+   <addaction name="actionFile_NewSsh"/>
+   <addaction name="actionFile_New_Socket"/>
+   <addaction name="separator"/>
+   <addaction name="actionConnect"/>
+   <addaction name="actionDisconnect"/>
+   <addaction name="separator"/>
+  </widget>
   <action name="actionSerial">
    <property name="text">
     <string>Serial</string>
    </property>
   </action>
   <action name="actionFile_New_Serial">
+   <property name="icon">
+    <iconset resource="res.qrc">
+     <normaloff>:/icon/resources/icon/new-terminal-serial.svg</normaloff>:/icon/resources/icon/new-terminal-serial.svg</iconset>
+   </property>
    <property name="text">
     <string>Serial</string>
    </property>
+   <property name="shortcut">
+    <string>Alt+N, Alt+S</string>
+   </property>
   </action>
   <action name="actionFile_NewConsole">
+   <property name="icon">
+    <iconset resource="res.qrc">
+     <normaloff>:/icon/resources/icon/new-terminal-console.svg</normaloff>:/icon/resources/icon/new-terminal-console.svg</iconset>
+   </property>
    <property name="text">
     <string>Console</string>
    </property>
+   <property name="shortcut">
+    <string>Alt+N, Alt+C</string>
+   </property>
   </action>
   <action name="actionFile_NewSsh">
+   <property name="icon">
+    <iconset resource="res.qrc">
+     <normaloff>:/icon/resources/icon/new-terminal-ssh.svg</normaloff>:/icon/resources/icon/new-terminal-ssh.svg</iconset>
+   </property>
    <property name="text">
     <string>SSH</string>
    </property>
+   <property name="shortcut">
+    <string>Alt+N, Alt+H</string>
+   </property>
   </action>
   <action name="actionFile_New_Socket">
+   <property name="icon">
+    <iconset resource="res.qrc">
+     <normaloff>:/icon/resources/icon/new-terminal-socket.svg</normaloff>:/icon/resources/icon/new-terminal-socket.svg</iconset>
+   </property>
    <property name="text">
     <string>Socket</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+N, Alt+K</string>
    </property>
   </action>
   <action name="actionFile_Open">
@@ -200,14 +255,9 @@
     <string>Configure Terminal</string>
    </property>
   </action>
-  <action name="actiondasd">
+  <action name="actionSetup_Application">
    <property name="text">
-    <string>dasd</string>
-   </property>
-  </action>
-  <action name="actionSetup_Settings">
-   <property name="text">
-    <string>Settings</string>
+    <string>Application</string>
    </property>
   </action>
   <action name="actionSetup_Terminal">
@@ -215,7 +265,38 @@
     <string>Terminal</string>
    </property>
   </action>
+  <action name="actionConnect">
+   <property name="icon">
+    <iconset resource="res.qrc">
+     <normaloff>:/icon/resources/icon/connected.svg</normaloff>:/icon/resources/icon/connected.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Connect</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+C</string>
+   </property>
+  </action>
+  <action name="actionDisconnect">
+   <property name="icon">
+    <iconset resource="res.qrc">
+     <normaloff>:/icon/resources/icon/disconnected.svg</normaloff>:/icon/resources/icon/disconnected.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Disconnect</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+D</string>
+   </property>
+  </action>
+  <action name="actionReset_buffer">
+   <property name="text">
+    <string>Reset buffer</string>
+   </property>
+  </action>
  </widget>
- <resources/>
+ <resources>
+  <include location="res.qrc"/>
+ </resources>
  <connections/>
 </ui>

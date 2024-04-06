@@ -4,12 +4,12 @@ Terminal::Terminal(QObject* parent) : QObject{parent}
 {
 }
 
-void Terminal::setConfig(const PathedValue& config)
+void Terminal::setConfig(const Registree& config)
 {
     _config = config;
 }
 
-PathedValue Terminal::config()
+Registree Terminal::config()
 {
     return _config;
 }

@@ -1,7 +1,7 @@
 #ifndef TERMINAL_H
 #define TERMINAL_H
 
-#include "utils.h"
+#include "Registree.h"
 #include <QObject>
 
 class Terminal : public QObject
@@ -11,7 +11,7 @@ public:
     explicit Terminal(QObject* parent = nullptr);
 
 protected:
-    PathedValue _config;
+    Registree _config;
     QByteArray _buffer;
 
     int _charsRate;
@@ -25,8 +25,8 @@ public slots:
     virtual void stop()                     = 0;
     virtual void clearBuffer()              = 0;
 
-    void setConfig(const PathedValue& config);
-    PathedValue config();
+    void setConfig(const Registree& config);
+    Registree config();
 
 signals:
     void outputData(QByteArray data);
