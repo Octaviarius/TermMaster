@@ -1,3 +1,6 @@
+TEMPLATE = app
+TARGET = TermMaster
+
 QT += core gui widgets serialport
 
 CONFIG += c++17
@@ -5,8 +8,17 @@ CONFIG += c++17
 # In order to do so, uncomment the following line.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
+include(yaml-cpp.pri)
+
 SOURCES += \
-    Registree.cpp \
+    core/Registree.cpp \
+    core/Module.cpp \
+    core/ModuleManager.cpp \
+    core/SettingsManager.cpp \
+    modules/Base/BaseModule.cpp \
+    modules/Base/BaseModuleApi.cpp \
+    modules/Terminal/TerminalModule.cpp \
+    modules/Terminal/TerminalModuleApi.cpp \
     widgets/ConfigSerialWidget.cpp \
     widgets/ConfigTerminalEmulationWidget.cpp \
     SerialTerminal.cpp \
@@ -18,7 +30,14 @@ SOURCES += \
     widgets/ConfigTerminalWindowWidget.cpp
 
 HEADERS += \
-    Registree.h \
+    core/Registree.h \
+    core/Module.h \
+    core/ModuleManager.h \
+    core/SettingsManager.h \
+    modules/Base/BaseModule.h \
+    modules/Base/BaseModuleApi.h \
+    modules/Terminal/TerminalModule.h \
+    modules/Terminal/TerminalModuleApi.h \
     utils.h \
     widgets/ConfigSerialWidget.h \
     widgets/ConfigTerminalEmulationWidget.h \
@@ -38,11 +57,9 @@ FORMS += \
     widgets/ConfigTerminalWindowWidget.ui
 
 
-LIBS += -L$$PWD/../libs
 LIBS += -lyaml-cpp
-
-INCLUDEPATH += $$PWD/../3dparty/yaml-cpp/include
-DEPENDPATH += $$PWD/../3dparty/yaml-cpp/include
 
 RESOURCES += \
     res.qrc
+
+

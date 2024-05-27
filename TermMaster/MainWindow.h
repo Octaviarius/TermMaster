@@ -1,7 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "Registree.h"
+#include "core/Registree.h"
 
 #include <QMainWindow>
 

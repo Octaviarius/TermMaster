@@ -1,7 +1,7 @@
 #ifndef TERMINAL_H
 #define TERMINAL_H
 
-#include "Registree.h"
+#include "core/Registree.h"
 #include <QObject>
 
 class Terminal : public QObject

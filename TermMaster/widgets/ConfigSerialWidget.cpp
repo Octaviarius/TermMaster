@@ -1,7 +1,7 @@
 #include "ConfigSerialWidget.h"
 
 #include "ui_ConfigSerialWidget.h"
-#include "utils.h"
+#include "core/utils.h"
 
 #include <QButtonGroup>
 #include <QIntValidator>

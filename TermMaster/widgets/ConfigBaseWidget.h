@@ -1,7 +1,7 @@
 #ifndef CONFIGBASEWIDGET_H
 #define CONFIGBASEWIDGET_H
 
-#include "../Registree.h"
+#include "core/Registree.h"
 
 #include <QWidget>
 

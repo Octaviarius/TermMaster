@@ -2,7 +2,7 @@
 #define CONFIGSERIALWIDGET_H
 
 #include "ConfigBaseWidget.h"
-#include "Registree.h"
+#include "core/Registree.h"
 
 #include <QSerialPortInfo>
 

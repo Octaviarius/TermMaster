@@ -2,7 +2,7 @@
 #define ConfigTerminalEmulationWidget_H
 
 #include "ConfigBaseWidget.h"
-#include "Registree.h"
+#include "core/Registree.h"
 
 namespace Ui
 {
