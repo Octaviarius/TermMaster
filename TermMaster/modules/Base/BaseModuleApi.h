@@ -6,7 +6,9 @@
 
 #include <QList>
 #include <QMap>
+#include <QMenuBar>
 #include <QSettings>
+#include <QToolBar>
 
 class SettingsEntry
 {
@@ -65,10 +67,16 @@ public:
     void                      deregisterSettingEntries(const SettingsEntry::List& list);
     const SettingsEntry::Map& settingEntries();
 
-    void registerMenu(QString name);
-    void deregisterMenu(QString name);
-    void registerMenuAction(QAction* action);
-    void deregisterMenuAction(QAction* action);
+    // GUI related API
+    QMenuBar& menuBar();
+    QToolBar& toolBar();
+
+    QStringList menuSockets();
+    QStringList toolSockets();
+
+    void addMenu(QString path);
+    void addMenuActions(QString path, QActionGroup* actions);
+    void addToolbarActions(QString toolbarName, QList<QAction*> actions);
 
 private:
     class BaseModuleApiPrivate;

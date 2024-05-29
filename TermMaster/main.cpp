@@ -16,11 +16,7 @@ int main(int argc, char* argv[])
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("TermMaster");
 
-    auto p1 = SettingsManager::application();
-
-    p1.setValue("root/node1", 12345);
-    p1.sync();
-
+    // init main modules
     ModuleManager::addModuleToPool(new BaseModule());
     ModuleManager::addModuleToPool(new TerminalModule());
     ModuleManager::startupAll();
