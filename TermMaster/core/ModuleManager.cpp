@@ -142,6 +142,34 @@ bool ModuleManager::isModuledStarted(QString moduleName)
     }
 }
 
+const ModuleInfo ModuleManager::moduleInfo(QString moduleName)
+{
+    auto module = _modules.value(moduleName);
+
+    if (module)
+    {
+        return module->info();
+    }
+    else
+    {
+        return ModuleInfo();
+    }
+}
+
+ModuleApi* ModuleManager::moduleApi(QString moduleName)
+{
+    auto module = _modules.value(moduleName);
+
+    if (module)
+    {
+        return module->API();
+    }
+    else
+    {
+        return nullptr;
+    }
+}
+
 QStringList ModuleManager::startupModulesList()
 {
     QStringList result;

@@ -1,7 +1,7 @@
 #include "ConfigSerialWidget.h"
 
-#include "ui_ConfigSerialWidget.h"
 #include "core/utils.h"
+#include "ui_ConfigSerialWidget.h"
 
 #include <QButtonGroup>
 #include <QIntValidator>
@@ -42,7 +42,7 @@ static const auto _idx2Flowcontrol    = qVectorToQMap(QVector<QSerialPort::FlowC
 static const auto _flowcontrol2Idx    = inverseQMap(_idx2Flowcontrol);
 static const auto _flowcontrolStrings = QStringList({"None", "Hardware", "Software"});
 
-ConfigSerialWidget::ConfigSerialWidget(Registree config, QWidget* parent) :
+ConfigSerialWidget::ConfigSerialWidget(SettingsProxy config, QWidget* parent) :
     ConfigBaseWidget(config, parent), ui(new Ui::ConfigSerialWidget)
 {
     ui->setupUi(this);
@@ -60,10 +60,10 @@ ConfigSerialWidget::ConfigSerialWidget(Registree config, QWidget* parent) :
     ui->listParity->addItems(_parityStrings);
     ui->listFlowControl->addItems(_flowcontrolStrings);
 
-    ui->listDataSize->setCurrentRow(_config.get("data_size", 0).toInt());
-    ui->listStopBits->setCurrentRow(_config.get("stop_bits", 0).toInt());
-    ui->listParity->setCurrentRow(_config.get("parity", 0).toInt());
-    ui->listFlowControl->setCurrentRow(_config.get("flow_control", 0).toInt());
+    ui->listDataSize->setCurrentRow(_config.value("data_size", 0).toInt());
+    ui->listStopBits->setCurrentRow(_config.value("stop_bits", 0).toInt());
+    ui->listParity->setCurrentRow(_config.value("parity", 0).toInt());
+    ui->listFlowControl->setCurrentRow(_config.value("flow_control", 0).toInt());
 
     // port names
     updatePorts();
@@ -71,7 +71,7 @@ ConfigSerialWidget::ConfigSerialWidget(Registree config, QWidget* parent) :
     // baudrates
     ui->cmbBaudrate->setValidator(new QIntValidator());
     ui->cmbBaudrate->clear();
-    int baudrate = _config.get("speed", 9600).toInt();
+    int baudrate = _config.value("speed", 9600).toInt();
     for (auto speed : QSerialPortInfo::standardBaudRates())
     {
         ui->cmbBaudrate->addItem(QString("%1").arg(speed));
@@ -90,12 +90,12 @@ ConfigSerialWidget::~ConfigSerialWidget()
 
 void ConfigSerialWidget::commit()
 {
-    _config["speed"]        = ui->cmbBaudrate->currentText().toInt();
-    _config["port"]         = _portInfo[ui->cmbBaudrate->currentIndex()].portName();
-    _config["data_size"]    = ui->listDataSize->currentIndex();
-    _config["stop_bits"]    = ui->listStopBits->currentIndex();
-    _config["parity"]       = ui->listParity->currentIndex();
-    _config["flow_control"] = ui->listFlowControl->currentIndex();
+    _config.setValue("speed", ui->cmbBaudrate->currentText().toInt());
+    _config.setValue("port", _portInfo[ui->cmbBaudrate->currentIndex()].portName());
+    _config.setValue("data_size", ui->listDataSize->currentIndex());
+    _config.setValue("stop_bits", ui->listStopBits->currentIndex());
+    _config.setValue("parity", ui->listParity->currentIndex());
+    _config.setValue("flow_control", ui->listFlowControl->currentIndex());
 }
 
 void ConfigSerialWidget::updatePorts()
@@ -118,7 +118,7 @@ void ConfigSerialWidget::updatePorts()
     }
     connect(ui->cmbName, SIGNAL(currentIndexChanged(int)), this, SLOT(_cmbNameChanged(int)));
 
-    auto portName = _config.get("port", "").toString();
+    auto portName = _config.value("port", "").toString();
     if (!portName.isNull())
     {
         int idx;

@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include "core/Registree.h"
+#include "core/SettingsManager.h"
 
 #include <QMainWindow>
 
@@ -17,21 +18,11 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(Registree config, QWidget* parent = nullptr);
+    MainWindow(SettingsProxy config, QWidget* parent = nullptr);
     ~MainWindow();
 
 private:
     Ui::MainWindow* ui;
-    Registree       _config;
-
-private slots:
-
-    void _onActionHelp_Sources();
-    void _onActionHelp_Homepage();
-    void _onActionHelp_About();
-    void _onActionFile_NewSerial();
-
-    void _onActionSetup_Terminal();
-    void _onActionSetup_Application();
+    SettingsProxy   _config;
 };
 #endif // MAINWINDOW_H

@@ -22,11 +22,10 @@ private:
 
 //========================================================================
 
-SettingsDialog::SettingsDialog(Registree config, QWidget* parent) : QDialog(parent), ui(new Ui::SettingsDialog)
+SettingsDialog::SettingsDialog(SettingsProxy config, QWidget* parent) :
+    QDialog(parent), ui(new Ui::SettingsDialog), _config(config)
 {
     ui->setupUi(this);
-
-    _config = config;
 
     connect(ui->btnOk, &QPushButton::clicked, this, &SettingsDialog::accept);
     connect(ui->btnCancel, &QPushButton::clicked, this, &SettingsDialog::reject);

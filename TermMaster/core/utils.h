@@ -44,4 +44,5 @@ constexpr QMap<V, int> qVectorToInversedQMap(const QVector<V>& vec)
     return res;
 }
 
+
 #endif // UTILS_H

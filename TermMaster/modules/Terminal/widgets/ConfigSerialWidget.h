@@ -1,8 +1,7 @@
 #ifndef CONFIGSERIALWIDGET_H
 #define CONFIGSERIALWIDGET_H
 
-#include "ConfigBaseWidget.h"
-#include "core/Registree.h"
+#include "modules/Base/widgets/ConfigBaseWidget.h"
 
 #include <QSerialPortInfo>
 
@@ -16,7 +15,7 @@ class ConfigSerialWidget : public ConfigBaseWidget
     Q_OBJECT
 
 public:
-    explicit ConfigSerialWidget(Registree config, QWidget* parent = nullptr);
+    explicit ConfigSerialWidget(SettingsProxy config, QWidget* parent = nullptr);
     ~ConfigSerialWidget();
 
     void commit() override;

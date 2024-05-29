@@ -18,6 +18,10 @@ struct ModuleInfo
     QString        author;
     QVersionNumber version;
     bool           isStarted;
+
+    ModuleInfo() : isStarted(false)
+    {
+    }
 };
 
 class ModuleApi

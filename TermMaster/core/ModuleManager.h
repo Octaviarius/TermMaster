@@ -19,6 +19,12 @@ public:
     static const ModuleInfo moduleInfo(QString moduleName);
     static ModuleApi*       moduleApi(QString moduleName);
 
+    template <typename M>
+    static M* moduleApi(QString moduleName)
+    {
+        return dynamic_cast<M*>(moduleApi(moduleName));
+    }
+
     static QStringList startupModulesList();
     static QStringList shutdownModulesList();
 

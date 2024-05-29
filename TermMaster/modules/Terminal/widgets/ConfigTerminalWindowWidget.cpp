@@ -5,11 +5,10 @@
 #include <QFontDatabase>
 #include <QFontDialog>
 
-ConfigTerminalWindowWidget::ConfigTerminalWindowWidget(Registree config, QWidget* parent) :
+ConfigTerminalWindowWidget::ConfigTerminalWindowWidget(SettingsProxy config, QWidget* parent) :
     ConfigBaseWidget(config, parent), ui(new Ui::ConfigTerminalWindowWidget)
 {
     ui->setupUi(this);
-    _config = config;
     connect(ui->btnFontSelect, SIGNAL(clicked()), this, SLOT(_onFontSelectClicked()));
 }
 
@@ -31,7 +30,7 @@ void ConfigTerminalWindowWidget::_onFontSelectClicked()
     Widget->setOption(QFontDialog::FontDialogOption::ScalableFonts, ui->chbFontScalable->isChecked());
     Widget->setOption(QFontDialog::FontDialogOption::NonScalableFonts, ui->chbFontNonScalable->isChecked());
 
-    Widget->setCurrentFont(QFont(_config["family"].toString(), _config["size"].toInt()));
+    Widget->setCurrentFont(QFont(_config.value("family").toString(), _config.value("size").toInt()));
 
     int res = Widget->exec();
 

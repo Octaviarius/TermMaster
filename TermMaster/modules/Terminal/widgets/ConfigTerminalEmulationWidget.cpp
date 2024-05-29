@@ -5,11 +5,10 @@
 #include <QFontDatabase>
 #include <QFontDialog>
 
-ConfigTerminalEmulationWidget::ConfigTerminalEmulationWidget(Registree config, QWidget* parent) :
+ConfigTerminalEmulationWidget::ConfigTerminalEmulationWidget(SettingsProxy config, QWidget* parent) :
     ConfigBaseWidget(config, parent), ui(new Ui::ConfigTerminalEmulationWidget)
 {
     ui->setupUi(this);
-    _config = config;
 }
 
 ConfigTerminalEmulationWidget::~ConfigTerminalEmulationWidget()

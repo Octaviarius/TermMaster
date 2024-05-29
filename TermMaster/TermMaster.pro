@@ -11,55 +11,64 @@ CONFIG += c++17
 include(yaml-cpp.pri)
 
 SOURCES += \
+    core/Path.cpp \
     core/Registree.cpp \
     core/Module.cpp \
     core/ModuleManager.cpp \
     core/SettingsManager.cpp \
     modules/Base/BaseModule.cpp \
     modules/Base/BaseModuleApi.cpp \
+    modules/Base/windows/MainWindow.cpp \
+    modules/Base/dialogs/SettingsDialog.cpp \
+    modules/Base/widgets/ConfigBaseWidget.cpp \
     modules/Terminal/TerminalModule.cpp \
     modules/Terminal/TerminalModuleApi.cpp \
-    widgets/ConfigSerialWidget.cpp \
-    widgets/ConfigTerminalEmulationWidget.cpp \
-    SerialTerminal.cpp \
-    dialogs/SettingsDialog.cpp \
-    Terminal.cpp \
+    modules/Terminal/widgets/ConfigSerialWidget.cpp \
+    modules/Terminal/widgets/ConfigTerminalEmulationWidget.cpp \
+    modules/Terminal/widgets/ConfigTerminalWindowWidget.cpp \
     main.cpp \
-    MainWindow.cpp \
-    widgets/ConfigBaseWidget.cpp \
-    widgets/ConfigTerminalWindowWidget.cpp
 
 HEADERS += \
+    core/Path.h \
     core/Registree.h \
     core/Module.h \
     core/ModuleManager.h \
     core/SettingsManager.h \
+    core/utils.h \
     modules/Base/BaseModule.h \
     modules/Base/BaseModuleApi.h \
+    modules/Base/windows/MainWindow.h \
+    modules/Base/dialogs/SettingsDialog.h \
+    modules/Base/widgets/ConfigBaseWidget.h \
     modules/Terminal/TerminalModule.h \
     modules/Terminal/TerminalModuleApi.h \
-    utils.h \
-    widgets/ConfigSerialWidget.h \
-    widgets/ConfigTerminalEmulationWidget.h \
-    MainWindow.h \
-    SerialTerminal.h \
-    dialogs/SettingsDialog.h \
-    Terminal.h \
-    version.h \
-    widgets/ConfigBaseWidget.h \
-    widgets/ConfigTerminalWindowWidget.h
+    modules/Terminal/widgets/ConfigSerialWidget.h \
+    modules/Terminal/widgets/ConfigTerminalEmulationWidget.h \
+    modules/Terminal/widgets/ConfigTerminalWindowWidget.h \
+    version.h
 
 FORMS += \
-    widgets/ConfigSerialWidget.ui \
-    widgets/ConfigTerminalEmulationWidget.ui \
-    MainWindow.ui \
-    dialogs/SettingsDialog.ui \
-    widgets/ConfigTerminalWindowWidget.ui
+    modules/Base/windows/MainWindow.ui \
+    modules/Base/dialogs/SettingsDialog.ui \
+    modules/Terminal/widgets/ConfigSerialWidget.ui \
+    modules/Terminal/widgets/ConfigTerminalEmulationWidget.ui \
+    modules/Terminal/widgets/ConfigTerminalWindowWidget.ui
 
 
 LIBS += -lyaml-cpp
 
 RESOURCES += \
     res.qrc
+
+DISTFILES += \
+    res/icon/cat-connections.svg \
+    res/icon/cat-terminal.svg \
+    res/icon/connected.svg \
+    res/icon/disconnected.svg \
+    res/icon/new-terminal-console.svg \
+    res/icon/new-terminal-serial.svg \
+    res/icon/new-terminal-socket.svg \
+    res/icon/new-terminal-ssh.svg \
+    res/icon/new-terminal.svg
 
 

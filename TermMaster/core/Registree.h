@@ -1,7 +1,6 @@
 #ifndef REGISTREE_H
 #define REGISTREE_H
 
-#include <QList>
 #include <QMap>
 #include <QSharedPointer>
 #include <QString>
@@ -11,25 +10,38 @@ class Registree
 {
 public:
     Registree();
-    Registree(const Registree& copy);
-    ~Registree();
 
-    Registree node(QString path);
+    void      setValue(QString path, const QVariant& value);
+    QVariant& value(QString path, const QVariant& defaultValue);
+    QVariant& value(QString path);
 
-    QVariant  get(const QString& path, QVariant defaultValue = QVariant()) const;
-    QVariant& get(const QString& path, const QVariant& defaultValue = QVariant());
-    void      set(const QVariant& value, QStringList path);
-    void      set(const QVariant& value, const QString& path);
+    QVariant constValue(QString path, const QVariant& defaultValue) const;
+    QVariant constValue(QString path) const;
 
-    bool merge(const Registree& other);
-    void clear();
+    Registree root();
+    Registree node(QString relPath);
+    Registree detachNode(QString relPath);
 
-    QVariant& operator[](QStringList path);
-    QVariant& operator[](const QString& path);
+    QVariant& rootMap();
 
-protected:
-    QSharedPointer<QVariant> _root;
+    QVariant  operator[](QString path) const;
+    QVariant& operator[](QString path);
+
+private:
     QStringList              _relPath;
+    QSharedPointer<QVariant> _map;
+
+    inline QVariant& map()
+    {
+        return *_map;
+    }
+
+    inline const QVariant& map() const
+    {
+        return *_map;
+    }
+
+    Registree(QString relPath, QSharedPointer<QVariant> map);
 };
 
 #endif // REGISTREE_H
