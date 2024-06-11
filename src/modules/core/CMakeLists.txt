@@ -1,11 +1,12 @@
 project(CoreModule)
-find_package(Qt6 COMPONENTS Core REQUIRED)
+find_package(Qt6 COMPONENTS Core Widgets REQUIRED)
 
-qt_add_library(CoreModule SHARED
-    CoreModule.h
-    CoreModule.cpp
+qt_add_plugin(${PROJECT_NAME} SHARED
+    CoreModule.h CoreModule.cpp CoreModule.json
+    SettingsManager.h SettingsManager.cpp
+    WindowManager.h WindowManager.cpp
+    CommandManager.h CommandManager.cpp
+    widgets/MainWindow.h widgets/MainWindow.cpp widgets/MainWindow.ui
 )
 
-set(LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core ExtensionSystem)
+target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets yaml-cpp Utils ExtensionSystem)

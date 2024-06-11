@@ -8,7 +8,9 @@ int main(int argc, char* argv[])
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("TermMaster");
 
-    ModuleManager::scanForModules(Path::cwd(), false);
+    ModuleManager::instance().scanForBuiltinModules();
+    ModuleManager::instance().scanForModules(Path::cwd());
+    ModuleManager::instance().startupRequired();
 
     return app.exec();
 }

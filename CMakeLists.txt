@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.5)
-project(MainProject)
+project(TermMasterProject)
 
 find_package(Qt6 REQUIRED COMPONENTS Core)
 qt_standard_project_setup()
 
 include_directories(
     ./src
+    ./src/app
     ./src/lib
 )
 

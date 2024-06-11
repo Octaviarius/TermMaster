@@ -1,11 +1,11 @@
 {
-    "name" : "Core",
+    "name" : "Terminal",
     "version" : "1.0",    
     "required" : true,
     "vendor" : "Octaviarius",
     "license" : "GNU General Public License Usage",
     "category" : "Core",
-    "description" : "The core plugin for TermMaster",
-    "depends" : [],
+    "description" : "Provides accessories for some type of terminals",
+    "depends" : ["Core"],
     "url" : "https://github.com/Octaviarius/TermMaster"
 }

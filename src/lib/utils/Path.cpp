@@ -4,7 +4,7 @@ static QStringList _splitPath(const QString& path, QChar sep);
 
 Path::Path(const QString& path, QChar separator) : _sep(separator)
 {
-    _parts = _splitPath(path, _sep);
+    *this = path;
 }
 
 Path Path::operator/(const QString& other) const
@@ -33,6 +33,12 @@ Path& Path::operator|=(const QString& other)
 Path::operator QString() const
 {
     return _parts.join(_sep);
+}
+
+Path& Path::operator=(const QString& path)
+{
+    _parts = _splitPath(path, _sep);
+    return *this;
 }
 
 QStringList Path::parts()

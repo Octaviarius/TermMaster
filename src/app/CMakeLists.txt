@@ -17,8 +17,8 @@ qt_add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
     Qt6::SerialBus
-    yaml-cpp
-    CoreModule
     Utils
     ExtensionSystem
+    yaml-cpp
+    CoreModule
 )

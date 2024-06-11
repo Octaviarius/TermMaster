@@ -8,6 +8,7 @@
 #include <QStringList>
 #include <QVersionNumber>
 #include <utils/Path.h>
+#include <utils/Singleton.h>
 
 class ModuleManager;
 class ModuleInfo;
@@ -29,7 +30,9 @@ public:
     QString        url;
     QString        description;
     QStringList    dependencies;
+    QDateTime      buildTime;
 
+    bool isValid    : 1;
     bool isLoaded   : 1;
     bool isRequired : 1;
     bool isStarted  : 1;
@@ -40,7 +43,9 @@ class ModuleContainer : QObject
 {
     Q_OBJECT
 public:
-    ModuleContainer(QPluginLoader* loader);
+    friend class ModuleManager;
+
+    ~ModuleContainer();
 
     const ModuleInfo& info() const;
     bool              isStarted() const;
@@ -52,6 +57,11 @@ signals:
     void shutdowned(QString name);
 
 private:
+    ModuleContainer(QPluginLoader* loader);
+    ModuleContainer(const QStaticPlugin& plugin);
+
+    void _loadMetadata(QJsonObject data);
+
     QPluginLoader* _loader;
     Module*        _module;
     ModuleInfo     _info;
@@ -60,23 +70,34 @@ private:
     bool shutdown();
 };
 
-class ModuleManager
+class ModuleManager : public QObject, public Singleton<ModuleManager>
 {
+    Q_OBJECT
 public:
-    ModuleManager()                          = delete;
-    ModuleManager(const ModuleManager& copy) = delete;
+    friend class Singleton<ModuleManager>;
 
-    static QList<ModuleContainer*> modules();
-    static QList<ModuleContainer*> startedModules();
-    static QList<ModuleContainer*> staticModules();
+    QList<ModuleContainer*> modules();
+    QList<ModuleContainer*> startedModules();
+    QList<ModuleContainer*> staticModules();
 
-    static bool startup(QString moduleName);
-    static void startupAll();
-    static bool shutdown(QString moduleName);
+    bool startup(QString moduleName);
+    void startupAll();
+    void startupRequired();
+    bool shutdown(QString moduleName);
 
-    static void scanForModules(Path path, bool recursively = true);
+    void scanForModules(Path path, bool recursively = true);
+    void scanForBuiltinModules();
 
-    static ModuleInfo moduleInfo(QString moduleName);
+    ModuleInfo moduleInfo(QString moduleName);
+
+private:
+    ModuleManager();
+    bool _registerModule(ModuleContainer* module);
+
+signals:
+    void moduleStarted(QString name);
+    void moduleFound(QString name);
+    void moduleStopped(QString name);
 };
 
 #endif // MODULEMANAGER_H

@@ -15,6 +15,8 @@ public:
     Path& operator|=(const QString& other);
           operator QString() const;
 
+    Path& operator=(const QString& path);
+
     QStringList parts();
 
     Path    parent() const;

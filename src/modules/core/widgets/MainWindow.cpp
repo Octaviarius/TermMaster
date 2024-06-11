@@ -1,6 +1,5 @@
 #include "MainWindow.h"
 
-#include "dialogs/SettingsDialog.h"
 #include "ui_MainWindow.h"
 #include "version.h"
 
@@ -22,8 +21,7 @@ static const QString _versionLong = QString("%1_git%2+%3")
 
 //===================================================================
 
-MainWindow::MainWindow(SettingsProxy config, QWidget* parent) :
-    QMainWindow(parent), ui(new Ui::MainWindow), _config(config)
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
 
@@ -32,17 +30,6 @@ MainWindow::MainWindow(SettingsProxy config, QWidget* parent) :
     lblVersion->setFrameStyle(QFrame::Sunken);
     lblVersion->setText(_versionShort);
     ui->statusbar->addWidget(lblVersion);
-
-    // config menu
-    QAction* action;
-
-    action = new QAction("New Serial");
-    ui->menuFile->addAction(action);
-
-    action->setShortcut(QKeySequence("A"));
-
-    auto ontrig = []() { qDebug() << "ACTION"; };
-    connect(action, &QAction::triggered, ontrig);
 }
 
 MainWindow::~MainWindow()

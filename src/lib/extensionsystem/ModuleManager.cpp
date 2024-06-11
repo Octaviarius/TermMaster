@@ -13,7 +13,9 @@ static QHash<QString, ModuleContainer*> _modules;
 static QHash<QString, ModuleContainer*> _startedModules;
 static QHash<QString, QStringList>      _dependants;
 
-ModuleInfo::ModuleInfo() : isStatic(false), isLoaded(false), isRequired(false), isStarted(false)
+/**************************************************************************/
+
+ModuleInfo::ModuleInfo() : isValid(false), isStatic(false), isLoaded(false), isRequired(false), isStarted(false)
 {
 }
 
@@ -28,40 +30,72 @@ ModuleContainer::ModuleContainer(QPluginLoader* loader)
 
     if (!_module)
     {
-        qCritical() << QString("Module file '%1' is not a valid module").arg(_loader->fileName());
+        _info.isValid = false;
     }
     else
     {
-        _info.isLoaded = true;
-        _info.file = _loader->fileName();
+        _info.isValid   = true;
+        _info.isLoaded  = true;
+        _info.file      = _loader->fileName();
+        _info.buildTime = _module->buildTime();
 
-        auto js = _loader->metaData().value("MetaData").toObject();
+        _loadMetadata(_loader->metaData().value("MetaData").toObject());
+    }
+}
 
-        auto name        = js.value("name");
-        auto version     = js.value("version");
-        auto required    = js.value("required");
-        auto vendor      = js.value("vendor");
-        auto license     = js.value("license");
-        auto category    = js.value("category");
-        auto description = js.value("description");
-        auto url         = js.value("url");
-        auto depends     = js.value("depends");
+ModuleContainer::ModuleContainer(const QStaticPlugin& plugin) : _loader(nullptr)
+{
+    _module = qobject_cast<Module*>(plugin.instance());
 
-        _info.name        = name.toString();
-        _info.version     = QVersionNumber::fromString(version.toString("0.0.0"));
-        _info.isRequired  = required.toBool();
-        _info.vendor      = vendor.toString();
-        _info.license     = license.toString();
-        _info.category    = category.toString("Global");
-        _info.description = description.toString();
-        _info.url         = url.toString();
+    if (_module)
+    {
+        _info.isValid = false;
+    }
+    else
+    {
+        _info.isValid   = true;
+        _info.isLoaded  = true;
+        _info.isStatic  = true;
+        _info.file      = "built-in";
+        _info.buildTime = _module->buildTime();
 
-        if (depends.isArray())
+        _loadMetadata(plugin.metaData().value("MetaData").toObject());
+    }
+}
+ModuleContainer::~ModuleContainer()
+{
+    if (_loader)
+    {
+        delete _loader;
+    }
+}
+
+void ModuleContainer::_loadMetadata(QJsonObject data)
+{
+    auto name        = data.value("name");
+    auto version     = data.value("version");
+    auto required    = data.value("required");
+    auto vendor      = data.value("vendor");
+    auto license     = data.value("license");
+    auto category    = data.value("category");
+    auto description = data.value("description");
+    auto url         = data.value("url");
+    auto depends     = data.value("depends");
+
+    _info.name        = name.toString();
+    _info.version     = QVersionNumber::fromString(version.toString("0.0.0"));
+    _info.isRequired  = required.toBool();
+    _info.vendor      = vendor.toString();
+    _info.license     = license.toString();
+    _info.category    = category.toString("Global");
+    _info.description = description.toString();
+    _info.url         = url.toString();
+
+    if (depends.isArray())
+    {
+        for (const auto& it : depends.toArray())
         {
-            for (auto it : depends.toArray())
-            {
-                _info.dependencies += it.toString();
-            }
+            _info.dependencies += it.toString();
         }
     }
 }
@@ -112,8 +146,7 @@ bool ModuleContainer::shutdown()
         qCritical() << QString("Module '%1' can't be shutdown, because it null").arg(_info.name);
         result = false;
     }
-
-    if (_info.isStarted)
+    else if (_info.isStarted)
     {
         _info.isStarted = !_module->shutdown();
 
@@ -133,6 +166,42 @@ bool ModuleContainer::isStarted() const
 }
 
 /**************************************************************************/
+
+ModuleManager::ModuleManager()
+{
+}
+
+bool ModuleManager::_registerModule(ModuleContainer* module)
+{
+    bool result = true;
+
+    auto modInfo = module->info();
+
+    if (!modInfo.isValid)
+    {
+        result = false;
+        delete module;
+    }
+    else
+    {
+        if (_modules.contains(modInfo.name))
+        {
+            delete module;
+            result = false;
+        }
+        else
+        {
+            _modules[modInfo.name] = module;
+
+            for (const auto& it : modInfo.dependencies)
+            {
+                _dependants[it] += modInfo.name;
+            }
+        }
+    }
+
+    return result;
+}
 
 QList<ModuleContainer*> ModuleManager::modules()
 {
@@ -174,19 +243,29 @@ bool ModuleManager::startup(QString moduleName)
         }
         else
         {
-            for (const auto& dep : module->info().dependencies)
+            auto modInfo = module->info();
+
+            if (!modInfo.isStarted)
             {
-                result = startup(dep);
+                for (const auto& dep : modInfo.dependencies)
+                {
+                    result &= startup(dep);
+                }
 
                 if (!result)
                 {
-                    break;
+                    qCritical() << QString("Module '%1' can't be started, because the depends unsatisfied")
+                                       .arg(moduleName);
                 }
-            }
+                else
+                {
+                    result = module->startup();
 
-            if (result)
-            {
-                result = module->startup();
+                    if (result)
+                    {
+                        emit moduleStarted(moduleName);
+                    }
+                }
             }
         }
     }
@@ -199,6 +278,17 @@ void ModuleManager::startupAll()
     for (const auto& it : _modules.keys())
     {
         startup(it);
+    }
+}
+
+void ModuleManager::startupRequired()
+{
+    for (const auto& it : _modules.asKeyValueRange())
+    {
+        if (it.second->info().isRequired)
+        {
+            startup(it.first);
+        }
     }
 }
 
@@ -217,19 +307,25 @@ bool ModuleManager::shutdown(QString moduleName)
         }
         else
         {
-            for (const auto& dep : _dependants[module->info().name])
-            {
-                result = shutdown(dep);
+            auto modInfo = module->info();
 
-                if (!result)
+            if (modInfo.isStarted)
+            {
+                for (const auto& dep : _dependants[modInfo.name])
                 {
-                    break;
-                }
-            }
+                    result = shutdown(dep);
 
-            if (result)
-            {
-                result = module->shutdown();
+                    if (!result)
+                    {
+                        break;
+                    }
+                }
+
+                if (result)
+                {
+                    result = module->shutdown();
+                    emit moduleStopped(moduleName);
+                }
             }
         }
     }
@@ -239,50 +335,30 @@ bool ModuleManager::shutdown(QString moduleName)
 
 void ModuleManager::scanForModules(Path path, bool recursively)
 {
-    QDir dir(path);
-    dir.setFilter(dir.filter() | QDir::Filter::NoDotAndDotDot | QDir::NoSymLinks);
+    QDirIterator it(path,
+                    QDir::Filter::Files,
+                    recursively ? QDirIterator::IteratorFlag::Subdirectories :
+                                  QDirIterator::IteratorFlag::NoIteratorFlags);
 
-    auto ll = dir.entryInfoList();
-
-    for (const auto& entry : dir.entryInfoList())
+    while (it.hasNext())
     {
-        auto absPath = entry.absoluteFilePath();
+        auto absPath = it.next();
 
-        if (entry.isDir())
+        if (QLibrary::isLibrary(absPath))
         {
-            if (recursively)
-            {
-                scanForModules(entry.absoluteFilePath(), recursively);
-            }
+            auto loader    = new QPluginLoader(absPath);
+            auto container = new ModuleContainer(loader);
+            _registerModule(container);
         }
-        else
-        {
-            qDebug() << absPath;
+    }
+}
 
-            if (QLibrary::isLibrary(absPath))
-            {
-                auto loader = new QPluginLoader(absPath);
-
-                auto module = qobject_cast<Module*>(loader->instance());
-
-                if (!module)
-                {
-                    delete loader;
-                }
-                else
-                {
-                    auto  container = new ModuleContainer(loader);
-                    auto& modInfo   = container->info();
-
-                    _modules[modInfo.name] = container;
-
-                    for (const auto& it : modInfo.dependencies)
-                    {
-                        _dependants[it] += modInfo.name;
-                    }
-                }
-            }
-        }
+void ModuleManager::scanForBuiltinModules()
+{
+    for (const auto& it : QPluginLoader::staticPlugins())
+    {
+        auto container = new ModuleContainer(it);
+        _registerModule(container);
     }
 }
 
