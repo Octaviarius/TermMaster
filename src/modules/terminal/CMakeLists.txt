@@ -1,7 +1,8 @@
 project(TerminalModule)
 find_package(Qt6 COMPONENTS Core Widgets REQUIRED)
 
-qt_add_library(${PROJECT_NAME} SHARED
+qt_add_plugin(${PROJECT_NAME} MODULE
+    CLASS_NAME TerminalModule
     TerminalModule.h
     TerminalModule.cpp
     TerminalModule.json

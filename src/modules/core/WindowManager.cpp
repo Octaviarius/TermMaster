@@ -1,11 +1,10 @@
 #include "WindowManager.h"
 
-#include "widgets/MainWindow.h"
 
 WindowContainer::WindowContainer(QMainWindow* window)
 {
-    _window = window;
-    connect(window, &QMainWindow::destroyed, this, &WindowContainer::deleteLater);
+//    _window = window;
+//    connect(window, &QMainWindow::destroyed, this, &WindowContainer::deleteLater);
 }
 
 QMainWindow* WindowContainer::window()
@@ -37,7 +36,7 @@ QList<WindowContainer*> WindowManager::windows()
 
 WindowContainer* WindowManager::newWindow()
 {
-    auto w         = new MainWindow();
+ /*   auto w         = new MainWindow();
     auto container = new WindowContainer(w);
 
     auto onWindowClosed = [this](QObject* obj) {
@@ -51,5 +50,5 @@ WindowContainer* WindowManager::newWindow()
 
     _windows += container;
 
-    return container;
+    return container;*/
 }

@@ -1,16 +1,22 @@
+#include "core/CommandManager.h"
+#include "core/RandomNames.h"
+#include "core/SettingsManager.h"
+#include "core/WindowManager.h"
+
 #include <QApplication>
-#include <QMenu>
-#include <QSerialPort>
-#include <extensionsystem/ModuleManager.h>
+#include <QMap>
 
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("TermMaster");
 
-    ModuleManager::instance().scanForBuiltinModules();
-    ModuleManager::instance().scanForModules(Path::cwd());
-    ModuleManager::instance().startupRequired();
+    SettingsManager::instance();
+    RandomNames::instance();
+    CommandManager::instance();
+    WindowManager::instance();
+
+    WindowManager::instance().newWindow(RandomNames::instance().getId(0));
 
     return app.exec();
 }

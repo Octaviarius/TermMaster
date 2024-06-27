@@ -14,6 +14,11 @@ public:
         return *_instance;
     }
 
+    static void initialize()
+    {
+        instance();
+    }
+
 protected:
     Singleton()                            = default;
     Singleton(const Singleton&)            = delete;

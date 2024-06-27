@@ -1,5 +1,6 @@
 #pragma once
 
+#include "utils/Path.h"
 #include "utils/Singleton.h"
 #include "utils/utils.h"
 
@@ -19,7 +20,11 @@ class Command : public QObject
 {
     Q_OBJECT
 public:
+    using List = QList<Command*>;
+    using Map  = QMap<QString, Command*>;
+
     Command(QString         name,
+            QString         text,
             QIcon           icon,
             KeySequenceList defaultShortcut = KeySequenceList(),
             KeySequenceList shortcut        = KeySequenceList());
@@ -39,7 +44,7 @@ public:
     Command& setDefaultShortcut(KeySequenceList shortcuts);
 
     const QList<QAction*> actions() const;
-    QAction*              makeAction(QObject* parent = nullptr);
+    QAction*              newAction(QObject* parent = nullptr);
 
 private:
     QString         _name;
@@ -69,7 +74,8 @@ public:
     CommandContainer(QObject* parent = nullptr);
 
     Command* newCommand(QString         name,
-                        QIcon           icon,
+                        QString         text,
+                        QIcon           icon            = QIcon(),
                         KeySequenceList defaultShortcut = KeySequenceList(),
                         KeySequenceList shortcut        = KeySequenceList());
 
@@ -80,22 +86,6 @@ private:
 };
 
 /******************************************************************************/
-/*
-class CommandLayout
-{
-public:
-    CommandLayout(bool isGroup);
-    CommandLayout(const CommandLayout& copy);
-    ~CommandLayout();
-
-    bool isGroup();
-
-private:
-    CommandLayout*                       _parent;
-    QMap<QString, QList<CommandLayout*>> _children;
-};
-*/
-/******************************************************************************/
 
 class CommandManager : public QObject, public Singleton<CommandManager>
 {
@@ -103,17 +93,20 @@ class CommandManager : public QObject, public Singleton<CommandManager>
 public:
     friend class Singleton<CommandManager>;
 
-    void                           registerCommand(Command* command);
-    void                           registerCommandContainer(CommandContainer* container);
+    void registerCommand(Command* command);
+    void registerCommandContainer(CommandContainer* container);
+
     const QMap<QString, Command*>& commands();
+    Command*                       command(QString name);
+    QAction*                       newAction(QString commandName, QObject* parent = nullptr);
+
+    CommandLayout* layout(QString name);
 
 private:
     CommandManager();
 
-    QMap<QString, Command*> _commands;
+    Command::Map _commands;
 
 signals:
     void shortcutChanged(Command* command);
-
 };
-

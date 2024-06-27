@@ -1,5 +1,6 @@
 #include "SettingsManager.h"
 
+#include "version.h"
 #include "yaml-cpp/yaml.h"
 
 #include <QCoreApplication>
@@ -204,23 +205,86 @@ SettingsProxy SettingsProxy::node(QString prefixPath)
 
 //////////////////////////////////////////////////////////////////
 
-const QString SettingsManager::mainFileName = "main.yaml";
-
 const QSettings::Format SettingsManager::YamlFormat = _initSettingsYaml();
+
+const QString SettingsManager::shortVersion = QString("v%1.%2.%3.%4%5")
+                                                  .arg(APP_VERSION_MAJOR)
+                                                  .arg(APP_VERSION_MINOR)
+                                                  .arg(APP_VERSION_PATCH)
+                                                  .arg(APP_VERSION_BUILD)
+                                                  .arg(APP_VERSION_FLAVOR);
+
+const QString SettingsManager::longVersion = QString("%1_git%2+%3")
+                                                 .arg(shortVersion)
+                                                 .arg(APP_VERSION_GIT_REV)
+                                                 .arg(APP_VERSION_GIT_BRANCH);
+
+const QVersionNumber SettingsManager::version = QVersionNumber(APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH);
+const BuildTime      SettingsManager::buildTime = BuildTime::compileTime();
 
 Path SettingsManager::appDataDirPath()
 {
     return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
 }
 
-SettingsProxy SettingsManager::application(QString name, QString nodePath)
+Path SettingsManager::sessionsDirPath()
 {
-    return SettingsProxy(QSettings(appDataDirPath() / name, YamlFormat), nodePath);
+    return appDataDirPath() / "sessions";
+}
+
+Path SettingsManager::terminalsDirPath()
+{
+    return appDataDirPath() / "terminals";
+}
+
+Path SettingsManager::generalSettingsFilePath()
+{
+    return appDataDirPath() / "general.yaml";
+}
+
+SettingsProxy SettingsManager::applicationSettings(QString fileName, QString nodePath)
+{
+    return SettingsProxy(QSettings(appDataDirPath() / fileName, YamlFormat), nodePath);
 }
 
 SettingsProxy SettingsManager::environment(const Path& path)
 {
     return SettingsProxy(QSettings(path, YamlFormat));
+}
+
+SettingsProxy SettingsManager::generalSettings(QString nodePath)
+{
+    return applicationSettings(generalSettingsFilePath(), nodePath);
+}
+
+SettingsProxy SettingsManager::session(QString name)
+{
+    return environment(sessionsDirPath() / name);
+}
+
+void SettingsManager::addCategory(const SettingCategory& cat)
+{
+    if (_categories.contains(cat.name))
+    {
+        qWarning() << QString("Settings category '%1' is already exists").arg(cat.name);
+    }
+    else
+    {
+        _categories[cat.name] = cat;
+    }
+}
+
+void SettingsManager::addCategory(const SettingCategory::List& cats)
+{
+    for (auto c : cats)
+    {
+        addCategory(c);
+    }
+}
+
+const SettingCategory::Map& SettingsManager::categories() const
+{
+    return _categories;
 }
 
 //////////////////////////////////////////////////////////////////

@@ -1,7 +1,10 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "core/Builders.h"
+
 #include <QMainWindow>
+#include <QPointer>
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -18,9 +21,11 @@ public:
     MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
-    void addMenu(QAction* menu);
+    MenubarActionContainer* mainMenu();
 
 private:
     Ui::MainWindow* ui;
+
+    MenubarActionContainer* _mainMenuContainer;
 };
 #endif // MAINWINDOW_H

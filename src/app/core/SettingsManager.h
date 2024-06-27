@@ -1,12 +1,24 @@
-#ifndef SETTINGSMANAGER_H
-#define SETTINGSMANAGER_H
+#pragma once
 
 #include "utils/Path.h"
 #include "utils/Registree.h"
+#include "utils/Singleton.h"
+#include "utils/utils.h"
 
+#include <QIcon>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QSettings>
+#include <QVersionNumber>
+
+struct SettingCategory
+{
+    using List = QList<SettingCategory>;
+    using Map  = QMap<QString, SettingCategory>;
+
+    QString name;
+    QIcon   icon;
+};
 
 /*
 class Setting
@@ -57,19 +69,33 @@ private:
     bool                      _autocreate;
 };
 
-class SettingsManager final
+class SettingsManager : public Singleton<SettingsManager>
 {
 public:
-    SettingsManager()                       = delete;
-    SettingsManager(const SettingsManager&) = delete;
+    friend Singleton<SettingsManager>;
 
-    static const QString mainFileName;
+    static const QString        shortVersion;
+    static const QString        longVersion;
+    static const QVersionNumber version;
+    static const BuildTime      buildTime;
 
     static const QSettings::Format YamlFormat;
-    static Path                    appDataDirPath();
+    Path                           appDataDirPath();
+    Path                           sessionsDirPath();
+    Path                           terminalsDirPath();
+    Path                           generalSettingsFilePath();
 
-    static SettingsProxy application(QString name = mainFileName, QString nodePath = "");
-    static SettingsProxy environment(const Path& path);
+    SettingsProxy applicationSettings(QString fileName, QString nodePath = "");
+    SettingsProxy environment(const Path& path);
+
+    SettingsProxy generalSettings(QString nodePath = "");
+    SettingsProxy session(QString name);
+    SettingsProxy terminal(QString name);
+
+    void                        addCategory(const SettingCategory& cat);
+    void                        addCategory(const SettingCategory::List& cats);
+    const SettingCategory::Map& categories() const;
+
+private:
+    SettingCategory::Map _categories;
 };
-
-#endif // SETTINGSMANAGER_H

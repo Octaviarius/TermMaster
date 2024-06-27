@@ -1,15 +1,15 @@
 #include "TerminalModule.h"
 
 #include <QCoreApplication>
+#include "modules/core/WindowManager.h"
 
 bool TerminalModule::startup()
 {
-    qDebug() << "TerminalModule loaded!";
+    auto w = WindowManager::instance().currentWindow();
     return true;
 }
 
 bool TerminalModule::shutdown()
 {
-    qDebug() << "TerminalModule unloaded...";
     return true;
 }

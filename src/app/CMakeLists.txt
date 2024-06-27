@@ -1,5 +1,9 @@
 project(TermMaster)
 
+add_subdirectory(utils)
+add_subdirectory(widgets)
+add_subdirectory(core)
+
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
@@ -18,7 +22,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
     Qt6::SerialBus
     Utils
-    ExtensionSystem
+    Widgets
+    Core
     yaml-cpp
-    CoreModule
 )
+
