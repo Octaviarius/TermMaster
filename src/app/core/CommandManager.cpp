@@ -1,7 +1,8 @@
 #include "CommandManager.h"
 
 Command::Command(QString name, QString text, QIcon icon, KeySequenceList defaultShortcut, KeySequenceList shortcut) :
-    QObject(), _name(name), _text(text), _icon(icon), _shortcut(shortcut), _defaultShortcut(defaultShortcut)
+    QObject(), _name(name), _text(text), _isSingleInstance(false), _icon(icon), _shortcut(shortcut),
+    _defaultShortcut(defaultShortcut)
 {
 }
 
@@ -80,6 +81,11 @@ Command& Command::setDefaultShortcut(KeySequenceList shortcut)
     _defaultShortcut = shortcut;
     return *this;
 }
+Command& Command::setSingleInstance(bool isSingle)
+{
+    _isSingleInstance = isSingle;
+    return *this;
+}
 
 const QList<QAction*> Command::actions() const
 {
@@ -88,25 +94,47 @@ const QList<QAction*> Command::actions() const
 
 QAction* Command::newAction(QObject* parent)
 {
-    auto action = new QAction(parent);
-    _actions    += action;
+    QAction* action = nullptr;
 
-    action->setIcon(_icon);
-    action->setText(_text);
-    action->setToolTip(_tooltip);
-    action->setShortcuts(_shortcut);
+    if (!_isSingleInstance)
+    {
+        action = new QAction(parent);
+    }
+    else
+    {
+        parent = this;
+        if (_actions.empty())
+        {
+            action = new QAction(parent);
+        }
+    }
 
-    connect(action, &QAction::destroyed, this, &Command::_actionDestroyed);
+    if (!action)
+    {
+        action = _actions.first();
+    }
+    else
+    {
+        _actions += action;
+
+        action->setIcon(_icon);
+        action->setText(_text);
+        action->setToolTip(_tooltip);
+        action->setShortcuts(_shortcut);
+
+        connect(action, &QAction::destroyed, this, &Command::_actionDestroyed);
+    }
+
     return action;
 }
 
 void Command::resetShortcut()
 {
-    _shortcut = _defaultShortcut;
+    setShortcut(_defaultShortcut);
 }
 void Command::changeShortcut(KeySequenceList shortcut)
 {
-    _shortcut = shortcut;
+    setShortcut(shortcut);
 }
 
 void Command::_actionDestroyed(QObject* action)

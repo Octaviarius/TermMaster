@@ -47,7 +47,7 @@ RandomNames::RandomNames()
     }
 }
 
-PrettyId RandomNames::getId(int index) const
+PrettyId RandomNames::getId(int index)
 {
     int shuffledIndex  = _indices[index];
     int nounIndex      = shuffledIndex % _nouns.size();

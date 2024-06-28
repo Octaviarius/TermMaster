@@ -40,7 +40,7 @@ class RandomNames : public Singleton<RandomNames>
 public:
     friend Singleton<RandomNames>;
 
-    PrettyId getId(int index) const;
+    PrettyId getId(int index);
 
     const QStringList nouns() const;
     const QStringList adjectives() const;

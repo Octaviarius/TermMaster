@@ -5,6 +5,7 @@
 
 #include <QApplication>
 #include <QMap>
+#include <string>
 
 int main(int argc, char* argv[])
 {
@@ -16,7 +17,7 @@ int main(int argc, char* argv[])
     CommandManager::instance();
     WindowManager::instance();
 
-    WindowManager::instance().newWindow(RandomNames::instance().getId(0));
+    WindowManager::instance().newWindow();
 
     return app.exec();
 }

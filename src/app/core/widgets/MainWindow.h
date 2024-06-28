@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include "core/Builders.h"
+#include "core/RandomNames.h"
 
 #include <QMainWindow>
 #include <QPointer>
@@ -18,14 +19,22 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QWidget* parent = nullptr);
+    friend class WindowManager;
+
+    MainWindow(PrettyId id, QWidget* parent = nullptr);
     ~MainWindow();
 
     MenubarActionContainer* mainMenu();
+
+    bool event(QEvent* event) override;
+
+    static MainWindow* currentWindow();
 
 private:
     Ui::MainWindow* ui;
 
     MenubarActionContainer* _mainMenuContainer;
+
+    static MainWindow* _currentWindow;
 };
 #endif // MAINWINDOW_H

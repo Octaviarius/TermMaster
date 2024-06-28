@@ -9,57 +9,21 @@
 #include <QShortcut>
 
 //===================================================================
+MainWindow* MainWindow::_currentWindow;
 
-MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow)
+MainWindow::MainWindow(PrettyId id, QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    _mainMenuContainer = new MenubarActionContainer(ui->menubar);
+
+    setWindowTitle(QString("%1 - %2").arg(QApplication::applicationName()).arg(id.toString()));
 
     // config statusbar
     auto lblVersion = new QLabel();
     lblVersion->setFrameStyle(QFrame::Sunken);
     lblVersion->setText(SettingsManager::shortVersion);
     ui->statusbar->addWidget(lblVersion);
-
-    auto& cm = CommandManager::instance();
-
-    // add to menu
-    _mainMenuContainer = new MenubarActionContainer(ui->menubar);
-
-    _mainMenuContainer->addGroup("");
-
-    auto fileMenu = new MenuActionContainer("File");
-    _mainMenuContainer->addContainer(fileMenu, "");
-    {
-        fileMenu->addGroup("Open");
-        fileMenu->addGroup("Save");
-        fileMenu->addGroup("Exit");
-
-        auto recentSessionMenu = new MenuActionContainer("RecentSession", "Recent sessions");
-        fileMenu->addContainer(recentSessionMenu, "Open");
-
-        auto recentTerminalMenu = new MenuActionContainer("RecentTerminal", "Recent terminals");
-        fileMenu->addContainer(recentTerminalMenu, "Open");
-
-        fileMenu->addAction(cm.newAction("File.CloseWindow", this), "Exit");
-        fileMenu->addAction(cm.newAction("File.ExitApplication", this), "Exit");
-    }
-
-    auto settingsMenu = new MenuActionContainer("Settings");
-    _mainMenuContainer->addContainer(settingsMenu, "");
-
-    auto controlMenu = new MenuActionContainer("Control");
-    _mainMenuContainer->addContainer(controlMenu, "");
-
-    auto infoMenu = new MenuActionContainer("Info");
-    _mainMenuContainer->addContainer(infoMenu, "");
-    {
-        infoMenu->addGroup("General");
-        infoMenu->addGroup("About");
-        infoMenu->addAction(cm.newAction("Info.HomePage", this), "General");
-        infoMenu->addAction(cm.newAction("Info.Source", this), "General");
-        infoMenu->addAction(cm.newAction("Info.HelpIndex", this), "General");
-        infoMenu->addAction(cm.newAction("Info.AboutApplication", this), "About");
-    }
 }
 
 MainWindow::~MainWindow()
@@ -70,4 +34,31 @@ MainWindow::~MainWindow()
 MenubarActionContainer* MainWindow::mainMenu()
 {
     return _mainMenuContainer;
+}
+
+MainWindow* MainWindow::currentWindow()
+{
+    return _currentWindow;
+}
+
+bool MainWindow::event(QEvent* event)
+{
+    switch (event->type())
+    {
+        case QEvent::FocusIn:
+            _currentWindow = this;
+            break;
+
+        case QEvent::FocusOut:
+            if (_currentWindow == this)
+            {
+                _currentWindow = nullptr;
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    return QMainWindow::event(event);
 }

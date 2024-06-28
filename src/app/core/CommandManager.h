@@ -42,6 +42,7 @@ public:
     Command& setIcon(QIcon icon);
     Command& setShortcut(KeySequenceList shortcuts);
     Command& setDefaultShortcut(KeySequenceList shortcuts);
+    Command& setSingleInstance(bool isSingle);
 
     const QList<QAction*> actions() const;
     QAction*              newAction(QObject* parent = nullptr);
@@ -55,6 +56,7 @@ private:
     KeySequenceList _defaultShortcut;
 
     QList<QAction*> _actions;
+    bool            _isSingleInstance;
 
 public slots:
     void resetShortcut();

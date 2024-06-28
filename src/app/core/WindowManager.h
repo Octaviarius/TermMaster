@@ -20,13 +20,13 @@ public:
     MainWindow*        currentWindow();
     QList<MainWindow*> windows();
 
-    MainWindow* newWindow(PrettyId id, bool show = true);
+    MainWindow* newWindow(bool show = true);
 
 private:
     WindowManager();
 
-    MainWindow*        _currentWindow;
     QList<MainWindow*> _windows;
+    int                _currentId;
 
 signals:
     void windowCreated(MainWindow* window);

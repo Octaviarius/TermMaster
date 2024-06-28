@@ -12,6 +12,7 @@ qt_add_library(${PROJECT_NAME} ${LIBRARIES_TYPE}
     RandomNames.h RandomNames.cpp
     Builders.h Builders.cpp
 
+    widgets/AboutDialog.h widgets/AboutDialog.cpp widgets/AboutDialog.ui
     widgets/MainWindow.h widgets/MainWindow.cpp widgets/MainWindow.ui
 )
 
