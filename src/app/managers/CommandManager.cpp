@@ -4,9 +4,9 @@ CommandManager::CommandManager()
 {
 }
 
-Command* CommandManager::createCommand(QString         name,
-                                       QString         text,
-                                       QIcon           icon,
+Command* CommandManager::createCommand(QString      name,
+                                       QString      text,
+                                       QIcon        icon,
                                        QKeySequence defaultShortcut,
                                        QKeySequence shortcut)
 {
@@ -55,5 +55,13 @@ QAction* CommandManager::newAction(QString commandName, QObject* parent)
     else
     {
         return cmd->newAction(parent);
+    }
+}
+
+void CommandManager::resetShortcuts()
+{
+    for (auto c : _commands)
+    {
+        c->resetShortcut();
     }
 }

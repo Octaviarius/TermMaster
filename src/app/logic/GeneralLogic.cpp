@@ -2,8 +2,11 @@
 
 #include "core/MenuActionContainer.h"
 #include "managers/CommandManager.h"
+#include "managers/SettingsManager.h"
 #include "managers/WindowManager.h"
 #include "widgets/AboutDialog.h"
+#include "widgets/SettingsDialog.h"
+#include "widgets/config/ConfigSerialTerminalWidget.h"
 
 #include <QApplication>
 #include <QDesktopServices>
@@ -20,22 +23,33 @@ GeneralLogic::GeneralLogic()
     connect(&wm, &WindowManager::windowCreated, this, &GeneralLogic::onWindowCreated);
     connect(&wm, &WindowManager::windowTerminated, this, &GeneralLogic::onWindowTerminated);
 
-    // create commands
+    //-------- create commands
     auto& cm = CommandManager::instance();
 
     cm.createCommand("File.NewWindow", "New window")
         ->setSingleInstance(true)
-        .setDefaultShortcut(QKeySequence("Alt+N,Alt+W"))
-        .resetShortcut();
+        .setDefaultShortcut(QKeySequence("Ctrl+Alt+W"));
 
-    cm.createCommand("File.NewSerial", "New Serial")->setSingleInstance(true);
-    cm.createCommand("File.NewSocket", "New Socket")->setSingleInstance(true);
-    cm.createCommand("File.NewStdio", "New Stdio")->setSingleInstance(true);
-    cm.createCommand("File.ExitApplication", "Exit application")->setSingleInstance(true);
-    cm.createCommand("File.CloseWindow", "Close window");
+    cm.createCommand("File.NewSerial", "New Serial")
+        ->setSingleInstance(true)
+        .setDefaultShortcut(QKeySequence("Alt+N,Alt+S"));
 
-    cm.createCommand("Settings.General", "General")->setSingleInstance(true);
-    cm.createCommand("Settings.Terminal", "Terminal")->setSingleInstance(true);
+    cm.createCommand("File.NewSocket", "New Socket")
+        ->setSingleInstance(true)
+        .setDefaultShortcut(QKeySequence("Alt+N,Alt+K"));
+
+    cm.createCommand("File.NewStdio", "New Stdio")
+        ->setSingleInstance(true)
+        .setDefaultShortcut(QKeySequence("Alt+N,Alt+I"));
+
+    cm.createCommand("File.ExitApplication", "Exit application")
+        ->setSingleInstance(true)
+        .setDefaultShortcut(QKeySequence("Ctrl+Alt+Q"));
+
+    cm.createCommand("File.CloseWindow", "Close window")->setDefaultShortcut(QKeySequence("Ctrl+Alt+X"));
+
+    cm.createCommand("Settings.General", "General settings")->setSingleInstance(true);
+    cm.createCommand("Settings.Terminal", "Terminal settings")->setSingleInstance(true);
     cm.createCommand("Settings.Plugins", "Plugins")->setSingleInstance(true);
 
     cm.createCommand("Control.Term.Connect", "Connect");
@@ -46,24 +60,29 @@ GeneralLogic::GeneralLogic()
     cm.createCommand("Control.Term.FullReset", "Full reset");
 
     cm.createCommand("Info.HomePage", "Home page")->setSingleInstance(true);
-    cm.createCommand("Info.Sources", "Srouces")->setSingleInstance(true);
+    cm.createCommand("Info.Sources", "Sources")->setSingleInstance(true);
     cm.createCommand("Info.HelpIndex", "Help index")->setSingleInstance(true);
     cm.createCommand("Info.AboutApplication", "About")->setSingleInstance(true);
 
-    // init single instance actions
+    cm.resetShortcuts();
+
+    //-------- init single instance actions
 
     // File
     QAction* action;
 
     action = cm.newAction("File.NewWindow");
-    QObject::connect(action, &QAction::triggered, [this, &wm]() { wm.newWindow(); });
+    QObject::connect(action, &QAction::triggered, this, [this]() { WindowManager::instance().newWindow(); });
 
     action = cm.newAction("File.ExitApplication");
     QObject::connect(action, &QAction::triggered, [this]() { QApplication::exit(); });
 
     // Settings
     action = cm.newAction("Settings.General");
-    QObject::connect(action, &QAction::triggered, [this]() { QApplication::exit(); });
+    QObject::connect(action, &QAction::triggered, [this]() {
+        SettingsDialog dialog(SettingsManager::instance().configContainer("General"));
+        dialog.exec();
+    });
 
     // Info
     action = cm.newAction("Info.HomePage");
@@ -74,10 +93,50 @@ GeneralLogic::GeneralLogic()
     QObject::connect(action, &QAction::triggered, [this]() { QDesktopServices::openUrl(QUrl(_helpUrl)); });
 
     action = cm.newAction("Info.AboutApplication");
-    QObject::connect(action, &QAction::triggered, [this]() {
+    QObject::connect(action, &QAction::triggered, this, [this]() {
         AboutDialog dialog;
         dialog.exec();
     });
+
+    //-------- Config containers
+    auto& cfgMan = SettingsManager::instance();
+    {
+        auto cfgRoot = new ConfigContainer("General");
+        cfgMan.addConfigContainer(cfgRoot);
+
+        auto cfgConnections = new ConfigContainer("Connections", "", "", QIcon(":/icons/cat-connections.svg"));
+        {
+            cfgRoot->addContainer(cfgConnections);
+
+            auto cfgTermSerial = new ConfigContainer("Serial", "", "");
+            cfgTermSerial->addWidgetConstructor(IConfigWidget::getWidgetConstructor<ConfigSerialTerminalWidget>());
+            cfgConnections->addContainer(cfgTermSerial);
+
+            auto cfgTermSock = new ConfigContainer("Socket", "", "");
+            cfgConnections->addContainer(cfgTermSock);
+
+            auto cfgTermStdio = new ConfigContainer("Stdio", "", "");
+            cfgConnections->addContainer(cfgTermStdio);
+        }
+
+        auto cfgTerminal = new ConfigContainer("Terminal", "", "", QIcon(":/icons/cat-terminal.svg"));
+        cfgRoot->addContainer(cfgTerminal);
+
+        auto cfgKeyboard = new ConfigContainer("Keyboard", "", "", QIcon(":/icons/cat-keyboard.svg"));
+        cfgRoot->addContainer(cfgKeyboard);
+
+        auto cfgMouse = new ConfigContainer("Mouse", "", "", QIcon(":/icons/cat-mouse.svg"));
+        cfgRoot->addContainer(cfgMouse);
+
+        auto cfgShortcuts = new ConfigContainer("Shortcuts", "", "", QIcon(":/icons/cat-shortcuts.svg"));
+        cfgRoot->addContainer(cfgShortcuts);
+
+        auto cfgDialogs = new ConfigContainer("Dialogs", "", "", QIcon(":/icons/cat-dialogs.svg"));
+        cfgRoot->addContainer(cfgDialogs);
+
+        auto cfgAppearance = new ConfigContainer("Appearance", "", "", QIcon(":/icons/cat-appearance.svg"));
+        cfgRoot->addContainer(cfgAppearance);
+    }
 }
 
 void GeneralLogic::onWindowCreated(MainWindow* window)
@@ -111,7 +170,21 @@ void GeneralLogic::onWindowCreated(MainWindow* window)
     }
 
     auto settingsMenu = new MenuActionContainer("Settings");
-    window->mainMenu()->addMenu(settingsMenu, "");
+    {
+        settingsMenu->addGroup("General");
+        settingsMenu->addGroup("Terminal");
+        settingsMenu->addGroup("Other");
+
+        settingsMenu->addAction(action = cm.newAction("Settings.General"), "General");
+
+        settingsMenu->addAction(action = cm.newAction("Settings.Terminal"), "Terminal");
+        QObject::connect(action, &QAction::triggered, [this]() {
+            SettingsDialog dialog(SettingsManager::instance().configContainer("Terminal"));
+            dialog.exec();
+        });
+
+        window->mainMenu()->addMenu(settingsMenu, "");
+    }
 
     auto controlMenu = new MenuActionContainer("Control");
     window->mainMenu()->addMenu(controlMenu, "");
@@ -129,5 +202,12 @@ void GeneralLogic::onWindowCreated(MainWindow* window)
 }
 
 void GeneralLogic::onWindowTerminated(MainWindow* window)
+{
+}
+
+void openGeneralSettingsDialog()
+{
+}
+void openTerminalSettingsDialog()
 {
 }

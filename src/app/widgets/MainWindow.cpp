@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include "core/RandomNames.h"
 #include "core/Version.h"
 #include "ui_MainWindow.h"
 
@@ -10,13 +11,17 @@
 
 //===================================================================
 
-MainWindow::MainWindow(PrettyId id, QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow), _id(id)
+MainWindow::MainWindow(uint id, QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow), _id(id)
 {
     ui->setupUi(this);
 
-    _mainMenuContainer = new MenubarActionContainer(ui->menubar);
+    _settings = SettingsManager::instance().session(id);
 
-    setWindowTitle(QString("%1 (%2)").arg(QApplication::applicationName()).arg(id.toString()));
+    _mainMenuContainer = new MenubarActionContainer(ui->menubar);
+    _toolbarContainer  = new ToolbarActionContainer(ui->toolBar);
+
+    setWindowTitle(
+        QString("%1 (%2)").arg(QApplication::applicationName()).arg(RandomNames::instance().getId(_id).toString()));
 
     // config statusbar
     auto lblVersion = new QLabel();
@@ -28,16 +33,27 @@ MainWindow::MainWindow(PrettyId id, QWidget* parent) : QMainWindow(parent), ui(n
 MainWindow::~MainWindow()
 {
     delete ui;
+    delete _settings;
 }
 
-PrettyId MainWindow::id() const
+uint MainWindow::id() const
 {
     return _id;
+}
+
+ISettings* MainWindow::settings()
+{
+    return _settings;
 }
 
 MenubarActionContainer* MainWindow::mainMenu()
 {
     return _mainMenuContainer;
+}
+
+ToolbarActionContainer* MainWindow::toolbar()
+{
+    return _toolbarContainer;
 }
 
 bool MainWindow::event(QEvent* event)

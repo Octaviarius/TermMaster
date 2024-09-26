@@ -3,7 +3,8 @@
 #include <core/RandomNames.h>
 #include <logic/GeneralLogic.h>
 #include <managers/CommandManager.h>
-#include <managers/ConfigManager.h>
+#include <managers/SettingsManager.h>
+#include <managers/TerminalManager.h>
 #include <managers/WindowManager.h>
 
 int main(int argc, char* argv[])
@@ -11,10 +12,11 @@ int main(int argc, char* argv[])
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("Terminal Master");
 
-    ConfigManager::initialize();
+    SettingsManager::initialize();
     RandomNames::initialize();
     CommandManager::initialize();
     WindowManager::initialize();
+    TerminalManager::initialize();
 
     GeneralLogic::initialize();
 

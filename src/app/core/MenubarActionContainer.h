@@ -7,7 +7,7 @@
 class MenubarActionContainer : public ActionContainer
 {
 public:
-    MenubarActionContainer(QMenuBar* menubar = nullptr);
+    MenubarActionContainer(QMenuBar* menubar);
     virtual ~MenubarActionContainer();
 
     QMenuBar* menubar();

@@ -1,7 +1,10 @@
 #include "WindowManager.h"
 
-WindowManager::WindowManager() : _currentId(0)
+#include "managers/SettingsManager.h"
+
+WindowManager::WindowManager()
 {
+    _idCounter = SettingsManager::instance().latestSessionId();
 }
 
 MainWindow* WindowManager::currentWindow()
@@ -36,7 +39,7 @@ MainWindow* WindowManager::newWindow(bool show)
         }
     };
 
-    auto window  = new MainWindow(RandomNames::instance().getId(_currentId++));
+    auto window  = new MainWindow(_idCounter++);
     _windows    += window;
 
     connect(window, &QMainWindow::destroyed, this, onWindowClosed);

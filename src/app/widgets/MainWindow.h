@@ -1,8 +1,10 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "core/ISettings.h"
 #include "core/MenubarActionContainer.h"
-#include "core/RandomNames.h"
+#include "core/ToolbarActionContainer.h"
+#include "managers/SettingsManager.h"
 
 #include <QMainWindow>
 #include <QPointer>
@@ -21,21 +23,26 @@ class MainWindow : public QMainWindow
 public:
     friend class WindowManager;
 
-    MainWindow(PrettyId id, QWidget* parent = nullptr);
+    MainWindow(uint id, QWidget* parent = nullptr);
     ~MainWindow();
 
     MenubarActionContainer* mainMenu();
+    ToolbarActionContainer* toolbar();
 
-    PrettyId id() const;
+    uint id() const;
+
+    ISettings* settings();
 
 protected:
     bool event(QEvent* event) override;
 
 private:
     Ui::MainWindow* ui;
-    PrettyId        _id;
+    uint            _id;
 
     MenubarActionContainer* _mainMenuContainer;
+    ToolbarActionContainer* _toolbarContainer;
+    FileSettings*               _settings;
 
 signals:
     void focusChanged(bool activeState);

@@ -24,7 +24,7 @@ private:
     WindowManager();
 
     QList<MainWindow*> _windows;
-    int                _currentId;
+    int                _idCounter;
     MainWindow*        _currentWindow;
 
 signals:

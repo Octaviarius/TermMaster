@@ -1,4 +1,4 @@
-project(Managers)
+project(Terminal)
 
 find_package(Qt6 REQUIRED COMPONENTS
     Core
@@ -9,20 +9,15 @@ find_package(Qt6 REQUIRED COMPONENTS
 )
 
 qt_add_library(${PROJECT_NAME} STATIC
-    CommandManager.h CommandManager.cpp
-    SettingsManager.h SettingsManager.cpp
-    WindowManager.h WindowManager.cpp
-    TerminalManager.h TerminalManager.cpp
+    ITerminal.h
+    ITerminal.cpp
+    SerialTerminal.h
+    SerialTerminal.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
     Qt::Core
-    Qt::Gui
-    Qt::Widgets
     Qt::SerialBus
     Qt::SerialPort
     Core
-    Widgets
-    Terminal
-    yaml-cpp
 )

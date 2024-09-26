@@ -4,17 +4,11 @@
 
 MenubarActionContainer::MenubarActionContainer(QMenuBar* menubar) : ActionContainer("")
 {
-    if (!menubar)
-    {
-        menubar = new QMenuBar();
-    }
-
     _menubar = menubar;
 }
 
 MenubarActionContainer::~MenubarActionContainer()
 {
-    delete _menubar;
 }
 
 QMenuBar* MenubarActionContainer::menubar()

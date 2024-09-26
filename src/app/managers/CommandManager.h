@@ -19,6 +19,8 @@ public:
     Command*     command(QString name);
     QAction*     newAction(QString commandName, QObject* parent = nullptr);
 
+    void resetShortcuts();
+
 private:
     CommandManager();
 

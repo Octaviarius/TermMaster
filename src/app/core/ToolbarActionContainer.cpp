@@ -1,6 +1,6 @@
 #include "ToolbarActionContainer.h"
 
-ToolbarActionContainer::ToolbarActionContainer() : ActionContainer("")
+ToolbarActionContainer::ToolbarActionContainer(QToolBar* toolbar) : ActionContainer(""), _toolbar(toolbar)
 {
 }
 

@@ -1,4 +1,4 @@
-#include "ConfigManager.h"
+#include "SettingsManager.h"
 
 #include "app/version.h"
 #include "core/Registree.h"
@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QIODevice>
 #include <QMap>
+#include <QRegularExpression>
 #include <QStandardPaths>
 
 static void               _fromYAML(const YAML::Node& node, QVariantMap& map);
@@ -147,100 +148,381 @@ static QSharedPointer<QSettings> _makeCopyQSettings(const QSettings& settings)
     return res;
 }
 
-Settings::Settings(const QSettings& settings, QString prefixPath, bool autocreate) : _autocreate(autocreate)
+FileSettings::FileSettings(QString filePath, QString prefixPath, bool autocreate) :
+    _settings(filePath, SettingsManager::YamlFormat), _autocreate(autocreate)
 {
-    _settings = _makeCopyQSettings(settings);
-    _prefix   = prefixPath;
+    _settings.setAtomicSyncRequired(true);
+    _prefix = prefixPath;
 };
 
-Settings::Settings(const Settings& copy)
+void FileSettings::_setValue(QString path, const QVariant& v)
 {
-    _autocreate = copy._autocreate;
-    _settings   = copy._settings;
+    _settings.setValue(_prefix / path, v);
 }
 
-void Settings::setValue(QString path, const QVariant& v)
-{
-    _settings->setValue(_prefix / path, v);
-}
-
-QVariant Settings::value(QString path, const QVariant& defaultValue)
+QVariant FileSettings::_value(QString path, const QVariant& defaultValue)
 {
     QString p = _prefix / path;
 
-    if (_settings->contains(p))
+    if (_settings.contains(p))
     {
-        return _settings->value(p);
+        return _settings.value(p);
     }
     else
     {
         if (_autocreate)
         {
-            _settings->setValue(p, defaultValue);
+            _settings.setValue(p, defaultValue);
         }
 
         return defaultValue;
     }
 }
 
-void Settings::sync()
+bool FileSettings::exists(QString path) const
 {
-    _settings->sync();
+    return _settings.contains(_prefix / path);
 }
 
-QSettings& Settings::settings()
+void FileSettings::sync()
 {
-    return *_settings;
+    _settings.sync();
 }
 
-Settings Settings::node(QString prefixPath)
+QSettings& FileSettings::settings()
 {
-    auto res = Settings(*_settings, prefixPath, _autocreate);
+    return _settings;
+}
+
+ISettings* FileSettings::node(QString prefixPath)
+{
+    auto res = new FileSettings(_settings.fileName(), _prefix / prefixPath, _autocreate);
     return res;
 }
 
 //////////////////////////////////////////////////////////////////
 
-const QSettings::Format ConfigManager::YamlFormat = _initSettingsYaml();
+PrioritizedSettings::PrioritizedSettings(QList<ISettings*> descendList)
+{
+    _descendList = descendList;
+}
 
-Path ConfigManager::appDataDirPath()
+void PrioritizedSettings::_setValue(QString path, const QVariant& v)
+{
+    _descendList[0]->_setValue(path, v);
+}
+
+QVariant PrioritizedSettings::_value(QString path, const QVariant& defaultValue)
+{
+    auto p = _prefix / path;
+    for (auto it : _descendList)
+    {
+        if (it->exists(p))
+        {
+            return it->_value(path, defaultValue);
+        }
+    }
+
+    return defaultValue;
+}
+
+bool PrioritizedSettings::exists(QString path) const
+{
+    auto p = _prefix / path;
+    for (auto it : _descendList)
+    {
+        if (it->exists(p))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void PrioritizedSettings::sync()
+{
+    for (auto it : _descendList)
+    {
+        it->sync();
+    }
+}
+
+ISettings* PrioritizedSettings::node(QString prefixPath)
+{
+    auto res     = new PrioritizedSettings(_descendList);
+    res->_prefix = prefixPath;
+    return res;
+}
+
+//////////////////////////////////////////////////////////////////
+
+ProxySettings::ProxySettings(ISettings* settings) : _settings(settings)
+{
+}
+
+ISettings* ProxySettings::settings() const
+{
+    return _settings;
+}
+
+void ProxySettings::setSettings(ISettings* settings)
+{
+    _settings = settings;
+}
+
+void ProxySettings::_setValue(QString path, const QVariant& v)
+{
+    if (!_settings)
+    {
+        qCritical() << "ProxySettings has no pointed object";
+    }
+    else
+    {
+        _settings->_setValue(path, v);
+    }
+}
+
+QVariant ProxySettings::_value(QString path, const QVariant& defaultValue)
+{
+    if (!_settings)
+    {
+        qCritical() << "ProxySettings has no pointed object";
+        return QVariant();
+    }
+    else
+    {
+        return _settings->_value(path, defaultValue);
+    }
+}
+
+bool ProxySettings::exists(QString path) const
+{
+    if (!_settings)
+    {
+        qCritical() << "ProxySettings has no pointed object";
+        return false;
+    }
+    else
+    {
+        return _settings->exists(path);
+    }
+}
+
+void ProxySettings::sync()
+{
+    if (!_settings)
+    {
+        qCritical() << "ProxySettings has no pointed object";
+    }
+    else
+    {
+        _settings->sync();
+    }
+}
+
+ISettings* ProxySettings::node(QString prefixPath)
+{
+    if (!_settings)
+    {
+        qCritical() << "ProxySettings has no pointed object";
+        return nullptr;
+    }
+    else
+    {
+        return _settings->node(prefixPath);
+    }
+}
+
+//////////////////////////////////////////////////////////////////
+
+UndoableSettings::UndoableSettings(ISettings* settings) : _settings(settings)
+{
+}
+
+ISettings* UndoableSettings::settings() const
+{
+    return _settings;
+}
+
+void UndoableSettings::setSettings(ISettings* settings)
+{
+    _settings = settings;
+}
+
+void UndoableSettings::_setValue(QString path, const QVariant& v)
+{
+    if (!_settings)
+    {
+        qCritical() << "UndoableSettings has no pointed object";
+    }
+    else
+    {
+        _tempValues[path] = v;
+    }
+}
+
+QVariant UndoableSettings::_value(QString path, const QVariant& defaultValue)
+{
+    if (!_settings)
+    {
+        qCritical() << "UndoableSettings has no pointed object";
+        return QVariant();
+    }
+    else
+    {
+        if (_tempValues.contains(path))
+        {
+            return _tempValues[path];
+        }
+        else
+        {
+            return _settings->_value(path, defaultValue);
+        }
+    }
+}
+
+bool UndoableSettings::exists(QString path) const
+{
+    if (!_settings)
+    {
+        qCritical() << "UndoableSettings has no pointed object";
+        return false;
+    }
+    else
+    {
+        return _tempValues.contains(path) || _settings->exists(path);
+    }
+}
+
+void UndoableSettings::sync()
+{
+    if (!_settings)
+    {
+        qCritical() << "UndoableSettings has no pointed object";
+    }
+    else
+    {
+        for (const auto& it : _tempValues.asKeyValueRange())
+        {
+            _settings->_setValue(it.first, it.second);
+        }
+        _settings->sync();
+        _tempValues.clear();
+    }
+}
+
+ISettings* UndoableSettings::node(QString prefixPath)
+{
+    if (!_settings)
+    {
+        qCritical() << "UndoableSettings has no pointed object";
+        return nullptr;
+    }
+    else
+    {
+        return _settings->node(prefixPath);
+    }
+}
+
+//////////////////////////////////////////////////////////////////
+/// \brief SettingsManager::YamlFormat
+///
+const QSettings::Format SettingsManager::YamlFormat = _initSettingsYaml();
+
+PosixPath SettingsManager::appDataDirPath()
 {
     return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
 }
 
-Path ConfigManager::sessionsDirPath()
+PosixPath SettingsManager::sessionsDirPath()
 {
     return appDataDirPath() / "sessions";
 }
 
-Path ConfigManager::terminalsDirPath()
+PosixPath SettingsManager::terminalsDirPath()
 {
     return appDataDirPath() / "terminals";
 }
 
-Path ConfigManager::generalSettingsFilePath()
+PosixPath SettingsManager::generalSettingsFilePath()
 {
     return appDataDirPath() / "general.yaml";
 }
 
-Settings ConfigManager::applicationSettings(QString fileName, QString nodePath)
+FileSettings* SettingsManager::applicationSettings(QString fileName, QString nodePath)
 {
-    return Settings(QSettings(appDataDirPath() / fileName, YamlFormat), nodePath);
+    return new FileSettings(appDataDirPath() / fileName, nodePath);
 }
 
-Settings ConfigManager::environment(const Path& path)
+FileSettings* SettingsManager::environment(const PosixPath& path)
 {
-    return Settings(QSettings(path, YamlFormat));
+    QString p = path;
+    return new FileSettings(p);
 }
 
-Settings ConfigManager::generalSettings(QString nodePath)
+FileSettings* SettingsManager::generalSettings(QString nodePath)
 {
-    return applicationSettings(generalSettingsFilePath(), nodePath);
+    return new FileSettings(generalSettingsFilePath(), nodePath);
 }
 
-Settings ConfigManager::session(QString name)
+FileSettings* SettingsManager::session(uint id)
 {
-    return environment(sessionsDirPath() / name);
+    return environment(sessionsDirPath() / QString("session_%1.yaml").arg(id));
+}
+
+FileSettings* SettingsManager::terminal(uint id)
+{
+    return environment(terminalsDirPath() / QString("terminal_%1.yaml").arg(id));
+}
+
+uint SettingsManager::latestSessionId()
+{
+    static const auto sessionIdParser = QRegularExpression("session_(\\d+)");
+
+    QDir dir(sessionsDirPath());
+
+    uint id = 0;
+
+    for (const auto& file : dir.entryList(QDir::Filter::Files))
+    {
+        auto matched = sessionIdParser.match(file);
+
+        if (matched.hasMatch())
+        {
+            id = qMax(id, matched.captured().toUInt());
+        }
+    }
+
+    return id;
+}
+
+uint SettingsManager::latestTerminalId()
+{
+}
+
+ConfigContainer::List SettingsManager::configContainers()
+{
+    return _configContainers.values();
+}
+
+ConfigContainer* SettingsManager::configContainer(QString name)
+{
+    return _configContainers[name];
+}
+
+bool SettingsManager::addConfigContainer(ConfigContainer* container)
+{
+    if (_configContainers.contains(container->name()))
+    {
+        qCritical() << QString("Config container '%1' is already exist").arg(container->name());
+        return false;
+    }
+    else
+    {
+        _configContainers[container->name()] = container;
+        return true;
+    }
 }
 
 //////////////////////////////////////////////////////////////////

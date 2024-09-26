@@ -7,7 +7,7 @@
 class ToolbarActionContainer : public ActionContainer
 {
 public:
-    ToolbarActionContainer();
+    ToolbarActionContainer(QToolBar* toolbar);
     virtual ~ToolbarActionContainer();
 
 protected:
@@ -16,6 +16,6 @@ protected:
     virtual bool _addMenu(ActionContainer* menu, QString group);
 
 private:
-    QToolBar* _toolbar;
+    QToolBar*               _toolbar;
     QMap<QString, QAction*> _separators;
 };

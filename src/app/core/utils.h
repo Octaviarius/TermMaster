@@ -97,44 +97,27 @@ private:
     Pcb* _pcb;
 };
 
-template <typename K, typename V>
-constexpr QMap<V, K> inverseQMap(const QMap<K, V>& map)
+template <typename E, E from, E to>
+constexpr E integerToEnum(int value)
 {
-    QMap<V, K> res;
-
-    for (auto it = map.constKeyValueBegin(); it != map.constKeyValueEnd(); ++it)
-    {
-        res[(*it).second] = (*it).first;
-    }
-
-    return res;
+    return static_cast<E>(std::clamp<int>(value, from, to));
 }
 
-template <typename V>
-constexpr QMap<int, V> qVectorToQMap(const QVector<V>& vec)
+//---------------------------------------------------------------------------------------
+
+template <typename T>
+QSet<T> qListToSet(const QList<T>& list)
 {
-    QMap<int, V> res;
-
-    for (int i = 0; i < vec.size(); i++)
-    {
-        res[i] = vec[i];
-    }
-
-    return res;
+    return QSet<T>(list.constBegin(), list.constEnd());
 }
 
-template <typename V>
-constexpr QMap<V, int> qVectorToInversedQMap(const QVector<V>& vec)
+template <typename T>
+QList<T> qSetToList(const QSet<T>& set)
 {
-    QMap<V, int> res;
-
-    for (int i = 0; i < vec.size(); i++)
-    {
-        res[vec[i]] = i;
-    }
-
-    return res;
+    return QList<T>(set.constBegin(), set.constEnd());
 }
+
+//---------------------------------------------------------------------------------------
 
 class BuildTime
 {
