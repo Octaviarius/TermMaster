@@ -12,10 +12,10 @@ public:
     Registree();
 
     void      setValue(QString path, const QVariant& value);
-    QVariant& value(QString path, const QVariant& defaultValue);
+    QVariant& value(QString path, const QVariant& fallback);
     QVariant& value(QString path);
 
-    QVariant constValue(QString path, const QVariant& defaultValue) const;
+    QVariant constValue(QString path, const QVariant& fallback) const;
     QVariant constValue(QString path) const;
 
     Registree root();

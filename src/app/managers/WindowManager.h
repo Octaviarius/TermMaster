@@ -18,7 +18,9 @@ public:
     MainWindow*        currentWindow();
     QList<MainWindow*> windows();
 
-    MainWindow* newWindow(bool show = true);
+    MainWindow* newWindow(int id = -1, bool show = true);
+
+    QList<uint> recentSessions();
 
 private:
     WindowManager();
@@ -26,6 +28,9 @@ private:
     QList<MainWindow*> _windows;
     int                _idCounter;
     MainWindow*        _currentWindow;
+
+    QList<uint> _recentSessions;
+    uint        _maxHistory;
 
 signals:
     void currentWindowChanged(MainWindow* window);

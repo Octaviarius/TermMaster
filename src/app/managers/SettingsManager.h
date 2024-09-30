@@ -14,7 +14,7 @@ public:
     FileSettings(QString filePath, QString prefixPath = "", bool autocreate = true);
 
     void     _setValue(QString path, const QVariant& v) override;
-    QVariant _value(QString path, const QVariant& defaultValue = QVariant()) override;
+    QVariant _value(QString path, const QVariant& fallback = QVariant()) override;
 
     bool exists(QString path) const override;
 
@@ -30,46 +30,6 @@ private:
     bool          _autocreate;
 };
 
-class PrioritizedSettings : public ISettings
-{
-public:
-    PrioritizedSettings(QList<ISettings*> descendList);
-
-    void     _setValue(QString path, const QVariant& v) override;
-    QVariant _value(QString path, const QVariant& defaultValue = QVariant()) override;
-
-    bool exists(QString path) const override;
-
-    void sync() override;
-
-    ISettings* node(QString prefixPath) override;
-
-private:
-    PurePosixPath     _prefix;
-    QList<ISettings*> _descendList;
-};
-
-class ProxySettings : public ISettings
-{
-public:
-    ProxySettings(ISettings* settings);
-
-    ISettings* settings() const;
-    void       setSettings(ISettings* settings);
-
-    void     _setValue(QString path, const QVariant& v) override;
-    QVariant _value(QString path, const QVariant& defaultValue = QVariant()) override;
-
-    bool exists(QString path) const override;
-
-    void sync() override;
-
-    ISettings* node(QString prefixPath) override;
-
-private:
-    ISettings* _settings;
-};
-
 class UndoableSettings : public ISettings
 {
 public:
@@ -79,7 +39,7 @@ public:
     void       setSettings(ISettings* settings);
 
     void     _setValue(QString path, const QVariant& v) override;
-    QVariant _value(QString path, const QVariant& defaultValue = QVariant()) override;
+    QVariant _value(QString path, const QVariant& fallback = QVariant()) override;
 
     bool exists(QString path) const override;
 

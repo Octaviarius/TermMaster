@@ -37,7 +37,7 @@ public:
 
 ConfigSerialTerminalWidget::ConfigSerialTerminalWidget(QWidget* parent) :
     ui(new Ui::ConfigSerialTerminalWidget),
-    _generalSettings(SettingsManager::instance().generalSettings("serial_terminal"))
+    _generalSettings(SettingsManager::instance().generalSettings("terminal/serial"))
 {
     ui->setupUi(this);
 

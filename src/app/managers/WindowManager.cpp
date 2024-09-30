@@ -5,6 +5,13 @@
 WindowManager::WindowManager()
 {
     _idCounter = SettingsManager::instance().latestSessionId();
+
+    auto sessions = SettingsManager::instance().generalSettings("sessions");
+
+    _maxHistory     = sessions->value("max_count", 10);
+    _recentSessions = sessions->values<uint>("recent");
+
+    delete sessions;
 }
 
 MainWindow* WindowManager::currentWindow()
@@ -17,7 +24,7 @@ QList<MainWindow*> WindowManager::windows()
     return _windows;
 }
 
-MainWindow* WindowManager::newWindow(bool show)
+MainWindow* WindowManager::newWindow(int id, bool show)
 {
     auto onWindowClosed = [this](QObject* obj) {
         auto window = dynamic_cast<MainWindow*>(obj);
@@ -52,4 +59,9 @@ MainWindow* WindowManager::newWindow(bool show)
         window->show();
     }
     return window;
+}
+
+QList<uint> WindowManager::recentSessions()
+{
+    return _recentSessions;
 }

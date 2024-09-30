@@ -60,7 +60,7 @@ public slots:
 template <>
 void ISettings::setValue(QString path, const SerialTerminalConfig& v);
 template <>
-SerialTerminalConfig ISettings::value(QString path, const SerialTerminalConfig& defaultValue);
+SerialTerminalConfig ISettings::value(QString path, const SerialTerminalConfig& fallback);
 
 uint qHash(const QSerialPortInfo& key);
 bool operator==(const QSerialPortInfo& a, const QSerialPortInfo& b);

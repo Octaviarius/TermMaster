@@ -44,7 +44,7 @@ void Registree::setValue(QString path, const QVariant& value)
     }
 }
 
-QVariant& Registree::value(QString path, const QVariant& defaultValue)
+QVariant& Registree::value(QString path, const QVariant& fallback)
 {
     auto resPath = _relPath + path.split('/');
 
@@ -65,7 +65,7 @@ QVariant& Registree::value(QString path, const QVariant& defaultValue)
         {
             if (!vm.contains(p))
             {
-                vm[p] = defaultValue;
+                vm[p] = fallback;
             }
 
             return vm[p];
@@ -88,7 +88,7 @@ QVariant& Registree::value(QString path)
     return value(path, QVariant());
 }
 
-QVariant Registree::constValue(QString path, const QVariant& defaultValue) const
+QVariant Registree::constValue(QString path, const QVariant& fallback) const
 {
     auto resPath = _relPath + path.split('/');
 
@@ -100,7 +100,7 @@ QVariant Registree::constValue(QString path, const QVariant& defaultValue) const
 
         if (!isLast && m->typeId() != QMetaType::Type::QVariantMap)
         {
-            return defaultValue;
+            return fallback;
         }
 
         // dirty hack
@@ -110,7 +110,7 @@ QVariant Registree::constValue(QString path, const QVariant& defaultValue) const
         {
             if (!vm.contains(p))
             {
-                return defaultValue;
+                return fallback;
             }
 
             return vm[p];
@@ -119,14 +119,14 @@ QVariant Registree::constValue(QString path, const QVariant& defaultValue) const
         {
             if (!vm.contains(p))
             {
-                return defaultValue;
+                return fallback;
             }
 
             m = &vm[p];
         }
     }
 
-    return defaultValue;
+    return fallback;
 }
 
 QVariant Registree::constValue(QString path) const

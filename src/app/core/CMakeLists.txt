@@ -21,6 +21,7 @@ qt_add_library(${PROJECT_NAME} STATIC
     MenuActionContainer.h MenuActionContainer.cpp
     ToolbarActionContainer.h ToolbarActionContainer.cpp
     EnumReflection.h
+
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

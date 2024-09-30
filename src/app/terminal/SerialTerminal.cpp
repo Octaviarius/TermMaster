@@ -42,25 +42,25 @@ void ISettings::setValue(QString path, const SerialTerminalConfig& v)
 }
 
 template <>
-SerialTerminalConfig ISettings::value(QString path, const SerialTerminalConfig& defaultValue)
+SerialTerminalConfig ISettings::value(QString path, const SerialTerminalConfig& fallback)
 {
     SerialTerminalConfig res;
 
-    res.portName = value("port_name", defaultValue.portName);
-    res.baudRate = value("baudrate", defaultValue.baudRate);
+    res.portName = value<QString>("port_name", fallback.portName);
+    res.baudRate = value("baudrate", fallback.baudRate);
 
-    res.dataBits = SerialPortEnumReflection::dataBits.fixEnumValue(enumValue("data_bits", defaultValue.dataBits),
-                                                                   defaultValue.dataBits);
+    res.dataBits = SerialPortEnumReflection::dataBits.fixEnumValue(enumValue("data_bits", fallback.dataBits),
+                                                                   fallback.dataBits);
 
-    res.stopBits = SerialPortEnumReflection::stopBits.fixEnumValue(enumValue("stop_bits", defaultValue.stopBits),
-                                                                   defaultValue.stopBits);
+    res.stopBits = SerialPortEnumReflection::stopBits.fixEnumValue(enumValue("stop_bits", fallback.stopBits),
+                                                                   fallback.stopBits);
 
-    res.parity = SerialPortEnumReflection::parity.fixEnumValue(enumValue("parity", defaultValue.parity),
-                                                               defaultValue.parity);
+    res.parity = SerialPortEnumReflection::parity.fixEnumValue(enumValue("parity", fallback.parity),
+                                                               fallback.parity);
 
     res.flowControl = SerialPortEnumReflection::flowControl.fixEnumValue(enumValue("flow_control",
-                                                                                   defaultValue.flowControl),
-                                                                         defaultValue.flowControl);
+                                                                                   fallback.flowControl),
+                                                                         fallback.flowControl);
 
     return res;
 }

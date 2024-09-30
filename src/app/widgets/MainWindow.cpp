@@ -20,8 +20,9 @@ MainWindow::MainWindow(uint id, QWidget* parent) : QMainWindow(parent), ui(new U
     _mainMenuContainer = new MenubarActionContainer(ui->menubar);
     _toolbarContainer  = new ToolbarActionContainer(ui->toolBar);
 
-    setWindowTitle(
-        QString("%1 (%2)").arg(QApplication::applicationName()).arg(RandomNames::instance().getId(_id).toString()));
+    auto name = _settings->value("name", RandomNames::instance().getId(_id).toString());
+
+    setWindowTitle(QString("%1 (%2)").arg(QApplication::applicationName()).arg(name));
 
     // config statusbar
     auto lblVersion = new QLabel();
@@ -32,6 +33,7 @@ MainWindow::MainWindow(uint id, QWidget* parent) : QMainWindow(parent), ui(new U
 
 MainWindow::~MainWindow()
 {
+    _settings->sync();
     delete ui;
     delete _settings;
 }

@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
 
     GeneralLogic::initialize();
 
-    WindowManager::instance().newWindow();
+    auto recentSessions = WindowManager::instance().recentSessions();
 
     return app.exec();
 }

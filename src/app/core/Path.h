@@ -283,6 +283,43 @@ public:
         return static_cast<TPurePath<S>>(*this);
     }
 
+    bool exists() const
+    {
+        return QDir(*this).exists();
+    }
+
+    bool makePath(QString path = "") const
+    {
+        auto dir = QDir(*this);
+        bool ret;
+
+        if (path == "")
+        {
+            ret = dir.mkpath(*this);
+        }
+        else
+        {
+            ret = dir.mkpath(*this / path);
+        }
+        return ret;
+    }
+
+    bool makeFile(QString path = "") const
+    {
+        auto newFile = path == "" ? *this : *this / path;
+
+        bool ret = newFile.parent().makePath();
+
+        if (ret)
+        {
+            QFile file(newFile);
+            ret = file.open(QIODevice::OpenModeFlag::Append);
+            file.close();
+        }
+
+        return ret;
+    }
+
     static TPath currentDir()
     {
         return TPath(PurePath(QDir::currentPath()));
@@ -310,5 +347,5 @@ using WinPath   = TPath<'\\'>;
 #ifdef WIN32
 using Path = WinPath;
 #else
-using Path     = PosixPath;
+using Path = PosixPath;
 #endif
