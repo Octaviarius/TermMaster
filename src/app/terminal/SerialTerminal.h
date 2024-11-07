@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/EnumReflection.h"
-#include "core/ISettings.h"
+#include "core/Settings.h"
 #include "terminal/ITerminal.h"
 
 #include <QSerialPort>
@@ -58,9 +58,9 @@ public slots:
 };
 
 template <>
-void ISettings::setValue(QString path, const SerialTerminalConfig& v);
+void Settings::setValue(QAnyStringView key, const SerialTerminalConfig& v);
 template <>
-SerialTerminalConfig ISettings::value(QString path, const SerialTerminalConfig& fallback);
+SerialTerminalConfig Settings::value(QAnyStringView key, const SerialTerminalConfig& fallback) ;
 
 uint qHash(const QSerialPortInfo& key);
 bool operator==(const QSerialPortInfo& a, const QSerialPortInfo& b);

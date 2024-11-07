@@ -29,8 +29,9 @@ public:
     bool        addGroup(QString name);
     QStringList groups() const;
 
-    bool addMenu(ActionContainer* menu, QString group);
-    List menus(QString group) const;
+    bool             addMenu(ActionContainer* menu, QString group);
+    List             menus(QString group) const;
+    ActionContainer* findMenu(QString path);
 
     bool            addAction(QAction* action, QString group);
     QList<QAction*> actions(QString group) const;

@@ -9,6 +9,7 @@
 #include <QStringList>
 #include <QTimeZone>
 #include <QVector>
+#include <qsize.h>
 
 using KeySequenceList = QList<QKeySequence>;
 
@@ -115,6 +116,113 @@ template <typename T>
 QList<T> qSetToList(const QSet<T>& set)
 {
     return QList<T>(set.constBegin(), set.constEnd());
+}
+
+//---------------------------------------------------------------------------------------
+
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value && std::is_signed<T>::value, T>::type divCeil(const T& a, const T& b)
+{
+    return (a + (b > 0 ? b - 1 : b + 1)) / b;
+}
+
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value, T>::type divCeil(const T& a,
+                                                                                                   const T& b)
+{
+    return (a + (b - 1)) / b;
+}
+
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value && std::is_signed<T>::value, T>::type divFloor(const T& a,
+                                                                                                  const T& b)
+{
+    return (a - (b > 0 ? b - 1 : b + 1)) / b;
+}
+
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value, T>::type divFloor(const T& a,
+                                                                                                    const T& b)
+{
+    return a / b;
+}
+
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value, T>::type divRound(const T& a, const T& b)
+{
+    return (a + b / 2) / b;
+}
+
+//---------------------------------------------------------------------------------------
+
+constexpr QSize abs(const QSize& s)
+{
+    return QSize(abs(s.width()), abs(s.height()));
+}
+
+constexpr QSize operator/(const QSize& a, const QSize& b)
+{
+    return QSize(a.width() / b.width(), a.height() / b.height());
+}
+
+constexpr QSize operator*(const QSize& a, const QSize& b)
+{
+    return QSize(a.width() * b.width(), a.height() * b.height());
+}
+
+constexpr bool operator>(const QSize& a, const QSize& b)
+{
+    return a.width() > b.width() || a.height() > b.height();
+}
+
+constexpr bool operator<(const QSize& a, const QSize& b)
+{
+    return a.width() < b.width() || a.height() < b.height();
+}
+
+//---------------------------------------------------------------------------------------
+
+inline size_t getValidUtf8Length(const QByteArray& data)
+{
+    int length      = data.size();
+    int validLength = length;
+
+    for (int i = length - 1; i >= 0; --i)
+    {
+        auto byte = data[i];
+
+        if ((byte & 0x80) == 0)
+        { // ASCII символ (1 байт)
+            break;
+        }
+        else if ((byte & 0xC0) == 0xC0)
+        { // Начало много байтовой последовательности
+            int sequenceLength = 0;
+
+            if ((byte & 0xE0) == 0xC0)
+            {
+                sequenceLength = 2; // 2 байта
+            }
+            else if ((byte & 0xF0) == 0xE0)
+            {
+                sequenceLength = 3; // 3 байта
+            }
+            else if ((byte & 0xF8) == 0xF0)
+            {
+                sequenceLength = 4; // 4 байта
+            }
+
+            if (length - i >= sequenceLength)
+            {
+                break;
+            }
+            else
+            {
+                validLength = i;
+            }
+        }
+    }
+    return validLength;
 }
 
 //---------------------------------------------------------------------------------------

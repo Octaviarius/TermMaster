@@ -1,6 +1,7 @@
 #include "GeneralLogic.h"
 
 #include "core/MenuActionContainer.h"
+#include "core/RandomNames.h"
 #include "managers/CommandManager.h"
 #include "managers/SettingsManager.h"
 #include "managers/WindowManager.h"
@@ -205,9 +206,30 @@ void GeneralLogic::onWindowTerminated(MainWindow* window)
 {
 }
 
-void openGeneralSettingsDialog()
+void GeneralLogic::_updateRecentSessions()
 {
-}
-void openTerminalSettingsDialog()
-{
+
+    for (auto a : _recentSessions)
+    {
+        delete a;
+    }
+    _recentSessions.clear();
+
+    for (auto s : WindowManager::instance().recentSessions())
+    {
+        auto settings = SettingsManager::instance().session(s);
+
+        auto action = new QAction(settings->value<QString>("name", RandomNames::instance().getId(s)));
+        action->setProperty("session_id", s);
+        connect(action, &QAction::triggered, [this]() {
+            WindowManager::instance().newWindow(QObject::sender()->property("session_id").toInt());
+        });
+        _recentSessions.append(action);
+
+        delete settings;
+    }
+
+    for (auto w : WindowManager::instance().windows())
+    {
+    }
 }

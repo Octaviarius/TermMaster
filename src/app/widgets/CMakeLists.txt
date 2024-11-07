@@ -17,12 +17,15 @@ qt_add_library(${PROJECT_NAME} STATIC
     config/ConfigSerialTerminalWidget.h
     config/ConfigSerialTerminalWidget.cpp
     config/ConfigSerialTerminalWidget.ui
+    TerminalWidget.h TerminalWidget.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    Qt6::Core
     Qt6::Widgets
     Qt6::SerialBus
     Qt6::SerialPort
     Core
     Managers
 )
+

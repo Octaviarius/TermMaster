@@ -19,179 +19,15 @@ static bool               _readYamlFile(QIODevice& device, QSettings::SettingsMa
 static bool               _writeYamlFile(QIODevice& device, const QSettings::SettingsMap& map);
 static QSettings::Format& _initSettingsYaml();
 
-static QSharedPointer<QSettings> _makeCopyQSettings(const QSettings& settings)
-{
-    QSettings::Format format = settings.format();
-
-    QSharedPointer<QSettings> res;
-
-    if (!settings.fileName().isEmpty())
-    {
-        res = QSharedPointer<QSettings>::create(settings.fileName(), format);
-    }
-    else
-    {
-        res = QSharedPointer<QSettings>::create(settings.organizationName(),
-                                                settings.applicationName(),
-                                                settings.parent());
-    }
-
-    res->setAtomicSyncRequired(settings.isAtomicSyncRequired());
-    res->setFallbacksEnabled(settings.fallbacksEnabled());
-
-    res->beginGroup(settings.group());
-
-    return res;
-}
-
 FileSettings::FileSettings(QString filePath, QString prefixPath, bool autocreate) :
-    _settings(filePath, SettingsManager::YamlFormat), _autocreate(autocreate)
+    Settings(filePath, SettingsManager::YamlFormat)
 {
-    auto file = PosixPath(filePath);
-    file.makeFile();
-    _settings.setAtomicSyncRequired(true);
-    _prefix = prefixPath;
-};
-
-void FileSettings::_setValue(QString path, const QVariant& v)
-{
-    _settings.setValue(_prefix / path, v);
-}
-
-QVariant FileSettings::_value(QString path, const QVariant& fallback)
-{
-    QString p = _prefix / path;
-
-    if (_settings.contains(p))
-    {
-        return _settings.value(p);
-    }
-    else
-    {
-        if (_autocreate)
-        {
-            _settings.setValue(p, fallback);
-        }
-
-        return fallback;
-    }
-}
-
-bool FileSettings::exists(QString path) const
-{
-    return _settings.contains(_prefix / path);
-}
-
-void FileSettings::sync()
-{
-    _settings.sync();
-}
-
-QSettings& FileSettings::settings()
-{
-    return _settings;
-}
-
-ISettings* FileSettings::node(QString prefixPath)
-{
-    auto res = new FileSettings(_settings.fileName(), _prefix / prefixPath, _autocreate);
-    return res;
+    setAutoCreate(autocreate);
+    beginGroup(prefixPath);
 }
 
 //////////////////////////////////////////////////////////////////
 
-UndoableSettings::UndoableSettings(ISettings* settings) : _settings(settings)
-{
-}
-
-ISettings* UndoableSettings::settings() const
-{
-    return _settings;
-}
-
-void UndoableSettings::setSettings(ISettings* settings)
-{
-    _settings = settings;
-}
-
-void UndoableSettings::_setValue(QString path, const QVariant& v)
-{
-    if (!_settings)
-    {
-        qCritical() << "UndoableSettings has no pointed object";
-    }
-    else
-    {
-        _tempValues[path] = v;
-    }
-}
-
-QVariant UndoableSettings::_value(QString path, const QVariant& fallback)
-{
-    if (!_settings)
-    {
-        qCritical() << "UndoableSettings has no pointed object";
-        return QVariant();
-    }
-    else
-    {
-        if (_tempValues.contains(path))
-        {
-            return _tempValues[path];
-        }
-        else
-        {
-            return _settings->_value(path, fallback);
-        }
-    }
-}
-
-bool UndoableSettings::exists(QString path) const
-{
-    if (!_settings)
-    {
-        qCritical() << "UndoableSettings has no pointed object";
-        return false;
-    }
-    else
-    {
-        return _tempValues.contains(path) || _settings->exists(path);
-    }
-}
-
-void UndoableSettings::sync()
-{
-    if (!_settings)
-    {
-        qCritical() << "UndoableSettings has no pointed object";
-    }
-    else
-    {
-        for (const auto& it : _tempValues.asKeyValueRange())
-        {
-            _settings->_setValue(it.first, it.second);
-        }
-        _settings->sync();
-        _tempValues.clear();
-    }
-}
-
-ISettings* UndoableSettings::node(QString prefixPath)
-{
-    if (!_settings)
-    {
-        qCritical() << "UndoableSettings has no pointed object";
-        return nullptr;
-    }
-    else
-    {
-        return _settings->node(prefixPath);
-    }
-}
-
-//////////////////////////////////////////////////////////////////
-/// \brief SettingsManager::YamlFormat
-///
 const QSettings::Format SettingsManager::YamlFormat = _initSettingsYaml();
 
 PosixPath SettingsManager::appDataDirPath()
@@ -240,13 +76,13 @@ FileSettings* SettingsManager::terminal(uint id)
     return environment(terminalsDirPath() / QString("terminal_%1.yaml").arg(id));
 }
 
-uint SettingsManager::latestSessionId()
+int SettingsManager::latestSessionId()
 {
     static const auto sessionIdParser = QRegularExpression("session_(\\d+)");
 
     QDir dir(sessionsDirPath());
 
-    uint id = 0;
+    uint id = -1;
 
     for (const auto& file : dir.entryList(QDir::Filter::Files))
     {
@@ -254,20 +90,20 @@ uint SettingsManager::latestSessionId()
 
         if (matched.hasMatch())
         {
-            id = qMax(id, matched.captured().toUInt());
+            id = qMax<int>(id, matched.captured(1).toInt());
         }
     }
 
     return id;
 }
 
-uint SettingsManager::latestTerminalId()
+int SettingsManager::latestTerminalId()
 {
     static const auto terminalIdParser = QRegularExpression("terminal_(\\d+)");
 
     QDir dir(terminalsDirPath());
 
-    uint id = 0;
+    int id = -1;
 
     for (const auto& file : dir.entryList(QDir::Filter::Files))
     {
@@ -275,7 +111,7 @@ uint SettingsManager::latestTerminalId()
 
         if (matched.hasMatch())
         {
-            id = qMax(id, matched.captured().toUInt());
+            id = qMax<int>(id, matched.captured().toInt());
         }
     }
 
@@ -483,15 +319,11 @@ static void _factorizeMap(const QSettings::SettingsMap& origin, QSettings::Setti
             }
             else
             {
-                if ((*vm).contains(p))
+                if (!(*vm).contains(p))
                 {
                     (*vm)[p] = QVariantMap();
-                    vm       = reinterpret_cast<QVariantMap*>(&(*vm)[p]);
                 }
-                else
-                {
-                    (*vm)[p] = it.second;
-                }
+                vm = reinterpret_cast<QVariantMap*>(&(*vm)[p]);
             }
         }
     }
@@ -499,13 +331,6 @@ static void _factorizeMap(const QSettings::SettingsMap& origin, QSettings::Setti
 
 static bool _writeYamlFile(QIODevice& device, const QSettings::SettingsMap& map)
 {
-    Registree reg;
-
-    for (auto it : map.asKeyValueRange())
-    {
-        reg[it.first] = it.second;
-    }
-
     QSettings::SettingsMap factor;
 
     _factorizeMap(map, factor);

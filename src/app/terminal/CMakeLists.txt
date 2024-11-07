@@ -13,6 +13,7 @@ qt_add_library(${PROJECT_NAME} STATIC
     ITerminal.cpp
     SerialTerminal.h
     SerialTerminal.cpp
+    Emulator.h Emulator.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
@@ -20,4 +21,5 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     Qt::SerialBus
     Qt::SerialPort
     Core
+    Widgets
 )

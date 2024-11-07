@@ -15,12 +15,13 @@ qt_add_library(${PROJECT_NAME} STATIC
     Singleton.h
     utils.h
     Command.h Command.cpp
-    ISettings.h ISettings.cpp
+    Settings.h Settings.cpp
     ActionContainer.h ActionContainer.cpp
     MenubarActionContainer.h MenubarActionContainer.cpp
     MenuActionContainer.h MenuActionContainer.cpp
     ToolbarActionContainer.h ToolbarActionContainer.cpp
     EnumReflection.h
+    Deque.h
 
 )
 

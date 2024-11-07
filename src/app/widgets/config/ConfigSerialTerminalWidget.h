@@ -33,7 +33,7 @@ private:
     QMap<QString, QSerialPortInfo>  _portInfosMap;
     QMap<QString, QIcon>            _devIcons;
 
-    UndoableSettings     _generalSettings;
+    Settings*            _generalSettings;
     SerialTerminalConfig _serialConfig;
 
 private slots:

@@ -31,35 +31,35 @@ const EnumReflection<QSerialPort::FlowControl>
 });
 
 template <>
-void ISettings::setValue(QString path, const SerialTerminalConfig& v)
+void Settings::setValue(QAnyStringView key, const SerialTerminalConfig& v)
 {
-    _setValue("port_name", v.portName);
-    _setValue("baudrate", v.baudRate);
-    _setValue("data_bits", v.dataBits);
-    _setValue("stop_bits", v.stopBits);
-    _setValue("parity", v.parity);
-    _setValue("flow_control", v.flowControl);
+    beginGroup(key);
+    setValue("port_name", v.portName);
+    setValue("baudrate", v.baudRate);
+    setValue("data_bits", v.dataBits);
+    setValue("stop_bits", v.stopBits);
+    setValue("parity", v.parity);
+    setValue("flow_control", v.flowControl);
+    endGroup();
 }
 
 template <>
-SerialTerminalConfig ISettings::value(QString path, const SerialTerminalConfig& fallback)
+SerialTerminalConfig Settings::value(QAnyStringView key, const SerialTerminalConfig& fallback)
 {
     SerialTerminalConfig res;
 
     res.portName = value<QString>("port_name", fallback.portName);
     res.baudRate = value("baudrate", fallback.baudRate);
 
-    res.dataBits = SerialPortEnumReflection::dataBits.fixEnumValue(enumValue("data_bits", fallback.dataBits),
+    res.dataBits = SerialPortEnumReflection::dataBits.fixEnumValue(value("data_bits", fallback.dataBits),
                                                                    fallback.dataBits);
 
-    res.stopBits = SerialPortEnumReflection::stopBits.fixEnumValue(enumValue("stop_bits", fallback.stopBits),
+    res.stopBits = SerialPortEnumReflection::stopBits.fixEnumValue(value("stop_bits", fallback.stopBits),
                                                                    fallback.stopBits);
 
-    res.parity = SerialPortEnumReflection::parity.fixEnumValue(enumValue("parity", fallback.parity),
-                                                               fallback.parity);
+    res.parity = SerialPortEnumReflection::parity.fixEnumValue(value("parity", fallback.parity), fallback.parity);
 
-    res.flowControl = SerialPortEnumReflection::flowControl.fixEnumValue(enumValue("flow_control",
-                                                                                   fallback.flowControl),
+    res.flowControl = SerialPortEnumReflection::flowControl.fixEnumValue(value("flow_control", fallback.flowControl),
                                                                          fallback.flowControl);
 
     return res;

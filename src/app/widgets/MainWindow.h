@@ -1,7 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "core/ISettings.h"
+#include "core/Settings.h"
 #include "core/MenubarActionContainer.h"
 #include "core/ToolbarActionContainer.h"
 #include "managers/SettingsManager.h"
@@ -31,7 +31,7 @@ public:
 
     uint id() const;
 
-    ISettings* settings();
+    Settings* settings();
 
 protected:
     bool event(QEvent* event) override;

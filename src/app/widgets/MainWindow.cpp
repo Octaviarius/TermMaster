@@ -2,12 +2,14 @@
 
 #include "core/RandomNames.h"
 #include "core/Version.h"
+#include "managers/SettingsManager.h"
 #include "ui_MainWindow.h"
 
 #include <QFocusEvent>
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QShortcut>
+#include "widgets/TerminalWidget.h"
 
 //===================================================================
 
@@ -29,6 +31,10 @@ MainWindow::MainWindow(uint id, QWidget* parent) : QMainWindow(parent), ui(new U
     lblVersion->setFrameStyle(QFrame::Sunken);
     lblVersion->setText(Version::shortVersion);
     ui->statusbar->addWidget(lblVersion);
+
+
+
+
 }
 
 MainWindow::~MainWindow()
@@ -43,7 +49,7 @@ uint MainWindow::id() const
     return _id;
 }
 
-ISettings* MainWindow::settings()
+Settings* MainWindow::settings()
 {
     return _settings;
 }

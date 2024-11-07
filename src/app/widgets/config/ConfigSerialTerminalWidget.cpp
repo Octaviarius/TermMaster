@@ -61,7 +61,7 @@ ConfigSerialTerminalWidget::ConfigSerialTerminalWidget(QWidget* parent) :
     ui->listParity->addItems(SerialPortEnumReflection::parity.names());
     ui->listFlowControl->addItems(SerialPortEnumReflection::flowControl.names());
 
-    _serialConfig = _generalSettings.value<SerialTerminalConfig>();
+    _serialConfig = _generalSettings->value<SerialTerminalConfig>("");
 
     ui->listDataSize->setCurrentRow(SerialPortEnumReflection::dataBits.indexOfEnum(_serialConfig.dataBits));
     ui->listStopBits->setCurrentRow(SerialPortEnumReflection::stopBits.indexOfEnum(_serialConfig.stopBits));
@@ -126,8 +126,8 @@ ConfigSerialTerminalWidget::~ConfigSerialTerminalWidget()
 
 void ConfigSerialTerminalWidget::commit()
 {
-    _generalSettings.setValue("", _serialConfig);
-    _generalSettings.sync();
+    _generalSettings->setValue("", _serialConfig);
+    _generalSettings->sync();
 }
 
 void ConfigSerialTerminalWidget::updatePorts(QSet<QSerialPortInfo> availableSerialPorts,

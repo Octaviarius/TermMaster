@@ -134,6 +134,37 @@ ActionContainer::List ActionContainer::menus(QString group) const
     return _menus.value(group);
 }
 
+ActionContainer* ActionContainer::findMenu(QString path)
+{
+    ActionContainer* curr = this;
+
+    for (const auto& p : PurePosixPath(path).parts())
+    {
+        bool found = false;
+
+        for (const auto& g : curr->_menus.values())
+        {
+            for (const auto& m : g)
+            {
+                if (m->name() == p)
+                {
+                    found = true;
+                    curr  = m;
+                    break;
+                }
+            }
+        }
+
+        if (!found)
+        {
+            curr = nullptr;
+            break;
+        }
+    }
+
+    return curr;
+}
+
 bool ActionContainer::addAction(QAction* action, QString group)
 {
     bool ret = false;

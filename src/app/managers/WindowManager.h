@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/Deque.h"
 #include "core/Singleton.h"
 #include "widgets/MainWindow.h"
 
@@ -29,8 +30,7 @@ private:
     int                _idCounter;
     MainWindow*        _currentWindow;
 
-    QList<uint> _recentSessions;
-    uint        _maxHistory;
+    Deque<uint> _recentSessions;
 
 signals:
     void currentWindowChanged(MainWindow* window);

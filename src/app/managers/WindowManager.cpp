@@ -4,11 +4,11 @@
 
 WindowManager::WindowManager()
 {
-    _idCounter = SettingsManager::instance().latestSessionId();
+    _idCounter = SettingsManager::instance().latestSessionId() + 1;
 
     auto sessions = SettingsManager::instance().generalSettings("sessions");
 
-    _maxHistory     = sessions->value("max_count", 10);
+    _recentSessions.setMaxItems(sessions->value("max_count", 10));
     _recentSessions = sessions->values<uint>("recent");
 
     delete sessions;
@@ -29,6 +29,9 @@ MainWindow* WindowManager::newWindow(int id, bool show)
     auto onWindowClosed = [this](QObject* obj) {
         auto window = dynamic_cast<MainWindow*>(obj);
         _windows.removeOne(window);
+
+        _recentSessions.enqueue(window->id());
+
         emit windowTerminated(window);
     };
 
@@ -46,18 +49,24 @@ MainWindow* WindowManager::newWindow(int id, bool show)
         }
     };
 
-    auto window  = new MainWindow(_idCounter++);
+    if (id < 0 || id > _idCounter)
+    {
+        id = _idCounter++;
+    }
+
+    auto window  = new MainWindow(id);
     _windows    += window;
 
     connect(window, &QMainWindow::destroyed, this, onWindowClosed);
     connect(window, &MainWindow::focusChanged, this, onFocusEvent);
 
-    emit windowCreated(window);
-
     if (show)
     {
         window->show();
     }
+
+    emit windowCreated(window);
+
     return window;
 }
 
