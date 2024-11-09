@@ -147,6 +147,44 @@ void TermWidget::mouseDoubleClickEvent(QMouseEvent* event)
 
         if (line.length() > sPos.x())
         {
+            int c1 = -1;
+            int c2 = -1;
+
+            if (QChar(line[sPos.x()].symbol).isLetterOrNumber())
+            {
+                c1 = c2 = sPos.x();
+
+                for (int i = sPos.x() + 1; i < line.length(); i++)
+                {
+                    if (QChar(line[i].symbol).isLetterOrNumber())
+                    {
+                        c2 = i;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                for (int i = sPos.x() - 1; i >= 0; i--)
+                {
+                    if (QChar(line[i].symbol).isLetterOrNumber())
+                    {
+                        c1 = i;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (c1 >= 0)
+            {
+                _termModel->setStartSelection(QPoint(c1, sPos.y()));
+                _termModel->setStopSelection(QPoint(c2 + 1, sPos.y()));
+                _termModel->update();
+            }
         }
     }
 }
