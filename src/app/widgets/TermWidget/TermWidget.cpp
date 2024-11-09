@@ -55,7 +55,8 @@ void TermWidget::setTermModel(TermModel* model)
 
 QPoint TermWidget::convPixelToSymbol(QPoint pixel) const
 {
-    return QPoint(pixel.x() / _symSize.width(), pixel.y() / _symSize.height());
+    return QPoint(divRound(pixel.x(), _symSize.width()),
+                  (divFloor(pixel.y(), _symSize.height()) + divCeil(pixel.y(), _symSize.height())) / 2);
 }
 
 QPoint TermWidget::convSymbolToPixel(QPoint symPosition) const
@@ -82,9 +83,7 @@ void TermWidget::resizeEvent(QResizeEvent* event)
 
 void TermWidget::paintEvent(QPaintEvent* event)
 {
-    QPainter painter(this);
-
-    qDebug() << event->rect();
+    // qDebug() << event->rect();
 
     auto rect     = event->rect();
     auto termRect = QRect(divRound(rect.left(), _symSize.width()),
@@ -101,9 +100,7 @@ void TermWidget::mousePressEvent(QMouseEvent* event)
     {
         if (!_selectionStarted)
         {
-            auto pos  = event->pos();
-            auto sPos = QPoint(divRound(pos.x(), _symSize.width()),
-                               (divFloor(pos.y(), _symSize.height()) + divCeil(pos.y(), _symSize.height()) + 1) / 2);
+            auto sPos = convPixelToSymbol(event->pos());
 
             _termModel->resetSelection();
             _termModel->setStartSelection(sPos);
@@ -127,10 +124,7 @@ void TermWidget::mouseMoveEvent(QMouseEvent* event)
 {
     if (_selectionStarted)
     {
-        auto pos  = event->pos();
-        auto sPos = QPoint(divRound(pos.x(), _symSize.width()),
-                           (divFloor(pos.y(), _symSize.height()) + divCeil(pos.y(), _symSize.height()) + 1) / 2);
-
+        auto sPos = convPixelToSymbol(event->pos());
         _termModel->setStopSelection(sPos);
     }
 }
@@ -139,10 +133,7 @@ void TermWidget::mouseDoubleClickEvent(QMouseEvent* event)
 {
     if (event->buttons() & Qt::MouseButton::LeftButton)
     {
-        auto pos  = event->pos();
-        auto sPos = QPoint(divRound(pos.x(), _symSize.width()),
-                           (divFloor(pos.y(), _symSize.height()) + divCeil(pos.y(), _symSize.height()) + 1) / 2);
-
+        auto sPos = convPixelToSymbol(event->pos());
         auto line = _termModel->lines()[sPos.y()];
 
         if (line.length() > sPos.x())
