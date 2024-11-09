@@ -110,7 +110,7 @@ GeneralLogic::GeneralLogic()
             cfgRoot->addContainer(cfgConnections);
 
             auto cfgTermSerial = new ConfigContainer("Serial", "", "");
-            cfgTermSerial->addWidgetConstructor(IConfigWidget::getWidgetConstructor<ConfigSerialTerminalWidget>());
+            cfgTermSerial->addWidgetConstructor(IConfigWidget::getWidgetConstructor<ConfigSerialTermWidget>());
             cfgConnections->addContainer(cfgTermSerial);
 
             auto cfgTermSock = new ConfigContainer("Socket", "", "");

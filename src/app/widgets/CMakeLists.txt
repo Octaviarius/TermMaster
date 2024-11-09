@@ -17,7 +17,11 @@ qt_add_library(${PROJECT_NAME} STATIC
     config/ConfigSerialTerminalWidget.h
     config/ConfigSerialTerminalWidget.cpp
     config/ConfigSerialTerminalWidget.ui
-    TerminalWidget.h TerminalWidget.cpp
+    TermWidget/TermWidget.h TermWidget/TermWidget.cpp
+    TermWidget/TermModel.h TermWidget/TermModel.cpp
+    TermWidget/TermChar.h TermWidget/TermChar.cpp
+    TermWidget/TermCursor.h TermWidget/TermCursor.cpp
+    TermWidget/TermColormap.h TermWidget/TermColormap.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC

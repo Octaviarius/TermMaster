@@ -2,7 +2,7 @@
 #define EMULATOR_H
 
 #include <QObject>
-#include <widgets/TerminalWidget.h>
+#include <widgets/TermWidget/TermWidget.h>
 
 class Emulator : public QObject
 {
@@ -10,10 +10,10 @@ class Emulator : public QObject
 public:
     explicit Emulator(QObject* parent = nullptr);
 
-    void setTerminalWidget(TerminalWidget* widget);
+    void setTermWidget(TermWidget* widget);
 
 private:
-    TerminalWidget* _widget;
+    TermWidget* _widget;
 
     QString    _escSequence;
     bool       _isEscSequence;

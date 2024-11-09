@@ -8,7 +8,7 @@
 #include <managers/TerminalManager.h>
 #include <managers/WindowManager.h>
 #include <terminal/Emulator.h>
-#include <widgets/TerminalWidget.h>
+#include <widgets/TermWidget/TermWidget.h>
 
 int main(int argc, char* argv[])
 {
@@ -16,29 +16,53 @@ int main(int argc, char* argv[])
     QCoreApplication::setApplicationName("Terminal Master");
 
     // config others
-    auto terminal = new TerminalWidget();
-    auto emu      = new Emulator();
-    emu->setTerminalWidget(terminal);
+    auto terminal = new TermWidget();
+    // auto emu      = new Emulator();
+    // emu->setTermWidget(terminal);
 
     terminal->show();
 
-    terminal->setForeground(6);
-    terminal->setBackground(0);
-    emu->inputData(QString("Surprise, motherfucker!\r\n").toUtf8());
+    auto cursor = terminal->termModel()->cursor();
 
-    terminal->setForeground(5);
-    terminal->setBackground(0);
-    emu->inputData(QString("The next line\r\n").toUtf8());
+    cursor->setForeground(6);
+    cursor->setBackground(0);
+    cursor->addString(QString("Surprise, motherfucker!"));
+    cursor->lineFeed();
+    cursor->carriageReturn();
 
-    terminal->setForeground(4);
-    terminal->setBackground(2);
-    terminal->setAttrs(TextAttribute::Italic);
-    emu->inputData(QString("And the neeeeeeeeext\r\n").toUtf8());
+    cursor->setForeground(9);
+    cursor->setBackground(0);
+    cursor->addString(QString("123456789ABCDEF"));
+    cursor->lineFeed();
+    cursor->carriageReturn();
 
-    terminal->clrForeground();
-    terminal->clrBackground();
-    terminal->setAttrs(TextAttribute::Bold | TextAttribute::Underline);
-    emu->inputData(QString("1\t2\t3\t4\r\n").toUtf8());
+    cursor->setForeground(14);
+    cursor->setBackground(2);
+    cursor->setAttrs(TermAttribute::Attribute::Italic);
+    cursor->addString(QString("And the neeeeeeeeext"));
+    cursor->lineFeed();
+    cursor->carriageReturn();
+
+    cursor->clrForeground();
+    cursor->clrBackground();
+    cursor->setAttrs(TermAttribute::Attribute::Bold | TermAttribute::Attribute::Underline);
+    cursor->addString(QString("1"));
+    cursor->tabulate();
+    cursor->addString(QString("2"));
+    cursor->tabulate();
+    cursor->addString(QString("3"));
+    cursor->tabulate();
+    cursor->addString(QString("4"));
+    cursor->tabulate();
+    cursor->addString(QString("tab"));
+    cursor->tabulate();
+    cursor->addString(QString("as"));
+    cursor->tabulate();
+
+    cursor->lineFeed();
+    cursor->carriageReturn();
+
+    cursor->update();
 
     return app.exec();
 

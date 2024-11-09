@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core/utils.h"
-
 #include <QAction>
 #include <QIcon>
 #include <QKeySequence>
@@ -23,10 +21,10 @@ public:
 
     ~Command();
 
-    QString         name() const;
-    QString         text() const;
-    QString         tooltip() const;
-    QIcon           icon() const;
+    QString      name() const;
+    QString      text() const;
+    QString      tooltip() const;
+    QIcon        icon() const;
     QKeySequence shortcut() const;
     QKeySequence defaultShortcut() const;
 

@@ -35,8 +35,8 @@ public:
     }
 };
 
-ConfigSerialTerminalWidget::ConfigSerialTerminalWidget(QWidget* parent) :
-    ui(new Ui::ConfigSerialTerminalWidget),
+ConfigSerialTermWidget::ConfigSerialTermWidget(QWidget* parent) :
+    ui(new Ui::ConfigSerialTermWidget),
     _generalSettings(SettingsManager::instance().generalSettings("terminal/serial"))
 {
     ui->setupUi(this);
@@ -94,7 +94,7 @@ ConfigSerialTerminalWidget::ConfigSerialTerminalWidget(QWidget* parent) :
             _serialConfig.portName = ui->cmbName->currentData().toString();
         }
     });
-    connect(ui->cmbName, &QComboBox::currentIndexChanged, this, &ConfigSerialTerminalWidget::_cmbNameChanged);
+    connect(ui->cmbName, &QComboBox::currentIndexChanged, this, &ConfigSerialTermWidget::_cmbNameChanged);
 
     connect(ui->listDataSize, &QListWidget::currentRowChanged, this, [this](int row) {
         _serialConfig.dataBits = SerialPortEnumReflection::dataBits.enumValue(row);
@@ -112,25 +112,25 @@ ConfigSerialTerminalWidget::ConfigSerialTerminalWidget(QWidget* parent) :
     connect(&TerminalManager::instance(),
             &TerminalManager::serialPortsChanged,
             this,
-            &ConfigSerialTerminalWidget::updatePorts);
+            &ConfigSerialTermWidget::updatePorts);
 
     updatePorts(QSet<QSerialPortInfo>(),
                 qListToSet(TerminalManager::instance().availableSerialPorts()),
                 QSet<QSerialPortInfo>());
 }
 
-ConfigSerialTerminalWidget::~ConfigSerialTerminalWidget()
+ConfigSerialTermWidget::~ConfigSerialTermWidget()
 {
     delete ui;
 }
 
-void ConfigSerialTerminalWidget::commit()
+void ConfigSerialTermWidget::commit()
 {
     _generalSettings->setValue("", _serialConfig);
     _generalSettings->sync();
 }
 
-void ConfigSerialTerminalWidget::updatePorts(QSet<QSerialPortInfo> availableSerialPorts,
+void ConfigSerialTermWidget::updatePorts(QSet<QSerialPortInfo> availableSerialPorts,
                                              QSet<QSerialPortInfo> toAdd,
                                              QSet<QSerialPortInfo> toDel)
 {
@@ -174,7 +174,7 @@ void ConfigSerialTerminalWidget::updatePorts(QSet<QSerialPortInfo> availableSeri
     ui->cmbName->model()->sort(0);
 }
 
-void ConfigSerialTerminalWidget::_cmbNameChanged(int idx)
+void ConfigSerialTermWidget::_cmbNameChanged(int idx)
 {
     if (idx < 0)
     {

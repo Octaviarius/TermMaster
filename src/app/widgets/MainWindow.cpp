@@ -9,7 +9,7 @@
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QShortcut>
-#include "widgets/TerminalWidget.h"
+#include "widgets/TermWidget/TermWidget.h"
 
 //===================================================================
 

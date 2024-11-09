@@ -10,16 +10,16 @@
 
 namespace Ui
 {
-class ConfigSerialTerminalWidget;
+class ConfigSerialTermWidget;
 } // namespace Ui
 
-class ConfigSerialTerminalWidget : public IConfigWidget
+class ConfigSerialTermWidget : public IConfigWidget
 {
     Q_OBJECT
 
 public:
-    ConfigSerialTerminalWidget(QWidget* parent = nullptr);
-    ~ConfigSerialTerminalWidget();
+    ConfigSerialTermWidget(QWidget* parent = nullptr);
+    ~ConfigSerialTermWidget();
 
     void commit() override;
 
@@ -29,7 +29,7 @@ private slots:
                      QSet<QSerialPortInfo> toDel);
 
 private:
-    Ui::ConfigSerialTerminalWidget* ui;
+    Ui::ConfigSerialTermWidget* ui;
     QMap<QString, QSerialPortInfo>  _portInfosMap;
     QMap<QString, QIcon>            _devIcons;
 

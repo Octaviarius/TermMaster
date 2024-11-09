@@ -6,15 +6,15 @@ Emulator::Emulator(QObject* parent) : QObject {parent}
 {
 }
 
-void Emulator::setTerminalWidget(TerminalWidget* widget)
+void Emulator::setTermWidget(TermWidget* widget)
 {
     if (_widget)
     {
-        disconnect(_widget, &TerminalWidget::outputKey, this, &Emulator::inputKey);
+        disconnect(_widget, &TermWidget::outputKey, this, &Emulator::inputKey);
     }
 
     _widget = widget;
-    connect(_widget, &TerminalWidget::outputKey, this, &Emulator::inputKey);
+    connect(_widget, &TermWidget::outputKey, this, &Emulator::inputKey);
 }
 
 void Emulator::_putCharacter(QChar ch)
@@ -54,34 +54,26 @@ void Emulator::_putCharacter(QChar ch)
             // backspace
             case 0x0008:
             {
-                _widget->shiftCursorPosition(-1, 0);
-                // _cursor.linePos = _cursor.linePos > 0 ? _cursor.linePos - 1 : 0;
+                _widget->termModel()->cursor()->shift(-1, 0);
                 break;
             }
 
             case QChar::LineFeed:
             {
-                _widget->shiftCursorPosition(0, 1);
-
-                // _cursor.linePos++;
-                // if (_cursor.linePos > _activeLineLast)
-                // {
-                //     _lines.resize(_lines.count() + 1);
-                //     _onTerminalResize();
-                // }
+                _widget->termModel()->cursor()->lineFeed();
                 break;
             }
 
             case QChar::CarriageReturn:
             {
-                _widget->setCursorPositionLine(0);
+                _widget->termModel()->cursor()->moveToColumn(0);
                 break;
             }
 
             // delete
             case 0x007f:
             {
-                _widget->deleteCharacter();
+                _widget->termModel()->cursor()->replaceChar();
                 break;
             }
 
@@ -96,7 +88,7 @@ void Emulator::_putCharacter(QChar ch)
             {
                 if (ch >= QChar::Space)
                 {
-                    _widget->putCharacter(ch);
+                    _widget->termModel()->inputData(ch);
                 }
 
                 // _cursor.columnPos++;
