@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QPainter>
 #include <QResizeEvent>
+#include <QTextLayout>
 #include <core/utils.h>
 
 TermWidget::TermWidget(QWidget* parent) : QWidget(parent), _termModel(nullptr), _minTermSize(1, 1)
@@ -231,6 +232,7 @@ void TermWidget::_updateSize(QSize size)
 void TermWidget::_paintRect(QRect rect)
 {
     auto painter = QPainter(this);
+    painter.setRenderHint(QPainter::TextAntialiasing, true);
 
     QString lineText;
 
@@ -265,7 +267,10 @@ void TermWidget::_paintRect(QRect rect)
 
     for (size_t l = rect.top(); l <= rect.bottom(); l++)
     {
-        auto  lastCur = QPoint(0, l);
+        QVector<QTextLayout::FormatRange> formats;
+        QTextLayout                       layout;
+
+        auto  lastCur = QPoint(rect.left(), l);
         auto& line    = _termModel->lines()[l];
 
         lineText.resize(0);

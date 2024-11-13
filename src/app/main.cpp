@@ -33,11 +33,16 @@ int main(int argc, char* argv[])
     emu->inputData(EMU_CSI_REND(EMU_ATTR_SET_STRIKE) "Striked out" EMU_CSI_REND(
         EMU_ATTR_CLR_STRIKE) ", and after good text\r\n" EMU_CSI_REND_RESET_ATTRS);
 
-    emu->inputData(EMU_CSI_REND(EMU_FCLR_BR_GREEN
-                                ";" EMU_BCLR_BR_RED) "Bright yellow text on bright red background\r\n" EMU_CSI_REND_RESET_ATTRS);
+    emu->inputData(
+        EMU_CSI_REND(EMU_FCLR_BR_GREEN
+                     ";" EMU_BCLR_BR_RED) "Bright yellow text on bright red background\r\n" EMU_CSI_REND_RESET_ATTRS);
 
-    emu->inputData(EMU_CSI_REND(EMU_FCLR_CYAN
-                                ";" EMU_BCLR_BR_MAGENTA) "Cyan text on bright magenta background\r\n" EMU_CSI_REND_RESET_ATTRS);
+    emu->inputData(EMU_CSI_REND(
+        EMU_FCLR_CYAN ";" EMU_BCLR_BR_MAGENTA) "Cyan text on bright magenta background\r\n" EMU_CSI_REND_RESET_ATTRS);
+
+    emu->inputData(
+        EMU_CSI_REND(EMU_FCLR_GRAY ";" EMU_BCLR_BR_WHITE ";" EMU_ATTR_SET_INVERSE) "Inversed gray text" EMU_CSI_REND(
+            EMU_ATTR_CLR_INVERSE) " on white background\r\n" EMU_CSI_REND_RESET_ATTRS);
 
     return app.exec();
 

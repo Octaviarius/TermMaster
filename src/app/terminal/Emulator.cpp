@@ -606,7 +606,8 @@ void Emulator::_handleEscCsiRendition(QString esc)
             }
 
             default:
-                break;
+                qWarning() << "Unexpected rendition code " << code;
+                return;
         }
     }
 
