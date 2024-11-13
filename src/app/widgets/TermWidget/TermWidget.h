@@ -29,6 +29,7 @@ public:
     void setMinimalTermSize(QSize minSize);
 
     void setCursorBlinkPeriod(int periodMs);
+    void restartCursor();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -38,6 +39,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void timerEvent(QTimerEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     TermModel* _termModel;
@@ -75,5 +77,5 @@ private:
     void _drawText(QPainter& painter, size_t line, size_t col, TermAttribute attrs, QString text);
 
 signals:
-    void outputKey(Qt::Key key);
+    void outputKey(QKeyEvent* event);
 };

@@ -4,7 +4,9 @@
 #include "CompileTime.h"
 
 #include <QDateTime>
+#include <QList>
 #include <QMap>
+#include <QPoint>
 #include <QSharedPointer>
 #include <QStringList>
 #include <QTimeZone>
@@ -107,6 +109,43 @@ constexpr E integerToEnum(int value)
 //---------------------------------------------------------------------------------------
 
 template <typename T>
+inline T slice(T& item, qsizetype start, qsizetype end);
+
+template <typename T>
+inline QList<T> slice(QList<T>& item, qsizetype start, qsizetype end)
+{
+    if (start < 0)
+    {
+        start += item.count();
+    }
+
+    if (end < 0)
+    {
+        end += item.count();
+    }
+
+    return QList<T>(item.begin() + start, item.begin() + end);
+}
+
+template <>
+inline QString slice(QString& item, qsizetype start, qsizetype end)
+{
+    if (start < 0)
+    {
+        start += item.length();
+    }
+
+    if (end < 0)
+    {
+        end += item.length();
+    }
+
+    return item.sliced(start, end - start);
+}
+
+//---------------------------------------------------------------------------------------
+
+template <typename T>
 QSet<T> qListToSet(const QList<T>& list)
 {
     return QSet<T>(list.constBegin(), list.constEnd());
@@ -178,6 +217,17 @@ constexpr bool operator>(const QSize& a, const QSize& b)
 constexpr bool operator<(const QSize& a, const QSize& b)
 {
     return a.width() < b.width() || a.height() < b.height();
+}
+
+//---------------------------------------------------------------------------------------
+
+template <typename T>
+inline T positive(const T& value);
+
+template <>
+inline QPoint positive(const QPoint& value)
+{
+    return QPoint(std::max(0, value.x()), std::max(0, value.y()));
 }
 
 //---------------------------------------------------------------------------------------

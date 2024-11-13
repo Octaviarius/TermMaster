@@ -78,7 +78,7 @@ void TermCursor::shift(int line, int col)
 {
     auto activeLines = _termModel->activeLines();
     _position.setY(std::clamp(_position.y() + line, activeLines.first, activeLines.second));
-    _position.setX(std::max(0, _position.x() + col));
+    _position.setX(std::max(0, _position.x() + col));    
 }
 
 void TermCursor::moveTo(int line, int col)
@@ -140,12 +140,12 @@ void TermCursor::tabulate()
     }
 }
 
-void TermCursor::setAttrs(TermAttribute::Attributes flags)
+void TermCursor::setAttrsFlags(TermAttribute::Attributes flags)
 {
     _attrs.setAttrs(flags);
 }
 
-void TermCursor::clrAttrs(TermAttribute::Attributes flags)
+void TermCursor::clrAttrsFlags(TermAttribute::Attributes flags)
 {
     _attrs.clrAttrs(flags);
 }

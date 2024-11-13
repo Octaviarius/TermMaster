@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QPainter>
 #include <QResizeEvent>
+#include <core/utils.h>
 
 TermWidget::TermWidget(QWidget* parent) : QWidget(parent), _termModel(nullptr), _minTermSize(1, 1)
 {
@@ -55,7 +56,7 @@ void TermWidget::setTermModel(TermModel* model)
 
 QPoint TermWidget::convPixelToSymbol(QPoint pixel) const
 {
-    return QPoint(divRound(pixel.x(), _symSize.width()),
+    return QPoint((divFloor(pixel.x(), _symSize.width()) + divCeil(pixel.x(), _symSize.width())) / 2,
                   (divFloor(pixel.y(), _symSize.height()) + divCeil(pixel.y(), _symSize.height())) / 2);
 }
 
@@ -71,9 +72,14 @@ void TermWidget::setMinimalTermSize(QSize minSize)
 
 void TermWidget::setCursorBlinkPeriod(int periodMs)
 {
-    killTimer(_cursorTimerId);
     _cursorBlinkPeriod = periodMs;
-    _cursorTimerId     = startTimer(periodMs);
+    restartCursor();
+}
+
+void TermWidget::restartCursor()
+{
+    killTimer(_cursorTimerId);
+    _cursorTimerId = startTimer(_cursorBlinkPeriod);
 }
 
 void TermWidget::resizeEvent(QResizeEvent* event)
@@ -100,11 +106,12 @@ void TermWidget::mousePressEvent(QMouseEvent* event)
     {
         if (!_selectionStarted)
         {
-            auto sPos = convPixelToSymbol(event->pos());
+            auto sPos = convPixelToSymbol(positive(event->pos()));
 
-            _termModel->resetSelection();
             _termModel->setStartSelection(sPos);
+            _termModel->setStopSelection(sPos);
             _selectionStarted = true;
+            repaint();
         }
     }
 }
@@ -124,8 +131,9 @@ void TermWidget::mouseMoveEvent(QMouseEvent* event)
 {
     if (_selectionStarted)
     {
-        auto sPos = convPixelToSymbol(event->pos());
+        auto sPos = convPixelToSymbol(positive(event->pos()));
         _termModel->setStopSelection(sPos);
+        repaint();
     }
 }
 
@@ -133,7 +141,7 @@ void TermWidget::mouseDoubleClickEvent(QMouseEvent* event)
 {
     if (event->buttons() & Qt::MouseButton::LeftButton)
     {
-        auto sPos = convPixelToSymbol(event->pos());
+        auto sPos = convPixelToSymbol(positive(event->pos()));
         auto line = _termModel->lines()[sPos.y()];
 
         if (line.length() > sPos.x())
@@ -195,6 +203,12 @@ void TermWidget::timerEvent(QTimerEvent* event)
                           _symSize.height()));
         }
     }
+}
+
+void TermWidget::keyPressEvent(QKeyEvent* event)
+{
+    emit outputKey(event);
+    qDebug() << "Text: " << event->text() << " key " << event->keyCombination();
 }
 
 void TermWidget::_updateSize(QSize size)

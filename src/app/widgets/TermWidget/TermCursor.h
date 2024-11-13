@@ -41,6 +41,10 @@ public:
     {
         return _attrs;
     }
+    constexpr void setAttrs(TermAttribute attrs)
+    {
+        _attrs = attrs;
+    }
 
     void update();
 
@@ -62,8 +66,8 @@ public:
 
     void tabulate();
 
-    void setAttrs(TermAttribute::Attributes flags);
-    void clrAttrs(TermAttribute::Attributes flags);
+    void setAttrsFlags(TermAttribute::Attributes flags);
+    void clrAttrsFlags(TermAttribute::Attributes flags);
     void setForeground(uint8_t index);
     void clrForeground();
     void setBackground(uint8_t index);

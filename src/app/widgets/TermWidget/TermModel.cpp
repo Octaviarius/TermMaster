@@ -58,13 +58,7 @@ void TermModel::setStartSelection(QPoint start)
     {
         _selectionStart = start;
 
-        if (_selectionStop.isNull())
-        {
-            _selectionStop = start;
-        }
-
         qDebug() << "Selected " << _selectionStart << ":" << _selectionStop;
-        emit updated();
     }
 }
 
@@ -74,13 +68,7 @@ void TermModel::setStopSelection(QPoint stop)
     {
         _selectionStop = stop;
 
-        if (_selectionStart.isNull())
-        {
-            _selectionStart = stop;
-        }
-
         qDebug() << "Selected " << _selectionStart << ":" << _selectionStop;
-        emit updated();
     }
 }
 
