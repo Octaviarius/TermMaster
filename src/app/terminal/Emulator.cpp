@@ -87,6 +87,12 @@ void Emulator::_putCharacter(QChar ch)
                 break;
             }
 
+            case QChar::Tabulation:
+            {
+                _widget->termModel()->cursor()->tabulate();
+                break;
+            }
+
             // delete
             case 0x007f:
             {

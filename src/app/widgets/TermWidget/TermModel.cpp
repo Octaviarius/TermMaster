@@ -29,7 +29,7 @@ void TermModel::setSize(QSize size)
 
 int TermModel::tabulateColumn(int col) const
 {
-    return divCeil(col, _tabSize) * _tabSize;
+    return divCeil(col + 1, _tabSize) * _tabSize;
 }
 
 int TermModel::tabulateSpaces(int col) const

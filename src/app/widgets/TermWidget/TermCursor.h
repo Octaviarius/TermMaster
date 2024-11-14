@@ -2,14 +2,16 @@
 
 #include "TermChar.h"
 
+#include <QObject>
 #include <QSize>
 #include <qpoint.h>
 #include <stdint.h>
 
 class TermModel;
 
-class TermCursor
+class TermCursor : public QObject
 {
+    Q_OBJECT
 public:
     enum class Style : uint8_t
     {
@@ -84,4 +86,7 @@ private:
 
     TermAttribute _attrs;
     Style         _style = Style::Round;
+
+signals:
+    void positionChanged();
 };

@@ -53,6 +53,7 @@ void TermWidget::setTermModel(TermModel* model)
 
     auto onModelUpdated = [this]() { repaint(); };
     connect(_termModel, &TermModel::updated, this, onModelUpdated);
+    connect(_termModel->cursor(), &TermCursor::positionChanged, this, &TermWidget::forceCursorNow);
 }
 
 QPoint TermWidget::convPixelToSymbol(QPoint pixel) const
@@ -81,6 +82,17 @@ void TermWidget::restartCursor()
 {
     killTimer(_cursorTimerId);
     _cursorTimerId = startTimer(_cursorBlinkPeriod);
+}
+
+void TermWidget::forceCursorNow()
+{
+    _cursorBlinkForcedActiveNow = true;
+
+    if (_cursorBlinkActive == false)
+    {
+        _cursorBlinkActive = true;
+        _repaintCursor();
+    }
 }
 
 void TermWidget::resizeEvent(QResizeEvent* event)
@@ -193,15 +205,15 @@ void TermWidget::timerEvent(QTimerEvent* event)
 {
     if (event->timerId() == _cursorTimerId)
     {
-        _cursorBlinkActive ^= true;
-        auto curPos         = _termModel->cursor()->position();
-
-        if (_termModel->rect().contains(curPos))
+        if (_cursorBlinkForcedActiveNow)
         {
-            repaint(QRect(curPos.x() * _symSize.width(),
-                          curPos.y() * _symSize.height(),
-                          _symSize.width(),
-                          _symSize.height()));
+            _cursorBlinkActive          = true;
+            _cursorBlinkForcedActiveNow = false;
+        }
+        else
+        {
+            _cursorBlinkActive ^= true;
+            _repaintCursor();
         }
     }
 }
@@ -227,6 +239,17 @@ void TermWidget::_updateSize(QSize size)
     }
 
     // resize(_preferredWidgetSize);
+}
+
+void TermWidget::_repaintCursor()
+{
+    auto curPos = _termModel->cursor()->position();
+
+    if (_termModel->rect().contains(curPos))
+    {
+        repaint(
+            QRect(curPos.x() * _symSize.width(), curPos.y() * _symSize.height(), _symSize.width(), _symSize.height()));
+    }
 }
 
 void TermWidget::_paintRect(QRect rect)
@@ -321,7 +344,7 @@ void TermWidget::_paintRect(QRect rect)
             }
 
             lineText += ch.symbol >= QChar::Space ? QChar(ch.symbol) : QChar::Space;
-            prevCh    = ch;
+            prevCh   = ch;
 
             if (c == rect.right() && lineText.length() > 0)
             {
