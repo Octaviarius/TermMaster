@@ -109,10 +109,7 @@ void Emulator::_putCharacter(QChar ch)
 
             default:
             {
-                if (ch >= QChar::Space)
-                {
-                    _widget->termModel()->inputData(ch);
-                }
+                _widget->termModel()->inputData(ch);
             }
         }
     }

@@ -2,8 +2,7 @@
 
 #include <core/utils.h>
 
-TermModel::TermModel(QObject* parent) :
-    QObject(parent), _cursor(this), _scrollPosition(0, 0), _selectionStart(0, 0), _selectionStop(0, 0)
+TermModel::TermModel(QObject* parent) : QObject(parent), _cursor(this), _scrollPosition(0, 0)
 {
 }
 
@@ -54,33 +53,21 @@ void TermModel::inputData(QString data)
 
 void TermModel::setStartSelection(QPoint start)
 {
-    if (_selectionStart != start)
-    {
-        _selectionStart = start;
-
-        qDebug() << "Selected " << _selectionStart << ":" << _selectionStop;
-    }
+    _selection.setTopLeft(start);
 }
 
 void TermModel::setStopSelection(QPoint stop)
 {
-    if (_selectionStop != stop)
-    {
-        _selectionStop = stop;
-
-        qDebug() << "Selected " << _selectionStart << ":" << _selectionStop;
-    }
+    _selection.setBottomRight(stop);
 }
 
 void TermModel::resetSelection()
 {
-    _selectionStart = QPoint();
-    _selectionStop  = QPoint();
-
+    _selection = QRect();
     emit updated();
 }
 
 QRect TermModel::selection() const
 {
-    return QRect(_selectionStart, _selectionStop);
+    return _selection.normalized();
 }

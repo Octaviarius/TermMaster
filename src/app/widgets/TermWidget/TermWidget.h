@@ -4,6 +4,7 @@
 #include "TermModel.h"
 
 #include <QEvent>
+#include <QTextCharFormat>
 #include <QWidget>
 #include <core/utils.h>
 
@@ -65,9 +66,9 @@ private:
 
     size_t _tabSize = 4;
 
-    int  _cursorTimerId        = 0;
-    int  _cursorBlinkPeriod    = 500;
-    bool _cursorBlinkActive    = true;
+    int  _cursorTimerId              = 0;
+    int  _cursorBlinkPeriod          = 500;
+    bool _cursorBlinkActive          = true;
     bool _cursorBlinkForcedActiveNow = false;
 
     bool _selectionStarted = false;
@@ -77,8 +78,8 @@ private:
 
     void _repaintCursor();
 
-    void _paintRect(QRect rect);
-    void _drawText(QPainter& painter, size_t line, size_t col, TermAttribute attrs, QString text);
+    void            _paintRect(QRect rect);
+    QTextCharFormat _attrsToTextCharFormat(TermAttribute attrs);
 
 signals:
     void outputKey(QKeyEvent* event);

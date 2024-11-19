@@ -23,25 +23,25 @@ int main(int argc, char* argv[])
 
     terminal->show();
 
-    emu->inputData(EMU_CSI_REND(EMU_FCLR_BR_RED) "Red first line\r\n" EMU_CSI_REND_RESET_ATTRS);
-    emu->inputData(EMU_CSI_REND(EMU_FCLR_BR_YELLOW) "Bright yellow second line\r\n" EMU_CSI_REND_RESET_ATTRS);
+    emu->inputData(EMU_CSI_REND(EMU_FCLR_BR_RED) "#1 Red line\r\n" EMU_CSI_REND_RESET_ATTRS);
+    emu->inputData(EMU_CSI_REND(EMU_FCLR_BR_YELLOW) "#2 Bright yellow line\x04\x15\r\n" EMU_CSI_REND_RESET_ATTRS);
     emu->inputData(EMU_CSI_REND(EMU_FCLR_BR_CYAN
-                                ";" EMU_ATTR_SET_UNDERLINE) "Cyan and underlined text\r\n" EMU_CSI_REND_RESET_ATTRS);
-    emu->inputData("Neeeeeeeext normal line\r\n");
+                                ";" EMU_ATTR_SET_UNDERLINE) "#3 cyan and underlined text\r\n" EMU_CSI_REND_RESET_ATTRS);
+    emu->inputData("#4 Neeeeeeeext normal line\r\n");
     emu->inputData(
-        EMU_CSI_REND(EMU_FCLR_BR_GREEN ";" EMU_ATTR_SET_BOLD) "Green and bold text\r\n" EMU_CSI_REND_RESET_ATTRS);
-    emu->inputData(EMU_CSI_REND(EMU_ATTR_SET_STRIKE) "Striked out" EMU_CSI_REND(
+        EMU_CSI_REND(EMU_FCLR_BR_GREEN ";" EMU_ATTR_SET_BOLD) "#5 green and bold text\x15\r\n" EMU_CSI_REND_RESET_ATTRS);
+    emu->inputData(EMU_CSI_REND(EMU_ATTR_SET_STRIKE) "#6 striked out" EMU_CSI_REND(
         EMU_ATTR_CLR_STRIKE) ", and after good text\r\n" EMU_CSI_REND_RESET_ATTRS);
 
     emu->inputData(
         EMU_CSI_REND(EMU_FCLR_BR_GREEN
-                     ";" EMU_BCLR_BR_RED) "Bright yellow text on bright red background\r\n" EMU_CSI_REND_RESET_ATTRS);
+                     ";" EMU_BCLR_BR_RED) "#7 Bright yellow text on bright red background\x01\x02\x03\r\n" EMU_CSI_REND_RESET_ATTRS);
 
     emu->inputData(EMU_CSI_REND(
-        EMU_FCLR_CYAN ";" EMU_BCLR_BR_MAGENTA) "Cyan text on bright magenta background\r\n" EMU_CSI_REND_RESET_ATTRS);
+        EMU_FCLR_CYAN ";" EMU_BCLR_BR_MAGENTA) "#8 Cyan text on bright magenta background\x01\r\n" EMU_CSI_REND_RESET_ATTRS);
 
     emu->inputData(
-        EMU_CSI_REND(EMU_FCLR_GRAY ";" EMU_BCLR_BR_WHITE ";" EMU_ATTR_SET_INVERSE) "Inversed gray text" EMU_CSI_REND(
+        EMU_CSI_REND(EMU_FCLR_GRAY ";" EMU_BCLR_BR_WHITE ";" EMU_ATTR_SET_INVERSE) "#9 Inversed gray text" EMU_CSI_REND(
             EMU_ATTR_CLR_INVERSE) " on white background\r\n" EMU_CSI_REND_RESET_ATTRS);
 
     return app.exec();

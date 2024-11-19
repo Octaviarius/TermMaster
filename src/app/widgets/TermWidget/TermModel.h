@@ -79,8 +79,7 @@ private:
     QSize  _termSize;
     QPoint _scrollPosition;
 
-    QPoint _selectionStart;
-    QPoint _selectionStop;
+    QRect _selection;
 
     int _tabSize = 4;
 signals:

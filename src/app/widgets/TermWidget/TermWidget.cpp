@@ -257,105 +257,94 @@ void TermWidget::_paintRect(QRect rect)
     auto painter = QPainter(this);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
 
-    QString lineText;
+    painter.fillRect(this->rect(), _defaultBackground);
+
+    auto selection = _termModel->selection();
+
+    QTextLayout                       textLayout;
+    QVector<QTextLayout::FormatRange> textFormats;
 
     TermChar prevCh;
 
-    auto selection = _termModel->selection();
-    int  l1, l2, c1, c2;
+    const auto& lines = _termModel->lines();
 
-    if (selection.bottom() < selection.top())
-    {
-        l1 = selection.bottom();
-        l2 = selection.top();
-        c1 = selection.right();
-        c2 = selection.left();
-    }
-    else
-    {
-        l1 = selection.top();
-        l2 = selection.bottom();
+    auto topLeft = QPointF(0, 0);
 
-        if (selection.bottom() == selection.top() && selection.right() < selection.left())
+    for (int l = 0; l < lines.count(); l++)
+    {
+        // stop rendering the text
+        if (topLeft.y() > height() + _symSize.height())
         {
-            c1 = selection.right();
-            c2 = selection.left();
+            break;
         }
-        else
+
+        const auto& line = lines[l];
+
+        if (line.length() == 0)
         {
-            c1 = selection.left();
-            c2 = selection.right();
+            continue;
         }
-    }
 
-    for (size_t l = rect.top(); l <= rect.bottom(); l++)
-    {
-        QVector<QTextLayout::FormatRange> formats;
-        QTextLayout                       layout;
+        QString lineText(line.length(), QChar::Space);
+        prevCh      = line[0];
+        int prevCol = 0;
 
-        auto  lastCur = QPoint(rect.left(), l);
-        auto& line    = _termModel->lines()[l];
-
-        lineText.resize(0);
-
-        for (size_t c = rect.left(); c <= rect.right(); c++)
+        for (int c = 0; c < line.length(); c++)
         {
-            bool selected = (l >= l1 && l <= l2 && (c >= c1 || l > l1) && (c < c2 || l < l2));
-            bool onCursor = (_termModel->cursor()->position() == QPoint(c, l));
+            const bool isLastCol = (c == line.length() - 1);
 
-            TermChar ch = (c < line.length()) ? line[c] : TermChar(QChar::Space, TermAttribute {0, 0, 0});
+            auto ch = line[c];
 
-            bool inverse = selected;
-
-            if (onCursor)
+            if (ch.symbol < 0x20)
             {
-                switch (_termModel->cursor()->style())
-                {
-                    case TermCursor::Style::Round:
-                        inverse ^= _cursorBlinkActive;
-                        break;
-
-                    default:
-                        break;
-                }
+                lineText[c] = QChar(ch.symbol + 0x2400);
+            }
+            else
+            {
+                lineText[c] = QChar(ch.symbol);
             }
 
-            if (inverse)
+            if (prevCh.attrs != ch.attrs || isLastCol)
             {
-                if (ch.attrs.isInversed())
-                {
-                    ch.attrs.clrAttrs(TermAttribute::Attribute::Inversed);
-                }
-                else
-                {
-                    ch.attrs.setAttrs(TermAttribute::Attribute::Inversed);
-                }
-            }
-
-            if (ch.attrs != prevCh.attrs)
-            {
-                if (lineText.length() > 0)
-                {
-                    _drawText(painter, lastCur.y(), lastCur.x(), prevCh.attrs, lineText);
-                }
-                lineText.resize(0);
-                lastCur.rx() = c;
-                lastCur.ry() = l;
-            }
-
-            lineText += ch.symbol >= QChar::Space ? QChar(ch.symbol) : QChar::Space;
-            prevCh   = ch;
-
-            if (c == rect.right() && lineText.length() > 0)
-            {
-                _drawText(painter, lastCur.y(), lastCur.x(), prevCh.attrs, lineText);
+                textFormats.append(
+                    QTextLayout::FormatRange {prevCol, c - prevCol + 1, _attrsToTextCharFormat(prevCh.attrs)});
+                prevCh  = ch;
+                prevCol = c;
             }
         }
+
+        textLayout.setText(lineText);
+        auto textOption = QTextOption();
+        textOption.setWrapMode(QTextOption::WrapAnywhere);
+        textLayout.setTextOption(textOption);
+        textLayout.setFormats(textFormats);
+        textLayout.setCacheEnabled(true);
+
+        textLayout.beginLayout();
+        while (1)
+        {
+            QTextLine textLine = textLayout.createLine();
+            if (!textLine.isValid())
+            {
+                break;
+            }
+            textLine.setLineWidth(width());
+            textLine.setPosition(topLeft /*- QPointF(0, textLine.ascent())*/);
+            auto bottomRight = topLeft + QPointF(width(), _symSize.height());
+            textLayout.draw(&painter, QPointF());
+            topLeft += QPointF(0, textLine.height());
+        }
+        textLayout.endLayout();
     }
 }
 
-void TermWidget::_drawText(QPainter& painter, size_t line, size_t col, TermAttribute attrs, QString text)
+QTextCharFormat TermWidget::_attrsToTextCharFormat(TermAttribute attrs)
 {
+    QTextCharFormat fmt;
+
+    fmt.setFont(_font);
+    fmt.setFontKerning(false);
+
     // determine backgound color
     QColor background = attrs.hasBackground() ? _colormap[attrs.background] : _defaultBackground;
 
@@ -363,45 +352,23 @@ void TermWidget::_drawText(QPainter& painter, size_t line, size_t col, TermAttri
     QColor foreground = attrs.hasForeground() ? _colormap[attrs.foreground] : _defaultForeground;
 
     // set font attributes
-    _font.setBold(attrs.isBold());
-    _font.setItalic(attrs.isItalic());
-    _font.setStrikeOut(attrs.isStrikeout());
-    _font.setUnderline(attrs.isUnderline());
-
-    painter.setFont(_font);
-
-    // if text is hidden - we mustn't print it
-    if (attrs.isHidden())
-    {
-        text.fill(' ');
-    }
-
-    // if text inversed - foreground and background are swapped
-    QColor backColor;
+    fmt.setFontWeight(attrs.isBold()  ? QFont::Weight::Bold :
+                      attrs.isFaint() ? QFont::Weight::Thin :
+                                        QFont::Weight::Normal);
+    fmt.setFontItalic(attrs.isItalic());
+    fmt.setFontStrikeOut(attrs.isStrikeout());
+    fmt.setFontUnderline(attrs.isUnderline());
 
     if (attrs.isInversed())
     {
-        backColor = foreground;
-        painter.setPen(background);
+        fmt.setForeground(background);
+        fmt.setBackground(foreground);
     }
     else
     {
-        backColor = background;
-        painter.setPen(foreground);
+        fmt.setForeground(foreground);
+        fmt.setBackground(background);
     }
 
-    painter.setBrush(backColor);
-
-    painter.fillRect(QRect(_symSize.width() * col,
-                           _symSize.height() * line,
-                           _symSize.width() * text.length(),
-                           _symSize.height()),
-                     backColor);
-
-    for (int c = 0; c < text.length(); c++)
-    {
-        painter.drawText(QPoint(_symSize.width() * (col + c),
-                                _symSize.height() * line + _symSize.height() - _symDescent),
-                         text[c]);
-    }
+    return fmt;
 }

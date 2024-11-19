@@ -181,24 +181,16 @@ void TermCursor::clrBackground()
 
 void TermCursor::replaceChar(QChar ch)
 {
+    _preserveLines(_position);
     auto& line = _termModel->_lines[_position.y()];
-    if (line.length() < _position.x())
-    {
-        line.resize(_position.x() + 1);
-    }
-
     line[_position.x()].set(ch.unicode(), _attrs);
     _termModel->update();
 }
 
 void TermCursor::addChar(QChar ch)
 {
+    _preserveLines(_position + QPoint(1, 0));
     auto& line = _termModel->_lines[_position.y()];
-    if (line.length() < _position.x())
-    {
-        line.resize(_position.x() + 1);
-    }
-
     line[_position.rx()++].set(ch.unicode(), _attrs);
     emit positionChanged();
 }
@@ -210,15 +202,34 @@ void TermCursor::addString(QString str)
 
 void TermCursor::addString(QString str, TermAttribute attrs)
 {
+    _preserveLines(QPoint(_position.x() + str.length(), _position.y()));
     auto& line = _termModel->_lines[_position.y()];
-    if (line.length() < _position.x() + str.length())
-    {
-        line.resize(_position.x() + str.length() + 1);
-    }
 
     for (const auto& ch : str)
     {
         line[_position.rx()++].set(ch.unicode(), attrs);
     }
     emit positionChanged();
+}
+
+void TermCursor::_preserveLines(QPoint desiredCursorPosition)
+{
+    auto& lines = _termModel->_lines;
+
+    if (lines.count() <= desiredCursorPosition.y())
+    {
+        lines.resize(desiredCursorPosition.y() + 1);
+    }
+
+    auto& line = lines[desiredCursorPosition.y()];
+
+    if (line.length() <= desiredCursorPosition.x())
+    {
+        auto currLen = line.length();
+        line.resize(desiredCursorPosition.x() + 1);
+        while (currLen < line.length())
+        {
+            line[currLen++] = QChar::Space;
+        }
+    }
 }

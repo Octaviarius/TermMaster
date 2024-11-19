@@ -81,6 +81,8 @@ public:
     void addString(QString str, TermAttribute attrs);
 
 private:
+    void _preserveLines(QPoint desiredCursorPosition);
+
     TermModel* _termModel;
     QPoint     _position;
 
