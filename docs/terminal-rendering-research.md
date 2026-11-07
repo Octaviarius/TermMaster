@@ -1,8 +1,21 @@
 # Terminal rendering and history research
 
-Research date: 2026-11-07. Status: investigation and design candidates.
-The user supplies requirements and architectural direction; the options below
-are discussion material, not accepted implementation decisions.
+Research date: 2026-11-07. Status: research completed; text renderer selected.
+The user supplies requirements and architectural direction. The renderer choice
+below is accepted; remaining architectural options are discussion material.
+
+## Accepted renderer choice
+
+The user selected `QTextLayout` for the primary terminal widget after reviewing
+the profiling results and the cost of redrawing changed text. Prefer this direct
+Qt text-layout path over introducing a separate glyph-run renderer, raster row
+cache or custom GPU atlas at this stage.
+
+Retain prepared layouts for unchanged visible rows and invalidate affected rows
+when their text, formatting or layout inputs change. Keep layout caching bounded
+to the working viewport rather than retaining a layout for every historical row.
+The exact screen/history model and compatibility scope remain to be designed
+with the user. This decision records direction; production integration is pending.
 
 ## Requirements recorded so far
 

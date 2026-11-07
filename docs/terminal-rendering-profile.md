@@ -1,6 +1,9 @@
 # Qt rendering probe: measured results
 
-Date: 2026-11-07. Status: completed synthetic investigation; architecture remains open.
+Date: 2026-11-07. Status: completed synthetic investigation.
+Following discussion of these results, the user selected `QTextLayout` for the
+primary widget. See the [accepted renderer choice](terminal-rendering-research.md#accepted-renderer-choice).
+The tables below remain experimental evidence; the remaining architecture is open.
 
 ## Configuration and method
 
