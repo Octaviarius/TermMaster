@@ -329,10 +329,11 @@ void TermWidget::_paintRect(QRect rect)
                 break;
             }
             textLine.setLineWidth(width());
-            textLine.setPosition(topLeft /*- QPointF(0, textLine.ascent())*/);
+            textLine.setPosition(topLeft - QPointF(0, textLine.ascent()));
+
             auto bottomRight = topLeft + QPointF(width(), _symSize.height());
             textLayout.draw(&painter, QPointF());
-            topLeft += QPointF(0, textLine.height());
+            topLeft += QPointF(0, _symSize.height());
         }
         textLayout.endLayout();
     }
