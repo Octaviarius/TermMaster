@@ -6,6 +6,10 @@ below is accepted; remaining architectural options are discussion material.
 
 ## Accepted renderer choice
 
+The user also confirmed Qt Widgets as the application UI framework. Build the
+application windows, dialogs and terminal widget with Widgets. The terminal
+text-rendering choice is `QTextLayout` within that Widgets application.
+
 The user selected `QTextLayout` for the primary terminal widget after reviewing
 the profiling results and the cost of redrawing changed text. Prefer this direct
 Qt text-layout path over introducing a separate glyph-run renderer, raster row
