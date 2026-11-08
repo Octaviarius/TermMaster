@@ -1,6 +1,8 @@
 # SHARED autoexport on MSVC: experiment
 
-Date: 2026-11-08. Status: verified experiment; production module design remains open.
+Date: 2026-11-08. Status: verified experiment; build/loading mechanism accepted.
+The user selected this mechanism. The current decision and remaining design
+questions are recorded in [Plugin module mechanism](plugins.md).
 
 ## Result
 
@@ -94,9 +96,9 @@ templates, cross-version ABI stability, hot unloading, Debug, MinGW and other
 operating systems were not tested in this experiment.
 [CMake autoexport documentation](https://cmake.org/cmake/help/latest/prop_tgt/WINDOWS_EXPORT_ALL_SYMBOLS.html).
 
-The result demonstrates a workable build option, not an accepted production
-plugin architecture. Dependency metadata, DLL discovery and explicit module
-initialization remain distinct responsibilities.
+The user accepted this build/loading mechanism after reviewing the results.
+Dependency metadata, DLL discovery and explicit module initialization remain
+distinct responsibilities; the production manager contract is still to be designed.
 
 ## Evidence
 

@@ -1,6 +1,9 @@
 # Direct calls between Qt plugins: experiment
 
-Date: 2026-11-08. Status: verified experiment; plugin architecture remains open.
+Date: 2026-11-08. Status: verified comparison experiment.
+The subsequently accepted mechanism uses SHARED libraries with autoexport;
+see [Plugin module mechanism](plugins.md). This report preserves the earlier
+explicit-export MODULE experiment and its results.
 
 Verification covers both MinGW and MSVC, including installation of a provider
 SDK and an independently configured consumer build using only that SDK API.
@@ -121,8 +124,8 @@ the runtime tests. External compile commands were checked for installed SDK
 include paths. This is a minimal example SDK, not a production ABI/versioning
 policy or a deployment package including Qt and compiler runtimes.
 
-Qt plugins remain a technically viable option; no architecture is selected by
-this experiment. Embedded metadata and an application dependency graph can still
+Qt plugins remain a technically viable option. The subsequent SHARED autoexport
+experiment established the selected build mechanism. Embedded metadata and an application dependency graph can still
 be useful for validation and ordering explicit initialization. The native loader
 handles binary imports, not application-level readiness of plugin services.
 
