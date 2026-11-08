@@ -1,22 +1,15 @@
 #pragma once
 
 #include <QMenuBar>
-#include <Termaster/Core/ActionContainer.h>
+#include <Termaster/Core/ActionContainerAdapter.h>
 
-class MenubarActionContainer : public ActionContainer
+/** Borrows the QMenuBar; the widget owns the wrapper unless another owner is supplied. */
+class MenubarActionContainer final : public ActionContainerAdapter
 {
 public:
-    MenubarActionContainer(QMenuBar* menubar);
-    virtual ~MenubarActionContainer();
-
-    QMenuBar* menubar();
+    explicit MenubarActionContainer(QMenuBar* menubar, QObject* owner = nullptr);
+    QMenuBar* menubar() const;
 
 protected:
-    virtual bool _addGroup(QString name);
-    virtual bool _addAction(QAction* action, QString group);
-    virtual bool _addMenu(ActionContainer* menu, QString group);
-
-private:
-    QMenuBar*               _menubar;
-    QMap<QString, QAction*> _separators;
+    QAction* _menuAction() const override;
 };

@@ -1,22 +1,15 @@
 #pragma once
 
 #include <QMenu>
-#include <Termaster/Core/ActionContainer.h>
+#include <Termaster/Core/ActionContainerAdapter.h>
 
-class MenuActionContainer : public ActionContainer
+/** Owns the QMenu; attaching the wrapper transfers ownership of the entire subtree. */
+class MenuActionContainer final : public ActionContainerAdapter
 {
 public:
-    MenuActionContainer(QString name, QString title = "");
-    virtual ~MenuActionContainer();
-
-    QMenu* menu();
+    explicit MenuActionContainer(QString name, QString title = {}, QObject* owner = nullptr);
+    QMenu* menu() const;
 
 protected:
-    virtual bool _addGroup(QString name);
-    virtual bool _addAction(QAction* action, QString group);
-    virtual bool _addMenu(ActionContainer* menu, QString group);
-
-private:
-    QMenu*                  _menu;
-    QMap<QString, QAction*> _separators;
+    QAction* _menuAction() const override;
 };
