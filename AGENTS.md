@@ -116,9 +116,10 @@ changing behavior. These rules apply repository-wide.
 - Keep representation private and enforce invariants through cohesive methods.
 - Keep owned statuses, enums, callbacks and result types nested in the
   responsible class and declared in its primary header.
-- Order access sections private, protected, public; omit unused sections.
+- Order access sections public, protected, private; declare each used section
+  exactly once and omit unused sections. Keep public types and methods together;
+  do not split access sections into repeated blocks or a separate type prelude.
   Within each section put types/constants first, fields second and methods last.
-- Keep a public type prelude when private declarations require those types.
   Preserve member initialization order, destruction dependencies and lifetimes.
 - Group methods by responsibility and separate groups with blank lines.
   Group implementation methods by class: constructors/destructor, public,
