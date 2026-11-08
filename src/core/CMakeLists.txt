@@ -38,6 +38,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/SettingsOverlay.cpp
     inc/Termaster/Core/Workspace.h
     src/Workspace.cpp
+    inc/Termaster/Core/Session.h
+    src/Session.cpp
     inc/Termaster/Core/plugin/Plugin.h
     inc/Termaster/Core/plugin/PluginManager.h
     src/plugin/PluginManager.cpp

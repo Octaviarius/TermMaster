@@ -12,6 +12,7 @@ class Settings;
 class QMainWindow;
 class Path;
 class Workspace;
+class Session;
 class SettingsOverlay;
 class QAction;
 class QIcon;
@@ -52,6 +53,14 @@ public:
     bool                    closeWorkspace(QString* error = nullptr);
     Q_SIGNAL void           workspaceChanged();
 
+    Session*      session() const;
+    bool          createSession(const QString& name, QString* error = nullptr);
+    bool          openSession(const QString& id, QString* error = nullptr);
+    bool          saveSession(QString* error = nullptr);
+    bool          renameSession(const QString& name, QString* error = nullptr);
+    bool          closeSession(QString* error = nullptr);
+    Q_SIGNAL void sessionChanged();
+
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
@@ -68,6 +77,10 @@ private:
     void     _updateWorkspace();
     void     _applyConfiguration();
     void     _updateRecent();
+    bool     _activateSession(std::unique_ptr<Session> candidate, QString* error);
+    void     _updateSession();
+    void     _chooseNewSession();
+    void     _chooseSession();
     void     _chooseWorkspace();
     void     _chooseNewWorkspace();
     void     _showError(const QString& error);

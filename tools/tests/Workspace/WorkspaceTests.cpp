@@ -2,6 +2,7 @@
 #include <QTemporaryDir>
 #include <QtTest>
 #include <Termaster/Core/Workspace.h>
+#include <filesystem>
 #include <memory>
 
 namespace
@@ -108,7 +109,7 @@ private slots:
         QVERIFY(workspace.settings().setValue("font/size", 14));
         QVERIFY(workspace.sessions().setValue("example",
                                               QVariantMap {
-                                                  {"name", "Group"}
+                                                  {"directory", "sessions/example"}
         }));
         QVERIFY(workspace.isDirty());
         QVERIFY(workspace.sync(&error));
@@ -137,7 +138,7 @@ private slots:
             const auto id = QString("session-%1").arg(index);
             QVERIFY(workspace.sessions().setValue(id,
                                                   QVariantMap {
-                                                      {"name", id}
+                                                      {"directory", "sessions/" + id}
             }));
             QVERIFY(workspace.rememberSession(id));
             expected.prepend(id);
@@ -171,7 +172,7 @@ private slots:
         const auto    path = temporary.filePath("workspace.yaml");
         QVERIFY(writeDocument(
             path,
-            "name: Recent\nsettings: {}\nsessions: {live: {}, scalar: 42}\nstate: {recentSessions: [missing, live, scalar], unknown: keep}"));
+            "name: Recent\nsettings: {}\nsessions: {live: {directory: sessions/live}}\nstate: {recentSessions: [missing, live], unknown: keep}"));
         Workspace workspace(Path(path), base.node(""));
         QVERIFY(workspace.load());
         QCOMPARE(workspace.recentSessions(), QStringList {"live"});
@@ -180,7 +181,7 @@ private slots:
         QVERIFY(workspace.sync());
         Settings saved(path, Settings::Info {"termaster.workspace", "Termaster workspace"});
         QVERIFY(saved.load());
-        QCOMPARE(saved.value("state/recentSessions").toList(), QVariantList({"missing", "live", "scalar"}));
+        QCOMPARE(saved.value("state/recentSessions").toList(), QVariantList({"missing", "live"}));
         QVERIFY(workspace.rememberSession("live"));
         QVERIFY(workspace.sync());
         QVERIFY(saved.load());
@@ -194,7 +195,10 @@ private slots:
         const auto    path = temporary.filePath("workspace.yaml");
         Workspace     workspace(Path(path), base.node(""));
         QVERIFY(workspace.create("Original"));
-        QVERIFY(workspace.sessions().setValue("live", QVariantMap {}));
+        QVERIFY(workspace.sessions().setValue("live",
+                                              QVariantMap {
+                                                  {"directory", "sessions/live"}
+        }));
         QVERIFY(workspace.rememberSession("live"));
         const QList<QByteArray> invalid {"state: []",
                                          "state: {recentSessions: {}}",
@@ -215,6 +219,101 @@ private slots:
             QCOMPARE(workspace.recentSessions(), QStringList {"live"});
             QVERIFY(workspace.isDirty());
         }
+    }
+
+    void catalogRegistrationAndConfinement()
+    {
+        QTemporaryDir temporary;
+        QTemporaryDir outside;
+        Settings      base(temporary.filePath("base.yaml"));
+        const Path    file(temporary.filePath("workspace.yaml"));
+        Workspace     workspace(file, base.node(""));
+        QVERIFY(workspace.create("Catalog"));
+        QCOMPARE(workspace.sessionsDirectory().toString(), file.parent().join("sessions").toString());
+        const auto directory = workspace.sessionsDirectory().join("custom-folder");
+        QVERIFY(directory.createDirectories());
+        QVERIFY(workspace.registerSession("valid-ID_1", directory));
+        QVERIFY(workspace.sessions().setValue("valid-ID_1/unknown", "preserved"));
+        QVERIFY(workspace.registerSession("valid-ID_1", directory));
+        QCOMPARE(workspace.sessions().value("valid-ID_1/unknown").toString(), "preserved");
+        QCOMPARE(workspace.sessionIds(), QStringList {"valid-ID_1"});
+        QVERIFY(workspace.rememberSession("valid-ID_1"));
+        QVERIFY(!workspace.registerSession("../escape", directory));
+        QVERIFY(!workspace.registerSession(".hidden", directory));
+        QVERIFY(!workspace.registerSession("outside", Path(outside.path())));
+        QVERIFY(!workspace.registerSession("root", workspace.sessionsDirectory()));
+        QVERIFY(workspace.sync());
+        Workspace opened(file, base.node(""));
+        QVERIFY(opened.load());
+        QCOMPARE(opened.sessionDirectory("valid-ID_1")->toString(), directory.toString());
+        QVERIFY(opened.unregisterSession("valid-ID_1"));
+        QVERIFY(opened.recentSessions().isEmpty());
+        QVERIFY(opened.sessionIds().isEmpty());
+        QVERIFY(directory.isDirectory());
+        QVERIFY(opened.sync());
+        QVERIFY(workspace.load());
+        QVERIFY(workspace.sessionIds().isEmpty());
+    }
+
+    void catalogRejectsSymlinkEscape()
+    {
+        QTemporaryDir temporary;
+        QTemporaryDir outside;
+        Settings      base(temporary.filePath("base.yaml"));
+        Workspace     workspace(Path(temporary.filePath("workspace.yaml")), base.node(""));
+        QVERIFY(workspace.create("Confinement"));
+        QVERIFY(workspace.sessionsDirectory().createDirectories());
+        const auto      link = workspace.sessionsDirectory().join("escape");
+        std::error_code code;
+        std::filesystem::create_directory_symlink(std::filesystem::path(outside.path().toStdWString()),
+                                                  std::filesystem::path(link.toString().toStdWString()),
+                                                  code);
+        if (code)
+        {
+            QSKIP("Directory symlink creation is unavailable on this host");
+        }
+        QVERIFY(!workspace.registerSession("escape", link));
+        QVERIFY(workspace.sessions().setValue("escape",
+                                              QVariantMap {
+                                                  {"directory", "sessions/escape/missing"}
+        }));
+        QString error;
+        QVERIFY(!workspace.sessionDirectory("escape", &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!workspace.sync());
+    }
+
+    void invalidCatalogRetainsOwner()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        const auto    path = temporary.filePath("workspace.yaml");
+        Workspace     workspace(Path(path), base.node(""));
+        QVERIFY(workspace.create("Original"));
+        QVERIFY(workspace.setName("Pending"));
+        const QList<QByteArray> invalid {"{old: {name: Embedded}}",
+                                         "{bad: 42}",
+                                         "{bad: {directory: 42}}",
+                                         "{bad: {directory: ../outside}}",
+                                         "{bad: {directory: sessions/../outside}}",
+                                         "{bad: {directory: /absolute}}",
+                                         "{bad: {directory: sessions}}",
+                                         "{'.bad': {directory: sessions/good}}"};
+        for (const auto& catalog : invalid)
+        {
+            QVERIFY(writeDocument(path, "name: Replacement\nsettings: {}\nsessions: " + catalog));
+            QString error;
+            QVERIFY2(!workspace.load(&error), catalog.constData());
+            QVERIFY(!error.isEmpty());
+            QCOMPARE(workspace.name(), "Pending");
+            QVERIFY(workspace.isDirty());
+        }
+        QVERIFY(
+            writeDocument(path,
+                          "name: Missing allowed\nsettings: {}\nsessions: {missing: {directory: sessions/missing}}"));
+        QVERIFY(workspace.load());
+        QVERIFY(workspace.sessionDirectory("missing").has_value());
+        QVERIFY(!workspace.sessionDirectory("missing")->exists());
     }
 
     void preserveExistingFile()

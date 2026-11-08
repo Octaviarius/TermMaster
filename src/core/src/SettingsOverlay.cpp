@@ -57,9 +57,14 @@ SettingsOverlay::SettingsOverlay(Settings::Node base, Settings::Node overrides) 
 {
 }
 
+SettingsOverlay::SettingsOverlay(SettingsOverlay base, Settings::Node overrides) :
+    _base(overrides), _inherited(std::make_shared<SettingsOverlay>(std::move(base))), _overrides(std::move(overrides))
+{
+}
+
 bool SettingsOverlay::isValid() const
 {
-    if (!_validPath || !_base.isValid() || !_overrides.isValid())
+    if (!_validPath || !(_inherited ? _inherited->isValid() : _base.isValid()) || !_overrides.isValid())
     {
         return false;
     }
@@ -67,7 +72,7 @@ bool SettingsOverlay::isValid() const
     {
         return true;
     }
-    QVariant current = merge(_base.values(), _overrides.values());
+    QVariant current = merge(_baseValues(), _overrides.values());
     for (const auto& part : _prefix.split('/'))
     {
         if (current.typeId() != QMetaType::QVariantMap)
@@ -91,7 +96,7 @@ bool SettingsOverlay::contains(const QString& key) const
         return false;
     }
     bool found = false;
-    lookup(merge(_base.values(), _overrides.values()), _key(key), &found);
+    lookup(merge(_baseValues(), _overrides.values()), _key(key), &found);
     return found;
 }
 
@@ -102,7 +107,7 @@ QVariant SettingsOverlay::value(const QString& key, const QVariant& fallback) co
         return fallback;
     }
     bool       found  = false;
-    const auto result = lookup(merge(_base.values(), _overrides.values()), _key(key), &found);
+    const auto result = lookup(merge(_baseValues(), _overrides.values()), _key(key), &found);
     return found ? result : fallback;
 }
 
@@ -112,7 +117,7 @@ QVariantMap SettingsOverlay::values() const
     {
         return {};
     }
-    const auto merged = merge(_base.values(), _overrides.values());
+    const auto merged = merge(_baseValues(), _overrides.values());
     if (_prefix.isEmpty())
     {
         return merged;
@@ -164,6 +169,11 @@ SettingsOverlay SettingsOverlay::node(const QString& path) const
         scoped._validPath = _validPath && validKey(path) && validKey(scoped._prefix);
     }
     return scoped;
+}
+
+QVariantMap SettingsOverlay::_baseValues() const
+{
+    return _inherited ? _inherited->values() : _base.values();
 }
 
 QString SettingsOverlay::_key(const QString& key) const

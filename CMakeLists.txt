@@ -59,6 +59,12 @@ if(TERMASTER_BUILD_WORKSPACE_TESTS)
     add_subdirectory(tools/tests/Workspace)
 endif()
 
+option(TERMASTER_BUILD_SESSION_TESTS "Build session document tests" OFF)
+if(TERMASTER_BUILD_SESSION_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Session)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()
