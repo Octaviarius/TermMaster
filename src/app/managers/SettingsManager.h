@@ -5,6 +5,7 @@
 #include "core/Singleton.h"
 #include "widgets/config/ConfigContainer.h"
 
+#include <QHash>
 #include <QSerialPortInfo>
 #include <QSettings>
 
@@ -16,8 +17,17 @@ public:
 
 class SettingsManager : public Singleton<SettingsManager>
 {
+private:
+    QString              _pluginSettingsPath;
+    ConfigContainer::Map _configContainers;
+
 public:
     friend Singleton<SettingsManager>;
+
+    explicit SettingsManager(QString pluginSettingsPath = QString());
+
+    bool loadPluginStates(QHash<QString, bool>& states, QString* error = nullptr);
+    bool savePluginState(const QString& id, bool enabled, QString* error = nullptr);
 
     static const QSettings::Format YamlFormat;
 
@@ -39,7 +49,4 @@ public:
     ConfigContainer::List configContainers();
     ConfigContainer*      configContainer(QString name);
     bool                  addConfigContainer(ConfigContainer* container);
-
-private:
-    ConfigContainer::Map _configContainers;
 };
