@@ -1,0 +1,72 @@
+# Contextual application actions
+
+## Presentation slots
+
+Application toolbars use icons, not text-only buttons. Every toolbar action must
+provide a meaningful icon and a tooltip. Icon-only presentation uses native Qt
+metrics for high-DPI scaling; the same QAction may also appear in a menu with its
+text. The plugin-management action uses the application-x-addon theme icon with
+a native detailed-list fallback.
+
+The toolbar exposes ordered extension groups:
+
+| Group | Scope | Context |
+| --- | --- | --- |
+| application | Application-wide operations | Available independently of workspace/terminal selection |
+| workspace | Operations on the current workspace | Requires an open workspace |
+| session | Operations on the current session group | Requires the appropriate loaded/selected session |
+| terminal | Operations on the selected terminal | Requires a live selected terminal and matching capabilities/state |
+
+Groups are stable placement slots. They do not determine whether a command is
+valid and do not own domain state. Empty groups produce no separator or button.
+Only the application group currently contains actions; workspace/session/terminal
+groups are reserved for the corresponding domain stages, not simulated features.
+
+## Context and execution requirements
+
+A future application presentation controller derives action state from the
+actual active workspace, session and selected terminal. Terminal connection
+state and operation capabilities remain authoritative in the terminal/backend
+owners. The controller must observe target selection changes, target destruction,
+state transitions and capability changes, then update the affected actions.
+Views and persistence do not maintain competing copies of that state.
+
+An action unsupported by the selected terminal type/capabilities is hidden.
+An applicable operation that is temporarily unavailable is disabled. For example,
+connection and disconnection operations depend on both backend capability and
+current connection state; terminal-specific operations must never be shown as
+implemented merely because an action name or icon exists. No selected terminal
+means no terminal-specific action target. Visible group separators must follow
+the remaining visible actions without leading/trailing/doubled gaps.
+
+Actions retain stable IDs, registrations and shortcuts as selection changes;
+selection changes should not reconstruct the whole command registry. A command
+handler resolves the active target again at execution time and validates its
+current capability/state. It must not retain an obsolete raw terminal pointer
+captured while the toolbar was last updated. Owned target handles, QObject weak
+references and context-bound signal connections are used where appropriate.
+An operation may become unavailable between presentation refresh and invocation;
+execution checks are required even when the button was enabled.
+
+Different window contexts require independent command presentation state and
+shortcut scope; sharing one application's global QAction between windows must
+not accidentally bind all windows to one terminal. The existing shell has one
+main window and shares its Plugins QAction only between that window's menu and
+toolbar. A plugin-context injection API and a multi-window command dispatch model
+remain separate design stages.
+
+## Implementation status
+
+Icon-only toolbar presentation, the plugin action icon/tooltip and all four
+ordered extension groups are implemented and checked by AppTests. Empty-group
+separator behavior is covered by action-container tests. Runtime workspace/session
+selection, terminal capability/state models and the contextual controller are
+requirements, not implemented APIs yet. Their presentation/lifetime tests will
+be added with those domain owners. See [workspaces and sessions](workspaces-and-sessions.md).
+
+Verified on 2026-11-08 with MSVC 19.44 / Qt 6.12.0 Debug in the Desktop Qt kit
+build directory. All seven CTest suites passed, including the separate Debug SDK
+consumer. AppTests checks toolbar icon presence, tooltips, icon-only style,
+ordered groups and absence of separators for empty groups. Native AppTests passed
+at scale factors 1 and 2; both main-window captures were visually inspected.
+Formatting and git diff --check passed.

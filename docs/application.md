@@ -116,3 +116,5 @@ and 2; main-window and plugin-dialog captures were visually inspected. Source
 layout, public header/source pairing, active dependency boundaries, documentation
 links, clang-format and git diff --check were verified. SerialBus/SerialPort remain
 disabled in this build. Workspace/session behavior remains planned.
+
+[Contextual actions](contextual-actions.md) defines icon-only toolbars and scoped extension groups.

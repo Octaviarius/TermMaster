@@ -183,6 +183,11 @@ changing behavior. These rules apply repository-wide.
 
 ## GUI
 
+- Toolbar actions require meaningful icons and tooltips; application toolbars use
+  icon-only presentation. Group actions by application/workspace/session/terminal
+  scope. Groups define placement, not domain eligibility: derive visibility and
+  enabled state from the current workspace/session/selected-terminal capabilities
+  and state. Revalidate the active target when executing an action.
 - Use MVC for nontrivial behavior: models own presentation state, views render
   it and controllers perform application commands.
 - Keep authoritative state with its owner rather than duplicating it in widgets
