@@ -107,3 +107,5 @@ SDK consumer. Native action-container and plugin-window suites passed 12 and 9
 QtTest results respectively without failures or skips. Native action-window and
 menu captures were pixel-identical to their pre-relocation references; the
 plugin-window capture was visually inspected. No GUI behavior change is intended.
+
+[Paths](paths.md) describes lexical POSIX/Windows values and native Qt filesystem operations.
