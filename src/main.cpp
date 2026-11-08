@@ -2,8 +2,8 @@
 #include <QDir>
 #include <QMap>
 #include <QStyle>
-#include <Termaster/Core/PluginManager.h>
 #include <Termaster/Core/RandomNames.h>
+#include <Termaster/Core/plugin/PluginManager.h>
 #include <Termaster/Logic/GeneralLogic.h>
 #include <Termaster/Managers/CommandManager.h>
 #include <Termaster/Managers/SettingsManager.h>

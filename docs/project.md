@@ -52,10 +52,11 @@ src/<module>/
 
 Current modules are `core`, `managers`, `logic`, `terminal` and `widgets`;
 public include names use `Core`, `Managers`, `Logic`, `Terminal` and `Widgets`.
-For example, `<Termaster/Core/Plugin.h>` and
+For example, `<Termaster/Core/plugin/Plugin.h>` and
 `<Termaster/Managers/SettingsManager.h>`. Include paths are target-scoped.
 Existing target names and active responsibilities are preserved. Public headers
-use flat module-qualified paths; implementation directories such as `plugin`,
+use module-qualified paths; plugin headers are grouped under `Core/plugin`.
+Implementation directories such as `plugin`,
 `config` and `TermWidget` remain internal. Two inactive configuration widget
 placeholders remain internal and are not exposed as usable public API.
 

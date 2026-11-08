@@ -6,7 +6,7 @@
 #include <QPluginLoader>
 #include <QSet>
 #include <QTimer>
-#include <Termaster/Core/Plugin.h>
+#include <Termaster/Core/plugin/Plugin.h>
 #include <map>
 #include <memory>
 
