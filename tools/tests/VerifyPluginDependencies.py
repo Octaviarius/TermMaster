@@ -20,6 +20,8 @@ def main():
     parser.add_argument("build", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--qt-bin", type=Path, required=True)
+    parser.add_argument("--external-consumer", type=Path)
+    parser.add_argument("--without-api-build", type=Path)
     inspector = parser.add_mutually_exclusive_group(required=True)
     inspector.add_argument("--objdump", type=Path)
     inspector.add_argument("--dumpbin", type=Path)
@@ -111,8 +113,48 @@ def main():
                                       "result": data, "lifecycle_log": completed.stderr.splitlines()})
             print(f"PASS {name}: " + (f"consumer result {data['consumer_result']}" if success else
                                        "DLL loading rejected as expected"), flush=True)
+    if args.external_consumer:
+        with tempfile.TemporaryDirectory(prefix="sdk-consumer-", dir=output) as temporary:
+            directory = Path(temporary).resolve()
+            require(directory.is_relative_to(output), "SDK case directory escaped output directory")
+            shutil.copy2(args.external_consumer.resolve(strict=True), directory / "Consumer.dll")
+            shutil.copy2(provider, directory / "Provider.dll")
+            env = dict(os.environ, QT_FORCE_STDERR_LOGGING="1")
+            env["PATH"] = str(qt_bin) + os.pathsep + str(directory)
+            completed = subprocess.run([str(executable), "--plugin-dir", str(directory)],
+                                       env=env, cwd=output, capture_output=True,
+                                       text=True, encoding="utf-8", timeout=15)
+            data = json.loads(completed.stdout)
+            require(completed.returncode == 0 and data.get("consumer_result") == 84,
+                    f"SDK consumer failed: {completed.stderr} {completed.stdout}")
+            require(not data["provider_mapped_after_metadata"] and data["provider_mapped_after_consumer"],
+                    "SDK consumer has an unexpected DLL mapping lifecycle")
+            require("Consumer root constructed" in completed.stderr
+                    and "Provider root constructed" not in completed.stderr,
+                    "SDK consumer has an unexpected plugin root lifecycle")
+            evidence["cases"].append({"name": "independent-sdk-consumer", "passed": True,
+                                      "exit_code": completed.returncode, "result": data,
+                                      "lifecycle_log": completed.stderr.splitlines()})
+            print("PASS independent-sdk-consumer: consumer result 84", flush=True)
+    if args.without_api_build:
+        require(args.dumpbin is not None, "The missing-export control currently requires dumpbin")
+        negative = args.without_api_build.resolve(strict=True)
+        result = subprocess.run([str(args.dumpbin.resolve(strict=True)), "/exports",
+                                 str(negative / "plugins/Provider.dll")],
+                                check=True, capture_output=True, text=True, timeout=10)
+        negative_exports = re.findall(r"^\s*\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)",
+                                      result.stdout, re.MULTILINE)
+        require(set(negative_exports) == {"qt_plugin_instance", "qt_plugin_query_metadata_v2"},
+                f"Unexpected exports in the no-API-export control: {negative_exports}")
+        log = (negative / "BuildLog.txt").read_text(encoding="utf-8-sig")
+        require("LNK2019" in log and "providerAdd" in log and "multiply" in log and "LNK1120" in log,
+                "Missing expected unresolved-symbol diagnostics in the negative build log")
+        evidence["api_export_negative_control"] = {
+            "passed": True, "exports": negative_exports,
+            "diagnostics": [line for line in log.splitlines() if re.search(r"LNK(?:2019|1120)", line)]}
+        print("PASS missing API exports: Qt entry points remain, consumer link fails with LNK2019", flush=True)
     (output / "Results.json").write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
-    print("Verified exports, native imports, metadata isolation and four load cases")
+    print(f"Verified exports, native imports, metadata isolation and {len(evidence['cases'])} load cases")
 
 
 if __name__ == "__main__":

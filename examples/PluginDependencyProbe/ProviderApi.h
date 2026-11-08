@@ -3,7 +3,11 @@
 #include <QtGlobal>
 
 #ifdef PROVIDER_BUILD
+#ifdef PROVIDER_NO_API_EXPORT
+#define PROVIDER_API
+#else
 #define PROVIDER_API Q_DECL_EXPORT
+#endif
 #else
 #define PROVIDER_API Q_DECL_IMPORT
 #endif

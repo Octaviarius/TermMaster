@@ -17,6 +17,7 @@ if(CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(PROBE_DIRECT_TARGET_LINK "Demonstrate CMake rejecting a MODULE target dependency" OFF)
+option(PROBE_EXPORT_API "Export the ordinary provider C++ API" ON)
 
 set(probe_plugin_dir "${CMAKE_CURRENT_BINARY_DIR}/plugins")
 if(MSVC)
@@ -56,6 +57,9 @@ foreach(probe_target IN ITEMS
 endforeach()
 
 target_compile_definitions(Provider PRIVATE PROVIDER_BUILD)
+if(NOT PROBE_EXPORT_API)
+    target_compile_definitions(Provider PRIVATE PROVIDER_NO_API_EXPORT)
+endif()
 
 if(PROBE_DIRECT_TARGET_LINK)
     target_link_libraries(Consumer PRIVATE Provider)
@@ -83,3 +87,35 @@ qt_add_executable(PluginDependencyProbe
 
 target_compile_features(PluginDependencyProbe PRIVATE cxx_std_20)
 target_link_libraries(PluginDependencyProbe PRIVATE Qt6::Core)
+
+include(CMakePackageConfigHelpers)
+
+get_filename_component(probe_import_name "${probe_import_library}" NAME)
+configure_package_config_file(
+    PluginDependencyProbeConfig.cmake.in
+    "${CMAKE_CURRENT_BINARY_DIR}/PluginDependencyProbeConfig.cmake"
+    INSTALL_DESTINATION lib/cmake/PluginDependencyProbe
+)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/PluginDependencyProbeConfigVersion.cmake"
+    VERSION 1.0.0
+    COMPATIBILITY SameMajorVersion
+)
+
+install(TARGETS Provider
+    LIBRARY DESTINATION bin
+    RUNTIME DESTINATION bin
+)
+install(FILES
+    ProviderApi.h
+    ProbeInterface.h
+    DESTINATION include/PluginDependencyProbe
+)
+install(FILES "${probe_import_library}"
+    DESTINATION lib
+)
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/PluginDependencyProbeConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/PluginDependencyProbeConfigVersion.cmake"
+    DESTINATION lib/cmake/PluginDependencyProbe
+)
