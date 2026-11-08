@@ -246,3 +246,19 @@ The curved reset symbol is a project-owned SVG bundled by Core. Its rendering is
 checked through the static resource link in SettingsFormTests. The updated symbol
 passed the affected Debug tests and native application checks at scales 1 and 2;
 the reference capture above reflects the rounded-button variant.
+
+## Pending terminal appearance requirements
+
+Status: recorded for later implementation; no new editors or preview behavior
+have been implemented for this request.
+
+Terminal appearance forms need a font selection button and foreground/background
+color selection buttons, using appropriate Qt pickers instead of requiring
+manual entry of font names and color codes. Preserve explicit font-size editing
+and the existing settings inheritance, validation and reset behavior.
+
+A terminal preview must show how the selected font, size and colors render text.
+It must update from the form's effective draft values, including inherited
+values and resets, before Apply. Previewing must not change a live terminal's
+configuration, persist settings or open a connection. Reuse the same appearance
+editors and preview behavior across settings scopes.

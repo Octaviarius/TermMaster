@@ -236,3 +236,21 @@ external SDK consumer. After correcting the native hover fixture to place the
 cursor over the tab, the application suite passed again; native serial settings
 and recovery checks also passed at scale factors 1 and 2. No real serial device
 was opened. Release was not rebuilt for these serial UI/recovery changes.
+
+## Pending serial port selector requirements
+
+Status: recorded for later implementation; the current selector has not been
+changed for these requirements.
+
+Each available-port row must show the port identifier, readable device name
+and serial number when supplied by the device. Retain the existing port-type
+icon and arrange metadata clearly with readable spacing and visual hierarchy.
+Missing names or serial numbers must not produce empty separators or invented
+identifiers. The device identity used for configuration remains the raw port
+name; presentation text must never become the persisted connection address.
+
+General settings and terminal-specific settings must use the same port selector
+implementation, model and presentation. Remove the divergent example-only combo
+from the active settings flow when this is implemented. Preserve editable manual
+port names, configured but currently unavailable ports, background inventory
+updates, selection/caret stability and plugin unload safety.
