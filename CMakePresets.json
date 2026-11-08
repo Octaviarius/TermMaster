@@ -1,0 +1,77 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "windows-qt-msvc",
+            "hidden": true,
+            "generator": "Ninja",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "$env{TERMASTER_QT_ROOT}",
+                "CMAKE_MAKE_PROGRAM": "$env{TERMASTER_QT_TOOLS}/Ninja/ninja.exe",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true
+            }
+        },
+        {
+            "name": "Desktop_Qt_6_12_0_MSVC2022_64bit-Debug",
+            "displayName": "Desktop Qt 6.12.0 MSVC2022 64bit — Debug",
+            "inherits": "windows-qt-msvc",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Desktop_Qt_6_12_0_MSVC2022_64bit-Release",
+            "displayName": "Desktop Qt 6.12.0 MSVC2022 64bit — Release",
+            "inherits": "windows-qt-msvc",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "Desktop_Qt_6_12_0_MSVC2022_64bit-Debug",
+            "configurePreset": "Desktop_Qt_6_12_0_MSVC2022_64bit-Debug",
+            "jobs": 4
+        },
+        {
+            "name": "Desktop_Qt_6_12_0_MSVC2022_64bit-Release",
+            "configurePreset": "Desktop_Qt_6_12_0_MSVC2022_64bit-Release",
+            "jobs": 4
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "Desktop_Qt_6_12_0_MSVC2022_64bit-Debug",
+            "configurePreset": "Desktop_Qt_6_12_0_MSVC2022_64bit-Debug",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        },
+        {
+            "name": "Desktop_Qt_6_12_0_MSVC2022_64bit-Release",
+            "configurePreset": "Desktop_Qt_6_12_0_MSVC2022_64bit-Release",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error"
+            }
+        }
+    ]
+}

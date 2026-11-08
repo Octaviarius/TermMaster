@@ -116,3 +116,5 @@ graph excludes the reference modules and their serial dependencies.
 [Workspaces and sessions](workspaces-and-sessions.md) records the next domain stage.
 
 [Application module](application.md) describes App, base windows and command/container access.
+
+[Windows environment and Qt desktop builds](development-environment.md) documents environment export and presets.
