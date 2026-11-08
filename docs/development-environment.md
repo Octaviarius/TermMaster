@@ -47,7 +47,8 @@ plain console; an IDE kit may initialize its own compiler environment.
 
 ## Optional tests
 
-Test targets are opt-in and can be enabled while configuring:
+Desktop presets disable test plugins. Test targets are opt-in and can be enabled
+while configuring; plugin fixtures remain under the private test output directory:
 
 ```powershell
 cmake --preset Desktop_Qt_6_12_0_MSVC2022_64bit-Debug `

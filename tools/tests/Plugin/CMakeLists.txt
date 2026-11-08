@@ -26,6 +26,7 @@ function(add_plugin_fixture fixture_target fixture_id fixture_version fixture_de
         list(APPEND fixture_headers PUBLIC_HEADERS inc/Termaster/PluginFixtureProvider/Api.h)
     endif()
     termaster_add_plugin(${fixture_target}
+        OUTPUT_ROOT "${CMAKE_CURRENT_BINARY_DIR}/plugin"
         SOURCES
             "${CMAKE_CURRENT_BINARY_DIR}/${fixture_target}.cpp"
         ${fixture_headers}
