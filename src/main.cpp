@@ -1,8 +1,12 @@
+#include <QAction>
 #include <QApplication>
+#include <QDialog>
 #include <QDir>
+#include <QKeySequence>
 #include <QMap>
 #include <QStyle>
 #include <Termaster/Core/RandomNames.h>
+#include <Termaster/Core/gui/PluginManagerGui.h>
 #include <Termaster/Core/plugin/PluginManager.h>
 #include <Termaster/Logic/GeneralLogic.h>
 #include <Termaster/Managers/CommandManager.h>
@@ -11,6 +15,7 @@
 #include <Termaster/Managers/WindowManager.h>
 #include <Termaster/Terminal/Emulator.h>
 #include <Termaster/Widgets/TermWidget.h>
+#include <memory>
 
 /////////////////////////////////////////////////////////////////////////////////
 
@@ -229,7 +234,26 @@ int main(int argc, char* argv[])
     emu->setEchoMode(true);
     emu->setTermWidget(terminal);
 
-    terminal->show();
+    std::unique_ptr<QDialog> pluginWindow(createPluginManagerWindow(pluginManager));
+    auto                     showPlugins = [&pluginWindow]() {
+        pluginWindow->show();
+        pluginWindow->raise();
+        pluginWindow->activateWindow();
+    };
+    auto pluginsAction = new QAction(QApplication::translate("Application", "Plugins…"), terminal);
+    pluginsAction->setShortcut(QKeySequence("Ctrl+Shift+P"));
+    terminal->addAction(pluginsAction);
+    terminal->setContextMenuPolicy(Qt::ActionsContextMenu);
+    QObject::connect(pluginsAction, &QAction::triggered, pluginWindow.get(), showPlugins);
+
+    if (app.arguments().contains("--plugins"))
+    {
+        showPlugins();
+    }
+    else
+    {
+        terminal->show();
+    }
 
     emu->inputData(EMU_CSI_REND(EMU_FCLR_BR_RED) "#1 Red line\r\n" EMU_CSI_REND_RESET_ATTRS);
     emu->inputData(EMU_CSI_REND(EMU_FCLR_BR_YELLOW) "#2 Bright yellow line\x04\x15\r\n" EMU_CSI_REND_RESET_ATTRS);

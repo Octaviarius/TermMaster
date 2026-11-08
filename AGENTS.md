@@ -61,6 +61,8 @@ changing behavior. These rules apply repository-wide.
   inc/Termaster/ModuleName and keeps implementation/internal organization under
   src/. Place changes with the responsible component. Dependencies belong under
   components/ at the repository root.
+- Keep module-owned GUI under its root gui/ directory, grouped by feature.
+  Concrete widgets remain internal; shared GUI entry contracts belong in inc/.
 - Qt is an intentional dependency. Use QObject, signals/slots, QByteArray,
   QString and Qt ownership conventions where appropriate.
   Do not create replacements for Qt infrastructure without a concrete need.

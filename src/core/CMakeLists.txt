@@ -35,6 +35,13 @@ qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/plugin/Plugin.h
     inc/Termaster/Core/plugin/PluginManager.h
     src/plugin/PluginManager.cpp
+    inc/Termaster/Core/gui/PluginManagerGui.h
+    gui/plugin/PluginManagerWindow.h
+    gui/plugin/PluginManagerWindow.cpp
+    gui/plugin/PluginManagerController.h
+    gui/plugin/PluginManagerController.cpp
+    gui/plugin/PluginTableModel.h
+    gui/plugin/PluginTableModel.cpp
 
 )
 

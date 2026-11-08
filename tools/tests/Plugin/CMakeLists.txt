@@ -80,3 +80,29 @@ add_test(NAME PluginIntegrationTests COMMAND PluginIntegrationTests)
 set_tests_properties(PluginIntegrationTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
 )
+
+qt_add_executable(PluginWindowTests
+    PluginWindowTests.cpp
+)
+target_compile_features(PluginWindowTests PRIVATE cxx_std_20)
+target_link_libraries(PluginWindowTests PRIVATE
+    Managers
+    Core
+    Qt6::Test
+)
+foreach(fixture IN ITEMS
+    Provider
+    Consumer
+    Leaf
+    Missing
+    StartFailure
+)
+    add_dependencies(PluginWindowTests PluginFixture${fixture})
+    target_compile_definitions(PluginWindowTests PRIVATE
+        "FIXTURE_${fixture}=\"$<TARGET_FILE:PluginFixture${fixture}>\""
+    )
+endforeach()
+add_test(NAME PluginWindowTests COMMAND PluginWindowTests)
+set_tests_properties(PluginWindowTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+)
