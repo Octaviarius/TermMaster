@@ -113,21 +113,19 @@ other platforms the initial implementation returns unknown rather than guessing.
 The current backend is Windows-first; Linux sysfs/udev and macOS IOKit classifiers
 are future platform-specific work.
 
-## Rendering scope and remaining work
+## Rendering and emulation
 
-The initial screen supports incremental UTF-8, CR, LF, backspace, tab, bounded
-CSI/OSC handling, basic cursor/erase operations and SGR foreground/background
-colors including indexed and RGB colors. Malformed sequences and allocations
-are bounded. QTextLayout handles shaping and grapheme-safe selection. Cached
-layouts are rebuilt for changed lines. Mouse selection, copy, paste, common keys,
-scrolling and font changes are implemented.
+The common TerminalDisplay now uses the project-owned VT parser, screen model,
+input encoder and Sixel/Kitty graphics decoder. QTextLayout remains the selected
+renderer with a bounded visible-row cache. The widget is an independent processing
+endpoint and separates user input, local echo and terminal replies. No ready-made
+terminal engine is linked. See [terminal emulation](terminal-emulation.md) for the
+compatibility matrix, limits, demo and verification.
 
-This is not complete VT compatibility. Alternate screens, full attributes,
-terminal negotiation, wide-cell Unicode semantics, complete keyboard protocols,
-line reflow and unlimited disk-backed colored history remain unimplemented.
-Current scrollback is bounded in memory. Archived renderers are not activated.
-Link/resource graph execution, terminal rename GUI and reconnect policy remain
-separate work. No SSH, network or local-console backend is claimed.
+Full VT-family conformance and every Unix terminal extension are not claimed.
+History remains bounded in RAM; disk-backed unlimited history, graph execution,
+terminal rename GUI and reconnect policy are separate work. No SSH, network or
+local-console backend is implied by the view's protocol support.
 
 ## Verification
 

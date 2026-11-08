@@ -5,6 +5,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QDesktopServices>
 #include <QFile>
 #include <QLabel>
 #include <QStatusBar>
@@ -527,21 +528,34 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         }
     };
     device->setCallbacks(std::move(callbacks));
-    connect(display, &TerminalDisplay::inputBytes, this, [this, id](const QByteArray& data) {
+    connect(display,
+            &TerminalDisplay::outputBytes,
+            this,
+            [this, id](const QByteArray& data, TerminalDisplay::OutputKind kind, const QByteArray& echo) {
+                auto it = _terminals.find(id);
+                if (it == _terminals.end() || it->second->device->state() != SerialDevice::State::Open)
+                {
+                    return;
+                }
+                QString    error;
+                const auto accepted = it->second->device->write(data, &error);
+                if (accepted < 0)
+                {
+                    _window.statusBar()->showMessage(owned(error));
+                }
+                else if ((kind == TerminalDisplay::OutputKind::Keyboard || kind == TerminalDisplay::OutputKind::Paste)
+                         && accepted == data.size() && it->second->settings.value("input/localEcho", false).toBool())
+                {
+                    it->second->display->localEcho(echo);
+                }
+            });
+    connect(display, &TerminalDisplay::linkActivated, this, [](const QUrl& url) { QDesktopServices::openUrl(url); });
+    connect(display, &TerminalDisplay::titleChanged, this, [this, id](const QString& title) {
         auto it = _terminals.find(id);
-        if (it == _terminals.end() || it->second->device->state() != SerialDevice::State::Open)
+        if (it != _terminals.end())
         {
-            return;
-        }
-        QString    error;
-        const auto accepted = it->second->device->write(data, &error);
-        if (accepted < 0)
-        {
-            _window.statusBar()->showMessage(owned(error));
-        }
-        else if (it->second->settings.value("input/localEcho", false).toBool())
-        {
-            it->second->display->receive(data.left(accepted));
+            const int index = _window.terminalTabs().indexOf(it->second->panel);
+            _window.terminalTabs().setTabToolTip(index, Qt::convertFromPlainText(title));
         }
     });
     const int index = _window.terminalTabs().addTab(panel, _terminals.at(id)->name);

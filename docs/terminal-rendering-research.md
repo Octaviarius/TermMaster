@@ -18,8 +18,9 @@ cache or custom GPU atlas at this stage.
 Retain prepared layouts for unchanged visible rows and invalidate affected rows
 when their text, formatting or layout inputs change. Keep layout caching bounded
 to the working viewport rather than retaining a layout for every historical row.
-The exact screen/history model and compatibility scope remain to be designed.
-This decision records direction; production integration is pending.
+The selected renderer is now integrated in the project-owned terminal widget.
+See [current emulation](terminal-emulation.md) for the model, bounded viewport
+cache, compatibility matrix and remaining history work.
 
 ## Requirements recorded so far
 
@@ -35,7 +36,7 @@ address space, input rate and failure handling remain finite. RAM usage must
 be bounded independently of history length. This interpretation needs to remain
 explicit in any product claim.
 
-## Current project findings
+## Research snapshot of the archived renderer
 
 The existing widget provides a useful rendering experiment, but its data model
 and repaint path do not yet establish the requirements above.
