@@ -60,9 +60,10 @@ without repeating `Termaster/Core`. GUI contracts use `gui/<feature>` under the
 public include root and implementations/internal headers use `src/gui/<feature>`.
 Core includes no Managers, Logic, Terminal or Widgets module dependencies.
 
-The old `managers`, `logic`, `terminal` and `widgets` trees are unbuilt reference
-material. Their CMake files and callers are not supported against the current
-Core API. The old application entry point is retained at `src/legacy/Main.cpp`.
+The obsolete Managers, Logic, Terminal and Widgets modules and the legacy entry
+point were removed after checking the active CMake graph, includes and tests.
+Their implementations remain recoverable from Git history. The current terminal
+emulator belongs to Core; the serial backend belongs to SerialTerminal.
 The current main.cpp only constructs App and calls run(). Module src/app owns
 the Qt Widgets application shell, its main window, commands and orchestration.
 Workspace/session persistence and disconnected terminal reconstruction are implemented.
@@ -120,3 +121,11 @@ single-file workspace lifecycle and planned session/terminal-group behavior.
 [Application module](application.md) describes App, base windows and command/container access.
 
 [Windows environment and Qt desktop builds](development-environment.md) documents environment export and presets.
+
+## Archived source removal
+
+Removed the five unbuilt trees `src/terminal`, `src/managers`, `src/logic`,
+`src/widgets` and `src/legacy`. No active target, test or example depended on them.
+Retained research examples, captures and protocol documentation remain useful
+verification material. The unchanged active build graph was checked by a full
+Debug build and the application/terminal test suites.
