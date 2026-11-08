@@ -22,7 +22,7 @@ component storage have been removed. No compatibility aliases are retained.
 Representation is private. Values support copying, equality, `parent()`, `join()`
 and `/`; `/=` is the explicit mutating convenience. `toString()` is required at
 Qt string boundaries. There are no implicit QString or component-list conversions.
-SettingsManager now returns native Path values instead of the old PosixPath type.
+ApplicationPaths provides native Path locations; Settings accepts either a Path or an explicit QString.
 
 ```cpp
 PurePosixPath menu("/application/menu");

@@ -181,7 +181,7 @@ ranges and cross-toolchain ABI compatibility are not implemented; plugins must
 use a compatible compiler, Qt, architecture and configuration.
 
 Enable preferences are stored in `plugins.yaml` under Qt's application-data
-directory, through an independently owned `SettingsManager`:
+directory, through an independently owned `Settings`:
 
 ```yaml
 enabled:
@@ -193,7 +193,7 @@ The YAML layer has been rewritten to remove unsafe QVariant casts, preserve
 unknown mappings/sequences and check parse/serialization/write failures. Plugin
 preferences are validated before atomic `QSaveFile` replacement; malformed files
 are not overwritten. File limits are 4 MiB, 64 nesting levels and 100000 nodes.
-Existing application settings APIs remain active for current consumers.
+The former QSettings-based APIs are unbuilt reference material; current consumers use Core Settings.
 
 ## Module build helper
 
@@ -287,9 +287,9 @@ plugins and are recalculated from the current catalog. Dependency lists are
 bounded scrollable fields. Invalid metadata cannot be enabled through the window.
 Lifecycle and persistence errors are reported without a modal confirmation flow.
 
-In the current terminal prototype, open the window with **Ctrl+Shift+P** or the
-**Plugins…** context-menu action. Launch `Termaster.exe --plugins` to show only
-the manager window. The existing normal-application bootstrap remains unchanged.
+The current executable opens the management window directly through a minimal
+Core bootstrap. The earlier terminal entry point remains unbuilt reference
+material under `src/legacy/Main.cpp`.
 
 The window uses standard Qt Widgets and native palette/font metrics. Content can
 scroll on small displays; the close button and operation diagnostics remain outside the scroll area.
@@ -314,3 +314,6 @@ including the independently built SDK consumer. The Windows application uses
 the GUI subsystem. Final native captures at 100%, 150% and 200% were reviewed;
 small viewports expose scrollable content with persistent close/error controls.
 Tests also verify that Enter in the filter does not change plugin preferences.
+
+Plugin preferences now use the general [Core Settings owner](settings.md). The plugin manager
+validates its own enabled states; no Managers module or SettingsManager is required.

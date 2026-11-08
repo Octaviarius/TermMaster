@@ -173,5 +173,5 @@ action suite passed all 12 cases without skips at scale factors 1 and 2. Window
 and menu captures at both scales were visually inspected: Unicode labels,
 separators and the toolbar dropdown rendered correctly. Offscreen capture emits
 platform/font warnings; visual acceptance uses the native Windows captures.
-The main application's experimental terminal entry point remains unchanged;
-these fixtures exercise the containers independently of that startup path.
+These fixtures exercise the containers independently of application startup.
+The experimental terminal entry point has since become unbuilt reference material.
