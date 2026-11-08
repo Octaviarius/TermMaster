@@ -1,7 +1,7 @@
 #include <QBuffer>
 #include <QElapsedTimer>
 #include <QTest>
-#include <Termaster/Core/terminal/TerminalGraphics.h>
+#include <Termaster/Core/Terminal/TerminalGraphics.h>
 
 class TerminalGraphicsTests : public QObject
 {

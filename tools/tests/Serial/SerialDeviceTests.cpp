@@ -1,5 +1,5 @@
+#include "Gui/Serial/PortSelector.h"
 #include "SerialByteDevice.h"
-#include "gui/serial/PortSelector.h"
 
 #include <QComboBox>
 #include <QElapsedTimer>

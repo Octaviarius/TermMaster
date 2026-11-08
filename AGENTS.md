@@ -54,7 +54,7 @@ changing behavior. These rules apply repository-wide.
   Obsolete Managers, Logic, Terminal, Widgets and the legacy bootstrap were removed.
 - Keep main.cpp as a minimal wrapper that constructs App and calls run(). Module
   App owns QApplication integration, application orchestration and the base
-  application's windows/dialogs under src/gui/. Core owns reusable infrastructure
+  application's windows/dialogs under src/Gui/. Core owns reusable infrastructure
   and its own feature GUI; Core must not depend on App.
 - Active YAML plugin preferences use the general Core Settings owner and preserve
   validation and atomic writes.
@@ -75,6 +75,8 @@ changing behavior. These rules apply repository-wide.
   - widget rendering and input handling;
   - application orchestration;
   - settings persistence.
+- Use CamelCase directory names inside src/, including module and feature names.
+  Keep src and inc lowercase at every level; do not rename directories outside src/.
 - Keep application modules under src/. Each module exposes public headers under
   inc/Termaster/ModuleName and keeps implementation/internal organization under
   src/. Place changes with the responsible component. Dependencies belong under
@@ -82,13 +84,13 @@ changing behavior. These rules apply repository-wide.
 - Mirror the public header hierarchy in module src/: a header at
   inc/Termaster/ModuleName/path/Class.h has its implementation at src/path/Class.cpp.
   Do not repeat the Termaster/ModuleName prefix under src/.
-- Keep module-owned GUI under src/gui/, grouped by feature. Public GUI headers
-  belong under inc/Termaster/ModuleName/gui/ with the same feature hierarchy.
+- Keep module-owned GUI under src/Gui/, grouped by feature. Public GUI headers
+  belong under inc/Termaster/ModuleName/Gui/ with the same feature hierarchy.
   Keep internal headers and .ui files beside their implementations; do not add
-  module-root gui/ directories or separate gui/inc and gui/src trees.
+  module-root Gui/ directories or separate Gui/inc and Gui/src trees.
 - Group each feature's widgets, presentation models, delegates and controllers
-  together under gui/feature/. Keep domain models and application state outside
-  gui/; being consumed by a widget does not make a model part of presentation.
+  together under Gui/feature/. Keep domain models and application state outside
+  Gui/; being consumed by a widget does not make a model part of presentation.
 - Qt is an intentional dependency. Use QObject, signals/slots, QByteArray,
   QString and Qt ownership conventions where appropriate.
   Do not create replacements for Qt infrastructure without a concrete need.

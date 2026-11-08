@@ -65,8 +65,8 @@ target without building the provider's implementation sources.
 ## Core plugin contract and location
 
 The public plugin contract and manager headers belong under
-`src/core/inc/Termaster/Core/plugin`; the implementation belongs under
-`src/core/src/plugin`. Every plugin root inherits the shared interface.
+`src/Core/inc/Termaster/Core/Plugin`; the implementation belongs under
+`src/Core/src/Plugin`. Every plugin root inherits the shared interface.
 
 The interface exposes four operations:
 
@@ -208,7 +208,7 @@ The former QSettings-based APIs are unbuilt reference material; current consumer
 an isolated SDK under `build/plugin/<Target>/`: runtime library, import library,
 public headers and a relocatable `Termaster<Target>` CMake package. Public headers
 are authored below `HEADER_BASE_DIR/Termaster/<Target>` (default base: `inc/`) and preserve subdirectories.
-`TermasterPluginApi` supplies the common `<Termaster/Core/plugin/Plugin.h>` contract.
+`TermasterPluginApi` supplies the common `<Termaster/Core/Plugin/Plugin.h>` contract.
 
 ```cmake
 termaster_add_plugin(ExampleConsumer
@@ -243,7 +243,7 @@ data, cross-DLL inheritance and virtual-table cases need verification when
 introduced; the autoexport experiment does not cover those cases or MinGW.
 Matching toolchain/Qt/architecture/configuration were used for the tests.
 
-The runtime implementation is in `src/core/src/plugin`; the application owns
+The runtime implementation is in `src/Core/src/Plugin`; the application owns
 its manager for the duration of the event loop. Earlier examples remain isolated
 experiments, not production module implementations.
 
@@ -275,11 +275,10 @@ through `TERMASTER_EXTERNAL_PLUGIN`. Generated logs remain disposable build outp
 
 ## Management window
 
-The implementation belongs to `src/core/src/gui/plugin/`. The concrete
+The implementation belongs to `src/Core/src/Gui/Plugin/`. The concrete
 window, table projection and controller headers remain internal. The public
-`<Termaster/Core/gui/plugin/PluginManagerGui.h>` factory creates a modeless `QDialog`;
-the caller owns it. Its implementation is `src/gui/plugin/PluginManagerGui.cpp`
-within Core. Destroying the borrowed manager disables the window safely.
+`<Termaster/Core/Gui/Plugin/PluginManagerGui.h>` factory creates a modeless `QDialog`;
+the caller owns it. Its implementation is `src/Core/src/Gui/Plugin/PluginManagerGui.cpp`. Destroying the borrowed manager disables the window safely.
 Closing the window does not itself change plugin preferences or stop the manager.
 
 The table shows enabled preferences, names, IDs, versions and runtime states,
@@ -295,8 +294,7 @@ bounded scrollable fields. Invalid metadata cannot be enabled through the window
 Lifecycle and persistence errors are reported without a modal confirmation flow.
 
 The current App shell opens this window through Tools/Plugins or its toolbar
-command. The earlier terminal entry point remains unbuilt reference material
-under `src/legacy/Main.cpp`.
+command. The obsolete terminal entry point was removed with the archived modules.
 
 The window uses standard Qt Widgets and native palette/font metrics. Content can
 scroll on small displays; the close button and operation diagnostics remain outside the scroll area.

@@ -44,31 +44,31 @@ entry point, resource directory and application CMake assembly are directly in
 `src/`. Each application module uses this layout:
 
 ```text
-src/<module>/
+src/<ModuleName>/
     CMakeLists.txt
     inc/Termaster/<ModuleName>/<feature>/<Class>.h
     src/<feature>/<Class>.cpp
-    inc/Termaster/<ModuleName>/gui/<feature>/<PublicGuiClass>.h
-    src/gui/<feature>/<PublicGuiClass>.cpp
-    src/gui/<feature>/<InternalClass>.h/.cpp
-    src/gui/<feature>/<Form>.ui
+    inc/Termaster/<ModuleName>/Gui/<feature>/<PublicGuiClass>.h
+    src/Gui/<feature>/<PublicGuiClass>.cpp
+    src/Gui/<feature>/<InternalClass>.h/.cpp
+    src/Gui/<feature>/<Form>.ui
 ```
 
 Core, App and SerialTerminal are the active implementation modules. Core public includes use
 `<Termaster/Core/Header.h>` and its implementation hierarchy mirrors that prefix
-without repeating `Termaster/Core`. GUI contracts use `gui/<feature>` under the
-public include root and implementations/internal headers use `src/gui/<feature>`.
+without repeating `Termaster/Core`. GUI contracts use `Gui/<feature>` under the
+public include root and implementations/internal headers use `src/Gui/<feature>`.
 Core includes no Managers, Logic, Terminal or Widgets module dependencies.
 
 The obsolete Managers, Logic, Terminal and Widgets modules and the legacy entry
 point were removed after checking the active CMake graph, includes and tests.
 Their implementations remain recoverable from Git history. The current terminal
 emulator belongs to Core; the serial backend belongs to SerialTerminal.
-The current main.cpp only constructs App and calls run(). Module src/app owns
+The current main.cpp only constructs App and calls run(). Module src/App owns
 the Qt Widgets application shell, its main window, commands and orchestration.
 Workspace/session persistence and disconnected terminal reconstruction are implemented.
 See [terminal support](terminals-and-serial.md) for runtime boundaries.
-No module-root `gui/` directories are used.
+No module-root `Gui/` directories are used.
 
 The module layout does not change the existing static-library application graph
 into runtime plugins. `termaster_add_plugin` remains the explicit SHARED module
@@ -91,7 +91,7 @@ ownership and native Qt adapters.
 On 2026-11-08, 44 files were relocated to the mirrored hierarchy. File contents
 were checked byte-for-byte during relocation; include paths were then updated
 and changed C++ files formatted. The plugin-window factory was extracted into
-`Core/src/gui/plugin/PluginManagerGui.cpp` to match its public header. CMake
+`Core/src/Gui/Plugin/PluginManagerGui.cpp` to match its public header. CMake
 source existence, public header/source pairing and application-module includes
 were checked automatically. Forms retained their original contents.
 
@@ -129,3 +129,17 @@ Removed the five unbuilt trees `src/terminal`, `src/managers`, `src/logic`,
 Retained research examples, captures and protocol documentation remain useful
 verification material. The unchanged active build graph was checked by a full
 Debug build and the application/terminal test suites.
+
+## Source directory naming
+
+Project-owned directories inside `src/` use CamelCase: `App`, `Core`,
+`SerialTerminal`, `Gui`, `Terminal`, `Plugin`, `Settings`, `Res` and their feature
+subdirectories. The directory names `src` and `inc` stay lowercase at every level.
+Public and implementation hierarchies mirror one another. Directories outside
+`src/`, dependency checkouts and SDK output conventions keep their existing names.
+
+The naming pass accounted for all 134 source files, with 131 case-only path
+relocations. Exact source/public-include casing and unchanged non-C++ assets were
+checked automatically. The complete MSVC/Qt Debug build, independently rebuilt
+external plugin consumer and all 19 CTest suites passed. The native 1280 × 800
+terminal capture matched the pre-relocation PNG byte-for-byte.

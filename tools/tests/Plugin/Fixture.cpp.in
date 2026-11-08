@@ -2,7 +2,7 @@
 #include <QObject>
 #include <QThread>
 #include <QTimer>
-#include <Termaster/Core/plugin/Plugin.h>
+#include <Termaster/Core/Plugin/Plugin.h>
 
 #ifdef FIXTURE_PROVIDER
 extern "C" int termasterFixtureValue()

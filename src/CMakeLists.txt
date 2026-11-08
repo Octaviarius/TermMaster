@@ -21,7 +21,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 if(WIN32)
     set(TERMASTER_APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/../assets/IconOrange.ico")
-    configure_file(app/res/AppIcon.rc.in
+    configure_file(App/Res/AppIcon.rc.in
         "${CMAKE_CURRENT_BINARY_DIR}/AppIcon.rc"
         @ONLY
     )
@@ -32,25 +32,25 @@ endif()
 
 qt_add_resources(${PROJECT_NAME} "icons"
     PREFIX "/icons"
-    BASE "res/icon"
+    BASE "Res/Icon"
     FILES
-    res/icon/cat-terminal.svg
-    res/icon/cat-appearance.svg
-    res/icon/cat-connections.svg
-    res/icon/cat-dialogs.svg
-    res/icon/cat-keyboard.svg
-    res/icon/cat-mouse.svg
-    res/icon/cat-shortcuts.svg
-    res/icon/connected.svg
-    res/icon/disconnected.svg
-    res/icon/new-terminal.svg
-    res/icon/new-terminal-console.svg
-    res/icon/new-terminal-serial.svg
-    res/icon/new-terminal-socket.svg
-    res/icon/new-terminal-ssh.svg
-    res/icon/device-usb.svg
-    res/icon/device-pci.svg
-    res/icon/device-virtual.svg
+    Res/Icon/cat-terminal.svg
+    Res/Icon/cat-appearance.svg
+    Res/Icon/cat-connections.svg
+    Res/Icon/cat-dialogs.svg
+    Res/Icon/cat-keyboard.svg
+    Res/Icon/cat-mouse.svg
+    Res/Icon/cat-shortcuts.svg
+    Res/Icon/connected.svg
+    Res/Icon/disconnected.svg
+    Res/Icon/new-terminal.svg
+    Res/Icon/new-terminal-console.svg
+    Res/Icon/new-terminal-serial.svg
+    Res/Icon/new-terminal-socket.svg
+    Res/Icon/new-terminal-ssh.svg
+    Res/Icon/device-usb.svg
+    Res/Icon/device-pci.svg
+    Res/Icon/device-virtual.svg
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -58,7 +58,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 
-add_subdirectory(core)
-add_subdirectory(app)
+add_subdirectory(Core)
+add_subdirectory(App)
 
-add_subdirectory(serialterminal)
+add_subdirectory(SerialTerminal)

@@ -6,4 +6,4 @@
 /*Debug*
 /.vscode/
 
-!src/core/inc/Termaster/Core/BuildTime.h
+!src/Core/inc/Termaster/Core/BuildTime.h

@@ -1,5 +1,5 @@
 #include <QtTest>
-#include <Termaster/Core/terminal/TerminalScreen.h>
+#include <Termaster/Core/Terminal/TerminalScreen.h>
 
 class TerminalScreenTests : public QObject
 {

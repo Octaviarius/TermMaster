@@ -1,6 +1,6 @@
 # Application module
 
-`src/app` owns the application shell and orchestration. The executable target
+`src/App` owns the application shell and orchestration. The executable target
 remains Termaster; App is the static application module and Core is reusable
 infrastructure. The obsolete Widgets/Managers modules and their bootstrap have been removed. Core does not depend on App.
 
@@ -21,17 +21,17 @@ metadata before resolving standard paths, and owns its components. The module
 uses the established mirrored include/source layout:
 
 ```text
-src/app/
+src/App/
     CMakeLists.txt
     inc/Termaster/App/App.h
     src/App.cpp
-    src/gui/main/MainWindow.h
-    src/gui/main/MainWindow.cpp
+    src/Gui/Main/MainWindow.h
+    src/Gui/Main/MainWindow.cpp
 ```
 
-Base application windows and dialogs belong to App's `src/gui/<feature>`, with
+Base application windows and dialogs belong to App's `src/Gui/<feature>`, with
 internal headers and forms beside implementation. Shared GUI contracts, if
-needed, use `inc/Termaster/App/gui/<feature>`. The concrete MainWindow is internal;
+needed, use `inc/Termaster/App/Gui/<feature>`. The concrete MainWindow is internal;
 App exposes a QMainWindow reference. Core retains its plugin-management window
 and action-container implementations, which are feature GUI of Core.
 
@@ -179,7 +179,7 @@ App uses the approved orange asset from assets/IconOrange.png as its global Qt
 window icon through `:/Termaster/App/IconOrange.png`. The App static module owns
 the resource; main and child windows inherit the application icon. On Windows,
 the executable additionally embeds assets/IconOrange.ico through the configured
-AppIcon.rc resource template under src/app/res. Both original assets are used
+AppIcon.rc resource template under src/App/Res. Both original assets are used
 unchanged; the ICO supplies seven native sizes from 16 through 256 pixels.
 
 Verified on 2026-11-08 in the Desktop Qt MSVC Debug build: all seven CTest suites
@@ -213,8 +213,8 @@ model-backed editor captures were visually inspected. See
 The internal SettingsDialog owns category/page navigation, search and page drafts.
 App registers real Appearance pages for application, workspace and session scopes,
 then adds explicitly isolated preview pages from YAML resources under
-`src/app/res/settings/`. SerialPortPreviewEditor and its example model belong to
-App's `gui/settings` feature. The application-owned widget registry outlives dialogs;
+`src/App/Res/Settings/`. SerialPortPreviewEditor and its example model belong to
+App's `Gui/Settings` feature. The application-owned widget registry outlives dialogs;
 its preview factory is registered once per App instance. No serial API is used.
 See [preferences navigation](settings-forms.md#preferences-navigation-and-preview-pages).
 

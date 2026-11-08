@@ -4,21 +4,21 @@ find_package(Qt6 REQUIRED COMPONENTS
     SerialPort
 )
 qt_add_executable(SerialDeviceTests
-    ../../../src/serialterminal/resources/SerialTerminal.qrc
+    ../../../src/SerialTerminal/Resources/SerialTerminal.qrc
     SerialDeviceTests.cpp
-    ../../../src/serialterminal/src/PortClassification.cpp
-    ../../../src/serialterminal/src/SerialByteDevice.cpp
-    ../../../src/serialterminal/src/SerialByteDevice.h
-    ../../../src/serialterminal/src/gui/serial/PortSelector.cpp
-    ../../../src/serialterminal/src/gui/serial/PortSelector.h
+    ../../../src/SerialTerminal/src/PortClassification.cpp
+    ../../../src/SerialTerminal/src/SerialByteDevice.cpp
+    ../../../src/SerialTerminal/src/SerialByteDevice.h
+    ../../../src/SerialTerminal/src/Gui/Serial/PortSelector.cpp
+    ../../../src/SerialTerminal/src/Gui/Serial/PortSelector.h
 )
 set_target_properties(SerialDeviceTests PROPERTIES
     AUTORCC ON
 )
 target_compile_features(SerialDeviceTests PRIVATE cxx_std_20)
 target_include_directories(SerialDeviceTests PRIVATE
-    ../../../src/serialterminal/inc
-    ../../../src/serialterminal/src
+    ../../../src/SerialTerminal/inc
+    ../../../src/SerialTerminal/src
 )
 target_link_libraries(SerialDeviceTests PRIVATE
     Termaster::PluginApi
@@ -32,22 +32,22 @@ set_tests_properties(SerialDeviceTests PROPERTIES
 )
 
 qt_add_executable(SerialPluginTests
-    ../../../src/serialterminal/src/SerialTerminal.cpp
+    ../../../src/SerialTerminal/src/SerialTerminal.cpp
     SerialPluginTests.cpp
-    ../../../src/serialterminal/src/SerialPlugin.cpp
-    ../../../src/serialterminal/src/SerialPlugin.h
-    ../../../src/serialterminal/src/PortClassification.cpp
-    ../../../src/serialterminal/src/SerialByteDevice.cpp
-    ../../../src/serialterminal/src/gui/serial/PortSelector.cpp
-    ../../../src/serialterminal/resources/SerialTerminal.qrc
+    ../../../src/SerialTerminal/src/SerialPlugin.cpp
+    ../../../src/SerialTerminal/src/SerialPlugin.h
+    ../../../src/SerialTerminal/src/PortClassification.cpp
+    ../../../src/SerialTerminal/src/SerialByteDevice.cpp
+    ../../../src/SerialTerminal/src/Gui/Serial/PortSelector.cpp
+    ../../../src/SerialTerminal/Resources/SerialTerminal.qrc
 )
 set_target_properties(SerialPluginTests PROPERTIES
     AUTORCC ON
 )
 target_compile_features(SerialPluginTests PRIVATE cxx_std_20)
 target_include_directories(SerialPluginTests PRIVATE
-    ../../../src/serialterminal/inc
-    ../../../src/serialterminal/src
+    ../../../src/SerialTerminal/inc
+    ../../../src/SerialTerminal/src
 )
 target_link_libraries(SerialPluginTests PRIVATE
     Termaster::PluginApi
@@ -62,11 +62,11 @@ set_tests_properties(SerialPluginTests PROPERTIES
 
 qt_add_executable(PortClassificationTests
     PortClassificationTests.cpp
-    ../../../src/serialterminal/src/PortClassification.cpp
+    ../../../src/SerialTerminal/src/PortClassification.cpp
 )
 target_compile_features(PortClassificationTests PRIVATE cxx_std_20)
 target_include_directories(PortClassificationTests PRIVATE
-    ../../../src/serialterminal/src
+    ../../../src/SerialTerminal/src
 )
 target_link_libraries(PortClassificationTests PRIVATE
     Qt6::Test

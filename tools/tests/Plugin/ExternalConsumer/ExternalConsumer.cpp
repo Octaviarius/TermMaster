@@ -1,5 +1,5 @@
 #include <QObject>
-#include <Termaster/Core/plugin/Plugin.h>
+#include <Termaster/Core/Plugin/Plugin.h>
 #include <Termaster/PluginFixtureProvider/Api.h>
 
 class ExternalConsumer final : public QObject, public Plugin
