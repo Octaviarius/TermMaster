@@ -10,7 +10,7 @@
 #include <QRegularExpression>
 #include <QScopedValueRollback>
 #include <QThread>
-#include <Termaster/Core/PluginManager.h>
+#include <Termaster/Core/plugin/PluginManager.h>
 #include <Termaster/Managers/SettingsManager.h>
 #include <algorithm>
 #include <exception>

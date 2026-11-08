@@ -65,7 +65,7 @@ target without building the provider's implementation sources.
 ## Core plugin contract and location
 
 The public plugin contract and manager headers belong under
-`src/core/inc/Termaster/Core`; the implementation belongs under
+`src/core/inc/Termaster/Core/plugin`; the implementation belongs under
 `src/core/src/plugin`. Every plugin root inherits the shared interface.
 
 The interface exposes four operations:
@@ -201,7 +201,7 @@ Existing application settings APIs remain active for current consumers.
 an isolated SDK under `build/plugin/<Target>/`: runtime library, import library,
 public headers and a relocatable `Termaster<Target>` CMake package. Public headers
 are authored below `HEADER_BASE_DIR/Termaster/<Target>` (default base: `inc/`) and preserve subdirectories.
-`TermasterPluginApi` supplies the common `<Termaster/Core/Plugin.h>` contract.
+`TermasterPluginApi` supplies the common `<Termaster/Core/plugin/Plugin.h>` contract.
 
 ```cmake
 termaster_add_plugin(ExampleConsumer

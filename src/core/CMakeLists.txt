@@ -32,8 +32,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/ToolbarActionContainer.cpp
     inc/Termaster/Core/EnumReflection.h
     inc/Termaster/Core/Deque.h
-    inc/Termaster/Core/Plugin.h
-    inc/Termaster/Core/PluginManager.h
+    inc/Termaster/Core/plugin/Plugin.h
+    inc/Termaster/Core/plugin/PluginManager.h
     src/plugin/PluginManager.cpp
 
 )
