@@ -1,4 +1,4 @@
-"""Verify direct C++ calls between two qt_add_plugin MODULE DLLs on Windows."""
+"""Verify cross-DLL C++ calls and Qt plugin loading on Windows."""
 
 import argparse
 import json
@@ -61,6 +61,18 @@ def main():
                 "consumer_imports_provider": True,
                 "host_imports_plugins": False,
                 "cases": []}
+    target_record = build / "ProbeTargets.json"
+    if target_record.is_file():
+        evidence["cmake_targets"] = json.loads(target_record.read_text(encoding="utf-8"))
+    if any("ProviderAccumulator" in symbol for symbol in exports):
+        prefixes = ["??0ProviderAccumulator@@", "??1ProviderAccumulator@@", "?add@ProviderAccumulator@@"]
+        imported_methods = []
+        for prefix in prefixes:
+            matching = [symbol for symbol in exports if symbol.startswith(prefix)]
+            require(len(matching) == 1 and matching[0] in dumps["consumer"],
+                    f"Consumer does not import the ordinary class operation {prefix}")
+            imported_methods.extend(matching)
+        evidence["consumer_class_imports"] = imported_methods
     cases = [
         ("provider-first", True, True, False, True),
         ("consumer-first-native-autoload", False, True, True, True),
