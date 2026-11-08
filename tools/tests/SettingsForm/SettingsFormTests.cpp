@@ -248,6 +248,7 @@ private:
         QVERIFY(form.findChildren<QCheckBox*>().isEmpty());
         auto* reset = form.findChild<QToolButton*>("reset_fontSize");
         QVERIFY(reset);
+        QVERIFY(!reset->icon().pixmap(16, 16).isNull());
         QVERIFY(reset->isHidden());
         QVERIFY(reset->toolTip().contains("16"));
         const auto    inheritedTextColor = form.editor("fontSize")->palette().color(QPalette::Text);

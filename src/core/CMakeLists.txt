@@ -122,3 +122,10 @@ qt_add_resources(Core "settingsSchemaMeta"
     FILES
         "${settings_meta_schema}"
 )
+
+qt_add_resources(Core "settingsFormIcons"
+    PREFIX "/Termaster/Core/gui/settings"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/res/gui/settings"
+    FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/res/gui/settings/ResetOverride.svg"
+)

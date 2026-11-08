@@ -225,7 +225,8 @@ No serial hardware was enumerated or opened. Release was not rebuilt.
 Overlay-backed fields are immediately editable, including inherited required values.
 Editing establishes a local override. A small reset button to the right removes
 only that override and displays the inherited value or descriptor default; its
-tooltip shows the fallback. The reset button is an orange vertical rectangle,
+tooltip shows the fallback. The reset button uses an original curved return-arrow
+SVG on an orange vertical rectangle with rounded corners,
 visible only for a local override; its space remains reserved to keep fields
 aligned when editing or resetting. Inherited and local values use the same text
 color. Required values without any fallback cannot be reset.
@@ -240,3 +241,8 @@ was verified with the MSVC Debug build, SettingsFormTests and AppTests. Native
 application checks passed at scale factors 1 and 2. Tests cover reset visibility
 through edit/apply/reset and equal inherited/local text colors; the updated
 1280 by 800 reference is [Serial terminal settings](images/preferences/SerialTerminal.png).
+
+The curved reset symbol is a project-owned SVG bundled by Core. Its rendering is
+checked through the static resource link in SettingsFormTests. The updated symbol
+passed the affected Debug tests and native application checks at scales 1 and 2;
+the reference capture above reflects the rounded-button variant.

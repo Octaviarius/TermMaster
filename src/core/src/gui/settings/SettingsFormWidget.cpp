@@ -6,15 +6,25 @@
 #include <QLabel>
 #include <QScrollArea>
 #include <QSignalBlocker>
-#include <QStyle>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <Termaster/Core/gui/settings/SettingsFormWidget.h>
 #include <algorithm>
 
+static void initializeSettingsFormResources()
+{
+    static const bool initialized = [] {
+        Q_INIT_RESOURCE(settingsFormIcons);
+        return true;
+    }();
+    Q_UNUSED(initialized)
+}
+
 SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetRegistry& registry, QWidget* parent) :
     QWidget(parent), _model(&model)
 {
+    initializeSettingsFormResources();
+
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
     auto* scroll = new QScrollArea(this);
@@ -91,11 +101,12 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
         {
             auto* reset = new QToolButton(container);
             reset->setObjectName(QStringLiteral("reset_") + field.key);
-            reset->setIcon(style()->standardIcon(QStyle::SP_ArrowBack));
+            reset->setIcon(QIcon(":/Termaster/Core/gui/settings/ResetOverride.svg"));
+            reset->setIconSize(QSize(14, 14));
             reset->setAccessibleName(
                 tr("Reset %1 to inherited value").arg(field.title.isEmpty() ? field.key : field.title));
             reset->setFixedSize(20, 26);
-            reset->setStyleSheet("QToolButton { background: #f0a13b; border: 1px solid #b87522; border-radius: 2px; }"
+            reset->setStyleSheet("QToolButton { background: #f0a13b; border: 1px solid #b87522; border-radius: 4px; }"
                                  "QToolButton:hover { background: #ffbd66; }"
                                  "QToolButton:pressed { background: #d98a24; }"
                                  "QToolButton:disabled { background: #d8c6ad; border-color: #b8aa98; }");
