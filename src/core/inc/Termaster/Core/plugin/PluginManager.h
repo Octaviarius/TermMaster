@@ -11,6 +11,7 @@
 #include <memory>
 
 class Settings;
+class PluginHost;
 
 /** Owns loaders and exposes the live plugin catalog. Use only on its QObject thread.
  * Settings is borrowed and must outlive the manager. Plugin pointers are
@@ -68,6 +69,7 @@ public:
     QString      directory() const;
     QStringList  reverseDependencies(const QString& id) const;
     bool         isActive() const;
+    void         setHost(PluginHost* host);
     bool         start(QString* error = nullptr);
     bool         stop(QString* error = nullptr);
     bool         rescan(QString* error = nullptr);
@@ -91,6 +93,7 @@ private:
         bool                           failed           = false;
     };
 
+    PluginHost*                                _host = nullptr;
     Settings&                                  _settings;
     QString                                    _directory;
     QFileSystemWatcher                         _watcher;

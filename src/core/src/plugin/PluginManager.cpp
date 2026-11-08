@@ -11,9 +11,11 @@
 #include <QScopedValueRollback>
 #include <QThread>
 #include <Termaster/Core/Settings.h>
+#include <Termaster/Core/plugin/HostedPlugin.h>
 #include <Termaster/Core/plugin/PluginManager.h>
 #include <algorithm>
 #include <exception>
+#include <stdexcept>
 
 PluginManager::PluginManager(Settings& settings, QString directory, QObject* parent) :
     QAbstractListModel(parent), _settings(settings), _directory(QDir(directory).absolutePath()), _watcher(this),
@@ -808,7 +810,14 @@ bool PluginManager::_startRecord(Record& record)
                 {
                     cause = QStringLiteral("Plugin root must initially be stopped");
                 }
-                else if (record.instance->startup(&cause) && record.instance->state() == Plugin::State::Running)
+                else if ([&] {
+                             if (auto* hosted = qobject_cast<HostedPlugin*>(root))
+                             {
+                                 hosted->setHost(_host);
+                             }
+                             return record.instance->startup(&cause);
+                         }()
+                         && record.instance->state() == Plugin::State::Running)
                 {
                     _loadedOrder.append(entry.path);
                     entry.status = Status::Running;
@@ -1032,4 +1041,13 @@ void PluginManager::_report(const QString& error)
 {
     qWarning().noquote() << error;
     emit errorOccurred(error);
+}
+
+void PluginManager::setHost(PluginHost* host)
+{
+    if (_active || !_loadedOrder.isEmpty())
+    {
+        throw std::logic_error("Set the plugin host before starting plugins");
+    }
+    _host = host;
 }
