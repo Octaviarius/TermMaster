@@ -287,9 +287,9 @@ plugins and are recalculated from the current catalog. Dependency lists are
 bounded scrollable fields. Invalid metadata cannot be enabled through the window.
 Lifecycle and persistence errors are reported without a modal confirmation flow.
 
-The current executable opens the management window directly through a minimal
-Core bootstrap. The earlier terminal entry point remains unbuilt reference
-material under `src/legacy/Main.cpp`.
+The current App shell opens this window through Tools/Plugins or its toolbar
+command. The earlier terminal entry point remains unbuilt reference material
+under `src/legacy/Main.cpp`.
 
 The window uses standard Qt Widgets and native palette/font metrics. Content can
 scroll on small displays; the close button and operation diagnostics remain outside the scroll area.

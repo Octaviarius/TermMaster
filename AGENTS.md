@@ -50,12 +50,15 @@ changing behavior. These rules apply repository-wide.
 
 ## Architecture
 
-- Core is the active implementation boundary. Modules managers, logic, terminal
+- Core and app are the active implementation modules. Modules managers, logic, terminal
   and widgets are unbuilt reference material for future rewrites, not supported
   dependencies or reasons to preserve obsolete Core APIs. Do not restore them to
   the active target graph or repair their archived callers without a requirement.
-- Keep application main.cpp as a minimal Qt Widgets bootstrap over Core. The old
-  entry point under src/legacy/ is reference material and is not built.
+- Keep main.cpp as a minimal wrapper that constructs App and calls run(). Module
+  app owns QApplication integration, application orchestration and the base
+  application's windows/dialogs under src/gui/. Core owns reusable infrastructure
+  and its own feature GUI; Core must not depend on app. The old src/legacy/ entry
+  point is reference material and is not built.
 - Core must not depend on those reference modules. Active YAML plugin preferences
   use the general Core Settings owner and preserve validation and atomic writes.
 - The application opens a workspace. A workspace owns general workspace settings,
