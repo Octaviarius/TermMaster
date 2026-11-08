@@ -1,12 +1,11 @@
-#include "core/plugin/PluginManager.h"
-#include "managers/SettingsManager.h"
-
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <Termaster/Core/PluginManager.h>
+#include <Termaster/Managers/SettingsManager.h>
 #include <yaml-cpp/yaml.h>
 #ifdef Q_OS_WIN
 #include <windows.h>

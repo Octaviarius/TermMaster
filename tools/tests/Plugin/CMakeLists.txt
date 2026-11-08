@@ -5,7 +5,6 @@ find_package(Qt6 REQUIRED COMPONENTS
     SerialBus
     SerialPort
 )
-get_filename_component(plugin_test_root "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 
 function(add_plugin_fixture fixture_target fixture_id fixture_version fixture_deps)
     set(fixture_json "${CMAKE_CURRENT_BINARY_DIR}/${fixture_target}.json")
@@ -26,7 +25,7 @@ function(add_plugin_fixture fixture_target fixture_id fixture_version fixture_de
     configure_file(Fixture.cpp.in "${fixture_target}.cpp" @ONLY)
     set(fixture_headers "")
     if(fixture_target STREQUAL "PluginFixtureProvider")
-        list(APPEND fixture_headers PUBLIC_HEADERS include/Termaster/PluginFixtureProvider/Api.h)
+        list(APPEND fixture_headers PUBLIC_HEADERS inc/Termaster/PluginFixtureProvider/Api.h)
     endif()
     termaster_add_plugin(${fixture_target}
         SOURCES
@@ -38,7 +37,6 @@ function(add_plugin_fixture fixture_target fixture_id fixture_version fixture_de
         CXX_STANDARD 20
         WINDOWS_EXPORT_ALL_SYMBOLS ON
     )
-    target_include_directories(${fixture_target} PRIVATE "${plugin_test_root}/src/app")
     target_link_libraries(${fixture_target} PRIVATE Qt6::Core)
 endfunction()
 
@@ -60,7 +58,6 @@ target_compile_definitions(PluginFixtureStopFailure PRIVATE FIXTURE_STOP_FAILURE
 
 qt_add_executable(PluginIntegrationTests PluginIntegrationTests.cpp)
 target_compile_features(PluginIntegrationTests PRIVATE cxx_std_20)
-target_include_directories(PluginIntegrationTests PRIVATE "${plugin_test_root}/src/app")
 target_link_libraries(PluginIntegrationTests PRIVATE Managers Core Qt6::Test)
 foreach(fixture IN ITEMS
     Provider
