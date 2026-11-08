@@ -40,7 +40,8 @@ App::Options optionally supplies data/plugin directories for isolated launch or
 embedding. Defaults retain the current ApplicationPaths locations. The owner,
 commands, windows and all accessors are used on the GUI thread. Construct one App
 and invoke run once. The central area presents workspace Open/New choices or
-the active workspace name/path. Session and terminal-group loading remain planned.
+the active workspace name/path, session choices and loaded session configuration.
+Session configuration loading is implemented; terminal-group execution remains planned.
 
 ## Access to commands and containers
 
@@ -80,11 +81,28 @@ single-file format, settings overlay and save/restore contract.
 File provides New/Open/Save/Close workspace and Exit. Its Recent group contains
 separate Workspaces and Sessions submenus, each limited to ten entries.
 `recentWorkspaces()` returns the global history; workspace entries perform real
-Open operations. Session entries remain disabled until session loading exists.
+Open operations. Enabled session entries open saved configuration from the current
+workspace catalog.
 See the [history contract](workspaces-and-sessions.md#recent-workspaces-and-sessions). Save/Close are enabled only
 with an active workspace, and handlers validate their target again. Startup
 restores the last workspace or shows the Open/New choice page. Replacement,
 closure and normal exit persist pending state and report concrete failures.
+
+App also exposes `session()`, `createSession()`, `openSession()`, `saveSession()`,
+`renameSession()` and `closeSession()`. `sessionChanged` reports active-session
+changes. Session New/Open require an active workspace; Save/Close/Rename require
+an active session. UUID identity and folder location remain stable across a
+human-readable name change. Empty creation names use a random adjective/noun.
+The workspace page displays configuration metadata only; no terminal backend or
+object graph is activated. Session state is saved before workspace replacement,
+close and normal exit. Startup restores the workspace without reopening a session.
+
+`configuration()` exposes a live borrowed application/workspace/session overlay,
+writing only to the highest active scope. Session and workspace views expire when
+their owners are released. Session integration passed Debug tests and native GUI
+checks at scales 1 and 2; see
+[session verification](workspaces-and-sessions.md#verification-status). Earlier
+verification sections below describe their original scope.
 
 Edit provides Undo, Redo, Cut, Copy, Paste and Select All with standard shortcuts.
 Its internal EditActions controller targets the focused QLineEdit, QTextEdit or
@@ -145,7 +163,7 @@ plugin SDK consumer. Native AppTests passed all four results at scale factors 1
 and 2; main-window and plugin-dialog captures were visually inspected. Source
 layout, public header/source pairing, active dependency boundaries, documentation
 links, clang-format and git diff --check were verified. SerialBus/SerialPort remain
-disabled in this build. Session/terminal-group behavior remains planned. These historical results
+disabled in this build. Session configuration loading was not part of that stage. These historical results
 predate the workspace lifecycle and standard-menu changes and do not verify them.
 
 [Contextual actions](contextual-actions.md) defines icon-only toolbars and scoped extension groups.
@@ -174,4 +192,4 @@ visually inspected. Separate-process checks covered last-workspace restoration,
 normal-close autosave and recovery from a missing last file. Persistence tests
 used isolated temporary application data. See
 [workspace verification](workspaces-and-sessions.md#verification-status) for scope
-and remaining session-loader limitations.
+and remaining runtime limitations.

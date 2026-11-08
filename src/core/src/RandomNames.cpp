@@ -52,3 +52,10 @@ int RandomNames::totalCombinations() const
 {
     return nounsList.length() * adjectivesList.length();
 }
+
+PrettyId RandomNames::generate()
+{
+    auto* generator = QRandomGenerator::global();
+    return PrettyId(nounsList.at(generator->bounded(static_cast<int>(nounsList.size()))),
+                    adjectivesList.at(generator->bounded(static_cast<int>(adjectivesList.size()))));
+}

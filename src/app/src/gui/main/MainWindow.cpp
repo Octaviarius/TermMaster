@@ -18,6 +18,8 @@ MainWindow::MainWindow(QWidget* parent) :
     setCentralWidget(_workspacePage);
     connect(_workspacePage, &WorkspacePage::openRequested, this, &MainWindow::openWorkspaceRequested);
     connect(_workspacePage, &WorkspacePage::createRequested, this, &MainWindow::createWorkspaceRequested);
+    connect(_workspacePage, &WorkspacePage::openSessionRequested, this, &MainWindow::openSessionRequested);
+    connect(_workspacePage, &WorkspacePage::createSessionRequested, this, &MainWindow::createSessionRequested);
     _createMenus();
     _toolbar.toolbar()->setToolButtonStyle(Qt::ToolButtonIconOnly);
     addToolBar(_toolbar.toolbar());
@@ -58,7 +60,7 @@ void MainWindow::_createMenus()
         _mainMenu.addMenu(item.get(), "main");
         item.release();
     };
-    menu("file", tr("&File"), {"workspace", "recent", "application"});
+    menu("file", tr("&File"), {"workspace", "session", "recent", "application"});
     auto* file = _mainMenu.findMenu("/file");
     for (const auto& entry : {
              std::pair {"recentWorkspaces", QT_TR_NOOP("Recent &workspaces")},
@@ -78,4 +80,9 @@ void MainWindow::_createMenus()
     {
         _toolbar.addGroup(group);
     }
+}
+
+void MainWindow::setSession(const QString& name, const QString& file, int objects, int links)
+{
+    _workspacePage->setSession(name, file, objects, links);
 }

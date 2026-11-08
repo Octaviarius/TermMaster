@@ -7,6 +7,7 @@ class SettingsOverlay
 {
 public:
     SettingsOverlay(Settings::Node base, Settings::Node overrides);
+    SettingsOverlay(SettingsOverlay base, Settings::Node overrides);
     bool            isValid() const;
     bool            contains(const QString& key) const;
     QVariant        value(const QString& key, const QVariant& fallback = {}) const;
@@ -16,9 +17,11 @@ public:
     SettingsOverlay node(const QString& path) const;
 
 private:
-    Settings::Node _base;
-    Settings::Node _overrides;
-    QString        _prefix;
-    bool           _validPath = true;
-    QString        _key(const QString& key) const;
+    Settings::Node                   _base;
+    std::shared_ptr<SettingsOverlay> _inherited;
+    Settings::Node                   _overrides;
+    QString                          _prefix;
+    bool                             _validPath = true;
+    QVariantMap                      _baseValues() const;
+    QString                          _key(const QString& key) const;
 };

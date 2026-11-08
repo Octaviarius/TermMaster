@@ -17,6 +17,9 @@ public:
     ToolbarActionContainer& toolbar();
     void                    setWorkspace(const QString& name, const QString& file);
     void                    showWorkspaceChoice(const QString& error = {});
+    void                    setSession(const QString& name, const QString& file, int objects, int links);
+    Q_SIGNAL void           openSessionRequested();
+    Q_SIGNAL void           createSessionRequested();
     Q_SIGNAL void           openWorkspaceRequested();
     Q_SIGNAL void           createWorkspaceRequested();
 

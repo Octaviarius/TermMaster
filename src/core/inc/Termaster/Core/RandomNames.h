@@ -38,6 +38,9 @@ class RandomNames
 public:
     RandomNames();
 
+    /** Generates an adjective/noun name without constructing the indexed permutation. */
+    static PrettyId generate();
+
     PrettyId getId(int index);
 
     const QStringList nouns() const;

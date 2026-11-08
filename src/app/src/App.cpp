@@ -3,9 +3,13 @@
 
 #include <QCloseEvent>
 #include <QDialog>
+#include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QIcon>
+#include <QInputDialog>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPointer>
 #include <QScopedValueRollback>
@@ -13,9 +17,12 @@
 #include <QSignalBlocker>
 #include <QStatusBar>
 #include <QStyle>
+#include <QUuid>
 #include <Termaster/App/App.h>
 #include <Termaster/Core/ApplicationPaths.h>
 #include <Termaster/Core/CommandRegistry.h>
+#include <Termaster/Core/RandomNames.h>
+#include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
 #include <Termaster/Core/Version.h>
@@ -32,10 +39,16 @@ struct App::Data
     Settings                          settings;
     Settings                          pluginSettings;
     std::unique_ptr<Workspace>        workspace;
+    std::unique_ptr<Session>          session;
     CommandRegistry                   commands;
     std::unique_ptr<MainWindow>       window;
     std::unique_ptr<EditActions>      editing;
     QPointer<QDialog>                 pluginWindow;
+    QPointer<QAction>                 createSessionAction;
+    QPointer<QAction>                 openSessionAction;
+    QPointer<QAction>                 saveSessionAction;
+    QPointer<QAction>                 closeSessionAction;
+    QPointer<QAction>                 renameSessionAction;
     QPointer<QAction>                 saveAction;
     QPointer<QAction>                 closeAction;
     QPointer<QAction>                 toolbarAction;
@@ -93,6 +106,8 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
             &PluginManager::errorOccurred,
             _data->window.get(),
             [window = _data->window.get()](const QString& error) { window->statusBar()->showMessage(error); });
+    connect(_data->window.get(), &MainWindow::openSessionRequested, this, &App::_chooseSession);
+    connect(_data->window.get(), &MainWindow::createSessionRequested, this, &App::_chooseNewSession);
     _updateWorkspace();
 }
 
@@ -171,6 +186,10 @@ QStringList App::recentWorkspaces() const
 
 SettingsOverlay App::configuration()
 {
+    if (_data->session)
+    {
+        return _data->session->settings();
+    }
     if (_data->workspace)
     {
         return _data->workspace->settings();
@@ -219,12 +238,18 @@ bool App::restoreLastWorkspace(QString* error)
         {
             return false;
         }
-        if (_data->workspace && !_data->workspace->sync(error))
+        if (_data->workspace && !saveWorkspace(error))
         {
             return false;
         }
+        const bool hadSession = bool(_data->session);
+        _data->session.reset();
         _data->workspace = std::move(candidate);
         _updateWorkspace();
+        if (hadSession)
+        {
+            emit sessionChanged();
+        }
         emit workspaceChanged();
         return true;
     }
@@ -273,7 +298,12 @@ bool App::saveWorkspace(QString* error)
         }
         return false;
     }
-    return _data->workspace->sync(error);
+    if ((_data->session && !_data->session->sync(error)) || !_data->workspace->sync(error))
+    {
+        return false;
+    }
+    _updateSession();
+    return true;
 }
 
 bool App::closeWorkspace(QString* error)
@@ -286,12 +316,18 @@ bool App::closeWorkspace(QString* error)
     {
         return true;
     }
-    if (!_data->workspace->sync(error))
+    if (!saveWorkspace(error))
     {
         return false;
     }
+    const bool hadSession = bool(_data->session);
+    _data->session.reset();
     _data->workspace.reset();
     _updateWorkspace();
+    if (hadSession)
+    {
+        emit sessionChanged();
+    }
     emit workspaceChanged();
     return true;
 }
@@ -404,6 +440,87 @@ void App::_setupActions()
                                                   "file/recentSessions",
                                                   "entries");
     }
+    for (const auto& action : _data->recentSessions)
+    {
+        connect(action, &QAction::triggered, this, [this, action] {
+            QString error;
+            if (!openSession(action->data().toString(), &error))
+            {
+                _showError(error);
+            }
+        });
+    }
+    _data->createSessionAction = _addAction("Session.New",
+                                            tr("New &session…"),
+                                            icon("document-new", QStyle::SP_FileIcon),
+                                            {},
+                                            "file",
+                                            "session",
+                                            "session");
+    _data->createSessionAction->setToolTip(tr("Create a session"));
+    connect(_data->createSessionAction, &QAction::triggered, this, &App::_chooseNewSession);
+    _data->openSessionAction = _addAction("Session.Open",
+                                          tr("Open session…"),
+                                          icon("document-open", QStyle::SP_DirOpenIcon),
+                                          {},
+                                          "file",
+                                          "session",
+                                          "session");
+    _data->openSessionAction->setToolTip(tr("Open a session from this workspace"));
+    connect(_data->openSessionAction, &QAction::triggered, this, &App::_chooseSession);
+    _data->saveSessionAction = _addAction("Session.Save",
+                                          tr("Save session"),
+                                          icon("document-save", QStyle::SP_DialogSaveButton),
+                                          {},
+                                          "file",
+                                          "session",
+                                          "session");
+    _data->saveSessionAction->setToolTip(tr("Save the current session"));
+    connect(_data->saveSessionAction, &QAction::triggered, this, [this] {
+        QString error;
+        if (!saveSession(&error))
+        {
+            _showError(error);
+        }
+    });
+    _data->closeSessionAction = _addAction("Session.Close",
+                                           tr("Close session"),
+                                           icon("document-close", QStyle::SP_DialogCloseButton),
+                                           {},
+                                           "file",
+                                           "session",
+                                           "session");
+    _data->closeSessionAction->setToolTip(tr("Close the current session"));
+    connect(_data->closeSessionAction, &QAction::triggered, this, [this] {
+        QString error;
+        if (!closeSession(&error))
+        {
+            _showError(error);
+        }
+    });
+    _data->renameSessionAction = _addAction("Session.Rename", tr("Rename session…"), {}, {}, "file", "session");
+    connect(_data->renameSessionAction, &QAction::triggered, this, [this] {
+        if (!_data->session)
+        {
+            return;
+        }
+        bool       accepted = false;
+        const auto name     = QInputDialog::getText(_data->window.get(),
+                                                    tr("Rename session"),
+                                                    tr("Name:"),
+                                                    QLineEdit::Normal,
+                                                    _data->session->name(),
+                                                    &accepted);
+        if (!accepted)
+        {
+            return;
+        }
+        QString error;
+        if (!renameSession(name, &error))
+        {
+            _showError(error);
+        }
+    });
     for (const auto& path : {"/file/recentWorkspaces", "/file/recentSessions"})
     {
         connect(static_cast<MenuActionContainer*>(mainMenu().findMenu(path))->menu(),
@@ -600,7 +717,7 @@ bool App::_rememberWorkspace(const Path& file, QString* error)
 
 bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* error)
 {
-    if (_data->workspace && !_data->workspace->sync(error))
+    if (_data->workspace && !saveWorkspace(error))
     {
         return false;
     }
@@ -608,15 +725,21 @@ bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* erro
     {
         return false;
     }
+    const bool hadSession = bool(_data->session);
+    _data->session.reset();
     _data->workspace = std::move(candidate);
     _updateWorkspace();
+    if (hadSession)
+    {
+        emit sessionChanged();
+    }
     emit workspaceChanged();
     return true;
 }
 
 bool App::_saveChanges(QString* error)
 {
-    if (_data->workspace && !_data->workspace->sync(error))
+    if (_data->workspace && !saveWorkspace(error))
     {
         return false;
     }
@@ -642,8 +765,7 @@ void App::_updateWorkspace()
     {
         _data->window->showWorkspaceChoice();
     }
-    _applyConfiguration();
-    _updateRecent();
+    _updateSession();
 }
 
 void App::_applyConfiguration()
@@ -682,12 +804,31 @@ void App::_updateRecent()
         auto*      session    = _data->recentSessions[index].data();
         const bool hasSession = index < static_cast<std::size_t>(sessions.size());
         session->setVisible(hasSession);
-        session->setEnabled(false);
-        session->setToolTip(tr("Session loading is not implemented yet."));
+        session->setEnabled(hasSession);
         if (hasSession)
         {
-            session->setText(
-                QString("&%1 %2").arg((index + 1) % 10).arg(QString(sessions.at(index)).replace('&', "&&")));
+            session->setData(sessions.at(index));
+        }
+        session->setToolTip(tr("Open this session configuration"));
+        if (hasSession)
+        {
+            const auto id        = sessions.at(index);
+            QString    label     = id;
+            const auto directory = _data->workspace->sessionDirectory(id);
+            if (_data->session && _data->session->id() == id)
+            {
+                label = _data->session->name();
+            }
+            else if (directory)
+            {
+                Session saved(*directory, _data->workspace->settings());
+                if (saved.load() && saved.id() == id)
+                {
+                    label = saved.name();
+                }
+            }
+            session->setText(QString("&%1 %2").arg((index + 1) % 10).arg(label.replace('&', "&&")));
+            session->setToolTip(directory ? directory->join("session.yaml").toString() : id);
         }
     }
     static_cast<MenuActionContainer*>(mainMenu().findMenu("/file/recentWorkspaces"))
@@ -777,4 +918,284 @@ QAction* App::_addAction(const QString&      id,
         toolbar().addAction(action, toolbarGroup);
     }
     return action;
+}
+
+Session* App::session() const
+{
+    return _data->session.get();
+}
+
+bool App::createSession(const QString& requestedName, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!_data->workspace)
+    {
+        if (error)
+        {
+            *error = tr("No workspace is open.");
+        }
+        return false;
+    }
+    if (_data->session && !_data->session->sync(error))
+    {
+        return false;
+    }
+    const auto root = _data->workspace->sessionsDirectory();
+    if (!root.createDirectories(error))
+    {
+        return false;
+    }
+    const auto id        = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const auto directory = root.join(id);
+    const auto name      = requestedName.isEmpty() ? RandomNames::generate().toString() : requestedName;
+    auto       candidate = std::make_unique<Session>(directory, _data->workspace->settings());
+    if (!candidate->create(id, name, error))
+    {
+        return false;
+    }
+    if (!_data->workspace->registerSession(id, directory, error))
+    {
+        QFile::remove(candidate->filePath().toString());
+        QDir().rmdir(directory.toString());
+        return false;
+    }
+    if (_activateSession(std::move(candidate), error))
+    {
+        return true;
+    }
+    _data->workspace->unregisterSession(id);
+    QFile::remove(directory.join("session.yaml").toString());
+    QDir().rmdir(directory.toString());
+    return false;
+}
+
+bool App::openSession(const QString& id, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!_data->workspace)
+    {
+        if (error)
+        {
+            *error = tr("No workspace is open.");
+        }
+        return false;
+    }
+    const auto directory = _data->workspace->sessionDirectory(id, error);
+    if (!directory)
+    {
+        return false;
+    }
+    if (_data->session && _data->session->id() == id)
+    {
+        return true;
+    }
+    auto candidate = std::make_unique<Session>(*directory, _data->workspace->settings());
+    if (!candidate->load(error))
+    {
+        return false;
+    }
+    if (candidate->id() != id)
+    {
+        if (error)
+        {
+            *error = tr("Session ID does not match its workspace catalog entry.");
+        }
+        return false;
+    }
+    return _activateSession(std::move(candidate), error);
+}
+
+bool App::saveSession(QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!_data->session)
+    {
+        if (error)
+        {
+            *error = tr("No session is open.");
+        }
+        return false;
+    }
+    if (!_data->session->sync(error))
+    {
+        return false;
+    }
+    _updateSession();
+    return true;
+}
+
+bool App::renameSession(const QString& name, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!_data->session)
+    {
+        if (error)
+        {
+            *error = tr("No session is open.");
+        }
+        return false;
+    }
+    const auto previous = _data->session->name();
+    if (!_data->session->setName(name, error))
+    {
+        return false;
+    }
+    if (!saveSession(error))
+    {
+        _data->session->setName(previous);
+        return false;
+    }
+    emit sessionChanged();
+    return true;
+}
+
+bool App::closeSession(QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!_data->session)
+    {
+        return true;
+    }
+    if (!_data->session->sync(error))
+    {
+        return false;
+    }
+    _data->session.reset();
+    _updateSession();
+    emit sessionChanged();
+    return true;
+}
+
+bool App::_activateSession(std::unique_ptr<Session> candidate, QString* error)
+{
+    if (_data->session && !_data->session->sync(error))
+    {
+        return false;
+    }
+    auto       state     = _data->workspace->state();
+    const bool hadRecent = state.contains("recentSessions");
+    const auto previous  = state.value("recentSessions");
+    if (!_data->workspace->rememberSession(candidate->id(), error))
+    {
+        return false;
+    }
+    if (!_data->workspace->sync(error))
+    {
+        if (hadRecent)
+        {
+            state.setValue("recentSessions", previous);
+        }
+        else
+        {
+            state.remove("recentSessions");
+        }
+        return false;
+    }
+    _data->session = std::move(candidate);
+    _updateSession();
+    emit sessionChanged();
+    return true;
+}
+
+void App::_updateSession()
+{
+    const bool workspace = bool(_data->workspace);
+    const bool session   = bool(_data->session);
+    _data->createSessionAction->setEnabled(workspace);
+    _data->openSessionAction->setEnabled(workspace);
+    for (auto* action :
+         {_data->saveSessionAction.data(), _data->closeSessionAction.data(), _data->renameSessionAction.data()})
+    {
+        action->setEnabled(session);
+    }
+    _data->window->setSession(session ? _data->session->name() : QString {},
+                              session ? _data->session->filePath().toString() : QString {},
+                              session ? _data->session->objects().values().size() : 0,
+                              session ? _data->session->links().values().size() : 0);
+    _applyConfiguration();
+    _updateRecent();
+}
+
+void App::_chooseNewSession()
+{
+    if (!_data->workspace)
+    {
+        return;
+    }
+    bool       accepted = false;
+    const auto name     = QInputDialog::getText(_data->window.get(),
+                                                tr("Create session"),
+                                                tr("Name:"),
+                                                QLineEdit::Normal,
+                                                RandomNames::generate().toString(),
+                                                &accepted);
+    if (!accepted)
+    {
+        return;
+    }
+    QString error;
+    if (!createSession(name, &error))
+    {
+        _showError(error);
+    }
+}
+
+void App::_chooseSession()
+{
+    if (!_data->workspace)
+    {
+        return;
+    }
+    const auto ids = _data->workspace->sessionIds();
+    if (ids.isEmpty())
+    {
+        _data->window->statusBar()->showMessage(tr("This workspace has no saved sessions."));
+        return;
+    }
+    QStringList labels;
+    for (const auto& id : ids)
+    {
+        const auto directory = _data->workspace->sessionDirectory(id);
+        if (!directory)
+        {
+            labels.append(tr("Unavailable session") + " (" + id + ')');
+            continue;
+        }
+        Session    candidate(*directory, _data->workspace->settings());
+        QString    error;
+        const auto label = candidate.load(&error) ? candidate.name() : tr("Unavailable session");
+        labels.append(label + " (" + id + ')');
+    }
+    bool       accepted = false;
+    const auto choice   = QInputDialog::getItem(_data->window.get(),
+                                                tr("Open session"),
+                                                tr("Session:"),
+                                                labels,
+                                                0,
+                                                false,
+                                                &accepted);
+    if (!accepted)
+    {
+        return;
+    }
+    QString error;
+    if (!openSession(ids.at(labels.indexOf(choice)), &error))
+    {
+        _showError(error);
+    }
 }

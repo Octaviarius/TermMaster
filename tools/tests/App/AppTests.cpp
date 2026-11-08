@@ -19,9 +19,12 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QUuid>
 #include <Termaster/App/App.h>
 #include <Termaster/Core/ApplicationPaths.h>
 #include <Termaster/Core/CommandRegistry.h>
+#include <Termaster/Core/RandomNames.h>
+#include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
 #include <Termaster/Core/Workspace.h>
@@ -329,8 +332,9 @@ private:
         }
         QCOMPARE(visibleWorkspaces, 10);
         QCOMPARE(recentMenu->actions().first()->data().toString(), files.first());
-        QVERIFY(_app.workspace()->sessions().setValue("recorded", QVariantMap {}));
-        QVERIFY(_app.workspace()->rememberSession("recorded", &error));
+        QVERIFY(_app.createSession("Recorded", &error));
+        const auto recordedId = _app.session()->id();
+        QVERIFY(_app.closeSession(&error));
         auto* sessionMenu = static_cast<MenuActionContainer*>(_app.mainMenu().findMenu("/file/recentSessions"))->menu();
         QVERIFY(QMetaObject::invokeMethod(sessionMenu, "aboutToShow", Qt::DirectConnection));
         int visibleSessions = 0;
@@ -339,8 +343,12 @@ private:
             if (action->isVisible())
             {
                 ++visibleSessions;
-                QVERIFY(!action->isEnabled());
-                QVERIFY(action->text().contains("recorded"));
+                QVERIFY(action->isEnabled());
+                QVERIFY(action->text().contains("Recorded"));
+                QCOMPARE(action->data().toString(), recordedId);
+                action->trigger();
+                QVERIFY(_app.session());
+                QCOMPARE(_app.session()->name(), QString("Recorded"));
             }
         }
         QCOMPARE(visibleSessions, 1);
@@ -359,6 +367,170 @@ private:
             QVERIFY(sessionMenu->grab().save(QDir(capture).filePath("RecentSessions.png")));
             sessionMenu->close();
         }
+        QVERIFY(_app.closeWorkspace(&error));
+    }
+
+    Q_SLOT void sessionLifecycleAndPersistence()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.settings().setValue("settings/sessionTest/value", 10));
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("session.termaster")), "Sessions", &error));
+        QVERIFY(_app.workspace()->settings().setValue("sessionTest/value", 20));
+        QVERIFY2(_app.createSession({}, &error), qPrintable(error));
+        QVERIFY(_app.session());
+        const auto generated = _app.session()->name().toLower().split(' ');
+        QCOMPARE(generated.size(), 2);
+        const RandomNames names;
+        QVERIFY(names.adjectives().contains(generated.first(), Qt::CaseInsensitive));
+        QVERIFY(names.nouns().contains(generated.last(), Qt::CaseInsensitive));
+        const auto id = _app.session()->id();
+        QVERIFY(!QUuid(id).isNull());
+        QVERIFY(_app.session()->setName("Saved through workspace"));
+        QVERIFY(_app.saveWorkspace(&error));
+        QCOMPARE(_app.mainWindow().findChild<QLabel*>("sessionTitle")->text(), QString("Saved through workspace"));
+        const auto directory = _app.session()->directory();
+        const auto file      = _app.session()->filePath();
+        QCOMPARE(directory.name(), id);
+        QCOMPARE(directory.parent().toString(), _app.workspace()->sessionsDirectory().toString());
+        QCOMPARE(_app.configuration().value("sessionTest/value").toInt(), 20);
+        QVERIFY(_app.configuration().setValue("sessionTest/value", 30));
+        QCOMPARE(_app.workspace()->settings().value("sessionTest/value").toInt(), 20);
+        QCOMPARE(_app.settings().value("settings/sessionTest/value").toInt(), 10);
+        QVERIFY(_app.configuration().remove("sessionTest/value"));
+        QCOMPARE(_app.configuration().value("sessionTest/value").toInt(), 20);
+        QVERIFY(_app.workspace()->settings().remove("sessionTest/value"));
+        QCOMPARE(_app.configuration().value("sessionTest/value").toInt(), 10);
+        QVERIFY(_app.configuration().setValue("sessionTest/value", 31));
+        const QVariantMap object {
+            {    "type",                          "terminal"},
+            {  "module",                           "fixture"},
+            {"settings", QVariantMap {{"port", "synthetic"}}}
+        };
+        QVERIFY(_app.session()->objects().setValue("source", object));
+        QVERIFY(_app.session()->objects().setValue("target", object));
+        QVERIFY(
+            _app.session()->links().setValue("connection",
+                                             QVariantMap {
+                                                 {"source", QVariantMap {{"object", "source"}, {"port", "output"}}},
+                                                 {"target",  QVariantMap {{"object", "target"}, {"port", "input"}}}
+        }));
+        QVERIFY(_app.session()->resources().setValue("script", "resources/example.txt"));
+        QVERIFY(_app.session()->presentation().setValue("layout", "horizontal"));
+        QVERIFY(_app.renameSession("Renamed session", &error));
+        QCOMPARE(_app.session()->id(), id);
+        QCOMPARE(_app.session()->filePath().toString(), file.toString());
+        auto* title = _app.mainWindow().findChild<QLabel*>("sessionTitle");
+        QVERIFY(title);
+        QVERIFY(title->text().contains("Renamed session"));
+        auto* sessionFile = _app.mainWindow().findChild<QLineEdit*>("sessionFile");
+        QVERIFY(sessionFile);
+        QCOMPARE(sessionFile->text(), file.toString());
+        QVERIFY(_app.mainWindow().findChild<QLabel*>("sessionSummary"));
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("Session.png")));
+        }
+        QVERIFY(_app.saveSession(&error));
+        QVERIFY(_app.saveWorkspace(&error));
+        QVERIFY(_app.settings().sync(&error));
+        QProcess child;
+        auto     environment = QProcessEnvironment::systemEnvironment();
+        environment.insert("TERMASTER_APP_RESTART_DATA", _app.paths().dataDirectory().toString());
+        environment.insert("TERMASTER_APP_RESTART_SESSION", id);
+        child.setProcessEnvironment(environment);
+        child.start(QCoreApplication::applicationFilePath(), QStringList());
+        QVERIFY(child.waitForStarted(5000));
+        QVERIFY(child.waitForFinished(15000));
+        QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+        QVERIFY2(child.exitCode() == 0, child.readAllStandardError().constData());
+        Settings childSaved(file, {"termaster.session", "Termaster session"});
+        QVERIFY(childSaved.load(&error));
+        QCOMPARE(childSaved.value("settings/sessionTest/childAutosave").toInt(), 99);
+        auto borrowed = _app.session()->objects();
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(!borrowed.isValid());
+        QVERIFY(!_app.session());
+        QVERIFY(_app.openSession(id, &error));
+        QCOMPARE(_app.session()->name(), QString("Renamed session"));
+        QCOMPARE(_app.configuration().value("sessionTest/value").toInt(), 31);
+        QCOMPARE(_app.session()->objects().values().size(), 2);
+        QCOMPARE(_app.session()->links().values().size(), 1);
+        QCOMPARE(_app.session()->resources().value("script").toString(), QString("resources/example.txt"));
+        QCOMPARE(_app.session()->presentation().value("layout").toString(), QString("horizontal"));
+        QVERIFY(_app.configuration().setValue("sessionTest/switchSaved", 7));
+        auto oldView = _app.session()->settings();
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("other.termaster")), "Other", &error));
+        QVERIFY(!_app.session());
+        QVERIFY(!oldView.isValid());
+        Settings saved(file, {"termaster.session", "Termaster session"});
+        QVERIFY(saved.load(&error));
+        QCOMPARE(saved.value("settings/sessionTest/switchSaved").toInt(), 7);
+        QVERIFY(_app.closeWorkspace(&error));
+    }
+
+    Q_SLOT void sessionFailureRetainsOwners()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("failures.termaster")), "Failures", &error));
+        QVERIFY(_app.createSession("Original", &error));
+        auto*      original  = _app.session();
+        auto*      workspace = _app.workspace();
+        const auto history   = workspace->recentSessions();
+        QVERIFY(!_app.openSession("missing", &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(_app.session(), original);
+        QVERIFY(workspace->sessions().setValue("missing",
+                                               QVariantMap {
+                                                   {"directory", "sessions/missing"}
+        }));
+        QVERIFY(!_app.openSession("missing", &error));
+        QCOMPARE(_app.session(), original);
+        const auto badDirectory = workspace->sessionsDirectory().join("bad");
+        QVERIFY(badDirectory.createDirectories());
+        QVERIFY(workspace->registerSession("bad", badDirectory));
+        QFile badFile(badDirectory.join("session.yaml").toString());
+        QVERIFY(badFile.open(QIODevice::WriteOnly));
+        QVERIFY(badFile.write("version: [invalid") > 0);
+        badFile.close();
+        QVERIFY(!_app.openSession("bad", &error));
+        QCOMPARE(_app.session(), original);
+        QVERIFY(QFile::remove(badFile.fileName()));
+        QVERIFY(QDir().rmdir(badDirectory.toString()));
+        Session mismatch(badDirectory, workspace->settings());
+        QVERIFY(mismatch.create("different-id", "Mismatch", &error));
+        QVERIFY(!_app.openSession("bad", &error));
+        QCOMPARE(_app.session(), original);
+        QCOMPARE(workspace->recentSessions(), history);
+        const auto catalogBefore = workspace->sessionIds();
+        const auto foldersBefore = QDir(workspace->sessionsDirectory().toString())
+                                       .entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        const auto workspaceFile = workspace->filePath().toString();
+        QVERIFY(QFile::rename(workspaceFile, workspaceFile + ".backup"));
+        QVERIFY(QDir().mkdir(workspaceFile));
+        QVERIFY(!_app.createSession("Cannot persist catalog", &error));
+        QCOMPARE(_app.session(), original);
+        QCOMPARE(workspace->sessionIds(), catalogBefore);
+        QCOMPARE(workspace->recentSessions(), history);
+        QCOMPARE(QDir(workspace->sessionsDirectory().toString()).entryList(QDir::Dirs | QDir::NoDotAndDotDot),
+                 foldersBefore);
+        QVERIFY(QDir().rmdir(workspaceFile));
+        QVERIFY(QFile::rename(workspaceFile + ".backup", workspaceFile));
+        QVERIFY(original->settings().setValue("pending", 1));
+        const auto file   = original->filePath().toString();
+        const auto backup = file + ".backup";
+        QVERIFY(QFile::rename(file, backup));
+        QVERIFY(QDir().mkdir(file));
+        QVERIFY(!_app.closeSession(&error));
+        QVERIFY(!_app.closeWorkspace(&error));
+        QCOMPARE(_app.workspace(), workspace);
+        QCOMPARE(_app.session(), original);
+        QVERIFY(original->isDirty());
+        QVERIFY(QDir().rmdir(file));
+        QVERIFY(QFile::rename(backup, file));
         QVERIFY(_app.closeWorkspace(&error));
     }
 
@@ -403,7 +575,20 @@ int main(int argc, char* argv[])
         App app(argc, argv, options);
         int result = 1;
         QTimer::singleShot(0, &app, [&]() {
-            if (qEnvironmentVariableIsSet("TERMASTER_APP_RECOVERY"))
+            if (qEnvironmentVariableIsSet("TERMASTER_APP_RESTART_SESSION"))
+            {
+                QString error;
+                result = app.workspace()
+                              && app.openSession(qEnvironmentVariable("TERMASTER_APP_RESTART_SESSION"), &error)
+                              && app.session()->name() == "Renamed session"
+                              && app.configuration().value("sessionTest/value").toInt() == 31
+                              && app.session()->objects().values().size() == 2
+                              && app.session()->links().values().size() == 1
+                              && app.configuration().setValue("sessionTest/childAutosave", 99) ?
+                             0 :
+                             1;
+            }
+            else if (qEnvironmentVariableIsSet("TERMASTER_APP_RECOVERY"))
             {
                 result = !app.workspace() && app.mainWindow().isVisible()
                               && app.mainWindow().findChild<QPushButton*>("openWorkspace")->isVisible()
