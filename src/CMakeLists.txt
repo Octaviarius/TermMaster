@@ -43,9 +43,9 @@ qt_add_resources(${PROJECT_NAME} "icons"
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    Qt6::Widgets
-    Core
+    App
 )
 
 
 add_subdirectory(core)
+add_subdirectory(app)

@@ -18,6 +18,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/PurePath.cpp
     inc/Termaster/Core/Path.h
     src/Path.cpp
+    inc/Termaster/Core/CommandRegistry.h
+    src/CommandRegistry.cpp
     inc/Termaster/Core/Command.h
     src/Command.cpp
     inc/Termaster/Core/gui/action/ActionContainerAdapter.h

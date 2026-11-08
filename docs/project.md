@@ -54,7 +54,7 @@ src/<module>/
     src/gui/<feature>/<Form>.ui
 ```
 
-Core is the active implementation module. Its public includes use
+Core and App are the active implementation modules. Core public includes use
 `<Termaster/Core/Header.h>` and its implementation hierarchy mirrors that prefix
 without repeating `Termaster/Core`. GUI contracts use `gui/<feature>` under the
 public include root and implementations/internal headers use `src/gui/<feature>`.
@@ -63,9 +63,10 @@ Core includes no Managers, Logic, Terminal or Widgets module dependencies.
 The old `managers`, `logic`, `terminal` and `widgets` trees are unbuilt reference
 material. Their CMake files and callers are not supported against the current
 Core API. The old application entry point is retained at `src/legacy/Main.cpp`.
-The current main.cpp is a minimal Qt Widgets Core plugin-management harness;
-workspace/session loading is a recorded architecture requirement, not an active
-feature of that harness. No module-root `gui/` directories are used.
+The current main.cpp only constructs App and calls run(). Module src/app owns
+the Qt Widgets application shell, its main window, commands and orchestration.
+Workspace/session loading remains a recorded architecture requirement.
+No module-root `gui/` directories are used.
 
 The module layout does not change the existing static-library application graph
 into runtime plugins. `termaster_add_plugin` remains the explicit SHARED module
@@ -113,3 +114,5 @@ graph excludes the reference modules and their serial dependencies.
 
 [Settings and paths](settings.md) describes the implemented API.
 [Workspaces and sessions](workspaces-and-sessions.md) records the next domain stage.
+
+[Application module](application.md) describes App, base windows and command/container access.

@@ -64,5 +64,6 @@ The requirements above are recorded for the next domain-design stages. Core's
 reusable Settings, scoped views, ApplicationPaths, plugin lifecycle and action
 containers are implemented independently. Workspace opening, a session catalog,
 session menus and configured terminal-group loading are not implemented yet.
-The current application executable is a Core plugin-management harness; legacy
-terminal/session code outside Core is unbuilt reference material.
+The current executable uses the App main-window shell with plugin management;
+legacy terminal/session modules remain unbuilt reference material. The shell does
+not expose workspace/session menu actions before their behavior is implemented.
