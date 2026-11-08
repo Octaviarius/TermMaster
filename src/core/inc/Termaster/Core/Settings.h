@@ -1,76 +1,61 @@
 #pragma once
 
-#include <QSettings>
+#include <QString>
+#include <QVariant>
+#include <memory>
 
-class Settings : public QSettings
+class Path;
+
+/**
+ * Owns a bounded YAML settings document with explicit load and atomic persistence.
+ * The owner and all scoped views must be used on the same thread.
+ */
+class Settings
 {
 public:
-    using QSettings::QSettings;
-
-    template <typename T>
-    void setValue(QAnyStringView key, const T& value)
+    /** A lifetime-checked view into the owner's current mapping at a relative path. */
+    class Node
     {
-        QSettings::setValue(key, value);
-    }
+    public:
+        bool        isValid() const;
+        QString     path() const;
+        bool        contains(const QString& key) const;
+        QVariant    value(const QString& key, const QVariant& fallback = {}) const;
+        QVariantMap values() const;
+        bool        setValue(const QString& key, const QVariant& value, QString* error = nullptr);
+        bool        remove(const QString& key, QString* error = nullptr);
+        Node        node(const QString& path) const;
 
-    template <typename T>
-    void setValues(QAnyStringView key, const QList<T>& value)
-    {
-        auto count = beginWriteArray(value.count());
-        for (int i = 0; i < value.count(); i++)
-        {
-            setArrayIndex(i);
-            setValue<T>("", value[i]);
-        }
-        endArray();
-    }
+    private:
+        struct Context;
+        std::shared_ptr<Context> _context;
+        friend class Settings;
+        explicit Node(std::shared_ptr<Context> context);
+        QString _key(const QString& relative) const;
+        bool    _writable(const QString& key, QString* error) const;
+    };
 
-    template <typename T>
-    T value(QAnyStringView key, const T& defaultValue)
-    {
-        if (_autocreate && !contains(key))
-        {
-            setValue<T>(key, defaultValue);
-            return defaultValue;
-        }
-        else
-        {
-            return QSettings::value(key, defaultValue).template value<T>();
-        }
-    }
+    explicit Settings(QString filePath);
+    explicit Settings(const Path& filePath);
+    ~Settings();
+    Q_DISABLE_COPY_MOVE(Settings)
 
-    template <typename T>
-    T value(QAnyStringView key)
-    {
-        return value<T>(key, T());
-    }
+    QString filePath() const;
+    bool    isDirty() const;
 
-    template <typename T>
-    QList<T> values(QAnyStringView key)
-    {
-        QList<T> res;
+    /** Replaces cached values only after the complete document passes validation. */
+    bool load(QString* error = nullptr);
+    /** Persists pending changes atomically; failures retain the dirty cache. */
+    bool sync(QString* error = nullptr);
 
-        auto count = beginReadArray(key);
-        for (int i = 0; i < count; i++)
-        {
-            setArrayIndex(i);
-            res.append(value<T>(""));
-        }
-        endArray();
-
-        return res;
-    }
-
-    void setAutoCreate(bool value)
-    {
-        _autocreate = value;
-    }
-
-    bool isAutoCreate() const
-    {
-        return _autocreate;
-    }
+    bool        contains(const QString& key) const;
+    QVariant    value(const QString& key, const QVariant& fallback = {}) const;
+    QVariantMap values() const;
+    Node        node(const QString& path);
+    bool        setValue(const QString& key, const QVariant& value, QString* error = nullptr);
+    bool        remove(const QString& key, QString* error = nullptr);
 
 private:
-    bool _autocreate = false;
+    struct Data;
+    std::unique_ptr<Data> _data;
 };

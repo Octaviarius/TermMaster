@@ -3,8 +3,6 @@ project(Termaster)
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
-    SerialBus
-    SerialPort
 )
 
 qt_standard_project_setup()
@@ -46,17 +44,8 @@ qt_add_resources(${PROJECT_NAME} "icons"
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
-    Qt6::SerialBus
     Core
-    Managers
-    Widgets
-    Logic
-    yaml-cpp
 )
 
 
-add_subdirectory(managers)
 add_subdirectory(core)
-add_subdirectory(widgets)
-add_subdirectory(terminal)
-add_subdirectory(logic)

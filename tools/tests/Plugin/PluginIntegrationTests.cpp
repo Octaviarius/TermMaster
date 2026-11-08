@@ -4,12 +4,20 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <Termaster/Core/Settings.h>
 #include <Termaster/Core/plugin/PluginManager.h>
-#include <Termaster/Managers/SettingsManager.h>
 #include <yaml-cpp/yaml.h>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
+
+namespace
+{
+bool setPreference(Settings& settings, const QString& id, bool enabled)
+{
+    return settings.load() && settings.setValue("enabled/" + id, enabled) && settings.sync();
+}
+} // namespace
 
 class PluginIntegrationTests final : public QObject
 {
@@ -44,8 +52,7 @@ private:
         return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
     }
 
-private slots:
-    void independentSdkConsumer()
+    Q_SLOT void independentSdkConsumer()
     {
         const QByteArray external = qgetenv("TERMASTER_EXTERNAL_PLUGIN");
         if (external.isEmpty())
@@ -57,30 +64,30 @@ private slots:
         const QString directory = temporary.path() + "/plugin";
         QVERIFY(!copy(FIXTURE_Provider, directory).isEmpty());
         QVERIFY(!copy(external.constData(), directory).isEmpty());
-        SettingsManager settings(temporary.path() + "/plugin.yaml");
-        QVERIFY(settings.savePluginState("provider", true));
-        QVERIFY(settings.savePluginState("externalConsumer", true));
+        Settings settings(temporary.path() + "/plugin.yaml");
+        QVERIFY(setPreference(settings, "provider", true));
+        QVERIFY(setPreference(settings, "externalConsumer", true));
         PluginManager manager(settings, directory);
         QVERIFY(manager.start());
         QCOMPARE(entry(manager, "externalConsumer").status, PluginManager::Status::Running);
         QVERIFY(manager.stop());
     }
 
-    void cleanup()
+    Q_SLOT void cleanup()
     {
         qunsetenv("TERMASTER_PLUGIN_TRACE");
         qunsetenv("TERMASTER_PLUGIN_REFUSE_STOP");
         qunsetenv("TERMASTER_PLUGIN_RUNTIME_FAILURE");
     }
-    void runtimeFailureAndManagerRestart()
+    Q_SLOT void runtimeFailureAndManagerRestart()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugin";
         QVERIFY(!copy(FIXTURE_Provider, directory).isEmpty());
         QVERIFY(!copy(FIXTURE_Consumer, directory).isEmpty());
-        SettingsManager settings(temporary.path() + "/plugin.yaml");
-        QVERIFY(settings.savePluginState("provider", true));
-        QVERIFY(settings.savePluginState("consumer", true));
+        Settings settings(temporary.path() + "/plugin.yaml");
+        QVERIFY(setPreference(settings, "provider", true));
+        QVERIFY(setPreference(settings, "consumer", true));
         PluginManager manager(settings, directory);
         QVERIFY(manager.start());
         qputenv("TERMASTER_PLUGIN_RUNTIME_FAILURE", "1");
@@ -96,14 +103,14 @@ private slots:
         QVERIFY(manager.stop());
     }
 
-    void missingDependencyAppears()
+    Q_SLOT void missingDependencyAppears()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugin";
         QVERIFY(!copy(FIXTURE_Consumer, directory).isEmpty());
-        SettingsManager settings(temporary.path() + "/plugin.yaml");
-        QVERIFY(settings.savePluginState("provider", true));
-        QVERIFY(settings.savePluginState("consumer", true));
+        Settings settings(temporary.path() + "/plugin.yaml");
+        QVERIFY(setPreference(settings, "provider", true));
+        QVERIFY(setPreference(settings, "consumer", true));
         PluginManager manager(settings, directory);
         QVERIFY(manager.start());
         QCOMPARE(entry(manager, "consumer").status, PluginManager::Status::Blocked);
@@ -112,7 +119,7 @@ private slots:
         QVERIFY(manager.stop());
     }
 
-    void unrelatedChangesDoNotRetryFailedStartup()
+    Q_SLOT void unrelatedChangesDoNotRetryFailedStartup()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugin";
@@ -120,9 +127,9 @@ private slots:
         qputenv("TERMASTER_PLUGIN_TRACE", trace.toLocal8Bit());
         QVERIFY(!copy(FIXTURE_Provider, directory).isEmpty());
         QVERIFY(!copy(FIXTURE_StartFailure, directory).isEmpty());
-        SettingsManager settings(temporary.path() + "/plugin.yaml");
-        QVERIFY(settings.savePluginState("provider", true));
-        QVERIFY(settings.savePluginState("startFailure", true));
+        Settings settings(temporary.path() + "/plugin.yaml");
+        QVERIFY(setPreference(settings, "provider", true));
+        QVERIFY(setPreference(settings, "startFailure", true));
         PluginManager manager(settings, directory);
         QVERIFY(!manager.start());
         QCOMPARE(read(trace).count("startFailure:start"), 1);
@@ -134,26 +141,23 @@ private slots:
         QVERIFY(manager.stop());
     }
 
-    void genericYamlRoundTrip()
+    Q_SLOT void pluginYamlPreservesScalarTypes()
     {
         QTemporaryDir temporary;
-        const QString path = temporary.path() + "/general.yaml";
+        const QString path = temporary.path() + "/plugins.yaml";
         QVERIFY(write(path, "other:\n  sequence: [alpha, beta]\n  text: 'true'\n"));
-        {
-            FileSettings settings(path, {}, false);
-            QVERIFY(!settings.isAutoCreate());
-            QCOMPARE(settings.value<QString>("other/text"), QString("true"));
-            QCOMPARE(settings.value<QVariantList>("other/sequence").size(), 2);
-            settings.setValue("changed", true);
-            settings.sync();
-            QCOMPARE(settings.status(), QSettings::NoError);
-        }
+        Settings      settings(path);
+        PluginManager manager(settings, temporary.filePath("empty"));
+        QVERIFY(manager.start());
+        QVERIFY(manager.setEnabled("provider", true));
         const auto document = YAML::Load(read(path).toStdString());
-        QVERIFY(document["changed"].as<bool>());
+        QVERIFY(document["enabled"]["provider"].as<bool>());
         QCOMPARE(document["other"]["sequence"].size(), size_t(2));
         QCOMPARE(QString::fromStdString(document["other"]["text"].as<std::string>()), QString("true"));
+        const QString tag = QString::fromStdString(document["other"]["text"].Tag());
+        QVERIFY(tag == "!" || tag == "tag:yaml.org,2002:str");
     }
-    void dependencyLifecycle()
+    Q_SLOT void dependencyLifecycle()
     {
         QTemporaryDir temporary;
         QVERIFY(temporary.isValid());
@@ -164,10 +168,10 @@ private slots:
         QVERIFY(!provider.isEmpty());
         QVERIFY(!copy(FIXTURE_Consumer, directory).isEmpty());
         QVERIFY(!copy(FIXTURE_Leaf, directory + "/nested").isEmpty());
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        PluginManager   manager(settings, directory);
-        QSignalSpy      started(&manager, &PluginManager::pluginStarted);
-        QSignalSpy      stopped(&manager, &PluginManager::pluginStopped);
+        Settings      settings(temporary.path() + "/settings.yaml");
+        PluginManager manager(settings, directory);
+        QSignalSpy    started(&manager, &PluginManager::pluginStarted);
+        QSignalSpy    stopped(&manager, &PluginManager::pluginStopped);
         QVERIFY(manager.start());
         QCOMPARE(manager.rowCount(), 3);
         QCOMPARE(started.count(), 0);
@@ -197,13 +201,14 @@ private slots:
         QVERIFY(manager.reload("provider"));
         QCOMPARE(entry(manager, "leaf").status, PluginManager::Status::Running);
         QVERIFY(manager.stop());
-        QHash<QString, bool> states;
-        QVERIFY(settings.loadPluginStates(states));
-        QVERIFY(states.value("provider"));
-        QVERIFY(states.value("consumer"));
-        QVERIFY(states.value("leaf"));
+        QVariantMap states;
+        QVERIFY(settings.load());
+        states = settings.value("enabled").toMap();
+        QVERIFY(states.value("provider").toBool());
+        QVERIFY(states.value("consumer").toBool());
+        QVERIFY(states.value("leaf").toBool());
     }
-    void invalidGraphs()
+    Q_SLOT void invalidGraphs()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
@@ -213,10 +218,10 @@ private slots:
         QVERIFY(!copy(FIXTURE_CycleA, directory).isEmpty());
         QVERIFY(!copy(FIXTURE_CycleB, directory).isEmpty());
         QVERIFY(!copy(FIXTURE_BadId, directory).isEmpty());
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        QVERIFY(settings.savePluginState("missing", true));
-        QVERIFY(settings.savePluginState("cycleA", true));
-        QVERIFY(settings.savePluginState("cycleB", true));
+        Settings settings(temporary.path() + "/settings.yaml");
+        QVERIFY(setPreference(settings, "missing", true));
+        QVERIFY(setPreference(settings, "cycleA", true));
+        QVERIFY(setPreference(settings, "cycleB", true));
         PluginManager manager(settings, directory);
         manager.start();
         QCOMPARE(manager.plugins().size(), 6);
@@ -227,7 +232,7 @@ private slots:
         }
         QVERIFY(manager.stop());
     }
-    void failedStartupIsDrained()
+    Q_SLOT void failedStartupIsDrained()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
@@ -235,9 +240,9 @@ private slots:
         qputenv("TERMASTER_PLUGIN_TRACE", trace.toLocal8Bit());
         QVERIFY(!copy(FIXTURE_Provider, directory).isEmpty());
         QVERIFY(!copy(FIXTURE_StartFailure, directory).isEmpty());
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        QVERIFY(settings.savePluginState("provider", true));
-        QVERIFY(settings.savePluginState("startFailure", true));
+        Settings settings(temporary.path() + "/settings.yaml");
+        QVERIFY(setPreference(settings, "provider", true));
+        QVERIFY(setPreference(settings, "startFailure", true));
         PluginManager manager(settings, directory);
         manager.start();
         QCOMPARE(entry(manager, "startFailure").status, PluginManager::Status::Failed);
@@ -245,7 +250,7 @@ private slots:
         QVERIFY(read(trace).contains("startFailure:destroy"));
         QVERIFY(manager.stop());
     }
-    void failedShutdownPinsDependencies()
+    Q_SLOT void failedShutdownPinsDependencies()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
@@ -253,9 +258,9 @@ private slots:
         qputenv("TERMASTER_PLUGIN_TRACE", trace.toLocal8Bit());
         QVERIFY(!copy(FIXTURE_Provider, directory).isEmpty());
         QVERIFY(!copy(FIXTURE_StopFailure, directory).isEmpty());
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        QVERIFY(settings.savePluginState("provider", true));
-        QVERIFY(settings.savePluginState("stopFailure", true));
+        Settings settings(temporary.path() + "/settings.yaml");
+        QVERIFY(setPreference(settings, "provider", true));
+        QVERIFY(setPreference(settings, "stopFailure", true));
         PluginManager manager(settings, directory);
         QVERIFY(manager.start());
         qputenv("TERMASTER_PLUGIN_REFUSE_STOP", "1");
@@ -268,13 +273,13 @@ private slots:
         QVERIFY(read(trace).contains("provider:destroy"));
         QVERIFY(read(trace).contains("stopFailure:destroy"));
     }
-    void directoryChangesAndReplacement()
+    Q_SLOT void directoryChangesAndReplacement()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
         QDir().mkpath(directory);
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        PluginManager   manager(settings, directory);
+        Settings      settings(temporary.path() + "/settings.yaml");
+        PluginManager manager(settings, directory);
         QVERIFY(manager.start());
         const QString provider = copy(FIXTURE_Provider, directory);
         QVERIFY(!provider.isEmpty());
@@ -292,39 +297,57 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(manager.rowCount(), 0, 6000);
         QVERIFY(manager.stop());
     }
-    void settingsValidationAndPreservation()
+    Q_SLOT void settingsValidationAndPreservation()
     {
-        QTemporaryDir        temporary;
-        const QString        path = temporary.path() + "/settings.yaml";
-        SettingsManager      settings(path);
-        QHash<QString, bool> states;
-        QString              error;
-        QVERIFY(settings.loadPluginStates(states, &error));
-        QVERIFY(states.isEmpty());
-        for (const QByteArray bytes :
-             {QByteArray("enabled: ["), QByteArray("enabled:\n  test: maybe\n"), QByteArray("enabled: []\n")})
+        QTemporaryDir temporary;
+        const QString path = temporary.filePath("settings.yaml");
+        Settings      settings(path);
+        PluginManager manager(settings, temporary.filePath("empty"));
+        QString       error;
+        for (const QByteArray& bytes : QList<QByteArray> {"enabled: {test: maybe}\n",
+                                                          "enabled: []\n",
+                                                          "enabled: {test: 'true'}\n",
+                                                          "enabled: {test: !!str true}\n"})
         {
             QVERIFY(write(path, bytes));
-            QVERIFY(!settings.loadPluginStates(states, &error));
+            QVERIFY(!manager.start(&error));
             QVERIFY(!error.isEmpty());
-            QVERIFY(!settings.savePluginState("test", true, &error));
             QCOMPARE(read(path), bytes);
+            QVERIFY(!manager.isActive());
         }
-        QVERIFY(
-            write(path, "enabled:\n  unrelated: false\nextra:\n  sequence: [alpha, beta]\n  nested: {answer: 42}\n"));
-        QVERIFY(settings.savePluginState("test", true, &error));
-        QVERIFY(settings.loadPluginStates(states, &error));
-        QCOMPARE(states.value("unrelated", true), false);
-        QCOMPARE(states.value("test", false), true);
-        const auto document = YAML::Load(read(path).toStdString());
+        QVERIFY(write(path, "enabled: {unrelated: false}\nextra: {sequence: [alpha, beta], answer: 42}\n"));
+        QVERIFY(manager.start(&error));
+        QVERIFY(manager.setEnabled("test", true, &error));
+        auto document = YAML::Load(read(path).toStdString());
+        QVERIFY(!document["enabled"]["unrelated"].as<bool>());
+        QVERIFY(document["enabled"]["test"].as<bool>());
         QCOMPARE(document["extra"]["sequence"].size(), size_t(2));
-        QCOMPARE(QString::fromStdString(document["extra"]["sequence"][1].as<std::string>()), QString("beta"));
-        QCOMPARE(document["extra"]["nested"]["answer"].as<int>(), 42);
-        const QString obstacle = temporary.path() + "/file";
-        QVERIFY(write(obstacle, "obstacle"));
-        SettingsManager unwritable(obstacle + "/settings.yaml");
-        QVERIFY(!unwritable.savePluginState("test", true, &error));
+        QCOMPARE(document["extra"]["answer"].as<int>(), 42);
+        const auto before = read(path);
+        QVERIFY(!manager.setEnabled("bad/id", true, &error));
+        QCOMPARE(read(path), before);
+        QVERIFY(settings.setValue("pending", 7));
+        QVERIFY(!manager.setEnabled("test", false, &error));
         QVERIFY(!error.isEmpty());
+        QCOMPARE(settings.value("pending").toInt(), 7);
+        QCOMPARE(read(path), before);
+        QVERIFY(settings.load());
+        QVERIFY(write(path, "other: &shared {provider: false}\nenabled: *shared\n"));
+        QVERIFY(manager.setEnabled("provider", true, &error));
+        document = YAML::Load(read(path).toStdString());
+        QVERIFY(!document["other"]["provider"].as<bool>());
+        QVERIFY(document["enabled"]["provider"].as<bool>());
+        QVERIFY(manager.stop());
+
+        const QString blockedPath = temporary.filePath("blocked.yaml");
+        Settings      blocked(blockedPath);
+        PluginManager blockedManager(blocked, temporary.filePath("empty"));
+        QVERIFY(blockedManager.start());
+        QVERIFY(QDir().mkdir(blockedPath));
+        QVERIFY(!blockedManager.setEnabled("test", true, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(QFileInfo(blockedPath).isDir());
+        QVERIFY(blockedManager.stop());
     }
 };
 QTEST_MAIN(PluginIntegrationTests)

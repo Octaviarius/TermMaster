@@ -2,7 +2,6 @@
 
 #include <QPair>
 #include <QStringList>
-#include <Termaster/Core/Singleton.h>
 
 class PrettyId : public QPair<QString, QString>
 {
@@ -34,10 +33,10 @@ public:
     }
 };
 
-class RandomNames : public Singleton<RandomNames>
+class RandomNames
 {
 public:
-    friend Singleton<RandomNames>;
+    RandomNames();
 
     PrettyId getId(int index);
 
@@ -47,7 +46,5 @@ public:
     int totalCombinations() const;
 
 private:
-    RandomNames();
-
     QList<int> _indices;
 };

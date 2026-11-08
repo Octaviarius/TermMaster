@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDateTime>
 #include <QVersionNumber>
 
 class Version

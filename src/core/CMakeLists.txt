@@ -2,28 +2,24 @@ project(Core)
 
 find_package(Qt6 REQUIRED COMPONENTS
     Core
-    SerialBus
-    SerialPort
     Widgets
 )
 
 qt_add_library(${PROJECT_NAME} STATIC
+    inc/Termaster/Core/ApplicationPaths.h
+    src/ApplicationPaths.cpp
     inc/Termaster/Core/Version.h
+    inc/Termaster/Core/BuildTime.h
+    inc/Termaster/Core/CompileTime.h
     src/Version.cpp
     inc/Termaster/Core/RandomNames.h
     src/RandomNames.cpp
-    inc/Termaster/Core/Registree.h
-    src/Registree.cpp
     inc/Termaster/Core/PurePath.h
     src/PurePath.cpp
     inc/Termaster/Core/Path.h
     src/Path.cpp
-    inc/Termaster/Core/Singleton.h
-    inc/Termaster/Core/utils.h
     inc/Termaster/Core/Command.h
     src/Command.cpp
-    inc/Termaster/Core/Settings.h
-    src/Settings.cpp
     inc/Termaster/Core/gui/action/ActionContainerAdapter.h
     src/gui/action/ActionContainerAdapter.cpp
     inc/Termaster/Core/ActionContainer.h
@@ -34,8 +30,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/gui/action/MenuActionContainer.cpp
     inc/Termaster/Core/gui/action/ToolbarActionContainer.h
     src/gui/action/ToolbarActionContainer.cpp
-    inc/Termaster/Core/EnumReflection.h
-    inc/Termaster/Core/Deque.h
+    inc/Termaster/Core/Settings.h
+    src/Settings.cpp
     inc/Termaster/Core/plugin/Plugin.h
     inc/Termaster/Core/plugin/PluginManager.h
     src/plugin/PluginManager.cpp
@@ -55,12 +51,10 @@ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 target_link_libraries(${PROJECT_NAME} PUBLIC
     Qt6::Core
     Qt6::Widgets
-    Qt6::SerialBus
-    Qt6::SerialPort
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    Managers
+    yaml-cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
