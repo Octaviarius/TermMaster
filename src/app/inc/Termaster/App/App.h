@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QStringList>
+#include <QVariant>
 #include <memory>
 
 class ApplicationPaths;
@@ -9,6 +10,8 @@ class CommandRegistry;
 class MenubarActionContainer;
 class ToolbarActionContainer;
 class Settings;
+class PluginHost;
+class PluginManager;
 class SettingsWidgetRegistry;
 class QMainWindow;
 class Path;
@@ -42,6 +45,14 @@ public:
     Settings&               settings();
     CommandRegistry&        commands();
     SettingsWidgetRegistry& settingsWidgets();
+    PluginHost&             pluginHost();
+    PluginManager&          plugins();
+    bool                    createTerminal(const QString&     type,
+                                           const QVariantMap& settings,
+                                           const QString&     name  = {},
+                                           QString*           error = nullptr);
+    QStringList             terminalIds() const;
+    QString                 selectedTerminal() const;
     QMainWindow&            mainWindow();
     MenubarActionContainer& mainMenu();
     ToolbarActionContainer& toolbar();

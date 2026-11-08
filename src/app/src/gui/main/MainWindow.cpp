@@ -3,7 +3,9 @@
 #include "../workspace/WorkspacePage.h"
 
 #include <QCoreApplication>
+#include <QStackedWidget>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QToolBar>
 #include <Termaster/Core/gui/action/MenuActionContainer.h>
 #include <memory>
@@ -15,7 +17,15 @@ MainWindow::MainWindow(QWidget* parent) :
     setWindowTitle(QCoreApplication::applicationName());
     resize(1000, 650);
     _workspacePage = new WorkspacePage(this);
-    setCentralWidget(_workspacePage);
+    _terminalTabs  = new QTabWidget(this);
+    _terminalTabs->setObjectName("terminalTabs");
+    _terminalTabs->setTabsClosable(true);
+    _terminalTabs->setMovable(true);
+    _terminalTabs->setDocumentMode(true);
+    _central = new QStackedWidget(this);
+    _central->addWidget(_workspacePage);
+    _central->addWidget(_terminalTabs);
+    setCentralWidget(_central);
     connect(_workspacePage, &WorkspacePage::openRequested, this, &MainWindow::openWorkspaceRequested);
     connect(_workspacePage, &WorkspacePage::createRequested, this, &MainWindow::createWorkspaceRequested);
     connect(_workspacePage, &WorkspacePage::openSessionRequested, this, &MainWindow::openSessionRequested);
@@ -40,12 +50,14 @@ void MainWindow::setWorkspace(const QString& name, const QString& file)
 {
     setWindowTitle(name + " — " + QCoreApplication::applicationName());
     _workspacePage->setWorkspace(name, file);
+    showTerminals(_terminalTabs->count() > 0);
 }
 
 void MainWindow::showWorkspaceChoice(const QString& error)
 {
     setWindowTitle(QCoreApplication::applicationName());
     _workspacePage->showChoice(error);
+    showTerminals(false);
 }
 
 void MainWindow::_createMenus()
@@ -74,6 +86,7 @@ void MainWindow::_createMenus()
     }
     menu("edit", tr("&Edit"), {"history", "clipboard", "selection"});
     menu("view", tr("&View"), {"panels", "window"});
+    menu("terminal", tr("&Terminal"), {"create", "connection", "management", "output", "settings"});
     menu("tools", tr("&Tools"), {"management"});
     menu("help", tr("&Help"), {"about"});
     for (const auto& group : QStringList {"application", "workspace", "session", "terminal"})
@@ -85,4 +98,14 @@ void MainWindow::_createMenus()
 void MainWindow::setSession(const QString& name, const QString& file, int objects, int links)
 {
     _workspacePage->setSession(name, file, objects, links);
+}
+
+QTabWidget& MainWindow::terminalTabs()
+{
+    return *_terminalTabs;
+}
+void MainWindow::showTerminals(bool visible)
+{
+    _central->setCurrentWidget(visible && _terminalTabs->count() ? static_cast<QWidget*>(_terminalTabs) :
+                                                                   _workspacePage);
 }

@@ -19,3 +19,8 @@ set_tests_properties(AppTests PROPERTIES
 target_include_directories(AppTests PRIVATE
     "${CMAKE_SOURCE_DIR}/src/app/src"
 )
+
+add_dependencies(AppTests SerialTerminal)
+target_compile_definitions(AppTests PRIVATE
+    TERMASTER_SERIAL_PLUGIN_FILE="$<TARGET_FILE:SerialTerminal>"
+)

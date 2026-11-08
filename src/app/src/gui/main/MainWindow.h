@@ -5,6 +5,8 @@
 #include <Termaster/Core/gui/action/ToolbarActionContainer.h>
 
 class WorkspacePage;
+class QTabWidget;
+class QStackedWidget;
 
 /** Application shell. Commands and domain operations are wired by App. */
 class MainWindow final : public QMainWindow
@@ -15,6 +17,8 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     MenubarActionContainer& mainMenu();
     ToolbarActionContainer& toolbar();
+    QTabWidget&             terminalTabs();
+    void                    showTerminals(bool visible);
     void                    setWorkspace(const QString& name, const QString& file);
     void                    showWorkspaceChoice(const QString& error = {});
     void                    setSession(const QString& name, const QString& file, int objects, int links);
@@ -27,6 +31,8 @@ private:
     MenubarActionContainer _mainMenu;
     ToolbarActionContainer _toolbar;
     WorkspacePage*         _workspacePage;
+    QTabWidget*            _terminalTabs;
+    QStackedWidget*        _central;
 
     void _createMenus();
 };

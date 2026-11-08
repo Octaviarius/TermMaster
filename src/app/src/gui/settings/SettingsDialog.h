@@ -39,6 +39,8 @@ public:
                                std::shared_ptr<const SettingsSchema> schema,
                                SettingsOverlay                       target,
                                bool                                  preview = false);
+    void               setVisible(bool visible) override;
+    bool               hasHeightForWidth() const override;
     bool               selectPage(const QString& id);
     QString            currentPage() const;
     SettingsFormModel* pageModel(const QString& id) const;
@@ -76,6 +78,7 @@ private:
     QLabel*                       _error;
     QDialogButtonBox*             _buttons;
     bool                          _pendingPersistence = false;
+    bool                          _initialGeometrySet = false;
 
     void _checkPage(const QString&                               id,
                     const QString&                               category,
@@ -87,6 +90,7 @@ private:
                   const QString&     description,
                   SettingsFormModel* model,
                   bool               preview);
+    void _fitToScreen();
     void _filterPages();
     void _showSelection();
     bool _apply();

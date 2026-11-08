@@ -2,6 +2,7 @@
 #include "gui/main/MainWindow.h"
 #include "gui/settings/SettingsDialog.h"
 #include "gui/settings/SettingsPreview.h"
+#include "gui/terminal/TerminalController.h"
 
 #include <QCloseEvent>
 #include <QDialog>
@@ -9,6 +10,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFontDatabase>
 #include <QIcon>
 #include <QInputDialog>
 #include <QLineEdit>
@@ -39,31 +41,33 @@
 
 struct App::Data
 {
-    ApplicationPaths                  paths;
-    Settings                          settings;
-    Settings                          pluginSettings;
-    std::unique_ptr<Workspace>        workspace;
-    std::unique_ptr<Session>          session;
-    CommandRegistry                   commands;
-    SettingsWidgetRegistry            settingsWidgets;
-    std::unique_ptr<MainWindow>       window;
-    std::unique_ptr<EditActions>      editing;
-    QPointer<QDialog>                 pluginWindow;
-    QPointer<SettingsDialog>          settingsWindow;
-    QPointer<QAction>                 createSessionAction;
-    QPointer<QAction>                 openSessionAction;
-    QPointer<QAction>                 saveSessionAction;
-    QPointer<QAction>                 closeSessionAction;
-    QPointer<QAction>                 renameSessionAction;
-    QPointer<QAction>                 saveAction;
-    QPointer<QAction>                 closeAction;
-    QPointer<QAction>                 toolbarAction;
-    QPointer<QAction>                 statusAction;
-    QPointer<QAction>                 fullScreenAction;
-    std::array<QPointer<QAction>, 10> recentWorkspaces;
-    std::array<QPointer<QAction>, 10> recentSessions;
-    bool                              settingsLoaded        = false;
-    bool                              applyingConfiguration = false;
+    ApplicationPaths                    paths;
+    Settings                            defaults {QString {}};
+    Settings                            settings;
+    Settings                            pluginSettings;
+    std::unique_ptr<Workspace>          workspace;
+    std::unique_ptr<Session>            session;
+    CommandRegistry                     commands;
+    SettingsWidgetRegistry              settingsWidgets;
+    std::unique_ptr<MainWindow>         window;
+    std::unique_ptr<TerminalController> terminals;
+    std::unique_ptr<EditActions>        editing;
+    QPointer<QDialog>                   pluginWindow;
+    QPointer<SettingsDialog>            settingsWindow;
+    QPointer<QAction>                   createSessionAction;
+    QPointer<QAction>                   openSessionAction;
+    QPointer<QAction>                   saveSessionAction;
+    QPointer<QAction>                   closeSessionAction;
+    QPointer<QAction>                   renameSessionAction;
+    QPointer<QAction>                   saveAction;
+    QPointer<QAction>                   closeAction;
+    QPointer<QAction>                   toolbarAction;
+    QPointer<QAction>                   statusAction;
+    QPointer<QAction>                   fullScreenAction;
+    std::array<QPointer<QAction>, 10>   recentWorkspaces;
+    std::array<QPointer<QAction>, 10>   recentSessions;
+    bool                                settingsLoaded        = false;
+    bool                                applyingConfiguration = false;
     // Shutdown may still use commands, views, workspace and settings.
     PluginManager plugins;
 
@@ -74,6 +78,23 @@ struct App::Data
         window(std::make_unique<MainWindow>()), plugins(pluginSettings, paths.pluginsDirectory().toString())
     {
         registerSettingsPreviewEditors(settingsWidgets);
+        defaults.applyValues(
+            {
+                {     "appearance/fontFamily", QFontDatabase::systemFont(QFontDatabase::FixedFont).family()},
+                {       "appearance/fontSize",                                                           12},
+                {     "appearance/foreground",                                                    "#e5e7eb"},
+                {     "appearance/background",                                                    "#15191f"},
+                {"appearance/scrollbackLines",                                                        10000},
+                {           "input/localEcho",                                                        false},
+                {         "ui/toolbarVisible",                                                         true},
+                {       "ui/statusBarVisible",                                                         true}
+        },
+            {});
+    }
+
+    SettingsOverlay applicationSettings()
+    {
+        return SettingsOverlay(defaults.node(""), settings.node("settings"));
     }
 
 private:
@@ -106,6 +127,23 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
 
     _data = std::make_unique<Data>(options);
     _setupActions();
+    _data->terminals = std::make_unique<TerminalController>(
+        *_data->window,
+        commands(),
+        settingsWidgets(),
+        [this] { delete _data->settingsWindow.data(); },
+        [this] {
+            _showSettings();
+            if (_data->settingsWindow)
+            {
+                _data->settingsWindow->selectPage("terminal.connection");
+            }
+        },
+        this);
+    _data->plugins.setHost(_data->terminals.get());
+    connect(_data->terminals.get(), &TerminalController::selectionChanged, this, [this] {
+        delete _data->settingsWindow.data();
+    });
     _data->window->installEventFilter(this);
     _data->window->statusBar()->installEventFilter(this);
     connect(_data->window.get(), &MainWindow::openWorkspaceRequested, this, &App::_chooseWorkspace);
@@ -121,6 +159,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
 
 App::~App()
 {
+    QObject::disconnect(_data->terminals.get(), nullptr, this, nullptr);
     _data->window->removeEventFilter(this);
     _data->window->statusBar()->removeEventFilter(this);
     // Stop callbacks into Data before its members begin destruction.
@@ -145,6 +184,16 @@ int App::run()
     if (!_data->plugins.start(&error))
     {
         _data->window->statusBar()->showMessage(error);
+    }
+    for (const auto& plugin : _data->plugins.plugins())
+    {
+        if (plugin.info.id == "SerialTerminal" && !_data->pluginSettings.contains("enabled/SerialTerminal"))
+        {
+            if (!_data->plugins.setEnabled("SerialTerminal", true, &error))
+            {
+                _data->window->statusBar()->showMessage(error);
+            }
+        }
     }
     return exec();
 }
@@ -207,8 +256,7 @@ SettingsOverlay App::configuration()
     {
         return _data->workspace->settings();
     }
-    auto base = _data->settings.node("settings");
-    return SettingsOverlay(base, base);
+    return _data->applicationSettings();
 }
 
 bool App::restoreLastWorkspace(QString* error)
@@ -246,7 +294,7 @@ bool App::restoreLastWorkspace(QString* error)
         {
             return true;
         }
-        auto candidate = std::make_unique<Workspace>(file, _data->settings.node("settings"));
+        auto candidate = std::make_unique<Workspace>(file, _data->applicationSettings());
         if (!candidate->load(error))
         {
             return false;
@@ -256,6 +304,7 @@ bool App::restoreLastWorkspace(QString* error)
             return false;
         }
         const bool hadSession = bool(_data->session);
+        _data->terminals->setSession(nullptr);
         _data->session.reset();
         _data->workspace = std::move(candidate);
         _updateWorkspace();
@@ -287,7 +336,7 @@ bool App::openWorkspace(const Path& file, QString* error)
     {
         return _rememberWorkspace(*canonical, error);
     }
-    auto candidate = std::make_unique<Workspace>(file, _data->settings.node("settings"));
+    auto candidate = std::make_unique<Workspace>(file, _data->applicationSettings());
     return candidate->load(error) && _activateWorkspace(std::move(candidate), error);
 }
 
@@ -297,7 +346,7 @@ bool App::createWorkspace(const Path& file, const QString& name, QString* error)
     {
         return false;
     }
-    auto candidate = std::make_unique<Workspace>(file, _data->settings.node("settings"));
+    auto candidate = std::make_unique<Workspace>(file, _data->applicationSettings());
     return candidate->create(name, error) && _activateWorkspace(std::move(candidate), error);
 }
 
@@ -334,6 +383,7 @@ bool App::closeWorkspace(QString* error)
         return false;
     }
     const bool hadSession = bool(_data->session);
+    _data->terminals->setSession(nullptr);
     _data->session.reset();
     _data->workspace.reset();
     _updateWorkspace();
@@ -747,6 +797,7 @@ bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* erro
         return false;
     }
     const bool hadSession = bool(_data->session);
+    _data->terminals->setSession(nullptr);
     _data->session.reset();
     _data->workspace = std::move(candidate);
     _updateWorkspace();
@@ -1096,6 +1147,7 @@ bool App::closeSession(QString* error)
     {
         return false;
     }
+    _data->terminals->setSession(nullptr);
     _data->session.reset();
     _updateSession();
     emit sessionChanged();
@@ -1127,7 +1179,9 @@ bool App::_activateSession(std::unique_ptr<Session> candidate, QString* error)
         }
         return false;
     }
+    _data->terminals->setSession(nullptr);
     _data->session = std::move(candidate);
+    _data->terminals->setSession(_data->session.get());
     _updateSession();
     emit sessionChanged();
     return true;
@@ -1149,6 +1203,7 @@ void App::_updateSession()
                               session ? _data->session->objects().values().size() : 0,
                               session ? _data->session->links().values().size() : 0);
     _applyConfiguration();
+    _data->terminals->applySettings();
     _updateRecent();
 }
 
@@ -1268,11 +1323,43 @@ void App::_showSettings()
                             schema,
                             _data->session->settings());
         }
+        QFile appearanceFile(":/Termaster/App/TerminalAppearance.yaml");
+        if (!appearanceFile.open(QIODevice::ReadOnly))
+        {
+            throw std::runtime_error("Terminal appearance schema is unavailable");
+        }
+        auto appearance = std::make_shared<SettingsSchema>(appearanceFile.readAll());
+        dialog->addPage("application.terminal",
+                        tr("Application"),
+                        tr("Terminal defaults"),
+                        tr("Default display and input settings for all terminals."),
+                        appearance,
+                        _data->applicationSettings());
+        if (_data->workspace)
+        {
+            dialog->addPage("workspace.terminal",
+                            tr("Workspace"),
+                            tr("Terminal defaults"),
+                            tr("Terminal defaults for this workspace."),
+                            appearance,
+                            _data->workspace->settings());
+        }
+        if (_data->session)
+        {
+            dialog->addPage("session.terminal",
+                            tr("Session"),
+                            tr("Terminal defaults"),
+                            tr("Terminal defaults for this session."),
+                            appearance,
+                            _data->session->settings());
+        }
+        _data->terminals->addSettingsPages(*dialog);
         addSettingsPreviewPages(*dialog);
         dialog->selectPage(_data->session   ? "session.appearance" :
                            _data->workspace ? "workspace.appearance" :
                                               "application.appearance");
         connect(dialog, &SettingsDialog::applied, this, &App::_applyConfiguration);
+        connect(dialog, &SettingsDialog::applied, _data->terminals.get(), &TerminalController::applySettings);
         const auto* workspace          = _data->workspace.get();
         const auto* session            = _data->session.get();
         const auto  closeOnScopeChange = [this, dialog, workspace, session] {
@@ -1287,4 +1374,25 @@ void App::_showSettings()
     _data->settingsWindow->show();
     _data->settingsWindow->raise();
     _data->settingsWindow->activateWindow();
+}
+
+PluginHost& App::pluginHost()
+{
+    return *_data->terminals;
+}
+PluginManager& App::plugins()
+{
+    return _data->plugins;
+}
+bool App::createTerminal(const QString& type, const QVariantMap& settings, const QString& name, QString* error)
+{
+    return _data->terminals->createTerminal(type, settings, name, error);
+}
+QStringList App::terminalIds() const
+{
+    return _data->terminals->terminalIds();
+}
+QString App::selectedTerminal() const
+{
+    return _data->terminals->selectedTerminal();
 }

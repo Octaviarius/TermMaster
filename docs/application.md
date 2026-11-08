@@ -41,7 +41,8 @@ embedding. Defaults retain the current ApplicationPaths locations. The owner,
 commands, windows and all accessors are used on the GUI thread. Construct one App
 and invoke run once. The central area presents workspace Open/New choices or
 the active workspace name/path, session choices and loaded session configuration.
-Session configuration loading is implemented; terminal-group execution remains planned.
+Recognized terminal objects open as disconnected tabs through registered plugin factories;
+link/resource graph execution remains planned. See [terminal support](terminals-and-serial.md).
 
 ## Access to commands and containers
 
@@ -67,8 +68,8 @@ also throws rather than returning a success flag. Movement/removal retain bool
 results. Registration failures are programming errors, not silently skipped actions. Removing a command destroys its
 remaining actions; ActionContainer automatically drops those registrations.
 Contributors must remove their owned menu groups and unregister their commands
-before unloading their code. Passing App to plugin startup is not added by this
-change; plugin context exposure remains a separate contract decision.
+before unloading their code. Hosted plugins receive the optional PluginHost SDK contract before startup;
+Core remains independent of App.
 
 ## Workspace and standard menus
 
@@ -93,8 +94,8 @@ App also exposes `session()`, `createSession()`, `openSession()`, `saveSession()
 changes. Session New/Open require an active workspace; Save/Close/Rename require
 an active session. UUID identity and folder location remain stable across a
 human-readable name change. Empty creation names use a random adjective/noun.
-The workspace page displays configuration metadata only; no terminal backend or
-object graph is activated. Session state is saved before workspace replacement,
+The workspace page displays configuration metadata; recognized terminal objects
+open as disconnected tabs, without executing arbitrary link/resource graphs. Session state is saved before workspace replacement,
 close and normal exit. Startup restores the workspace without reopening a session.
 
 `configuration()` exposes a live borrowed application/workspace/session overlay,
@@ -215,3 +216,11 @@ then adds explicitly isolated preview pages from YAML resources under
 App's `gui/settings` feature. The application-owned widget registry outlives dialogs;
 its preview factory is registered once per App instance. No serial API is used.
 See [preferences navigation](settings-forms.md#preferences-navigation-and-preview-pages).
+
+## Terminal runtime
+
+[Terminal support](terminals-and-serial.md) describes SerialTerminal, the selected-tab
+controller, the Terminal menu, five-layer configuration and unload lifetimes.
+Application, workspace and session settings include real Terminal defaults pages;
+a selected tab adds its own connection and display pages. Production serial
+creation uses the plugin port selector rather than the isolated preview model.
