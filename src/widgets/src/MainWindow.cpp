@@ -35,6 +35,8 @@ MainWindow::MainWindow(uint id, QWidget* parent) : QMainWindow(parent), ui(new U
 MainWindow::~MainWindow()
 {
     _settings->sync();
+    delete _mainMenuContainer;
+    delete _toolbarContainer;
     delete ui;
     delete _settings;
 }

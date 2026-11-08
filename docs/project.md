@@ -73,3 +73,6 @@ Release build of the application and plugin suite. The independently rebuilt SDK
 consumer and all 13 integration checks passed. Relocation checks accounted for
 all tracked application files and preserved resource contents. No UI behavior
 changes were introduced by the relocation.
+
+[Action containers](action-containers.md) describes ordered command groups, menu
+ownership and native Qt adapters.

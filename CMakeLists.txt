@@ -23,6 +23,12 @@ if(TERMASTER_BUILD_PLUGIN_TESTS)
     add_subdirectory(tools/tests/Plugin)
 endif()
 
+option(TERMASTER_BUILD_ACTION_TESTS "Build action container tests" OFF)
+if(TERMASTER_BUILD_ACTION_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/ActionContainers)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()

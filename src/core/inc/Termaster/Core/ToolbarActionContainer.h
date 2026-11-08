@@ -1,20 +1,16 @@
 #pragma once
 
 #include <QToolBar>
-#include <Termaster/Core/ActionContainer.h>
+#include <Termaster/Core/ActionContainerAdapter.h>
 
-class ToolbarActionContainer : public ActionContainer
+/** Borrows the toolbar and supports nested menus through native drop-down buttons. */
+class ToolbarActionContainer final : public ActionContainerAdapter
 {
 public:
-    ToolbarActionContainer(QToolBar* toolbar);
-    virtual ~ToolbarActionContainer();
+    explicit ToolbarActionContainer(QToolBar* toolbar, QObject* owner = nullptr);
+    QToolBar* toolbar() const;
 
 protected:
-    virtual bool _addGroup(QString name);
-    virtual bool _addAction(QAction* action, QString group);
-    virtual bool _addMenu(ActionContainer* menu, QString group);
-
-private:
-    QToolBar*               _toolbar;
-    QMap<QString, QAction*> _separators;
+    QAction* _menuAction() const override;
+    void     _configureAction(QAction* action) override;
 };

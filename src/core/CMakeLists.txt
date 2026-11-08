@@ -22,14 +22,16 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Command.cpp
     inc/Termaster/Core/Settings.h
     src/Settings.cpp
+    inc/Termaster/Core/ActionContainerAdapter.h
+    gui/action/ActionContainerAdapter.cpp
     inc/Termaster/Core/ActionContainer.h
     src/ActionContainer.cpp
     inc/Termaster/Core/MenubarActionContainer.h
-    src/MenubarActionContainer.cpp
+    gui/action/MenubarActionContainer.cpp
     inc/Termaster/Core/MenuActionContainer.h
-    src/MenuActionContainer.cpp
+    gui/action/MenuActionContainer.cpp
     inc/Termaster/Core/ToolbarActionContainer.h
-    src/ToolbarActionContainer.cpp
+    gui/action/ToolbarActionContainer.cpp
     inc/Termaster/Core/EnumReflection.h
     inc/Termaster/Core/Deque.h
     inc/Termaster/Core/plugin/Plugin.h

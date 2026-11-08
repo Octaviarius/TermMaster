@@ -1,208 +1,707 @@
+#include <QThread>
 #include <Termaster/Core/ActionContainer.h>
+#include <utility>
 
-ActionContainer::ActionContainer(QString name, QString title) :
-    _parent(nullptr), _name(name), _title(title == "" ? name : title)
+ActionContainer::ActionContainer(QString name, QString title, QObject* owner) :
+    QObject(owner), _name(std::move(name)), _title(title.isEmpty() ? _name : std::move(title))
 {
+    setObjectName(_name);
 }
 
 ActionContainer::~ActionContainer()
 {
-    for (auto lst : _menus.values())
+    _destroying = true;
+    if (_parentContainer)
     {
-        for (auto c : lst)
-        {
-            delete c;
-        }
-    }
-}
-
-ActionContainer* ActionContainer::parent() const
-{
-    return _parent;
-}
-
-ActionContainer* ActionContainer::root() const
-{
-    ActionContainer* ret = this->_parent;
-
-    while (ret->_parent != nullptr)
-    {
-        ret = ret->_parent;
+        _parentContainer->_forgetMenu(this);
     }
 
-    return ret;
-}
-
-PurePosixPath ActionContainer::path() const
-{
-    if (_parent == nullptr)
+    QList<Record> records;
+    for (auto& group : _groups)
     {
-        return _name;
+        records.append(std::move(group.items));
     }
-    else
-    {
-        return _parent->path() / _name;
-    }
+    _groups.clear();
+    _release(records);
+    _deleteMenus(records);
 }
 
 QString ActionContainer::name() const
 {
     return _name;
 }
-
 QString ActionContainer::title() const
 {
     return _title;
 }
 
-bool ActionContainer::addGroup(QString name)
+void ActionContainer::setTitle(const QString& title)
 {
-    bool ret = false;
-
-    if (!_groups.contains(name))
+    if (!_canMutate() || title == _title)
     {
-        _groups.append(name);
-        ret = _addGroup(name);
-
-        if (!ret)
-        {
-            _groups.removeOne(name);
-        }
+        return;
     }
+    _title = title;
+    emit titleChanged(_title);
+}
 
-    return ret;
+ActionContainer* ActionContainer::parentContainer() const
+{
+    return _parentContainer.data();
+}
+
+ActionContainer* ActionContainer::root() const
+{
+    auto current = const_cast<ActionContainer*>(this);
+    while (current->_parentContainer)
+    {
+        current = current->_parentContainer.data();
+    }
+    return current;
+}
+
+QString ActionContainer::path() const
+{
+    QStringList            parts;
+    const ActionContainer* current = this;
+    while (current->_parentContainer)
+    {
+        parts.prepend(current->_name);
+        current = current->_parentContainer;
+    }
+    return '/' + parts.join('/');
+}
+
+ActionContainer* ActionContainer::findMenu(const QString& path) const
+{
+    auto       current = path.startsWith('/') ? root() : const_cast<ActionContainer*>(this);
+    const auto parts   = path.split('/', Qt::SkipEmptyParts);
+    for (const auto& part : parts)
+    {
+        if (part == ".")
+        {
+            continue;
+        }
+        if (part == "..")
+        {
+            current = current->parentContainer();
+            if (!current)
+            {
+                return nullptr;
+            }
+            continue;
+        }
+        ActionContainer* found = nullptr;
+        for (const auto& group : current->_groups)
+        {
+            for (const auto& record : group.items)
+            {
+                if (record.item.kind == Kind::Menu && record.item.menu && record.item.menu->name() == part)
+                {
+                    found = record.item.menu;
+                    break;
+                }
+            }
+            if (found)
+            {
+                break;
+            }
+        }
+        if (!found)
+        {
+            return nullptr;
+        }
+        current = found;
+    }
+    return current;
+}
+
+bool ActionContainer::isAvailable() const
+{
+    return !_destroying && _isAvailable();
 }
 
 QStringList ActionContainer::groups() const
 {
-    return _groups;
+    QStringList result;
+    for (const auto& group : _groups)
+    {
+        result.append(group.name);
+    }
+    return result;
 }
 
-bool ActionContainer::addMenu(ActionContainer* menu, QString group)
+qsizetype ActionContainer::groupIndex(const QString& name) const
 {
-    bool ret = false;
-
-    if (!menu)
+    for (qsizetype index = 0; index < _groups.size(); ++index)
     {
-        qWarning() << QString("Null pointer in addMenu of '%1'").arg(path());
-    }
-    else if (menu->_parent != nullptr)
-    {
-        qWarning() << QString("Container '%1' already has a parent '%2', won't be added to '%3'")
-                          .arg(menu->_name)
-                          .arg(menu->_parent->path())
-                          .arg(path());
-    }
-    else if (!_groups.contains(group))
-    {
-        qWarning() << QString("Group '%1' isn't exised in '%2'").arg(group).arg(path());
-    }
-    else
-    {
-        if (!_menus.contains(group))
+        if (_groups[index].name == name)
         {
-            _menus[group] = List();
+            return index;
         }
+    }
+    return -1;
+}
 
-        auto& list = _menus[group];
+bool ActionContainer::addGroup(const QString& name)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    return insertGroup(name, _groups.size());
+}
 
-        if (list.contains(menu))
+bool ActionContainer::insertGroup(const QString& name, qsizetype index)
+{
+    if (!_canMutate() || !isAvailable() || index < 0 || index > _groups.size() || groupIndex(name) >= 0)
+    {
+        return false;
+    }
+    _groups.insert(index, Group {name, {}});
+    _notify();
+    return true;
+}
+
+bool ActionContainer::insertGroupBefore(const QString& name, const QString& reference)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype index = groupIndex(reference);
+    return index >= 0 && insertGroup(name, index);
+}
+
+bool ActionContainer::insertGroupAfter(const QString& name, const QString& reference)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype index = groupIndex(reference);
+    return index >= 0 && insertGroup(name, index + 1);
+}
+
+bool ActionContainer::moveGroup(const QString& name, qsizetype index)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype from = groupIndex(name);
+    if (!_canMutate() || !isAvailable() || from < 0 || index < 0 || index >= _groups.size())
+    {
+        return false;
+    }
+    if (from == index)
+    {
+        return true;
+    }
+    auto group = _groups.takeAt(from);
+    _groups.insert(index, std::move(group));
+    _notify();
+    return true;
+}
+
+bool ActionContainer::moveGroupBefore(const QString& name, const QString& reference)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype from = groupIndex(name);
+    const qsizetype to   = groupIndex(reference);
+    if (from < 0 || to < 0)
+    {
+        return false;
+    }
+    return moveGroup(name, to - (from < to ? 1 : 0));
+}
+
+bool ActionContainer::moveGroupAfter(const QString& name, const QString& reference)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype from = groupIndex(name);
+    const qsizetype to   = groupIndex(reference);
+    if (from < 0 || to < 0)
+    {
+        return false;
+    }
+    return moveGroup(name, to + (from > to ? 1 : 0));
+}
+
+bool ActionContainer::renameGroup(const QString& name, const QString& newName)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype index = groupIndex(name);
+    if (!_canMutate() || !isAvailable() || index < 0)
+    {
+        return false;
+    }
+    if (name == newName)
+    {
+        return true;
+    }
+    if (groupIndex(newName) >= 0)
+    {
+        return false;
+    }
+    _groups[index].name = newName;
+    _notify();
+    return true;
+}
+
+bool ActionContainer::clearGroup(const QString& name)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype index = groupIndex(name);
+    if (!_canMutate() || index < 0)
+    {
+        return false;
+    }
+    if (_groups[index].items.isEmpty())
+    {
+        return true;
+    }
+    auto records = std::exchange(_groups[index].items, {});
+    _release(records);
+    _notify();
+    ActionContainer::_deleteMenus(records);
+    return true;
+}
+
+bool ActionContainer::removeGroup(const QString& name)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype index = groupIndex(name);
+    if (!_canMutate() || index < 0)
+    {
+        return false;
+    }
+    auto records = _groups.takeAt(index).items;
+    _release(records);
+    _notify();
+    ActionContainer::_deleteMenus(records);
+    return true;
+}
+
+bool ActionContainer::clear()
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    if (_groups.isEmpty())
+    {
+        return true;
+    }
+    QList<Record> records;
+    for (auto& group : _groups)
+    {
+        records.append(std::move(group.items));
+    }
+    _groups.clear();
+    _release(records);
+    _notify();
+    ActionContainer::_deleteMenus(records);
+    return true;
+}
+
+qsizetype ActionContainer::itemCount(const QString& group) const
+{
+    const qsizetype index = groupIndex(group);
+    return index < 0 ? 0 : _groups[index].items.size();
+}
+
+QList<ActionContainer::Item> ActionContainer::items(const QString& group) const
+{
+    QList<Item>     result;
+    const qsizetype index = groupIndex(group);
+    if (index < 0)
+    {
+        return result;
+    }
+    for (const auto& record : _groups[index].items)
+    {
+        if ((record.item.kind == Kind::Action && record.item.action)
+            || (record.item.kind == Kind::Menu && record.item.menu))
         {
-            qWarning() << QString("Container '%1' is already a child of the parent '%2'").arg(menu->_name).arg(path());
+            result.append(record.item);
         }
-        else
+    }
+    return result;
+}
+
+QList<QAction*> ActionContainer::actions(const QString& group) const
+{
+    QList<QAction*> result;
+    for (const auto& item : items(group))
+    {
+        if (item.kind == Kind::Action)
         {
-            list.append(menu);
-            menu->_parent = this;
+            result.append(item.action.data());
+        }
+    }
+    return result;
+}
 
-            ret = _addMenu(menu, group);
+ActionContainer::List ActionContainer::menus(const QString& group) const
+{
+    List result;
+    for (const auto& item : items(group))
+    {
+        if (item.kind == Kind::Menu)
+        {
+            result.append(item.menu.data());
+        }
+    }
+    return result;
+}
 
-            if (!ret)
+bool ActionContainer::addAction(QAction* action, const QString& group)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    return insertAction(action, group, itemCount(group));
+}
+
+bool ActionContainer::insertAction(QAction* action, const QString& group, qsizetype index)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype target = groupIndex(group);
+    if (!_canMutate() || !isAvailable() || !action || action->thread() != thread() || target < 0 || index < 0
+        || index > _groups[target].items.size() || _actionLocation(action) || !_acceptsAction(action) || !_nextId)
+    {
+        return false;
+    }
+
+    Record record;
+    record.item.action         = action;
+    record.id                  = _nextId++;
+    record.destroyedConnection = connect(action, &QObject::destroyed, this, [this, id = record.id]() {
+        _actionDestroyed(id);
+    });
+    _groups[target].items.insert(index, std::move(record));
+    _notify();
+    return true;
+}
+
+bool ActionContainer::moveAction(QAction* action, const QString& group, qsizetype index)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const auto location = _actionLocation(action);
+    return location && _moveItem(*location, group, index);
+}
+
+bool ActionContainer::removeAction(QAction* action)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const auto location = _actionLocation(action);
+    if (!_canMutate() || !location)
+    {
+        return false;
+    }
+    const auto record = _groups[location->group].items.takeAt(location->item);
+    disconnect(record.destroyedConnection);
+    _notify();
+    return true;
+}
+
+bool ActionContainer::addMenu(ActionContainer* menu, const QString& group)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    return insertMenu(menu, group, itemCount(group));
+}
+
+bool ActionContainer::insertMenu(ActionContainer* menu, const QString& group, qsizetype index)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const qsizetype target = groupIndex(group);
+    if (!_canMutate() || !isAvailable() || target < 0 || index < 0 || index > _groups[target].items.size()
+        || !_validMenu(menu) || menu->_parentContainer || !_nextId)
+    {
+        return false;
+    }
+
+    Record record;
+    record.item.kind = Kind::Menu;
+    record.item.menu = menu;
+    record.id        = _nextId++;
+    _groups[target].items.insert(index, std::move(record));
+    menu->_parentContainer = this;
+    menu->setParent(this);
+    _notify();
+    return true;
+}
+
+bool ActionContainer::moveMenu(ActionContainer* menu, const QString& group, qsizetype index)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const auto location = _menuLocation(menu);
+    return location && _moveItem(*location, group, index);
+}
+
+bool ActionContainer::transferMenu(ActionContainer* menu,
+                                   ActionContainer& target,
+                                   const QString&   group,
+                                   qsizetype        index)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    if (&target == this)
+    {
+        return moveMenu(menu, group, index);
+    }
+    const auto      location    = _menuLocation(menu);
+    const qsizetype destination = target.groupIndex(group);
+    if (!_canMutate() || !location || !target._canMutate() || !target.isAvailable() || destination < 0 || index < 0
+        || index > target._groups[destination].items.size() || !target._validMenu(menu) || !target._nextId)
+    {
+        return false;
+    }
+
+    auto record = _groups[location->group].items.takeAt(location->item);
+    record.id   = target._nextId++;
+    target._groups[destination].items.insert(index, std::move(record));
+    menu->_parentContainer = &target;
+    menu->setParent(&target);
+    QPointer<ActionContainer> destinationGuard(&target);
+    _notify();
+    if (destinationGuard)
+    {
+        destinationGuard->_notify();
+    }
+    return true;
+}
+
+ActionContainer* ActionContainer::takeMenu(ActionContainer* menu)
+{
+    if (!_canMutate())
+    {
+        return nullptr;
+    }
+    const auto location = _menuLocation(menu);
+    if (!_canMutate() || !location)
+    {
+        return nullptr;
+    }
+    QPointer<ActionContainer> result(menu);
+    _forgetMenu(menu);
+    return result.data();
+}
+
+bool ActionContainer::removeMenu(ActionContainer* menu)
+{
+    if (!_canMutate())
+    {
+        return false;
+    }
+    const auto location = _menuLocation(menu);
+    if (!_canMutate() || !location)
+    {
+        return false;
+    }
+    QPointer<ActionContainer> removed(menu);
+    _forgetMenu(menu);
+    delete removed.data();
+    return true;
+}
+
+bool ActionContainer::_canMutate() const
+{
+    return !_destroying && QThread::currentThread() == thread();
+}
+
+bool ActionContainer::_validMenu(const ActionContainer* menu) const
+{
+    if (!menu || menu->thread() != thread() || !menu->isAvailable() || menu->_name.isEmpty() || menu->_name == "."
+        || menu->_name == ".." || menu->_name.contains('/') || menu->_name.contains('\\'))
+    {
+        return false;
+    }
+    for (const QObject* owner = this; owner; owner = owner->parent())
+    {
+        if (owner == menu)
+        {
+            return false;
+        }
+    }
+    for (const ActionContainer* current = this; current; current = current->_parentContainer)
+    {
+        if (current == menu)
+        {
+            return false;
+        }
+    }
+    for (const auto& group : _groups)
+    {
+        for (const auto& record : group.items)
+        {
+            if (record.item.kind == Kind::Menu && record.item.menu && record.item.menu->name() == menu->name())
             {
-                qCritical() << QString("Container '%1' won't be added due to errors").arg(menu->path());
-                menu->_parent = nullptr;
-                list.removeOne(menu);
+                return false;
             }
         }
     }
-
-    return ret;
+    return _acceptsMenu(menu);
 }
 
-ActionContainer::List ActionContainer::menus(QString group) const
+std::optional<ActionContainer::Location> ActionContainer::_actionLocation(const QAction* action) const
 {
-    return _menus.value(group);
-}
-
-ActionContainer* ActionContainer::findMenu(QString path)
-{
-    ActionContainer* curr = this;
-
-    for (const auto& p : PurePosixPath(path).parts())
-    {
-        bool found = false;
-
-        for (const auto& g : curr->_menus.values())
-        {
-            for (const auto& m : g)
-            {
-                if (m->name() == p)
-                {
-                    found = true;
-                    curr  = m;
-                    break;
-                }
-            }
-        }
-
-        if (!found)
-        {
-            curr = nullptr;
-            break;
-        }
-    }
-
-    return curr;
-}
-
-bool ActionContainer::addAction(QAction* action, QString group)
-{
-    bool ret = false;
-
     if (!action)
     {
-        qWarning() << QString("Null pointer in addAction of '%1'").arg(path());
+        return {};
     }
-    else if (!_groups.contains(group))
+    for (qsizetype group = 0; group < _groups.size(); ++group)
     {
-        qWarning() << QString("Group '%1' isn't exised in '%2'").arg(group).arg(path());
-    }
-    else
-    {
-        if (!_actions.contains(group))
+        for (qsizetype item = 0; item < _groups[group].items.size(); ++item)
         {
-            _actions[group] = QActionList();
-        }
-
-        auto& list = _actions[group];
-
-        if (!list.contains(action))
-        {
-            list.append(action);
-
-            ret = _addAction(action, group);
-
-            if (!ret)
+            if (_groups[group].items[item].item.kind == Kind::Action
+                && _groups[group].items[item].item.action.data() == action)
             {
-                list.removeOne(action);
+                return Location {group, item};
             }
         }
     }
-
-    return ret;
+    return {};
 }
 
-QActionList ActionContainer::actions(QString group) const
+std::optional<ActionContainer::Location> ActionContainer::_menuLocation(const ActionContainer* menu) const
 {
-    return _actions.value(group);
+    if (!menu)
+    {
+        return {};
+    }
+    for (qsizetype group = 0; group < _groups.size(); ++group)
+    {
+        for (qsizetype item = 0; item < _groups[group].items.size(); ++item)
+        {
+            if (_groups[group].items[item].item.kind == Kind::Menu
+                && _groups[group].items[item].item.menu.data() == menu)
+            {
+                return Location {group, item};
+            }
+        }
+    }
+    return {};
+}
+
+bool ActionContainer::_moveItem(Location from, const QString& group, qsizetype index)
+{
+    const qsizetype target = groupIndex(group);
+    if (!_canMutate() || !isAvailable() || target < 0 || index < 0
+        || index > _groups[target].items.size() - (from.group == target ? 1 : 0))
+    {
+        return false;
+    }
+    if (from.group == target && from.item == index)
+    {
+        return true;
+    }
+    auto record = _groups[from.group].items.takeAt(from.item);
+    _groups[target].items.insert(index, std::move(record));
+    _notify();
+    return true;
+}
+
+void ActionContainer::_actionDestroyed(quint64 id)
+{
+    for (auto& group : _groups)
+    {
+        for (qsizetype item = 0; item < group.items.size(); ++item)
+        {
+            if (group.items[item].id == id)
+            {
+                group.items.removeAt(item);
+                _notify();
+                return;
+            }
+        }
+    }
+}
+
+void ActionContainer::_forgetMenu(ActionContainer* menu)
+{
+    const auto location = _menuLocation(menu);
+    if (!location)
+    {
+        return;
+    }
+    _groups[location->group].items.removeAt(location->item);
+    menu->_parentContainer = nullptr;
+    if (menu->parent() == this)
+    {
+        menu->setParent(nullptr);
+    }
+    _notify();
+}
+
+void ActionContainer::_release(QList<Record>& records)
+{
+    for (auto& record : records)
+    {
+        disconnect(record.destroyedConnection);
+        if (record.item.kind == Kind::Menu && record.item.menu)
+        {
+            record.item.menu->_parentContainer = nullptr;
+            if (record.item.menu->parent() == this)
+            {
+                record.item.menu->setParent(nullptr);
+            }
+        }
+    }
+}
+
+void ActionContainer::_notify()
+{
+    if (!_destroying)
+    {
+        emit changed();
+    }
+}
+
+void ActionContainer::_deleteMenus(const QList<Record>& records)
+{
+    for (const auto& record : records)
+    {
+        if (record.item.kind == Kind::Menu)
+        {
+            delete record.item.menu.data();
+        }
+    }
 }
