@@ -242,6 +242,53 @@ private:
         QVERIFY(!owner.value("value").isValid());
     }
 
+    Q_SLOT void searchPreservesDraftAndValidation()
+    {
+        QTemporaryDir directory;
+        Settings      owner(directory.filePath("settings.yaml"));
+        auto          descriptor = schema(
+            "count: {type: integer, default: 3, title: Quantity, x-group: connection, x-settings-path: serial/rate}\n"
+            "name: {type: string, default: initial, title: Display, description: Unicode Ωμέγα, x-group: connection}\n"
+            "other: {type: string, default: other, x-group: appearance}",
+            "  x-groups:\n    - {id: connection, title: Transport}\n    - {id: appearance, title: Appearance}\n");
+        SettingsFormModel      model(descriptor, owner.node(""));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        QCOMPARE(form.visibleFields(), QStringList({"count", "name", "other"}));
+        form.setFilter("  TRANSPORT  ");
+        QCOMPARE(form.visibleFields(), QStringList({"count", "name"}));
+        form.setFilter("connection");
+        QCOMPARE(form.visibleFields(), QStringList({"count", "name"}));
+        form.setFilter("SERIAL/RATE");
+        QCOMPARE(form.visibleFields(), QStringList({"count"}));
+        form.setFilter(QString::fromUtf8("ωΜΈΓΑ"));
+        QCOMPARE(form.visibleFields(), QStringList({"name"}));
+        form.setFilter("quantity");
+        QCOMPARE(form.visibleFields(), QStringList({"count"}));
+        model.setValue("name", "draft");
+        auto* line = form.editor("count")->findChild<QLineEdit*>();
+        QVERIFY(line);
+        line->setText("invalid");
+        QVERIFY(!model.isValid());
+        QVERIFY(model.isDirty());
+        const auto errorCount = model.errors().size();
+        form.setFilter("no matching text");
+        QVERIFY(!form.hasMatches());
+        QVERIFY(form.visibleFields().isEmpty());
+        QVERIFY(form.editor("count")->isHidden() || form.editor("count")->parentWidget()->isHidden());
+        QCOMPARE(line->text(), "invalid");
+        QCOMPARE(model.errors().size(), errorCount);
+        QVERIFY(!model.isValid());
+        QVERIFY(model.isDirty());
+        QCOMPARE(model.value("name").toString(), "draft");
+        form.setFilter("");
+        QVERIFY(form.hasMatches());
+        QCOMPARE(form.visibleFields(), QStringList({"count", "name", "other"}));
+        QCOMPARE(line->text(), "invalid");
+        QVERIFY(!model.isValid());
+        QVERIFY(!model.apply());
+    }
+
     Q_SLOT void customRegistryLifecycleAndCapture()
     {
         SettingsWidgetRegistry registry;
@@ -255,7 +302,7 @@ private:
         QTemporaryDir directory;
         Settings      owner(directory.filePath("settings.yaml"));
         auto          descriptor = schema(
-            "port:\n  type: string\n  title: Synthetic serial port\n  default: COM_TEST\n  x-widget: fixturePort\nname:\n  type: string\n  title: Display name\n  description: Unicode display name for this synthetic configuration.\n  default: 'Terminal Ω'\nenabled: {type: boolean, default: true}\nmode: {enum: [1, '1'], default: 1}");
+            "port:\n  type: string\n  title: Synthetic serial port\n  default: COM_TEST\n  x-widget: fixturePort\nname:\n  type: string\n  title: Display name\n  description: Unicode display name for this synthetic configuration.\n  default: 'Terminal О©'\nenabled: {type: boolean, default: true}\nmode: {enum: [1, '1'], default: 1}");
         SettingsFormModel model(descriptor, owner.node(""));
         {
             SettingsFormWidget form(model, registry);

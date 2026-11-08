@@ -15,3 +15,7 @@ add_test(NAME AppTests COMMAND AppTests)
 set_tests_properties(AppTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
 )
+
+target_include_directories(AppTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/app/src"
+)

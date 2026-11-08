@@ -1,3 +1,5 @@
+#include "gui/settings/SettingsDialog.h"
+
 #include <QClipboard>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -15,11 +17,13 @@
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QSignalSpy>
+#include <QSortFilterProxyModel>
 #include <QStatusBar>
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTreeView>
 #include <QUuid>
 #include <Termaster/App/App.h>
 #include <Termaster/Core/ApplicationPaths.h>
@@ -33,6 +37,7 @@
 #include <Termaster/Core/gui/action/MenubarActionContainer.h>
 #include <Termaster/Core/gui/action/ToolbarActionContainer.h>
 #include <Termaster/Core/gui/settings/SettingsFormModel.h>
+#include <Termaster/Core/gui/settings/SettingsFormWidget.h>
 
 class AppTests final : public QObject
 {
@@ -545,7 +550,8 @@ private:
         command->trigger();
         QPointer<QDialog> dialog(_app.mainWindow().findChild<QDialog*>("settingsDialog"));
         QVERIFY(dialog);
-        auto* model = dialog->findChild<SettingsFormModel*>();
+        auto* model = static_cast<SettingsDialog*>(dialog.data())
+                          ->pageModel(static_cast<SettingsDialog*>(dialog.data())->currentPage());
         QVERIFY(model);
         model->setValue("toolbar", false);
         QVERIFY(_app.configuration().value("ui/toolbarVisible").toBool());
@@ -558,7 +564,8 @@ private:
         command->trigger();
         dialog = _app.mainWindow().findChild<QDialog*>("settingsDialog");
         QVERIFY(dialog);
-        model = dialog->findChild<SettingsFormModel*>();
+        model = static_cast<SettingsDialog*>(dialog.data())
+                    ->pageModel(static_cast<SettingsDialog*>(dialog.data())->currentPage());
         model->setValue("toolbar", false);
         auto* buttons = dialog->findChild<QDialogButtonBox*>();
         QVERIFY(buttons->button(QDialogButtonBox::Apply)->isEnabled());
@@ -579,7 +586,8 @@ private:
         command->trigger();
         dialog = _app.mainWindow().findChild<QDialog*>("settingsDialog");
         QVERIFY(dialog);
-        model = dialog->findChild<SettingsFormModel*>();
+        model = static_cast<SettingsDialog*>(dialog.data())
+                    ->pageModel(static_cast<SettingsDialog*>(dialog.data())->currentPage());
         model->setValue("statusBar", false);
         buttons = dialog->findChild<QDialogButtonBox*>();
         buttons->button(QDialogButtonBox::Apply)->click();
@@ -589,6 +597,113 @@ private:
         QTRY_VERIFY(dialog.isNull());
         QVERIFY(_app.closeWorkspace(&error));
         QVERIFY(!_app.toolbar().toolbar()->isHidden());
+    }
+
+    Q_SLOT void preferencesNavigationSearchAndPreview()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.settings().setValue("settings/ui/toolbarVisible", true));
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("preferences.termaster")), "Firmware lab", &error));
+        QVERIFY(_app.createSession("Amber Falcon", &error));
+        _app.commands().find("Application.Settings")->actions().first()->trigger();
+        QPointer<SettingsDialog> dialog(_app.mainWindow().findChild<SettingsDialog*>("settingsDialog"));
+        QVERIFY(dialog);
+        const auto cleanup = qScopeGuard([&] {
+            if (dialog)
+            {
+                dialog->reject();
+            }
+            _app.settings().setValue("settings/ui/toolbarVisible", true);
+            _app.closeWorkspace();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        });
+        dialog->setFixedSize(1020, 720);
+        auto* tree   = dialog->findChild<QTreeView*>("settingsTree");
+        auto* search = dialog->findChild<QLineEdit*>("settingsSearch");
+        QVERIFY(tree);
+        QVERIFY(search);
+        QCOMPARE(tree->model()->rowCount(), 4);
+        for (int row = 0; row < tree->model()->rowCount(); ++row)
+        {
+            const auto category = tree->model()->index(row, 0);
+            QVERIFY(tree->model()->rowCount(category) > 0);
+            for (int child = 0; child < tree->model()->rowCount(category); ++child)
+            {
+                QCOMPARE(tree->model()->rowCount(tree->model()->index(child, 0, category)), 0);
+            }
+        }
+        QVERIFY(dialog->selectPage("workspace.general"));
+        auto* preview = dialog->pageModel("workspace.general");
+        preview->setValue("name", "Preview-only workspace");
+        auto* buttons = dialog->findChild<QDialogButtonBox*>();
+        buttons->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(_app.workspace()->name(), QString("Firmware lab"));
+        QCOMPARE(dialog->previewSettings().node("workspace.general").value("identity/name").toString(),
+                 QString("Preview-only workspace"));
+        preview->setValue("name", "Firmware lab");
+        auto* serial = dialog->pageModel("terminal.serial");
+        serial->setValue("baudRate", 0);
+        QVERIFY(!serial->isValid());
+        search->setText("directory");
+        buttons->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(dialog->currentPage(), QString("terminal.serial"));
+        QVERIFY(search->text().isEmpty());
+        serial->setValue("baudRate", 115200);
+        auto* base      = dialog->pageModel("application.appearance");
+        auto* workspace = dialog->pageModel("workspace.appearance");
+        base->setValue("toolbar", false);
+        workspace->setValue("toolbar", false);
+        buttons->button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!base->isDirty());
+        QVERIFY(!workspace->isDirty());
+        QVERIFY(!_app.settings().value("settings/ui/toolbarVisible").toBool());
+        QVERIFY(!_app.workspace()->settings().value("ui/toolbarVisible").toBool());
+        QVERIFY(!dialog->pageModel("session.appearance")->value("toolbar").toBool());
+        search->setText("baud");
+        QCOMPARE(tree->model()->rowCount(), 1);
+        QCOMPARE(dialog->currentPage(), QString("terminal.serial"));
+        SettingsFormWidget* active = nullptr;
+        for (auto* form : dialog->findChildren<SettingsFormWidget*>())
+        {
+            if (form->isVisible())
+            {
+                active = form;
+            }
+        }
+        QVERIFY(active);
+        QCOMPARE(active->visibleFields(), QStringList {"baudRate"});
+        search->setText("Line parameters");
+        QVERIFY(active->visibleFields().contains("dataBits"));
+        QVERIFY(!active->visibleFields().contains("port"));
+        search->setText("no-such-setting-5689");
+        QCOMPARE(tree->model()->rowCount(), 0);
+        search->clear();
+        QCOMPARE(tree->model()->rowCount(), 4);
+
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            const auto save = [&](const QString& id, const QString& file) {
+                if (!dialog->selectPage(id))
+                {
+                    return false;
+                }
+                QApplication::processEvents();
+                return dialog->size() == QSize(1020, 720) && dialog->grab().save(QDir(capture).filePath(file));
+            };
+            QVERIFY(save("workspace.general", "PreferencesWorkspace.png"));
+            QVERIFY(save("session.layout", "PreferencesSession.png"));
+            QVERIFY(save("terminal.serial", "PreferencesSerial.png"));
+            search->setText("baud");
+            QApplication::processEvents();
+            QVERIFY(dialog->grab().save(QDir(capture).filePath("PreferencesSearch.png")));
+        }
+        dialog->reject();
+        QTRY_VERIFY(dialog.isNull());
+        QVERIFY(_app.settings().setValue("settings/ui/toolbarVisible", true));
+        QVERIFY(_app.closeWorkspace(&error));
     }
 
     Q_SLOT void pluginWindowLifecycle()
