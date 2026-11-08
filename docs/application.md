@@ -241,3 +241,15 @@ availability from the current workspace and session state. Keep application
 settings under Tools / Settings limited to application configuration and global
 component defaults; session-specific configuration belongs to session navigation.
 The exact menu contents and ordering remain to be specified.
+
+## Pending secondary metadata presentation requirement
+
+Status: recorded for later implementation.
+
+Present incidental technical metadata in a muted secondary text color instead
+of giving it the same emphasis as the information used for normal selection.
+In the Open session selector, the human-readable session name is primary; its
+UUID is secondary and must use a subdued, readable color. Apply this hierarchy
+consistently to comparable supplementary identifiers and diagnostic details.
+Secondary text remains legible in the active theme and in selected rows; it
+must not imply that the item is disabled.
