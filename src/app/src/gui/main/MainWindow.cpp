@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget* parent) :
     setWindowTitle(QCoreApplication::applicationName());
     resize(1000, 650);
     setCentralWidget(new QWidget(this));
+    _toolbar.toolbar()->setToolButtonStyle(Qt::ToolButtonIconOnly);
     addToolBar(_toolbar.toolbar());
     statusBar()->showMessage(tr("Ready"));
 }
