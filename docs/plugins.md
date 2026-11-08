@@ -28,6 +28,12 @@ dynamic-library loader.
 
 ## SDK deliverables
 
+The build must assemble each module's deliverables under one module-specific
+distribution directory, including its runtime library and public headers. Its
+import library and CMake package belong to that same distribution root. This
+requirement concerns module-owned artifacts; it does not establish bundling of
+Qt or compiler runtimes. The public include-path convention is still under discussion.
+
 Each module intended for use by separately built extensions supplies:
 
 - its runtime DLL;
