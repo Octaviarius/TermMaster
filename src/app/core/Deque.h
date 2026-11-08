@@ -46,6 +46,8 @@ public:
         {
             enqueue(it);
         }
+
+        return *this;
     }
 
 private:
