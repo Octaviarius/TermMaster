@@ -63,7 +63,7 @@ public:
 
     void setAutoCreate(bool value)
     {
-        _autocreate = true;
+        _autocreate = value;
     }
 
     bool isAutoCreate() const

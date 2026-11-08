@@ -1,0 +1,124 @@
+#include "core/plugin/Plugin.h"
+
+#include <QFile>
+#include <QObject>
+#include <QThread>
+#include <QTimer>
+
+#ifdef FIXTURE_PROVIDER
+extern "C" int termasterFixtureValue()
+{
+    return 42;
+}
+#endif
+#ifdef FIXTURE_CONSUMER
+extern "C" int termasterFixtureValue();
+#endif
+
+class Fixture final : public QObject, public Plugin
+{
+    Q_OBJECT
+    Q_PLUGIN_METADATA(IID "org.octaviarius.Termaster.Plugin/1.0" FILE "@fixture_json@")
+    Q_INTERFACES(Plugin)
+
+private:
+    State    _state  = State::Stopped;
+    QThread* _worker = nullptr;
+    QTimer*  _timer  = nullptr;
+    void     _trace(const QByteArray& action) const
+    {
+        if (!qEnvironmentVariableIsSet("TERMASTER_PLUGIN_TRACE"))
+        {
+            return;
+        }
+        QFile file(QString::fromLocal8Bit(qgetenv("TERMASTER_PLUGIN_TRACE")));
+        if (file.open(QIODevice::WriteOnly | QIODevice::Append))
+        {
+            file.write(QByteArray("@fixture_id@:") + action + '\n');
+        }
+    }
+
+public:
+    ~Fixture() override
+    {
+        if (_worker || _timer)
+        {
+            qFatal("Fixture resources survived shutdown");
+        }
+        _trace("destroy");
+    }
+    bool startup(QString* error) override
+    {
+        _trace("start");
+        _worker = new QThread(this);
+        _worker->start();
+        _timer = new QTimer(this);
+        _timer->start(60000);
+#ifdef FIXTURE_CONSUMER
+        if (termasterFixtureValue() != 42)
+        {
+            return false;
+        }
+#endif
+#ifdef FIXTURE_START_FAILURE
+        _state = State::Failed;
+        if (error)
+        {
+            *error = QStringLiteral("Synthetic startup failure");
+        }
+        return false;
+#endif
+        _state = State::Running;
+        return true;
+    }
+    bool shutdown(QString* error) override
+    {
+        _trace("stop");
+#ifdef FIXTURE_STOP_FAILURE
+        if (qEnvironmentVariableIsSet("TERMASTER_PLUGIN_REFUSE_STOP"))
+        {
+            _state = State::Failed;
+            if (error)
+            {
+                *error = "Synthetic worker drain failure";
+            }
+            return false;
+        }
+#endif
+        delete _timer;
+        _timer = nullptr;
+        if (_worker)
+        {
+            _worker->quit();
+            if (!_worker->wait(2000))
+            {
+                if (error)
+                {
+                    *error = "Fixture worker did not stop";
+                }
+                return false;
+            }
+            delete _worker;
+            _worker = nullptr;
+        }
+        _state = State::Stopped;
+        return true;
+    }
+    Info info() const override
+    {
+        // clang-format off
+        return {"@fixture_id@", "@fixture_id@", "@fixture_version@", {@fixture_deps_cpp@}};
+        // clang-format on
+    }
+    State state() const override
+    {
+#ifdef FIXTURE_PROVIDER
+        if (qEnvironmentVariableIsSet("TERMASTER_PLUGIN_RUNTIME_FAILURE"))
+        {
+            return State::Failed;
+        }
+#endif
+        return _state;
+    }
+};
+#include "@fixture_target@.moc"

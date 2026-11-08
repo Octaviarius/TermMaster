@@ -1,7 +1,9 @@
 #include <QApplication>
+#include <QDir>
 #include <QMap>
 #include <QStyle>
 #include <core/RandomNames.h>
+#include <core/plugin/PluginManager.h>
 #include <logic/GeneralLogic.h>
 #include <managers/CommandManager.h>
 #include <managers/SettingsManager.h>
@@ -209,6 +211,17 @@ int main(int argc, char* argv[])
 
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("Termaster");
+
+    SettingsManager pluginSettings;
+    PluginManager   pluginManager(pluginSettings, QDir(app.applicationDirPath()).filePath("plugin"));
+    QString         pluginError;
+    if (!pluginManager.start(&pluginError))
+    {
+        qWarning().noquote() << "Plugin startup:" << pluginError;
+    }
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &pluginManager, [&pluginManager]() {
+        pluginManager.stop();
+    });
 
     // config others
     auto terminal = new TermWidget();

@@ -1,0 +1,7 @@
+{
+    "api": 1,
+    "id": "externalConsumer",
+    "name": "External consumer",
+    "version": "1.0.0",
+    "dependencies": ["provider"]
+}
