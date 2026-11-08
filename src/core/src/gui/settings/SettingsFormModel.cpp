@@ -90,6 +90,7 @@ SettingsFormModel::SettingsFormModel(std::shared_ptr<const SettingsSchema> schem
     };
     _hasInherited  = [](const QString&) { return false; };
     _readInherited = [](const QString&) { return QVariant(); };
+    _hasLocal      = _contains;
     reload();
 }
 
@@ -107,8 +108,10 @@ SettingsFormModel::SettingsFormModel(std::shared_ptr<const SettingsSchema> schem
     _patch    = [target](const QVariantMap& values, const QStringList& removed, QString* error) mutable {
         return target.applyValues(values, removed, error);
     };
-    _hasInherited  = [target](const QString& key) { return target.containsInherited(key); };
-    _readInherited = [target](const QString& key) { return target.inheritedValue(key); };
+    _supportsInheritance = true;
+    _hasLocal            = [target](const QString& key) { return target.containsOverride(key); };
+    _hasInherited        = [target](const QString& key) { return target.containsInherited(key); };
+    _readInherited       = [target](const QString& key) { return target.inheritedValue(key); };
     reload();
 }
 
@@ -125,6 +128,34 @@ bool SettingsFormModel::contains(const QString& key) const
     return _draft.contains(key);
 }
 
+bool SettingsFormModel::supportsInheritance() const
+{
+    return _supportsInheritance;
+}
+bool SettingsFormModel::hasOverride(const QString& key) const
+{
+    return _local.contains(key);
+}
+
+bool SettingsFormModel::canReset(const QString& key) const
+{
+    const auto* field = _field(key);
+    return field && !field->readOnly && _supportsInheritance
+        && (!field->required || _hasInherited(field->settingsPath) || field->hasDefault);
+}
+QVariant SettingsFormModel::inheritedValue(const QString& key) const
+{
+    const auto* field = _field(key);
+    if (!field)
+    {
+        return {};
+    }
+    if (_hasInherited(field->settingsPath))
+    {
+        return _readInherited(field->settingsPath);
+    }
+    return field->hasDefault ? field->defaultValue : QVariant();
+}
 void SettingsFormModel::setValue(const QString& key, const QVariant& value)
 {
     const auto* field = _field(key);
@@ -134,6 +165,7 @@ void SettingsFormModel::setValue(const QString& key, const QVariant& value)
     }
     const bool wasDirty = isDirty();
     _removed.remove(key);
+    _local.insert(key);
     _draft.insert(key, value);
     _inputErrors.remove(key);
     _changed(key, wasDirty);
@@ -142,15 +174,27 @@ void SettingsFormModel::setValue(const QString& key, const QVariant& value)
 void SettingsFormModel::removeValue(const QString& key)
 {
     const auto* field = _field(key);
-    if (!field || field->readOnly || field->required)
+    if (!field || field->readOnly || (field->required && !canReset(key)))
     {
         return;
     }
     const bool wasDirty = isDirty();
-    _removed.insert(key);
+    _local.remove(key);
+    if (!_supportsInheritance || _originalLocal.contains(key))
+    {
+        _removed.insert(key);
+    }
+    else
+    {
+        _removed.remove(key);
+    }
     if (_hasInherited(field->settingsPath))
     {
         _draft.insert(key, _readInherited(field->settingsPath));
+    }
+    else if (_supportsInheritance && field->hasDefault)
+    {
+        _draft.insert(key, field->defaultValue);
     }
     else
     {
@@ -178,6 +222,15 @@ void SettingsFormModel::reload()
     const bool wasDirty = isDirty();
     _original           = _current();
     _draft              = _original;
+    _local.clear();
+    for (const auto& field : _schema->fields())
+    {
+        if (_hasLocal(field.settingsPath))
+        {
+            _local.insert(field.key);
+        }
+    }
+    _originalLocal = _local;
     _edited.clear();
     _removed.clear();
     _inputErrors.clear();
@@ -231,12 +284,14 @@ bool SettingsFormModel::apply(QString* error)
         {
             continue;
         }
-        const bool defaultPending = !_original.contains(field.key) && field.hasDefault && _draft.contains(field.key);
+        const bool defaultPending = !_supportsInheritance && !_original.contains(field.key) && field.hasDefault
+                                 && _draft.contains(field.key);
         if (!_edited.contains(field.key) && !_removed.contains(field.key) && !defaultPending)
         {
             continue;
         }
-        if (current.contains(field.key) != _original.contains(field.key)
+        if ((_supportsInheritance && _hasLocal(field.settingsPath) != _originalLocal.contains(field.key))
+            || current.contains(field.key) != _original.contains(field.key)
             || !sameValue(current.value(field.key), _original.value(field.key)))
         {
             return fail("Settings changed externally at " + field.settingsPath + "; reload before applying");
@@ -262,6 +317,16 @@ bool SettingsFormModel::apply(QString* error)
         {
             merged.remove(field.key);
             removed.append(field.settingsPath);
+        }
+    }
+    if (_supportsInheritance)
+    {
+        for (const auto& field : _schema->fields())
+        {
+            if (!merged.contains(field.key) && field.hasDefault)
+            {
+                merged.insert(field.key, field.defaultValue);
+            }
         }
     }
     const auto validation = _schema->validate(merged);
@@ -337,7 +402,11 @@ void SettingsFormModel::_validate()
 
 void SettingsFormModel::_changed(const QString& key, bool wasDirty)
 {
-    if (_draft.contains(key) == _original.contains(key) && sameValue(_draft.value(key), _original.value(key)))
+    const auto* field           = _field(key);
+    const bool  defaultOriginal = _supportsInheritance && !_original.contains(key) && field && field->hasDefault;
+    if ((!_supportsInheritance || _local.contains(key) == _originalLocal.contains(key))
+        && _draft.contains(key) == (_original.contains(key) || defaultOriginal)
+        && sameValue(_draft.value(key), defaultOriginal ? field->defaultValue : _original.value(key)))
     {
         _edited.remove(key);
     }

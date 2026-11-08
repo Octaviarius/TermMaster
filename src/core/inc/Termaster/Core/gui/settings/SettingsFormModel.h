@@ -15,6 +15,10 @@ public:
     const SettingsSchema&        schema() const;
     QVariant                     value(const QString& key) const;
     bool                         contains(const QString& key) const;
+    bool                         supportsInheritance() const;
+    bool                         hasOverride(const QString& key) const;
+    bool                         canReset(const QString& key) const;
+    QVariant                     inheritedValue(const QString& key) const;
     void                         setValue(const QString& key, const QVariant& value);
     void                         removeValue(const QString& key);
     QList<SettingsSchema::Error> errors() const;
@@ -34,8 +38,12 @@ private:
     std::function<QVariant(const QString&)>                               _read;
     std::function<bool(const QVariantMap&, const QStringList&, QString*)> _patch;
     std::function<bool(const QString&)>                                   _hasInherited;
+    std::function<bool(const QString&)>                                   _hasLocal;
     std::function<QVariant(const QString&)>                               _readInherited;
     QSet<QString>                                                         _removed;
+    QSet<QString>                                                         _local;
+    QSet<QString>                                                         _originalLocal;
+    bool                                                                  _supportsInheritance = false;
     QVariantMap                                                           _original;
     QVariantMap                                                           _draft;
     QSet<QString>                                                         _edited;

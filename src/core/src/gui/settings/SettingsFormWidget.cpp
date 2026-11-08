@@ -1,10 +1,14 @@
+#include <QApplication>
 #include <QCheckBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QJsonDocument>
 #include <QLabel>
 #include <QScrollArea>
 #include <QSignalBlocker>
+#include <QStyle>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <Termaster/Core/gui/settings/SettingsFormWidget.h>
 #include <algorithm>
@@ -58,7 +62,7 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
         auto* editorWidget = registry.create(field, container);
         _editors.insert(field.key, editorWidget);
         editorWidget->setToolTip(field.description);
-        if (!field.required)
+        if (!model.supportsInheritance() && !field.required)
         {
             auto* present = new QCheckBox(tr("Set value"), container);
             present->setToolTip(
@@ -73,15 +77,35 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
                 }
                 if (checked)
                 {
-                    _model->setValue(key, _editors.value(key)->value());
+                    _model->setValue(key,
+                                     _model->supportsInheritance() ? _model->value(key) : _editors.value(key)->value());
                 }
                 else
                 {
                     _model->removeValue(key);
                 }
+                _refresh(key);
             });
         }
         controlRow->addWidget(editorWidget, 1);
+        if (model.supportsInheritance())
+        {
+            auto* reset = new QToolButton(container);
+            reset->setObjectName(QStringLiteral("reset_") + field.key);
+            reset->setIcon(style()->standardIcon(QStyle::SP_ArrowBack));
+            reset->setAccessibleName(
+                tr("Reset %1 to inherited value").arg(field.title.isEmpty() ? field.key : field.title));
+            reset->setAutoRaise(true);
+            _resets.insert(field.key, reset);
+            controlRow->addWidget(reset, 0, Qt::AlignTop);
+            connect(reset, &QToolButton::clicked, this, [this, key = field.key] {
+                if (_model)
+                {
+                    _model->removeValue(key);
+                    _refresh(key);
+                }
+            });
+        }
         auto* error = new QLabel(container);
         error->setTextFormat(Qt::PlainText);
         error->setWordWrap(true);
@@ -108,6 +132,7 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
             }
             _model->setInputError(key, editorWidget->inputError());
             _updating = false;
+            _refreshState(key);
             _refreshErrors();
         });
         _refresh(field.key);
@@ -199,13 +224,67 @@ void SettingsFormWidget::_refresh(const QString& key)
     }
     _updating = true;
     fieldEditor->setValue(_model->value(key));
-    fieldEditor->setEnabled(!it->readOnly && (_model->contains(key) || it->required));
+    fieldEditor->setEnabled(!it->readOnly && (_model->supportsInheritance() || _model->contains(key) || it->required));
     if (auto* presence = _presence.value(key))
     {
         const QSignalBlocker blocker(presence);
-        presence->setChecked(_model->contains(key));
+        presence->setChecked(_model->supportsInheritance() ? _model->hasOverride(key) : _model->contains(key));
     }
     _updating = false;
+    _refreshState(key);
+}
+
+void SettingsFormWidget::_refreshState(const QString& key)
+{
+    if (!_model || !_model->supportsInheritance())
+    {
+        return;
+    }
+    auto* editor = _editors.value(key);
+    auto* reset  = _resets.value(key);
+    if (!editor || !reset)
+    {
+        return;
+    }
+    const bool inherited = !_model->hasOverride(key);
+    editor->setProperty("settingsInherited", inherited);
+    QPalette colors = QApplication::palette(editor);
+    if (inherited)
+    {
+        colors.setColor(QPalette::Active, QPalette::Text, colors.color(QPalette::Active, QPalette::PlaceholderText));
+        colors.setColor(QPalette::Inactive,
+                        QPalette::Text,
+                        colors.color(QPalette::Inactive, QPalette::PlaceholderText));
+        colors.setColor(QPalette::Active,
+                        QPalette::ButtonText,
+                        colors.color(QPalette::Active, QPalette::PlaceholderText));
+        colors.setColor(QPalette::Inactive,
+                        QPalette::ButtonText,
+                        colors.color(QPalette::Inactive, QPalette::PlaceholderText));
+    }
+    if (inherited)
+    {
+        colors.setColor(QPalette::Active,
+                        QPalette::WindowText,
+                        colors.color(QPalette::Active, QPalette::PlaceholderText));
+        colors.setColor(QPalette::Inactive,
+                        QPalette::WindowText,
+                        colors.color(QPalette::Inactive, QPalette::PlaceholderText));
+    }
+    editor->setPalette(colors);
+    const auto fallback = _model->inheritedValue(key);
+    QString    shown    = fallback.isValid() ? fallback.toString() : tr("No value");
+    if (fallback.typeId() == QMetaType::QVariantMap || fallback.typeId() == QMetaType::QVariantList)
+    {
+        shown = QString::fromUtf8(QJsonDocument::fromVariant(fallback).toJson(QJsonDocument::Compact));
+    }
+    reset->setToolTip(tr("Reset to inherited/default value: %1").arg(shown));
+    reset->setEnabled(_model->canReset(key) && (_model->hasOverride(key) || editor->hasAcceptableInput() == false));
+    const auto    field = _rows.value(key).field;
+    const QString state = inherited ? tr("Inherited value: %1. Edit to override.").arg(shown) :
+                                      tr("Local override. Reset value: %1").arg(shown);
+    editor->setToolTip(field.description.isEmpty() ? state : field.description + "\n" + state);
+    editor->setAccessibleDescription(state);
 }
 
 void SettingsFormWidget::_refreshErrors()
