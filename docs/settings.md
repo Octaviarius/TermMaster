@@ -137,6 +137,10 @@ is implemented. See [workspace lifecycle](workspaces-and-sessions.md).
 Session settings and three-level overlays passed Debug tests; see
 [session verification](workspaces-and-sessions.md#verification-status).
 
+## Generated settings forms
+
+Schema-driven forms use the same live settings owner and overlay model. Their Draft 7 descriptor envelope, field binding and flat UI annotations, numeric precision limits, bounded YAML processing, editor registry lifecycle, deferred atomic apply, and App persistence boundary are described in [settings forms](settings-forms.md).
+
 ## Earlier verification
 
 `TERMASTER_BUILD_SETTINGS_TESTS` builds SettingsTests. Tests use temporary files

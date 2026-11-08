@@ -1,0 +1,163 @@
+# Settings forms
+
+Settings forms are generated from bounded YAML descriptors. Core owns the immutable
+schema, draft model, editor registry and form widget. App owns the application dialog
+and persistence callback. This keeps schema validation and presentation reusable
+without making a generic widget perform file I/O.
+
+## Descriptor contract
+
+A descriptor is a YAML document with the standard versioned envelope. The only
+supported schema descriptor type is `termaster.settings-schema`; its description
+is required and `content` contains a JSON Schema Draft 7 object schema.
+
+```yaml
+version: 1
+type: termaster.settings-schema
+description: Serial port preferences
+content:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Serial port
+  type: object
+  additionalProperties: false
+  required: [baudRate]
+  x-groups:
+    - id: connection
+      title: Connection
+      order: 0
+  properties:
+    baudRate:
+      type: integer
+      minimum: 300
+      maximum: 4000000
+      enum: [9600, 19200, 115200]
+      default: 115200
+      title: Baud rate
+      description: Serial line rate to use when a serial backend is configured.
+      x-settings-path: transport/serial/baudRate
+      x-group: connection
+      x-order: 0
+      x-widget: enumCombo
+      x-widget-options:
+        compact: true
+```
+
+Each root `properties` member is one editable field. Its property key is a literal
+field identifier and may contain `/`; it is not expanded as a nested form path.
+`x-settings-path` binds the field to a key relative to the `Settings::Node` or
+`SettingsOverlay` passed to the model. If omitted, the property key is the settings
+key and must itself meet the settings path rules. Field paths must be unique and
+must not overlap as parent and child paths. Draft 7 `required`, `default`, `readOnly`,
+`title`, `description`, and validation keywords apply to the field. Defaults seed
+the draft and are written only when Apply is used.
+
+The root and field validation uses Draft 7 with strong QVariant types. Schema
+references may be local JSON Pointers only; unresolved or cyclic references are
+rejected. External references are unsupported. YAML aliases, duplicate mapping
+keys, non-scalar mapping keys, multiple documents and unsupported explicit scalar
+tags are rejected. YAML values are converted through a Qt QVariant adapter because
+the upstream YAML adapter does not preserve the required strong scalar types.
+Valijson is pinned under `components/valijson` at
+`af2383509277f8e8051acbb3e4b3060f4779aa10`; it was copied from the existing local
+Flowgate checkout and is not downloaded during configuration.
+
+Parsing and serialization are bounded to 4 MiB, depth 64 and 100000 nodes. YAML
+aliases and non-finite numbers are rejected. JSON Schema expansion is also bounded
+to depth 64 and 100000 nodes. JSON Schema numeric validation uses Valijson's
+`BasicAdapter` and may round integers through `double`; therefore schema numeric
+constants and form values that are integers, including integral-valued floating
+point values, must be within the inclusive exact-double range
+`-9007199254740991` through `9007199254740991`. YAML parsing itself preserves
+supported 64-bit integers, but this does not mean all such integers can be
+validated against a schema. These limits apply to descriptor and form YAML values.
+
+## Presentation annotations and editors
+
+Root `x-groups` is an ordered sequence of `{id, title, order}` mappings. A field's
+`x-group` selects a group, `x-order` orders the field within that group, and
+`x-widget` selects an editor hint. `x-widget-options` is a mapping forwarded in
+the field's presentation data for a custom editor. Missing groups are created using
+their IDs as titles. Built-in hints include `boolCheckBox`, `stringLineEdit`,
+`enumCombo`, `integer`, `number`, `password`, `multiline`, and `yaml`; field types
+and `enum` can also select standard controls automatically. These flat annotations
+are presentation hints; JSON Schema remains authoritative for validation. The old
+nested `x-ui` annotations are rejected and are not aliases for the flat names.
+
+Object and array fields use a YAML value editor. This is also available as the
+`yaml` hint. The form does not recursively lay out nested `properties`; complex
+structures use the YAML editor or a custom field editor. Register custom editor
+factories explicitly in `SettingsWidgetRegistry` and use their `x-widget` name.
+A factory must remain loaded while any editor it created is alive. Unregistering a
+factory with live editors fails, so a plugin owner must close forms before unloading
+its editor implementation.
+
+## Use from a component
+
+```cpp
+auto schema = std::make_shared<SettingsSchema>(descriptorYaml);
+auto* model = new SettingsFormModel(schema, settings.node("terminals/primary"), dialog);
+auto* form = new SettingsFormWidget(*model, registry, dialog);
+```
+
+For the descriptor above, the baud-rate field resolves to
+`terminals/primary/transport/serial/baudRate`. The caller places the form in its
+layout, invokes `model->apply(&error)` on Apply and asks the settings owner to
+persist when appropriate. The same API accepts a live `SettingsOverlay`.
+
+```cpp
+registry.registerWidget("serialPort", [](const SettingsSchema::Field& field, QWidget* parent) {
+    return new SerialPortEditor(field.presentation, parent);
+});
+```
+
+`SerialPortEditor` implements `SettingsFieldEditor`: `value()`, `setValue()` and
+`valueChanged()`, with optional local-input diagnostics. It owns its view/model
+using normal Qt parent ownership. A descriptor selects it with
+`x-widget: serialPort`; `x-widget-options` reaches `field.presentation`. The
+serial selector in automated GUI checks uses synthetic entries and icons only.
+
+## Draft, apply and persistence
+
+`SettingsFormModel` reads from its borrowed live scope and keeps original and draft
+values separately. Editing and validation do not write settings. Apply validates
+the complete draft, checks that edited keys have not changed since the draft was
+loaded, then applies one patch to the highest active scope. Removal reveals an
+inherited value in an overlay. The settings owner prepares and atomically applies
+the patch while retaining unknown data and concurrent unrelated changes. Reload is
+explicit and discards a draft.
+
+App supplies its settings form with the active application/workspace/session
+configuration overlay and a persistence callback. The dialog provides Apply, OK
+(apply and close), and Cancel. A scope change closes the dialog to avoid applying
+a draft against a different workspace or session. Generic Core widgets do not open
+files or persist documents; App chooses the owning settings file and performs the
+save after a successful model patch.
+
+The sample application descriptor controls toolbar and status-bar visibility in
+the active scope. The serial example above documents a schema capability only; it
+does not indicate that a serial terminal backend is implemented.
+
+## Verification status
+
+`TERMASTER_BUILD_SCHEMA_TESTS` enables `SettingsSchemaTests` and
+`SettingsFormTests`. The schema suite covers typed YAML, schema validation,
+references and bounded/rejected input. The form suite covers defaults, deferred
+writes, atomic apply, scope overlays, external-change guards and custom editor
+lifecycle.
+
+Verified on 2026-11-08 with Windows x64, MSVC 19.44, Qt 6.12.0 and Ninja Debug.
+The application and affected test targets built; all eleven CTest suites passed,
+including the independent external plugin SDK consumer. SettingsSchemaTests
+passed 17 results and SettingsFormTests passed ten. AppTests passed eleven results,
+including generated dialog cancellation, scoped apply/persistence and automatic
+closure when the active settings scope changes. Atomic patch checks include
+rollback, unknown metadata, aliases, expired owners and overlapping paths.
+
+Native AppTests and SettingsFormTests passed without skips at scale factors 1
+and 2. Application preferences and the custom synthetic port selector were
+visually inspected: labels, controls, Unicode and model-provided icons rendered
+correctly. The optional action-container capture and three existing workspace/
+session symbolic-link cases remain skipped by regular CTest; this Windows user
+cannot create the required symbolic links. No devices were scanned or opened,
+no external connections were made, and no dependencies were downloaded.
+Release was not rebuilt for this feature.

@@ -2,6 +2,7 @@
 #include <QTemporaryDir>
 #include <QtTest>
 #include <Termaster/Core/Settings.h>
+#include <Termaster/Core/SettingsOverlay.h>
 #include <memory>
 #include <yaml-cpp/yaml.h>
 
@@ -394,6 +395,135 @@ private:
         QVERIFY(!copy.setValue("value", 17, &error));
         QVERIFY(!error.isEmpty());
         QVERIFY(!copy.remove("value", &error));
+    }
+    void batchPreservesUnknownEnvelopeFields()
+    {
+        QTemporaryDir directory;
+        const auto    path = directory.filePath("metadata.yaml");
+        QVERIFY(writeFile(
+            path,
+            "version: 1\ntype: termaster.settings\ndescription: Custom description\nextra: {retained: true}\ncontent: {unknown: {value: 7}, prior: 1}\n"));
+        Settings settings(path);
+        QString  error;
+        QVERIFY(settings.load(&error));
+        QVERIFY(settings.applyValues(
+            {
+                {"new", 2}
+        },
+            {"prior"},
+            &error));
+        QVERIFY(settings.sync(&error));
+        const auto document = YAML::Load(readFile(path).toStdString());
+        QCOMPARE(document["description"].as<std::string>(), std::string("Custom description"));
+        QVERIFY(document["extra"]["retained"].as<bool>());
+        QCOMPARE(document["content"]["unknown"]["value"].as<int>(), 7);
+        QVERIFY(!document["content"]["prior"].IsDefined());
+    }
+
+    void atomicPatches()
+    {
+        QTemporaryDir directory;
+        Settings      settings(directory.filePath("settings.yaml"));
+        QString       error;
+        QVERIFY(settings.applyValues({}, {}, &error));
+        QVERIFY(!settings.isDirty());
+        QVERIFY(settings.applyValues(
+            {
+                {          "keep", 7},
+                {"scope/original", 1},
+                {         "block", 4}
+        },
+            {},
+            &error));
+        QVERIFY(settings.sync(&error));
+        const auto before = settings.values();
+        QVERIFY(!settings.applyValues(
+            {
+                {      "fresh", 2},
+                {"block/child", 3}
+        },
+            {"keep"},
+            &error));
+        QCOMPARE(settings.values(), before);
+        QVERIFY(!settings.isDirty());
+        QVERIFY(!settings.applyValues(
+            {
+                {      "fresh",                   2},
+                {"unsupported", QByteArray("bytes")}
+        },
+            {},
+            &error));
+        QCOMPARE(settings.values(), before);
+        QVERIFY(!settings.isDirty());
+        QVERIFY(!settings.applyValues(
+            {
+                {      "scope", 2},
+                {"scope-other", 3},
+                {"scope/child", 4}
+        },
+            {},
+            &error));
+        QVERIFY(!settings.applyValues(
+            {
+                {"keep", 2}
+        },
+            {"keep"},
+            &error));
+        QVERIFY(!settings.applyValues(
+            {
+                {QString("nul") + QChar::Null, 2}
+        },
+            {},
+            &error));
+        QCOMPARE(settings.values(), before);
+        QVERIFY(settings.node("scope").applyValues(
+            {
+                {"fresh", 3}
+        },
+            {"original"},
+            &error));
+        QCOMPARE(settings.value("scope/fresh").toInt(), 3);
+        QVERIFY(!settings.contains("scope/original"));
+        QCOMPARE(settings.value("keep").toInt(), 7);
+
+        Settings        overrides(directory.filePath("overrides.yaml"));
+        SettingsOverlay overlay(settings.node(""), overrides.node(""));
+        auto            scoped = overlay.node("scope");
+        QVERIFY(scoped.applyValues(
+            {
+                {"fresh",  9},
+                {"other", 10}
+        },
+            {},
+            &error));
+        QCOMPARE(scoped.value("fresh").toInt(), 9);
+        QVERIFY(scoped.containsInherited("fresh"));
+        QCOMPARE(scoped.inheritedValue("fresh").toInt(), 3);
+        QVERIFY(!scoped.containsInherited("other"));
+        QCOMPARE(scoped.inheritedValue("other", 77).toInt(), 77);
+        QCOMPARE(settings.value("scope/fresh").toInt(), 3);
+        QVERIFY(scoped.applyValues({}, {"fresh"}, &error));
+        QCOMPARE(scoped.value("fresh").toInt(), 3);
+        const auto overrideBefore = overrides.values();
+        QVERIFY(!scoped.applyValues(
+            {
+                { "valid", 1},
+                {"../bad", 2}
+        },
+            {},
+            &error));
+        QCOMPARE(overrides.values(), overrideBefore);
+
+        auto owner   = std::make_unique<Settings>(directory.filePath("expired.yaml"));
+        auto expired = owner->node("scope");
+        owner.reset();
+        QVERIFY(!expired.applyValues(
+            {
+                {"key", 1}
+        },
+            {},
+            &error));
+        QVERIFY(!error.isEmpty());
     }
 };
 

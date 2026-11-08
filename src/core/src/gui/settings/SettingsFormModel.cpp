@@ -1,0 +1,354 @@
+#include <Termaster/Core/gui/settings/SettingsFormModel.h>
+#include <stdexcept>
+#include <utility>
+
+namespace
+{
+int integerCategory(int type)
+{
+    switch (type)
+    {
+        case QMetaType::Char:
+        case QMetaType::SChar:
+        case QMetaType::Short:
+        case QMetaType::Int:
+        case QMetaType::Long:
+        case QMetaType::LongLong:
+            return 1;
+        case QMetaType::UChar:
+        case QMetaType::UShort:
+        case QMetaType::UInt:
+        case QMetaType::ULong:
+        case QMetaType::ULongLong:
+            return 2;
+        default:
+            return 0;
+    }
+}
+bool sameValue(const QVariant& a, const QVariant& b)
+{
+    const int category = integerCategory(a.typeId());
+    if (category && category == integerCategory(b.typeId()))
+    {
+        return category == 1 ? a.toLongLong() == b.toLongLong() : a.toULongLong() == b.toULongLong();
+    }
+    if (a.typeId() != b.typeId())
+    {
+        return false;
+    }
+    if (a.typeId() == QMetaType::QVariantMap)
+    {
+        const auto left  = a.toMap();
+        const auto right = b.toMap();
+        if (left.keys() != right.keys())
+        {
+            return false;
+        }
+        for (auto it = left.cbegin(); it != left.cend(); ++it)
+        {
+            if (!sameValue(it.value(), right.value(it.key())))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (a.typeId() == QMetaType::QVariantList)
+    {
+        const auto left  = a.toList();
+        const auto right = b.toList();
+        if (left.size() != right.size())
+        {
+            return false;
+        }
+        for (qsizetype i = 0; i < left.size(); ++i)
+        {
+            if (!sameValue(left[i], right[i]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+    return a == b;
+}
+} // namespace
+
+SettingsFormModel::SettingsFormModel(std::shared_ptr<const SettingsSchema> schema,
+                                     Settings::Node                        target,
+                                     QObject* parent) : QObject(parent), _schema(std::move(schema))
+{
+    if (!_schema)
+    {
+        throw std::invalid_argument("Settings schema is null");
+    }
+    _valid    = [target] { return target.isValid(); };
+    _contains = [target](const QString& key) { return target.contains(key); };
+    _read     = [target](const QString& key) { return target.value(key); };
+    _patch    = [target](const QVariantMap& values, const QStringList& removed, QString* error) mutable {
+        return target.applyValues(values, removed, error);
+    };
+    _hasInherited  = [](const QString&) { return false; };
+    _readInherited = [](const QString&) { return QVariant(); };
+    reload();
+}
+
+SettingsFormModel::SettingsFormModel(std::shared_ptr<const SettingsSchema> schema,
+                                     SettingsOverlay                       target,
+                                     QObject* parent) : QObject(parent), _schema(std::move(schema))
+{
+    if (!_schema)
+    {
+        throw std::invalid_argument("Settings schema is null");
+    }
+    _valid    = [target] { return target.isValid(); };
+    _contains = [target](const QString& key) { return target.contains(key); };
+    _read     = [target](const QString& key) { return target.value(key); };
+    _patch    = [target](const QVariantMap& values, const QStringList& removed, QString* error) mutable {
+        return target.applyValues(values, removed, error);
+    };
+    _hasInherited  = [target](const QString& key) { return target.containsInherited(key); };
+    _readInherited = [target](const QString& key) { return target.inheritedValue(key); };
+    reload();
+}
+
+const SettingsSchema& SettingsFormModel::schema() const
+{
+    return *_schema;
+}
+QVariant SettingsFormModel::value(const QString& key) const
+{
+    return _draft.value(key);
+}
+bool SettingsFormModel::contains(const QString& key) const
+{
+    return _draft.contains(key);
+}
+
+void SettingsFormModel::setValue(const QString& key, const QVariant& value)
+{
+    const auto* field = _field(key);
+    if (!field || field->readOnly)
+    {
+        return;
+    }
+    const bool wasDirty = isDirty();
+    _removed.remove(key);
+    _draft.insert(key, value);
+    _inputErrors.remove(key);
+    _changed(key, wasDirty);
+}
+
+void SettingsFormModel::removeValue(const QString& key)
+{
+    const auto* field = _field(key);
+    if (!field || field->readOnly || field->required)
+    {
+        return;
+    }
+    const bool wasDirty = isDirty();
+    _removed.insert(key);
+    if (_hasInherited(field->settingsPath))
+    {
+        _draft.insert(key, _readInherited(field->settingsPath));
+    }
+    else
+    {
+        _draft.remove(key);
+    }
+    _inputErrors.remove(key);
+    _changed(key, wasDirty);
+}
+
+QList<SettingsSchema::Error> SettingsFormModel::errors() const
+{
+    return _errors;
+}
+bool SettingsFormModel::isDirty() const
+{
+    return !_edited.isEmpty() || !_removed.isEmpty() || !_inputErrors.isEmpty();
+}
+bool SettingsFormModel::isValid() const
+{
+    return _errors.isEmpty() && _valid();
+}
+
+void SettingsFormModel::reload()
+{
+    const bool wasDirty = isDirty();
+    _original           = _current();
+    _draft              = _original;
+    _edited.clear();
+    _removed.clear();
+    _inputErrors.clear();
+    for (const auto& field : _schema->fields())
+    {
+        if (!_draft.contains(field.key) && field.hasDefault)
+        {
+            _draft.insert(field.key, field.defaultValue);
+        }
+    }
+    _validate();
+    for (const auto& field : _schema->fields())
+    {
+        emit fieldChanged(field.key);
+    }
+    if (wasDirty)
+    {
+        emit dirtyChanged(false);
+    }
+}
+
+bool SettingsFormModel::apply(QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    auto fail = [error](const QString& message) {
+        if (error)
+        {
+            *error = message;
+        }
+        return false;
+    };
+    if (!_valid())
+    {
+        return fail("Settings scope is invalid or expired");
+    }
+    if (!_inputErrors.isEmpty())
+    {
+        return fail("Correct invalid editor input before applying settings");
+    }
+
+    auto        current = _current();
+    auto        merged  = current;
+    QVariantMap patch;
+    QStringList removed;
+    for (const auto& field : _schema->fields())
+    {
+        if (field.readOnly)
+        {
+            continue;
+        }
+        const bool defaultPending = !_original.contains(field.key) && field.hasDefault && _draft.contains(field.key);
+        if (!_edited.contains(field.key) && !_removed.contains(field.key) && !defaultPending)
+        {
+            continue;
+        }
+        if (current.contains(field.key) != _original.contains(field.key)
+            || !sameValue(current.value(field.key), _original.value(field.key)))
+        {
+            return fail("Settings changed externally at " + field.settingsPath + "; reload before applying");
+        }
+        if (_removed.contains(field.key))
+        {
+            removed.append(field.settingsPath);
+            if (_hasInherited(field.settingsPath))
+            {
+                merged.insert(field.key, _readInherited(field.settingsPath));
+            }
+            else
+            {
+                merged.remove(field.key);
+            }
+        }
+        else if (_draft.contains(field.key))
+        {
+            merged.insert(field.key, _draft.value(field.key));
+            patch.insert(field.settingsPath, _draft.value(field.key));
+        }
+        else
+        {
+            merged.remove(field.key);
+            removed.append(field.settingsPath);
+        }
+    }
+    const auto validation = _schema->validate(merged);
+    if (!validation.isEmpty())
+    {
+        return fail(validation.first().path + ": " + validation.first().message);
+    }
+    if (!_patch(patch, removed, error))
+    {
+        return false;
+    }
+    reload();
+    return true;
+}
+
+void SettingsFormModel::setInputError(const QString& key, const QString& error)
+{
+    const auto* field = _field(key);
+    if (!field || field->readOnly)
+    {
+        return;
+    }
+    const bool wasDirty = isDirty();
+    if (error.isEmpty())
+    {
+        _inputErrors.remove(key);
+    }
+    else
+    {
+        _inputErrors.insert(key, error);
+    }
+    _validate();
+    if (wasDirty != isDirty())
+    {
+        emit dirtyChanged(isDirty());
+    }
+}
+
+const SettingsSchema::Field* SettingsFormModel::_field(const QString& key) const
+{
+    for (const auto& field : _schema->fields())
+    {
+        if (field.key == key)
+        {
+            return &field;
+        }
+    }
+    return nullptr;
+}
+
+QVariantMap SettingsFormModel::_current() const
+{
+    QVariantMap document;
+    for (const auto& field : _schema->fields())
+    {
+        if (_contains(field.settingsPath))
+        {
+            document.insert(field.key, _read(field.settingsPath));
+        }
+    }
+    return document;
+}
+
+void SettingsFormModel::_validate()
+{
+    _errors = _schema->validate(_draft);
+    for (auto it = _inputErrors.cbegin(); it != _inputErrors.cend(); ++it)
+    {
+        _errors.append({it.key(), it.value()});
+    }
+    emit validationChanged();
+}
+
+void SettingsFormModel::_changed(const QString& key, bool wasDirty)
+{
+    if (_draft.contains(key) == _original.contains(key) && sameValue(_draft.value(key), _original.value(key)))
+    {
+        _edited.remove(key);
+    }
+    else
+    {
+        _edited.insert(key);
+    }
+    _validate();
+    emit fieldChanged(key);
+    if (wasDirty != isDirty())
+    {
+        emit dirtyChanged(isDirty());
+    }
+}

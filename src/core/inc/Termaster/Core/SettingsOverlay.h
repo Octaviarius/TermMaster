@@ -12,8 +12,11 @@ public:
     bool            contains(const QString& key) const;
     QVariant        value(const QString& key, const QVariant& fallback = {}) const;
     QVariantMap     values() const;
+    bool            containsInherited(const QString& key) const;
+    QVariant        inheritedValue(const QString& key, const QVariant& fallback = {}) const;
     bool            setValue(const QString& key, const QVariant& value, QString* error = nullptr);
     bool            remove(const QString& key, QString* error = nullptr);
+    bool            applyValues(QVariantMap values, QStringList removed, QString* error = nullptr);
     SettingsOverlay node(const QString& path) const;
 
 private:

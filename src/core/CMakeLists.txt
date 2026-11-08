@@ -34,6 +34,16 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/gui/action/ToolbarActionContainer.cpp
     inc/Termaster/Core/Settings.h
     src/Settings.cpp
+    inc/Termaster/Core/SettingsSchema.h
+    src/SettingsSchema.cpp
+    inc/Termaster/Core/gui/settings/SettingsFieldEditor.h
+    src/gui/settings/SettingsFieldEditor.cpp
+    inc/Termaster/Core/gui/settings/SettingsWidgetRegistry.h
+    src/gui/settings/SettingsWidgetRegistry.cpp
+    inc/Termaster/Core/gui/settings/SettingsFormModel.h
+    src/gui/settings/SettingsFormModel.cpp
+    inc/Termaster/Core/gui/settings/SettingsFormWidget.h
+    src/gui/settings/SettingsFormWidget.cpp
     inc/Termaster/Core/SettingsOverlay.h
     src/SettingsOverlay.cpp
     inc/Termaster/Core/Workspace.h
@@ -63,6 +73,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     yaml-cpp
+    valijson
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -93,4 +104,14 @@ target_include_directories(${PROJECT_NAME}
         "${CMAKE_CURRENT_SOURCE_DIR}/inc"
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+
+set(settings_meta_schema "${CMAKE_CURRENT_SOURCE_DIR}/../../components/valijson/doc/schema/draft-07.json")
+set_source_files_properties("${settings_meta_schema}" PROPERTIES
+    QT_RESOURCE_ALIAS "SettingsSchemaDraft7.json"
+)
+qt_add_resources(Core "settingsSchemaMeta"
+    PREFIX "/Termaster/Core"
+    FILES
+        "${settings_meta_schema}"
 )
