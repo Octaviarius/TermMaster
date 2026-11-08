@@ -58,8 +58,8 @@ keys, non-scalar mapping keys, multiple documents and unsupported explicit scala
 tags are rejected. YAML values are converted through a Qt QVariant adapter because
 the upstream YAML adapter does not preserve the required strong scalar types.
 Valijson is pinned under `components/valijson` at
-`af2383509277f8e8051acbb3e4b3060f4779aa10`; it was copied from the existing local
-Flowgate checkout and is not downloaded during configuration.
+`af2383509277f8e8051acbb3e4b3060f4779aa10` as a Git submodule. Initialize dependencies with
+`git submodule update --init`; configuration never downloads dependencies.
 
 Parsing and serialization are bounded to 4 MiB, depth 64 and 100000 nodes. YAML
 aliases and non-finite numbers are rejected. JSON Schema expansion is also bounded

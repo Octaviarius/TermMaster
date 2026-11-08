@@ -1,3 +1,6 @@
 [submodule "components/yaml-cpp"]
 	path = components/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp.git
+[submodule "components/valijson"]
+	path = components/valijson
+	url = https://github.com/tristanpenman/valijson.git
