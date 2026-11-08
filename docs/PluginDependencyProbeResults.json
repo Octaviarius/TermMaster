@@ -122,6 +122,37 @@
         "qt": "6.12.0"
       },
       "lifecycle_log": []
+    },
+    {
+      "name": "independent-sdk-consumer",
+      "passed": true,
+      "exit_code": 0,
+      "result": {
+        "consumer_id": "probe.consumer",
+        "consumer_loaded": true,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "consumer_result": 84,
+        "provider_first": false,
+        "provider_mapped_after_consumer": true,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "provider_metadata": {
+          "id": "probe.provider",
+          "requires": [],
+          "version": "1.0.0"
+        },
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": [
+        "Consumer root constructed"
+      ]
     }
   ]
 }
