@@ -111,7 +111,10 @@ selection, undo/redo availability, content and clipboard capabilities. Execution
 resolves the focused editor again. These are real Qt editor operations; terminal
 input and terminal selection routing remain planned.
 
-View provides Toolbar, Status bar and Full screen. Toolbar/status preferences use
+View provides Toolbar, Status bar and Full screen. Tools/Settings opens the
+generated settings dialog for the active application, workspace or session scope.
+Its schema and form behavior are described in [settings forms](settings-forms.md).
+Toolbar/status preferences use
 `ui/toolbarVisible` and `ui/statusBarVisible` through the active configuration
 scope. Tools/Plugins and the toolbar share one QAction and open the same modeless
 plugin window. Closing the dialog deletes it; another invocation creates a new
@@ -193,3 +196,12 @@ normal-close autosave and recovery from a missing last file. Persistence tests
 used isolated temporary application data. See
 [workspace verification](workspaces-and-sessions.md#verification-status) for scope
 and remaining runtime limitations.
+
+## Generated preferences verification
+
+The Tools/Settings action uses the reusable schema form against the active
+application/workspace/session settings scope. Verified on 2026-11-08 with MSVC
+19.44 and Qt 6.12.0 Debug: all eleven CTest suites passed, and native AppTests
+passed eleven results at scales 1 and 2. The generated preferences and custom
+model-backed editor captures were visually inspected. See
+[settings forms](settings-forms.md#verification-status) for limits and checks.

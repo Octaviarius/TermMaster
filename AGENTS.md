@@ -196,6 +196,23 @@ changing behavior. These rules apply repository-wide.
   or per-character noise.
 - Do not describe simulated input or synthetic counters as real-device acceptance.
 
+## Settings forms
+
+- Generated settings descriptors use the version 1 YAML envelope with type
+  `termaster.settings-schema`, a description and Draft 7 schema in `content`.
+  Root object properties are independent form fields; use `x-settings-path` for
+  the relative Node/Overlay binding, `x-groups` for root group layout and flat
+  `x-widget`, `x-group`, `x-order`, and `x-widget-options` field annotations.
+- Keep complex object and array editing in YAML or custom editors; do not add
+  recursive property layouts. Keep forms as drafts until an explicit atomic apply,
+  preserve unknown and concurrently changed settings, and keep file I/O with App.
+- Keep YAML/schema processing bounded and reject aliases, external references and
+  reference cycles. Keep numeric schema values and validated integer values within
+  the exact double range required by Valijson's numeric adapter. Keep registered
+  custom editor factories loaded until all their
+  editors are destroyed; close forms before plugin factory unload.
+- See [settings forms](docs/settings-forms.md) for the descriptor and lifecycle contract.
+
 ## GUI
 
 - Toolbar actions require meaningful icons and tooltips; application toolbars use
