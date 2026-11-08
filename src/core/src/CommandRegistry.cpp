@@ -1,5 +1,6 @@
 #include <QRegularExpression>
 #include <Termaster/Core/CommandRegistry.h>
+#include <stdexcept>
 
 CommandRegistry::CommandRegistry(QObject* parent) : QObject(parent)
 {
@@ -30,37 +31,20 @@ CommandRegistry::~CommandRegistry()
 Command* CommandRegistry::create(const QString&      id,
                                  const QString&      text,
                                  const QIcon&        icon,
-                                 const QKeySequence& defaultShortcut,
-                                 QString*            error)
+                                 const QKeySequence& defaultShortcut)
 {
-    if (error)
-    {
-        error->clear();
-    }
     if (_destroying)
     {
-        if (error)
-        {
-            *error = QStringLiteral("Command registry is being destroyed");
-        }
-        return nullptr;
+        throw std::logic_error("Command registry is being destroyed");
     }
     static const QRegularExpression validId(QStringLiteral("\\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\z"));
     if (!validId.match(id).hasMatch())
     {
-        if (error)
-        {
-            *error = QStringLiteral("Invalid command ID '%1'").arg(id);
-        }
-        return nullptr;
+        throw std::invalid_argument(QStringLiteral("Invalid command ID '%1'").arg(id).toStdString());
     }
     if (find(id))
     {
-        if (error)
-        {
-            *error = QStringLiteral("Command ID '%1' already exists").arg(id);
-        }
-        return nullptr;
+        throw std::logic_error(QStringLiteral("Command ID '%1' already exists").arg(id).toStdString());
     }
 
     auto* command = new Command(id, text, icon, defaultShortcut, {}, this);

@@ -13,6 +13,19 @@
 
 namespace
 {
+QByteArray envelope(const QByteArray& content)
+{
+    QByteArray result("version: 1\ntype: termaster.settings\ndescription: Plugin test preferences\ncontent:\n");
+    for (const auto& line : content.split('\n'))
+    {
+        if (!line.isEmpty())
+        {
+            result += "  " + line + '\n';
+        }
+    }
+    return result;
+}
+
 bool setPreference(Settings& settings, const QString& id, bool enabled)
 {
     return settings.load() && settings.setValue("enabled/" + id, enabled) && settings.sync();
@@ -26,8 +39,9 @@ class PluginIntegrationTests final : public QObject
 private:
     static bool write(const QString& path, const QByteArray& bytes)
     {
-        QFile file(path);
-        return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+        QFile      file(path);
+        const auto document = envelope(bytes);
+        return file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(document) == document.size();
     }
     static QString copy(const char* source, const QString& directory, const QString& name = {})
     {
@@ -150,7 +164,7 @@ private:
         PluginManager manager(settings, temporary.filePath("empty"));
         QVERIFY(manager.start());
         QVERIFY(manager.setEnabled("provider", true));
-        const auto document = YAML::Load(read(path).toStdString());
+        const auto document = YAML::Load(read(path).toStdString())["content"];
         QVERIFY(document["enabled"]["provider"].as<bool>());
         QCOMPARE(document["other"]["sequence"].size(), size_t(2));
         QCOMPARE(QString::fromStdString(document["other"]["text"].as<std::string>()), QString("true"));
@@ -312,13 +326,13 @@ private:
             QVERIFY(write(path, bytes));
             QVERIFY(!manager.start(&error));
             QVERIFY(!error.isEmpty());
-            QCOMPARE(read(path), bytes);
+            QCOMPARE(read(path), envelope(bytes));
             QVERIFY(!manager.isActive());
         }
         QVERIFY(write(path, "enabled: {unrelated: false}\nextra: {sequence: [alpha, beta], answer: 42}\n"));
         QVERIFY(manager.start(&error));
         QVERIFY(manager.setEnabled("test", true, &error));
-        auto document = YAML::Load(read(path).toStdString());
+        auto document = YAML::Load(read(path).toStdString())["content"];
         QVERIFY(!document["enabled"]["unrelated"].as<bool>());
         QVERIFY(document["enabled"]["test"].as<bool>());
         QCOMPARE(document["extra"]["sequence"].size(), size_t(2));
@@ -334,7 +348,7 @@ private:
         QVERIFY(settings.load());
         QVERIFY(write(path, "other: &shared {provider: false}\nenabled: *shared\n"));
         QVERIFY(manager.setEnabled("provider", true, &error));
-        document = YAML::Load(read(path).toStdString());
+        document = YAML::Load(read(path).toStdString())["content"];
         QVERIFY(!document["other"]["provider"].as<bool>());
         QVERIFY(document["enabled"]["provider"].as<bool>());
         QVERIFY(manager.stop());

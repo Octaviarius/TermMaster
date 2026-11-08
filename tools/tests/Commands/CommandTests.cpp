@@ -2,6 +2,7 @@
 #include <QSignalSpy>
 #include <QTest>
 #include <Termaster/Core/CommandRegistry.h>
+#include <stdexcept>
 
 class CommandTests final : public QObject
 {
@@ -83,22 +84,17 @@ private:
     Q_SLOT void registryValidationAndRemoval()
     {
         CommandRegistry registry;
-        QString         error;
-        QVERIFY(!registry.create("bad id", {}, {}, {}, &error));
-        QVERIFY(!error.isEmpty());
-        QVERIFY(!registry.create(QString(129, 'a')));
-        QVERIFY(!registry.create("a\n"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, registry.create("bad id"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, registry.create(QString(129, 'a')));
+        QVERIFY_THROWS_EXCEPTION(std::exception, registry.create("a\n"));
         auto* original = registry.create("edit.copy", "Original");
-        QVERIFY(original);
-        QVERIFY(!registry.create("edit.copy", "Replaced", {}, {}, &error));
-        QVERIFY(!error.isEmpty());
+        QVERIFY_THROWS_EXCEPTION(std::exception, registry.create("edit.copy", "Replaced"));
         QCOMPARE(registry.find("edit.copy"), original);
         QCOMPARE(original->text(), QString("Original"));
         delete original;
         QVERIFY(!registry.find("edit.copy"));
         QVERIFY(registry.commands().isEmpty());
-        QPointer<Command> recreated = registry.create("edit.copy", {}, {}, {}, &error);
-        QVERIFY(error.isEmpty());
+        QPointer<Command> recreated = registry.create("edit.copy");
         QVERIFY(registry.remove("edit.copy"));
         QVERIFY(recreated.isNull());
         QVERIFY(!registry.remove("edit.copy"));
@@ -112,7 +108,14 @@ private:
         bool              rejectedCreation = false;
         connect(first, &QObject::destroyed, [registry, second, &rejectedCreation] {
             delete second.data();
-            rejectedCreation = !registry->create("replacement");
+            try
+            {
+                registry->create("replacement");
+            }
+            catch (const std::logic_error&)
+            {
+                rejectedCreation = true;
+            }
         });
         delete registry;
         QVERIFY(second.isNull());

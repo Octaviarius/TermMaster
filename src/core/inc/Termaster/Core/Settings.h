@@ -13,6 +13,13 @@ class Path;
 class Settings
 {
 public:
+    /** Identifies the expected document kind and describes newly created documents. */
+    struct Info
+    {
+        QString type        = "termaster.settings";
+        QString description = "Termaster settings";
+    };
+
     /** A lifetime-checked view into the owner's current mapping at a relative path. */
     class Node
     {
@@ -37,10 +44,14 @@ public:
 
     explicit Settings(QString filePath);
     explicit Settings(const Path& filePath);
+    Settings(QString filePath, Info info);
+    Settings(const Path& filePath, Info info);
     ~Settings();
     Q_DISABLE_COPY_MOVE(Settings)
 
     QString filePath() const;
+    Info    info() const;
+    int     version() const;
     bool    isDirty() const;
 
     /** Replaces cached values only after the complete document passes validation. */

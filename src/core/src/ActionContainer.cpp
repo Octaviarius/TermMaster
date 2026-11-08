@@ -1,5 +1,6 @@
 #include <QThread>
 #include <Termaster/Core/ActionContainer.h>
+#include <stdexcept>
 #include <utility>
 
 ActionContainer::ActionContainer(QString name, QString title, QObject* owner) :
@@ -143,44 +144,56 @@ qsizetype ActionContainer::groupIndex(const QString& name) const
     return -1;
 }
 
-bool ActionContainer::addGroup(const QString& name)
+void ActionContainer::addGroup(const QString& name)
 {
     if (!_canMutate())
     {
-        return false;
+        throw std::logic_error("Action container cannot be mutated on this thread or during destruction");
     }
-    return insertGroup(name, _groups.size());
+
+    insertGroup(name, _groups.size());
 }
 
-bool ActionContainer::insertGroup(const QString& name, qsizetype index)
+void ActionContainer::insertGroup(const QString& name, qsizetype index)
 {
-    if (!_canMutate() || !isAvailable() || index < 0 || index > _groups.size() || groupIndex(name) >= 0)
+    if (!_canMutate() || !isAvailable())
     {
-        return false;
+        throw std::logic_error("Action container backend is unavailable or mutation is forbidden");
+    }
+    if (index < 0 || index > _groups.size() || groupIndex(name) >= 0)
+    {
+        throw std::invalid_argument("Group name is duplicated or insertion index is invalid");
     }
     _groups.insert(index, Group {name, {}});
     _notify();
-    return true;
 }
 
-bool ActionContainer::insertGroupBefore(const QString& name, const QString& reference)
+void ActionContainer::insertGroupBefore(const QString& name, const QString& reference)
 {
     if (!_canMutate())
     {
-        return false;
+        throw std::logic_error("Action container cannot be mutated on this thread or during destruction");
     }
     const qsizetype index = groupIndex(reference);
-    return index >= 0 && insertGroup(name, index);
+    if (index < 0)
+    {
+        throw std::invalid_argument("Reference group does not exist");
+    }
+    insertGroup(name, index);
 }
 
-bool ActionContainer::insertGroupAfter(const QString& name, const QString& reference)
+void ActionContainer::insertGroupAfter(const QString& name, const QString& reference)
 {
     if (!_canMutate())
     {
-        return false;
+        throw std::logic_error("Action container cannot be mutated on this thread or during destruction");
     }
     const qsizetype index = groupIndex(reference);
-    return index >= 0 && insertGroup(name, index + 1);
+    if (index < 0)
+    {
+        throw std::invalid_argument("Reference group does not exist");
+    }
+    insertGroup(name, index + 1);
 }
 
 bool ActionContainer::moveGroup(const QString& name, qsizetype index)
@@ -371,26 +384,32 @@ ActionContainer::List ActionContainer::menus(const QString& group) const
     return result;
 }
 
-bool ActionContainer::addAction(QAction* action, const QString& group)
+void ActionContainer::addAction(QAction* action, const QString& group)
 {
     if (!_canMutate())
     {
-        return false;
+        throw std::logic_error("Action container cannot be mutated on this thread or during destruction");
     }
-    return insertAction(action, group, itemCount(group));
+
+    insertAction(action, group, itemCount(group));
 }
 
-bool ActionContainer::insertAction(QAction* action, const QString& group, qsizetype index)
+void ActionContainer::insertAction(QAction* action, const QString& group, qsizetype index)
 {
     if (!_canMutate())
     {
-        return false;
+        throw std::logic_error("Action container cannot be mutated on this thread or during destruction");
+    }
+    if (!isAvailable())
+    {
+        throw std::logic_error("Action container backend is unavailable");
     }
     const qsizetype target = groupIndex(group);
-    if (!_canMutate() || !isAvailable() || !action || action->thread() != thread() || target < 0 || index < 0
-        || index > _groups[target].items.size() || _actionLocation(action) || !_acceptsAction(action) || !_nextId)
+    if (!action || action->thread() != thread() || target < 0 || index < 0 || index > _groups[target].items.size()
+        || _actionLocation(action) || !_acceptsAction(action) || !_nextId)
     {
-        return false;
+        throw std::invalid_argument(
+            "Action is null, duplicated, incompatible, on another thread, or has an invalid destination");
     }
 
     Record record;
@@ -401,7 +420,6 @@ bool ActionContainer::insertAction(QAction* action, const QString& group, qsizet
     });
     _groups[target].items.insert(index, std::move(record));
     _notify();
-    return true;
 }
 
 bool ActionContainer::moveAction(QAction* action, const QString& group, qsizetype index)
@@ -431,26 +449,31 @@ bool ActionContainer::removeAction(QAction* action)
     return true;
 }
 
-bool ActionContainer::addMenu(ActionContainer* menu, const QString& group)
+void ActionContainer::addMenu(ActionContainer* menu, const QString& group)
 {
     if (!_canMutate())
     {
-        return false;
+        throw std::logic_error("Action container cannot be mutated on this thread or during destruction");
     }
-    return insertMenu(menu, group, itemCount(group));
+
+    insertMenu(menu, group, itemCount(group));
 }
 
-bool ActionContainer::insertMenu(ActionContainer* menu, const QString& group, qsizetype index)
+void ActionContainer::insertMenu(ActionContainer* menu, const QString& group, qsizetype index)
 {
     if (!_canMutate())
     {
-        return false;
+        throw std::logic_error("Action container cannot be mutated on this thread or during destruction");
+    }
+    if (!isAvailable())
+    {
+        throw std::logic_error("Action container backend is unavailable");
     }
     const qsizetype target = groupIndex(group);
-    if (!_canMutate() || !isAvailable() || target < 0 || index < 0 || index > _groups[target].items.size()
-        || !_validMenu(menu) || menu->_parentContainer || !_nextId)
+    if (target < 0 || index < 0 || index > _groups[target].items.size() || !_validMenu(menu) || menu->_parentContainer
+        || !_nextId)
     {
-        return false;
+        throw std::invalid_argument("Menu is already attached, invalid, incompatible, or has an invalid destination");
     }
 
     Record record;
@@ -461,7 +484,6 @@ bool ActionContainer::insertMenu(ActionContainer* menu, const QString& group, qs
     menu->_parentContainer = this;
     menu->setParent(this);
     _notify();
-    return true;
 }
 
 bool ActionContainer::moveMenu(ActionContainer* menu, const QString& group, qsizetype index)

@@ -7,6 +7,7 @@
 #include <Termaster/Core/gui/action/MenuActionContainer.h>
 #include <Termaster/Core/gui/action/MenubarActionContainer.h>
 #include <Termaster/Core/gui/action/ToolbarActionContainer.h>
+#include <stdexcept>
 
 /** Data-only backend: no widgets or rendering hooks are needed by the model. */
 class FakeContainer final : public ActionContainer
@@ -69,10 +70,10 @@ private:
     Q_SLOT void orderedGroups()
     {
         FakeContainer root("root");
-        QVERIFY(root.addGroup(""));
-        QVERIFY(root.addGroup("last"));
-        QVERIFY(root.insertGroupBefore("first", ""));
-        QVERIFY(root.insertGroupAfter("middle", ""));
+        root.addGroup("");
+        root.addGroup("last");
+        root.insertGroupBefore("first", "");
+        root.insertGroupAfter("middle", "");
         QCOMPARE(root.groups(), QStringList({"first", "", "middle", "last"}));
         QVERIFY(root.moveGroup("last", 0));
         QVERIFY(root.moveGroupAfter("first", "middle"));
@@ -81,12 +82,13 @@ private:
         QVERIFY(root.renameGroup("middle", "renamed"));
         QCOMPARE(root.groupIndex("renamed"), qsizetype(1));
         const QStringList before = root.groups();
-        QVERIFY(!root.addGroup("first"));
-        QVERIFY(!root.insertGroup("bad", -1));
-        QVERIFY(!root.insertGroup("bad", 99));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.addGroup("first"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.insertGroup("bad", -1));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.insertGroup("bad", 99));
         QVERIFY(!root.moveGroup("first", 4));
         QVERIFY(!root.renameGroup("renamed", "first"));
-        QVERIFY(!root.insertGroupAfter("bad", "missing"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.insertGroupAfter("bad", "missing"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.insertGroupBefore("bad", "missing"));
         QCOMPARE(root.groups(), before);
         QVERIFY(root.removeGroup("renamed"));
         QCOMPARE(root.groupIndex("renamed"), qsizetype(-1));
@@ -98,12 +100,12 @@ private:
         FakeContainer root("root");
         QAction       first("first");
         QAction       last("last");
-        QVERIFY(root.addGroup("a"));
-        QVERIFY(root.addGroup("b"));
-        QVERIFY(root.addAction(&first, "a"));
-        QVERIFY(root.addAction(&last, "a"));
+        root.addGroup("a");
+        root.addGroup("b");
+        root.addAction(&first, "a");
+        root.addAction(&last, "a");
         auto* menu = new FakeContainer("menu");
-        QVERIFY(root.insertMenu(menu, "a", 1));
+        root.insertMenu(menu, "a", 1);
         QCOMPARE(root.items("a").at(0).action.data(), &first);
         QCOMPARE(root.items("a").at(1).kind, ActionContainer::Kind::Menu);
         QCOMPARE(root.items("a").at(1).menu.data(), menu);
@@ -112,13 +114,17 @@ private:
         QCOMPARE(root.items("a").last().action.data(), &first);
         QVERIFY(root.moveMenu(menu, "b", 0));
         QCOMPARE(root.actions("a"), QList<QAction*>({&last, &first}));
-        QVERIFY(!root.addAction(&first, "b"));
-        QVERIFY(!root.insertAction(&last, "a", -1));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.addAction(&first, "b"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.insertAction(&last, "a", -1));
         QVERIFY(!root.moveAction(&first, "a", 2));
         QVERIFY(!root.moveMenu(menu, "missing", 0));
-        QVERIFY(!root.addAction(nullptr, "a"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.addAction(nullptr, "a"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.addAction(&last, "missing"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.insertAction(&last, "b", 1));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.addMenu(nullptr, "a"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.addMenu(menu, "a"));
         auto* duplicate = new FakeContainer("menu");
-        QVERIFY(!root.addMenu(duplicate, "a"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.addMenu(duplicate, "a"));
         QCOMPARE(duplicate->parent(), nullptr);
         delete duplicate;
         QCOMPARE(root.itemCount("a"), qsizetype(2));
@@ -126,9 +132,9 @@ private:
 
         root.setAcceptActions(false);
         QAction rejected("rejected");
-        QVERIFY(!root.addAction(&rejected, "b"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.addAction(&rejected, "b"));
         root.setAvailable(false);
-        QVERIFY(!root.addGroup("unavailable"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, root.addGroup("unavailable"));
         QCOMPARE(root.itemCount("a"), qsizetype(2));
         // Cleanup remains possible after the backend has disappeared.
         QVERIFY(root.clear());
@@ -140,14 +146,14 @@ private:
         QObject       originalOwner;
         FakeContainer root("root");
         FakeContainer target("target");
-        QVERIFY(root.addGroup(""));
-        QVERIFY(target.addGroup(""));
+        root.addGroup("");
+        target.addGroup("");
         auto* branch = new FakeContainer("branch", &originalOwner);
         auto* leaf   = new FakeContainer("leaf");
-        QVERIFY(branch->addGroup("nested"));
-        QVERIFY(leaf->addGroup(""));
-        QVERIFY(branch->addMenu(leaf, "nested"));
-        QVERIFY(root.addMenu(branch, ""));
+        branch->addGroup("nested");
+        leaf->addGroup("");
+        branch->addMenu(leaf, "nested");
+        root.addMenu(branch, "");
         QCOMPARE(branch->parent(), &root);
         QCOMPARE(branch->parentContainer(), &root);
         QCOMPARE(leaf->root(), &root);
@@ -159,7 +165,7 @@ private:
         QCOMPARE(leaf->findMenu("/branch/leaf"), leaf);
         QCOMPARE(root.findMenu("."), &root);
         QCOMPARE(root.findMenu("missing/leaf"), nullptr);
-        QVERIFY(!leaf->addMenu(&root, ""));
+        QVERIFY_THROWS_EXCEPTION(std::exception, leaf->addMenu(&root, ""));
         QVERIFY(!root.transferMenu(branch, *leaf, "", 0));
         target.setAcceptMenus(false);
         QVERIFY(!root.transferMenu(branch, target, "", 0));
@@ -181,7 +187,7 @@ private:
         for (const QString& name : QStringList({"", ".", "..", "a/b"}))
         {
             auto* invalid = new FakeContainer(name);
-            QVERIFY(!root.addMenu(invalid, ""));
+            QVERIFY_THROWS_EXCEPTION(std::exception, root.addMenu(invalid, ""));
             delete invalid;
         }
     }
@@ -190,18 +196,18 @@ private:
     {
         FakeContainer ancestor("ancestor");
         FakeContainer destination("destination", &ancestor);
-        QVERIFY(destination.addGroup("menus"));
-        QVERIFY(!destination.addMenu(&ancestor, "menus"));
+        destination.addGroup("menus");
+        QVERIFY_THROWS_EXCEPTION(std::exception, destination.addMenu(&ancestor, "menus"));
         QCOMPARE(destination.parent(), &ancestor);
         QCOMPARE(ancestor.parent(), nullptr);
         QVERIFY(destination.menus("menus").isEmpty());
 
         FakeContainer source("source");
-        QVERIFY(source.addGroup("menus"));
+        source.addGroup("menus");
         auto* branch = new FakeContainer("branch");
-        QVERIFY(source.addMenu(branch, "menus"));
+        source.addMenu(branch, "menus");
         FakeContainer nestedOwner("nestedOwner", branch);
-        QVERIFY(nestedOwner.addGroup("menus"));
+        nestedOwner.addGroup("menus");
         QVERIFY(!source.transferMenu(branch, nestedOwner, "menus", 0));
         QCOMPARE(branch->parentContainer(), &source);
         QCOMPARE(branch->parent(), &source);
@@ -213,12 +219,12 @@ private:
     {
         FakeContainer first("first");
         FakeContainer second("second");
-        QVERIFY(first.addGroup(""));
-        QVERIFY(second.addGroup(""));
+        first.addGroup("");
+        second.addGroup("");
         auto*             action = new QAction("shared");
         QPointer<QAction> guard(action);
-        QVERIFY(first.addAction(action, ""));
-        QVERIFY(second.addAction(action, ""));
+        first.addAction(action, "");
+        second.addAction(action, "");
         QVERIFY(first.clearGroup(""));
         QVERIFY(guard);
         QCOMPARE(second.actions(""), QList<QAction*>({action}));
@@ -228,7 +234,7 @@ private:
         QCOMPARE(second.itemCount(""), qsizetype(0));
         QVERIFY(!changed.isEmpty());
         auto* menu = new FakeContainer("child");
-        QVERIFY(first.addMenu(menu, ""));
+        first.addMenu(menu, "");
         delete menu;
         QCOMPARE(first.itemCount(""), qsizetype(0));
     }
@@ -240,12 +246,12 @@ private:
             FakeContainer     root("root");
             QAction           action("borrowed");
             QPointer<QAction> actionGuard(&action);
-            QVERIFY(root.addGroup("group"));
+            root.addGroup("group");
             auto* child = new FakeContainer("child");
-            QVERIFY(child->addGroup(""));
-            QVERIFY(child->addAction(&action, ""));
+            child->addGroup("");
+            child->addAction(&action, "");
             QPointer<ActionContainer> guard(child);
-            QVERIFY(root.addMenu(child, "group"));
+            root.addMenu(child, "group");
             switch (operation)
             {
                 case 0:
@@ -281,14 +287,14 @@ private:
         menu.menu()->addAction(&outside);
         for (ActionContainer* container : QList<ActionContainer*>({&menubar, &tools, &menu}))
         {
-            QVERIFY(container->addGroup("one"));
-            QVERIFY(container->addGroup("empty"));
-            QVERIFY(container->addGroup("two"));
-            QVERIFY(container->addGroup("trailingEmpty"));
-            QVERIFY(container->addAction(&first, "one"));
+            container->addGroup("one");
+            container->addGroup("empty");
+            container->addGroup("two");
+            container->addGroup("trailingEmpty");
+            container->addAction(&first, "one");
             auto* submenu = new MenuActionContainer("child", "Child");
-            QVERIFY(container->addMenu(submenu, "one"));
-            QVERIFY(container->addAction(&last, "two"));
+            container->addMenu(submenu, "one");
+            container->addAction(&last, "two");
             QWidget* widget = container == &menubar ? static_cast<QWidget*>(&bar) :
                               container == &tools   ? static_cast<QWidget*>(&toolbar) :
                                                       menu.menu();
@@ -320,24 +326,24 @@ private:
         auto*                  toolbar = new QToolBar;
         MenubarActionContainer menubar(bar, &owner);
         ToolbarActionContainer tools(toolbar, &owner);
-        QVERIFY(menubar.addGroup(""));
-        QVERIFY(tools.addGroup(""));
+        menubar.addGroup("");
+        tools.addGroup("");
         delete bar;
         delete toolbar;
         QVERIFY(!menubar.isAvailable());
         QVERIFY(!tools.isAvailable());
-        QVERIFY(!menubar.addGroup("dead"));
-        QVERIFY(!tools.addGroup("dead"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, menubar.addGroup("dead"));
+        QVERIFY_THROWS_EXCEPTION(std::exception, tools.addGroup("dead"));
         QMenuBar survivingBar;
         QToolBar survivingToolbar;
         QAction  borrowed("borrowed");
         {
             MenubarActionContainer temporaryBar(&survivingBar);
             ToolbarActionContainer temporaryToolbar(&survivingToolbar);
-            QVERIFY(temporaryBar.addGroup(""));
-            QVERIFY(temporaryToolbar.addGroup(""));
-            QVERIFY(temporaryBar.addAction(&borrowed, ""));
-            QVERIFY(temporaryToolbar.addAction(&borrowed, ""));
+            temporaryBar.addGroup("");
+            temporaryToolbar.addGroup("");
+            temporaryBar.addAction(&borrowed, "");
+            temporaryToolbar.addAction(&borrowed, "");
         }
         QVERIFY(survivingBar.actions().isEmpty());
         QVERIFY(survivingToolbar.actions().isEmpty());
@@ -351,14 +357,14 @@ private:
         QMenuBar               secondBar;
         MenubarActionContainer first(&firstBar);
         MenubarActionContainer second(&secondBar);
-        QVERIFY(first.addGroup("menus"));
-        QVERIFY(second.addGroup("menus"));
+        first.addGroup("menus");
+        second.addGroup("menus");
         auto*                     menu = new MenuActionContainer("child", "Child");
         QPointer<ActionContainer> guard(menu);
         QAction                   action("borrowed");
-        QVERIFY(menu->addGroup("items"));
-        QVERIFY(menu->addAction(&action, "items"));
-        QVERIFY(first.addMenu(menu, "menus"));
+        menu->addGroup("items");
+        menu->addAction(&action, "items");
+        first.addMenu(menu, "menus");
         QVERIFY(first.transferMenu(menu, second, "menus", 0));
         QVERIFY(visibleItems(firstBar.actions()).isEmpty());
         QCOMPARE(visibleItems(secondBar.actions()), QList<QAction*>({menu->menu()->menuAction()}));
@@ -386,25 +392,25 @@ private:
         QAction                connect(QString::fromUtf8("Connect — Подключить"), &window);
         QAction                disconnect("Disconnect", &window);
         QAction                preferences("Preferences", &window);
-        QVERIFY(menubar.addGroup("menus"));
-        QVERIFY(tools.addGroup("commands"));
+        menubar.addGroup("menus");
+        tools.addGroup("commands");
         auto* menu = new MenuActionContainer("connection", QString::fromUtf8("Connection — 接続"));
-        QVERIFY(menu->addGroup("connection"));
-        QVERIFY(menu->addGroup("settings"));
-        QVERIFY(menu->addAction(&connect, "connection"));
-        QVERIFY(menu->addAction(&disconnect, "connection"));
+        menu->addGroup("connection");
+        menu->addGroup("settings");
+        menu->addAction(&connect, "connection");
+        menu->addAction(&disconnect, "connection");
         auto* submenu = new MenuActionContainer("options", "Options");
-        QVERIFY(submenu->addGroup("preferences"));
-        QVERIFY(submenu->addAction(&preferences, "preferences"));
-        QVERIFY(menu->addMenu(submenu, "settings"));
-        QVERIFY(menubar.addMenu(menu, "menus"));
-        QVERIFY(tools.addAction(&connect, "commands"));
-        QVERIFY(tools.addAction(&disconnect, "commands"));
-        QVERIFY(tools.addGroup("menus"));
+        submenu->addGroup("preferences");
+        submenu->addAction(&preferences, "preferences");
+        menu->addMenu(submenu, "settings");
+        menubar.addMenu(menu, "menus");
+        tools.addAction(&connect, "commands");
+        tools.addAction(&disconnect, "commands");
+        tools.addGroup("menus");
         auto* toolbarMenu = new MenuActionContainer("options", "Options");
-        QVERIFY(toolbarMenu->addGroup("preferences"));
-        QVERIFY(toolbarMenu->addAction(&preferences, "preferences"));
-        QVERIFY(tools.addMenu(toolbarMenu, "menus"));
+        toolbarMenu->addGroup("preferences");
+        toolbarMenu->addAction(&preferences, "preferences");
+        tools.addMenu(toolbarMenu, "menus");
         window.show();
         QTest::qWait(150);
         QVERIFY(window.grab().save(QDir(destination).filePath("ActionContainersWindow.png")));
