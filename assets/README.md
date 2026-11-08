@@ -6,6 +6,10 @@ modes. Mode assignments and runtime integration are not implemented yet.
 - [Bright blue](IconBlue.png): bright sky-blue mark on dark navy.
 - [Orange](IconOrange.png): warm orange mark on dark navy.
 
+Windows icon containers: [Blue](IconBlue.ico) and [Orange](IconOrange.ico).
+Each ICO contains 16, 24, 32, 48, 64, 128 and 256 pixel square images with alpha
+transparency, resized from its corresponding PNG using Pillow.
+
 Both PNGs are 1254 by 1254 pixels with RGBA transparency outside the rounded tile.
 The shared design combines three incoming streams, an upward arrow and a T
 crossbar. These are generated raster assets, not vector masters; minor pixel and
@@ -28,3 +32,4 @@ Color values are prompt targets, not guaranteed exact pixel values.
 Both files were visually inspected and decoded successfully with Pillow. Their
 square dimensions match and both contain transparent and opaque pixels. No
 application behavior changed; no build or device verification was needed.
+Both ICO files were reopened and all seven embedded sizes decoded successfully.
