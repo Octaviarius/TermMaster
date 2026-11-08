@@ -12,4 +12,4 @@ public:
     virtual void setHost(PluginHost* host) = 0;
 };
 
-Q_DECLARE_INTERFACE(HostedPlugin, "org.octaviarius.Termaster.HostedPlugin/1.0")
+Q_DECLARE_INTERFACE(HostedPlugin, "org.octaviarius.Termaster.HostedPlugin/2.0")

@@ -54,6 +54,7 @@ public:
     void          showCreateTerminal(const QString& type) override;
     SerialDevice* selectedDevice(const QString& type) override;
     bool          canCreateTerminal() const override;
+    bool          connectionRequested(const QString& type) const override;
     bool          hasSelectedTerminal(const QString& type) const override;
     void          connectSelectedTerminal() override;
     void          disconnectSelectedTerminal() override;
@@ -95,6 +96,7 @@ private:
     void                                   _restore();
     void                                   _close(const QString& id);
     void                                   _changed(const QString& id);
+    void                                   _attemptConnection(const QString& id);
     QVariantMap                            _effective(const Type& type, SettingsOverlay settings) const;
     bool                                   _validate(const Type& type, SettingsOverlay settings, QString* error) const;
     static std::shared_ptr<SettingsSchema> _appearanceSchema();

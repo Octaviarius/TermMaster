@@ -197,14 +197,14 @@ void SerialPlugin::_registerActions()
             auto* device = _host->selectedDevice("serial");
             if (id == "Serial.Connect")
             {
-                return device
+                return device && !_host->connectionRequested("serial")
                     && (device->state() == SerialDevice::State::Closed
                         || device->state() == SerialDevice::State::Failed);
             }
             if (id == "Serial.Disconnect")
             {
                 return device
-                    && (device->state() == SerialDevice::State::Open
+                    && (_host->connectionRequested("serial") || device->state() == SerialDevice::State::Open
                         || device->state() == SerialDevice::State::Opening);
             }
             return true;
@@ -227,13 +227,13 @@ void SerialPlugin::_registerActions()
                 return;
             }
             auto* device = _host->selectedDevice("serial");
-            if (id == "Serial.Connect" && device
+            if (id == "Serial.Connect" && device && !_host->connectionRequested("serial")
                 && (device->state() == SerialDevice::State::Closed || device->state() == SerialDevice::State::Failed))
             {
                 _host->connectSelectedTerminal();
             }
             else if (id == "Serial.Disconnect" && device
-                     && (device->state() == SerialDevice::State::Open
+                     && (_host->connectionRequested("serial") || device->state() == SerialDevice::State::Open
                          || device->state() == SerialDevice::State::Opening))
             {
                 _host->disconnectSelectedTerminal();
