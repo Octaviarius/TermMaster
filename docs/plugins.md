@@ -62,6 +62,26 @@ Public headers are selected and installed from source, not inferred from the
 DLL. Additional plugins can use `find_package()` and link the imported module
 target without building the provider's implementation sources.
 
+## Core plugin contract and location
+
+The shared plugin interface and plugin manager belong under
+`src/app/core/plugins`. Every plugin root inherits the shared interface.
+
+The interface exposes four operations:
+
+| Operation | Responsibility |
+|---|---|
+| `startup` | Start the plugin. |
+| `shutdown` | Stop the plugin. |
+| `info` | Expose plugin information. |
+| `state` | Expose the current plugin state. |
+
+Exact C++ type names, method signatures, information fields, state values,
+error reporting and synchronous/asynchronous lifecycle behavior remain to be
+designed. The relationship between runtime `info` and embedded metadata also
+remains to be defined. This section records the accepted contract outline;
+production interface and manager implementation are pending.
+
 ## Dependencies and initialization
 
 The intended startup flow reads module descriptions, validates dependencies,
@@ -71,9 +91,9 @@ a dependency DLL without creating its Qt plugin root or preparing its services.
 Native dependency discovery must also be configured; metadata alone does not
 make dependency DLLs discoverable.
 
-The exact metadata schema, dependency/version policy, root interface and
-initialization/shutdown contract remain to be designed. This
-decision does not silently establish hot reload or other lifecycle features.
+The exact metadata schema, dependency/version policy and lifecycle semantics
+remain to be designed. This decision does not establish hot reload or other
+lifecycle features.
 
 ## Evidence and implementation status
 
