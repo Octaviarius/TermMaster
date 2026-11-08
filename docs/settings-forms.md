@@ -273,3 +273,13 @@ not push the button to the distant right edge of an expanded form row. Keep
 the control and reset affordance visually grouped across all settings scopes.
 Preserve the approved orange button, its override-only visibility and stable
 alignment when the button is hidden.
+
+## Pending application settings scope requirement
+
+Status: recorded for later implementation.
+
+Tools / Settings must open application settings only, including application-wide
+defaults for serial ports and other configurable components. Workspace, session
+and individual-terminal overrides must not be mixed into this application
+settings entry point. Keep the distinction between global defaults and settings
+of a specific workspace, session or terminal explicit in navigation.

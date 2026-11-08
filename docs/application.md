@@ -230,3 +230,14 @@ The terminal runtime uses the project-owned [VT widget](terminal-emulation.md).
 Outgoing user events and protocol replies carry distinct kinds; local echo uses
 separate display data. Future script processing inserts before/after this endpoint
 rather than entering the renderer or serial backend.
+
+## Pending Session menu requirement
+
+Status: recorded for later implementation.
+
+Provide a dedicated top-level Session menu containing the corresponding session
+management commands. Group existing session actions under this menu and derive
+availability from the current workspace and session state. Keep application
+settings under Tools / Settings limited to application configuration and global
+component defaults; session-specific configuration belongs to session navigation.
+The exact menu contents and ordering remain to be specified.
