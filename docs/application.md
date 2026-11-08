@@ -118,3 +118,18 @@ links, clang-format and git diff --check were verified. SerialBus/SerialPort rem
 disabled in this build. Workspace/session behavior remains planned.
 
 [Contextual actions](contextual-actions.md) defines icon-only toolbars and scoped extension groups.
+
+## Application icon
+
+App uses the approved orange asset from assets/IconOrange.png as its global Qt
+window icon through `:/Termaster/App/IconOrange.png`. The App static module owns
+the resource; main and child windows inherit the application icon. On Windows,
+the executable additionally embeds assets/IconOrange.ico through the configured
+AppIcon.rc resource template under src/app/res. Both original assets are used
+unchanged; the ICO supplies seven native sizes from 16 through 256 pixels.
+
+Verified on 2026-11-08 in the Desktop Qt MSVC Debug build: all seven CTest suites
+passed, native AppTests passed at scale factors 1 and 2, and the Qt-rendered icon
+was visually inspected. The compiled executable's icon group contains all seven
+images matching the approved ICO bytes exactly. The extracted native icon was
+also visually inspected. The blue asset remains unassigned.
