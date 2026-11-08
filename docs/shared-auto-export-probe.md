@@ -1,7 +1,7 @@
 # SHARED autoexport on MSVC: experiment
 
 Date: 2026-11-08. Status: verified experiment; build/loading mechanism accepted.
-The user selected this mechanism. The current decision and remaining design
+The accepted mechanism and remaining design
 questions are recorded in [Plugin module mechanism](plugins.md).
 
 ## Result
@@ -45,7 +45,7 @@ provider DLL matches the provider used by the runtime tests byte-for-byte.
 Qt metadata and plugin instantiation still work: the SHARED libraries contain
 `Q_PLUGIN_METADATA` and the host uses `QPluginLoader`. Qt's own generated plugin
 entry points remain framework-managed; the absence of manual markup applies to
-our public C++ API. The experiment uses `add_library(... SHARED ...)`, not
+the public C++ API. The experiment uses `add_library(... SHARED ...)`, not
 `qt_add_plugin()`, which would create MODULE targets.
 
 ## Verified loading cases
@@ -76,7 +76,7 @@ qt_plugin_query_metadata_v2
 Consumer fails with five `LNK2019` unresolved-symbol diagnostics covering the
 free function, static method, constructor, destructor and non-static method,
 followed by `LNK1120`. Thus the successful API exports originate from CMake
-autoexport, not leftover explicit annotations in our header.
+autoexport, not leftover explicit annotations in the public header.
 
 ## SDK and interpretation
 
@@ -96,7 +96,7 @@ templates, cross-version ABI stability, hot unloading, Debug, MinGW and other
 operating systems were not tested in this experiment.
 [CMake autoexport documentation](https://cmake.org/cmake/help/latest/prop_tgt/WINDOWS_EXPORT_ALL_SYMBOLS.html).
 
-The user accepted this build/loading mechanism after reviewing the results.
+This build/loading mechanism is accepted based on the verification results.
 Dependency metadata, DLL discovery and explicit module initialization remain
 distinct responsibilities; the production manager contract is still to be designed.
 

@@ -208,7 +208,7 @@ int main(int argc, char* argv[])
     qDebug() << QString("%1 equal %2 = %3").arg(res.value()).arg((int)E2::Timeout).arg(res == E2::Timeout);
 
     QApplication app(argc, argv);
-    QCoreApplication::setApplicationName("Terminal Master");
+    QCoreApplication::setApplicationName("Termaster");
 
     // config others
     auto terminal = new TermWidget();

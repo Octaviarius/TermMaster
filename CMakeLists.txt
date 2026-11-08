@@ -5,7 +5,7 @@ set(APP_VERSION_MINOR 0 CACHE STRING "Minor version")
 set(APP_VERSION_PATCH 0 CACHE STRING "Patch")
 set(APP_VERSION_BUILD 0 CACHE STRING "Build number")
 
-project(TermMasterProject)
+project(TermasterProject)
 
 include(common.cmake)
 

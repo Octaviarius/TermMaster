@@ -6,7 +6,7 @@
 class ConsumerPlugin final : public QObject, public IProbePlugin
 {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID "org.octaviarius.TermMaster.PluginDependencyProbe/1.0" FILE
+    Q_PLUGIN_METADATA(IID "org.octaviarius.Termaster.PluginDependencyProbe/1.0" FILE
                           "../PluginDependencyProbe/Consumer.json")
     Q_INTERFACES(IProbePlugin)
 

@@ -1,10 +1,10 @@
 # Plugin module mechanism
 
-Decision date: 2026-11-08. Status: accepted by the user.
+Decision date: 2026-11-08. Status: accepted.
 
 ## Accepted build and loading mechanism
 
-TermMaster modules are ordinary CMake `SHARED` libraries. Use
+Termaster modules are ordinary CMake `SHARED` libraries. Use
 `add_library(... SHARED ...)` rather than `qt_add_plugin()` for these modules.
 On Windows/MSVC, enable `WINDOWS_EXPORT_ALL_SYMBOLS` on each module target so
 CMake generates the export definition and import library automatically.
@@ -34,7 +34,7 @@ import library and CMake package belong to that same distribution root. This
 requirement concerns module-owned artifacts; it does not establish bundling of
 Qt or compiler runtimes.
 
-The user accepted the public include convention `<Termaster/ModuleName/Header.h>`.
+The accepted public include convention is `<Termaster/ModuleName/Header.h>`.
 Use the exact, case-sensitive prefix `Termaster` consistently in installed header
 paths and includes. Module-specific subdirectories allow different modules to
 publish identically named header files without include-path ambiguity:
@@ -72,7 +72,7 @@ Native dependency discovery must also be configured; metadata alone does not
 make dependency DLLs discoverable.
 
 The exact metadata schema, dependency/version policy, root interface and
-initialization/shutdown contract remain to be designed with the user. This
+initialization/shutdown contract remain to be designed. This
 decision does not silently establish hot reload or other lifecycle features.
 
 ## Evidence and implementation status
