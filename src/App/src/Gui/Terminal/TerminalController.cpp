@@ -9,6 +9,7 @@
 #include <QFile>
 #include <QLabel>
 #include <QStatusBar>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QToolBar>
 #include <QUuid>
@@ -20,6 +21,7 @@
 #include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/SettingsSchema.h>
+#include <Termaster/Core/Workspace.h>
 #include <stdexcept>
 
 namespace
@@ -119,14 +121,15 @@ struct TerminalController::Runtime
     }
 };
 
-TerminalController::TerminalController(MainWindow&             window,
-                                       CommandRegistry&        commands,
-                                       SettingsWidgetRegistry& editors,
-                                       std::function<void()>   closeSettings,
-                                       std::function<void()>   showSettings,
-                                       QObject*                parent) :
-    QObject(parent), _window(window), _commands(commands), _editors(editors), _closeSettings(std::move(closeSettings)),
-    _showSettings(std::move(showSettings))
+TerminalController::TerminalController(MainWindow&                 window,
+                                       CommandRegistry&            commands,
+                                       SettingsWidgetRegistry&     editors,
+                                       std::function<Workspace*()> workspace,
+                                       std::function<void()>       closeSettings,
+                                       std::function<void()>       showSettings,
+                                       QObject*                    parent) :
+    QObject(parent), _window(window), _commands(commands), _editors(editors), _workspace(std::move(workspace)),
+    _closeSettings(std::move(closeSettings)), _showSettings(std::move(showSettings))
 {
     connect(&_window.terminalTabs(), &QTabWidget::currentChanged, this, [this] {
         refreshTerminalActions();
@@ -197,6 +200,11 @@ SettingsOverlay TerminalController::selectedSettings()
     }
     throw std::logic_error("No terminal settings scope is selected");
 }
+QVariantMap TerminalController::workspaceSettings() const
+{
+    auto* workspace = _workspace ? _workspace() : nullptr;
+    return workspace ? workspace->settings().values() : QVariantMap {};
+}
 QObject* TerminalController::context()
 {
     return this;
@@ -238,13 +246,18 @@ void TerminalController::registerTerminalType(TerminalType type)
     {
         throw std::invalid_argument("Invalid or duplicate terminal type registration");
     }
-    auto       schema   = std::make_shared<SettingsSchema>(type.settingsSchema);
-    const auto id       = owned(type.id);
-    type.id             = id;
-    type.plugin         = owned(type.plugin);
-    type.title          = owned(type.title);
-    type.settingsSchema = QByteArray(type.settingsSchema.constData(), type.settingsSchema.size());
-    _types.emplace(id, Type {std::move(type), std::move(schema)});
+    auto       schema            = std::make_shared<SettingsSchema>(type.settingsSchema);
+    const auto id                = owned(type.id);
+    type.id                      = id;
+    type.plugin                  = owned(type.plugin);
+    type.title                   = owned(type.title);
+    type.settingsSchema          = QByteArray(type.settingsSchema.constData(), type.settingsSchema.size());
+    auto workspaceSchema         = type.workspaceSettingsSchema.isEmpty() ?
+                                       std::shared_ptr<SettingsSchema> {} :
+                                       std::make_shared<SettingsSchema>(type.workspaceSettingsSchema);
+    type.workspaceSettingsSchema = QByteArray(type.workspaceSettingsSchema.constData(),
+                                              type.workspaceSettingsSchema.size());
+    _types.emplace(id, Type {std::move(type), std::move(schema), std::move(workspaceSchema)});
     _restore();
     refreshTerminalActions();
 }
@@ -610,9 +623,36 @@ void TerminalController::_changed(const QString& id)
     {
         return;
     }
-    const bool connected = it->second->device->state() == SerialDevice::State::Open;
-    const auto index     = _window.terminalTabs().indexOf(it->second->panel);
-    _window.terminalTabs().setTabText(index, it->second->name + (connected ? " ●" : " ○"));
+    const auto state = it->second->device->state();
+    QString    icon;
+    QString    status;
+    switch (state)
+    {
+        case SerialDevice::State::Closed:
+            icon   = "Closed";
+            status = tr("Disconnected");
+            break;
+        case SerialDevice::State::Opening:
+            icon   = "Busy";
+            status = tr("Connecting");
+            break;
+        case SerialDevice::State::Open:
+            icon   = "Open";
+            status = tr("Connected");
+            break;
+        case SerialDevice::State::Closing:
+            icon   = "Busy";
+            status = tr("Disconnecting");
+            break;
+        case SerialDevice::State::Failed:
+            icon   = "Failed";
+            status = tr("Connection failed");
+            break;
+    }
+    const auto index = _window.terminalTabs().indexOf(it->second->panel);
+    _window.terminalTabs().setTabText(index, it->second->name);
+    _window.terminalTabs().setTabIcon(index, QIcon(":/Termaster/App/Status/" + icon + ".svg"));
+    _window.terminalTabs().tabBar()->setAccessibleTabName(index, it->second->name + ", " + status);
     refreshTerminalActions();
 }
 void TerminalController::connectSelectedTerminal()
@@ -677,6 +717,21 @@ std::shared_ptr<SettingsSchema> TerminalController::_appearanceSchema()
 }
 void TerminalController::addSettingsPages(SettingsDialog& dialog)
 {
+    if (auto* workspace = _workspace ? _workspace() : nullptr)
+    {
+        for (const auto& [id, type] : _types)
+        {
+            if (type.workspaceSchema)
+            {
+                dialog.addPage("workspace." + id,
+                               "Workspace",
+                               type.registration.title,
+                               "Workspace-wide suggestions for this terminal type.",
+                               type.workspaceSchema,
+                               workspace->settings());
+            }
+        }
+    }
     if (auto* terminal = _current())
     {
         dialog.addPage("terminal.display",

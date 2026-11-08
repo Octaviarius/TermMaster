@@ -1,5 +1,6 @@
 #include "SerialPlugin.h"
 
+#include "Gui/Serial/BaudRateSelector.h"
 #include "Gui/Serial/PortSelector.h"
 
 #include <QApplication>
@@ -23,7 +24,7 @@ bool SerialPlugin::startup(QString* error)
     {
         return true;
     }
-    if (_editorRegistered || _typeRegistered || !_actionsRegistered.isEmpty())
+    if (!_editorsRegistered.isEmpty() || _typeRegistered || !_actionsRegistered.isEmpty())
     {
         if (error)
         {
@@ -42,11 +43,12 @@ bool SerialPlugin::startup(QString* error)
     }
     _state = State::Starting;
     QFile schema(":/SerialTerminal/Settings.yaml");
-    if (!schema.open(QIODevice::ReadOnly))
+    QFile workspaceSchema(":/SerialTerminal/WorkspaceSettings.yaml");
+    if (!schema.open(QIODevice::ReadOnly) || !workspaceSchema.open(QIODevice::ReadOnly))
     {
         if (error)
         {
-            *error = schema.errorString();
+            *error = schema.isOpen() ? workspaceSchema.errorString() : schema.errorString();
         }
         _state = State::Failed;
         return false;
@@ -56,14 +58,20 @@ bool SerialPlugin::startup(QString* error)
         _host->registerEditor("serialPortSelector", [](const QVariantMap& options, QWidget* parent) {
             return std::make_unique<PortSelector>(options, parent);
         });
-        _editorRegistered = true;
+        _editorsRegistered.append("serialPortSelector");
+        _host->registerEditor("serialBaudRateSelector", [this](const QVariantMap&, QWidget* parent) {
+            const auto rates = _host->workspaceSettings().value("serial").toMap().value("baudRates");
+            return std::make_unique<BaudRateSelector>(rates, parent);
+        });
+        _editorsRegistered.append("serialBaudRateSelector");
         PluginHost::TerminalType type;
-        type.id             = "serial";
-        type.title          = "Serial port";
-        type.plugin         = "SerialTerminal";
-        type.settingsSchema = schema.readAll();
-        type.createDevice   = createSerialDevice;
-        type.createPanel    = [](QWidget* display, const QVariantMap& configuration, QWidget* parent) {
+        type.id                      = "serial";
+        type.title                   = "Serial port";
+        type.plugin                  = "SerialTerminal";
+        type.settingsSchema          = schema.readAll();
+        type.workspaceSettingsSchema = workspaceSchema.readAll();
+        type.createDevice            = createSerialDevice;
+        type.createPanel             = [](QWidget* display, const QVariantMap& configuration, QWidget* parent) {
             auto*      panel     = new QWidget(parent);
             auto*      layout    = new QVBoxLayout(panel);
             const auto transport = configuration.value("transport").toMap();
@@ -128,10 +136,10 @@ bool SerialPlugin::shutdown(QString* error)
             _host->unregisterAction(_actionsRegistered.last());
             _actionsRegistered.removeLast();
         }
-        if (_editorRegistered)
+        while (!_editorsRegistered.isEmpty())
         {
-            _host->unregisterEditor("serialPortSelector");
-            _editorRegistered = false;
+            _host->unregisterEditor(_editorsRegistered.last());
+            _editorsRegistered.removeLast();
         }
     }
     _state = State::Stopped;

@@ -10,6 +10,7 @@ qt_add_executable(SerialDeviceTests
     ../../../src/SerialTerminal/src/SerialByteDevice.cpp
     ../../../src/SerialTerminal/src/SerialByteDevice.h
     ../../../src/SerialTerminal/src/Gui/Serial/PortSelector.cpp
+    ../../../src/SerialTerminal/src/Gui/Serial/BaudRateSelector.cpp
     ../../../src/SerialTerminal/src/Gui/Serial/PortSelector.h
 )
 set_target_properties(SerialDeviceTests PROPERTIES
@@ -39,6 +40,7 @@ qt_add_executable(SerialPluginTests
     ../../../src/SerialTerminal/src/PortClassification.cpp
     ../../../src/SerialTerminal/src/SerialByteDevice.cpp
     ../../../src/SerialTerminal/src/Gui/Serial/PortSelector.cpp
+    ../../../src/SerialTerminal/src/Gui/Serial/BaudRateSelector.cpp
     ../../../src/SerialTerminal/Resources/SerialTerminal.qrc
 )
 set_target_properties(SerialPluginTests PROPERTIES
