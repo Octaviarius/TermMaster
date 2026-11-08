@@ -1,0 +1,16 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(Qt6 6.7 COMPONENTS Core)
+
+if(NOT TARGET PluginDependencyProbe::Provider)
+    # Model the exported DLL API as a linkable imported library. The producer's
+    # build target remains a Qt MODULE, which CMake does not allow linking directly.
+    add_library(PluginDependencyProbe::Provider SHARED IMPORTED)
+    set_target_properties(PluginDependencyProbe::Provider PROPERTIES
+        IMPORTED_LOCATION "${PACKAGE_PREFIX_DIR}/bin/Provider.dll"
+        IMPORTED_IMPLIB "${PACKAGE_PREFIX_DIR}/lib/@probe_import_name@"
+        INTERFACE_INCLUDE_DIRECTORIES "${PACKAGE_PREFIX_DIR}/include/PluginDependencyProbe"
+        INTERFACE_LINK_LIBRARIES Qt6::Core
+    )
+endif()

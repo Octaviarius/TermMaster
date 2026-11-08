@@ -1,0 +1,172 @@
+{
+  "provider_exports": [
+    "??4ProviderMath@@QEAAAEAV0@$$QEAV0@@Z",
+    "??4ProviderMath@@QEAAAEAV0@AEBV0@@Z",
+    "?multiply@ProviderMath@@SAHHH@Z",
+    "?providerAdd@@YAHHH@Z",
+    "qt_plugin_instance",
+    "qt_plugin_query_metadata_v2"
+  ],
+  "consumer_imports_provider": true,
+  "host_imports_plugins": false,
+  "cases": [
+    {
+      "name": "provider-first",
+      "passed": true,
+      "exit_code": 0,
+      "result": {
+        "consumer_id": "probe.consumer",
+        "consumer_loaded": true,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "consumer_result": 84,
+        "provider_first": true,
+        "provider_mapped_after_consumer": true,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "provider_metadata": {
+          "id": "probe.provider",
+          "requires": [],
+          "version": "1.0.0"
+        },
+        "provider_result": 42,
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": [
+        "Provider root constructed",
+        "Consumer root constructed"
+      ]
+    },
+    {
+      "name": "consumer-first-native-autoload",
+      "passed": true,
+      "exit_code": 0,
+      "result": {
+        "consumer_id": "probe.consumer",
+        "consumer_loaded": true,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "consumer_result": 84,
+        "provider_first": false,
+        "provider_mapped_after_consumer": true,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "provider_metadata": {
+          "id": "probe.provider",
+          "requires": [],
+          "version": "1.0.0"
+        },
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": [
+        "Consumer root constructed"
+      ]
+    },
+    {
+      "name": "consumer-first-no-search-path",
+      "passed": true,
+      "exit_code": 1,
+      "result": {
+        "consumer_loaded": false,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "error": "Cannot load library <case-dir>\\Consumer.dll: The specified module could not be found.",
+        "provider_first": false,
+        "provider_mapped_after_consumer": false,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "provider_metadata": {
+          "id": "probe.provider",
+          "requires": [],
+          "version": "1.0.0"
+        },
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": []
+    },
+    {
+      "name": "missing-provider",
+      "passed": true,
+      "exit_code": 1,
+      "result": {
+        "consumer_loaded": false,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "error": "Cannot load library <case-dir>\\Consumer.dll: The specified module could not be found.",
+        "provider_first": false,
+        "provider_mapped_after_consumer": false,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": []
+    },
+    {
+      "name": "independent-sdk-consumer",
+      "passed": true,
+      "exit_code": 0,
+      "result": {
+        "consumer_id": "probe.consumer",
+        "consumer_loaded": true,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "consumer_result": 84,
+        "provider_first": false,
+        "provider_mapped_after_consumer": true,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "provider_metadata": {
+          "id": "probe.provider",
+          "requires": [],
+          "version": "1.0.0"
+        },
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": [
+        "Consumer root constructed"
+      ]
+    }
+  ],
+  "api_export_negative_control": {
+    "passed": true,
+    "exports": [
+      "qt_plugin_instance",
+      "qt_plugin_query_metadata_v2"
+    ],
+    "diagnostics": [
+      "ConsumerPlugin.cpp.obj : error LNK2019: unresolved external symbol \"__declspec(dllimport) int __cdecl providerAdd(int,int)\" (__imp_?providerAdd@@YAHHH@Z) referenced in function \"public: virtual int __cdecl ConsumerPlugin::calculate(void)const \" (?calculate@ConsumerPlugin@@UEBAHXZ)",
+      "ConsumerPlugin.cpp.obj : error LNK2019: unresolved external symbol \"__declspec(dllimport) public: static int __cdecl ProviderMath::multiply(int,int)\" (__imp_?multiply@ProviderMath@@SAHHH@Z) referenced in function \"public: virtual int __cdecl ConsumerPlugin::calculate(void)const \" (?calculate@ConsumerPlugin@@UEBAHXZ)",
+      "plugins\\Consumer.dll : fatal error LNK1120: 2 unresolved externals"
+    ]
+  }
+}
