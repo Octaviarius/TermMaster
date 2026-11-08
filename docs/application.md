@@ -205,3 +205,13 @@ application/workspace/session settings scope. Verified on 2026-11-08 with MSVC
 passed eleven results at scales 1 and 2. The generated preferences and custom
 model-backed editor captures were visually inspected. See
 [settings forms](settings-forms.md#verification-status) for limits and checks.
+
+## Preferences page catalog
+
+The internal SettingsDialog owns category/page navigation, search and page drafts.
+App registers real Appearance pages for application, workspace and session scopes,
+then adds explicitly isolated preview pages from YAML resources under
+`src/app/res/settings/`. SerialPortPreviewEditor and its example model belong to
+App's `gui/settings` feature. The application-owned widget registry outlives dialogs;
+its preview factory is registered once per App instance. No serial API is used.
+See [preferences navigation](settings-forms.md#preferences-navigation-and-preview-pages).

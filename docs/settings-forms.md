@@ -126,8 +126,8 @@ inherited value in an overlay. The settings owner prepares and atomically applie
 the patch while retaining unknown data and concurrent unrelated changes. Reload is
 explicit and discards a draft.
 
-App supplies its settings form with the active application/workspace/session
-configuration overlay and a persistence callback. The dialog provides Apply, OK
+App supplies separate pages for application settings and available workspace/
+session configuration overlays, together with a persistence callback. The dialog provides Apply, OK
 (apply and close), and Cancel. A scope change closes the dialog to avoid applying
 a draft against a different workspace or session. Generic Core widgets do not open
 files or persist documents; App chooses the owning settings file and performs the
@@ -136,6 +136,39 @@ save after a successful model patch.
 The sample application descriptor controls toolbar and status-bar visibility in
 the active scope. The serial example above documents a schema capability only; it
 does not indicate that a serial terminal backend is implemented.
+
+## Preferences navigation and preview pages
+
+Tools/Settings presents a two-level `QTreeView`: category and page. Page registration
+uses a unique ID, category, title, description, schema and borrowed settings scope.
+The right-hand stack contains the generated forms. Category/page navigation never
+applies or discards drafts. Application, Workspace and Session Appearance pages
+bind to real owners, with workspace/session pages available for active scopes.
+
+The search box filters categories, pages, groups and fields, using case-insensitive
+substring matching against titles, descriptions, field identifiers and settings
+paths. Matching a category/page reveals its whole form; matching a group reveals
+all its parameters. Other queries hide unmatched rows and empty groups. Clearing
+the query restores the form without losing edits or changing validation. Applying
+an invalid hidden draft clears the query and selects the affected page.
+
+Additional MVP pages demonstrate application behavior, workspace directories,
+session layout, terminal appearance and COM-port parameters. These pages are
+explicitly marked Preview. Their defaults and edits belong to a dialog-owned cache;
+preview-only Apply does not call application persistence. The serial selector uses
+a custom field editor, a `QStandardItemModel`, example device labels/icons and an
+example-list refresh button. No devices are enumerated, opened or configured.
+Preview changes disappear when the dialog closes. The sample pages do not establish
+implemented startup, auto-save, layout, font, encoding or serial-backend behavior.
+
+Apply validates every dirty page, including filtered-out pages, before updating
+owners. Dependent scopes are registered base to derived and applied in reverse
+order so a base change from this dialog does not create a false inherited-value
+conflict. Clean page models reload after success to reflect new inherited values.
+Each model patch is atomic; application of several owners and their file writes
+is not a single transaction. Persistence failures keep the dialog open for retry.
+
+The preview screenshots use one native window size: 1020 by 720 pixels at scale 1.
 
 ## Verification status
 
@@ -161,3 +194,22 @@ session symbolic-link cases remain skipped by regular CTest; this Windows user
 cannot create the required symbolic links. No devices were scanned or opened,
 no external connections were made, and no dependencies were downloaded.
 Release was not rebuilt for this feature.
+
+### Preferences MVP acceptance
+
+Verified on 2026-11-08 with Windows x64, MSVC 19.44, Qt 6.12.0 and Ninja Debug.
+The application and affected tests built. All eleven CTest suites passed,
+including the independent plugin SDK consumer. AppTests passed twelve results;
+SettingsFormTests passed eleven. Checks cover exactly two navigation levels,
+page/parameter/group search, empty results, clearing a filter without losing
+invalid drafts, isolated preview edits, hidden-page validation and dependent
+scope apply/reload behavior. Existing optional action capture and three
+symbolic-link cases remain skipped by regular CTest.
+
+Native AppTests passed all twelve results without skips. Four inspected captures
+were generated at one size, 1020 by 720 pixels at scale 1:
+[Workspace](images/preferences/Workspace.png),
+[Session](images/preferences/Session.png),
+[COM-port terminal](images/preferences/Serial.png), and
+[Search](images/preferences/Search.png).
+No serial hardware was enumerated or opened. Release was not rebuilt.
