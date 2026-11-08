@@ -16,11 +16,9 @@ public:
 
 class SettingsManager : public Singleton<SettingsManager>
 {
-private:
-    QString              _pluginSettingsPath;
-    ConfigContainer::Map _configContainers;
-
 public:
+    static const QSettings::Format YamlFormat;
+
     friend Singleton<SettingsManager>;
 
     explicit SettingsManager(QString pluginSettingsPath = QString());
@@ -28,15 +26,13 @@ public:
     bool loadPluginStates(QHash<QString, bool>& states, QString* error = nullptr);
     bool savePluginState(const QString& id, bool enabled, QString* error = nullptr);
 
-    static const QSettings::Format YamlFormat;
-
-    PosixPath appDataDirPath();
-    PosixPath sessionsDirPath();
-    PosixPath terminalsDirPath();
-    PosixPath generalSettingsFilePath();
+    Path appDataDirPath();
+    Path sessionsDirPath();
+    Path terminalsDirPath();
+    Path generalSettingsFilePath();
 
     FileSettings* applicationSettings(QString fileName, QString nodePath = "");
-    FileSettings* environment(const PosixPath& path);
+    FileSettings* environment(const Path& path);
 
     FileSettings* generalSettings(QString nodePath = "");
     FileSettings* session(uint id);
@@ -48,4 +44,8 @@ public:
     ConfigContainer::List configContainers();
     ConfigContainer*      configContainer(QString name);
     bool                  addConfigContainer(ConfigContainer* container);
+
+private:
+    QString              _pluginSettingsPath;
+    ConfigContainer::Map _configContainers;
 };
