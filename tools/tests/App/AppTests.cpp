@@ -30,6 +30,9 @@ private:
         QCOMPARE(QCoreApplication::applicationName(), QString("Termaster"));
         QCOMPARE(_app.mainWindow().windowTitle(), QString("Termaster"));
         QVERIFY(_app.mainWindow().isVisible());
+        QVERIFY(!QApplication::windowIcon().isNull());
+        QVERIFY(!_app.mainWindow().windowIcon().isNull());
+        QVERIFY(!QApplication::windowIcon().pixmap(32, 32).isNull());
         QVERIFY(_app.mainMenu().findMenu("/file"));
         auto* tools = _app.mainMenu().findMenu("/tools");
         QVERIFY(tools);
@@ -65,6 +68,7 @@ private:
         QPointer<QDialog> dialog(dialogs.first());
         QTRY_VERIFY(dialog->isVisible());
         QVERIFY(dialog->findChild<QTableView*>("pluginTable"));
+        QVERIFY(!dialog->windowIcon().isNull());
         action->trigger();
         QCOMPARE(_app.mainWindow().findChildren<QDialog*>().size(), 1);
 
@@ -73,6 +77,7 @@ private:
         {
             QVERIFY(QDir().mkpath(capture));
             QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("MainWindow.png")));
+            QVERIFY(QApplication::windowIcon().pixmap(64, 64).save(QDir(capture).filePath("ApplicationIcon.png")));
             QVERIFY(dialog->grab().save(QDir(capture).filePath("PluginWindow.png")));
         }
         dialog->close();

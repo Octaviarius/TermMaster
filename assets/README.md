@@ -1,7 +1,8 @@
 # Termaster icon variants
 
-Two selected raster assets are retained for possible use in different application
-modes. Mode assignments and runtime integration are not implemented yet.
+The orange variant is the application icon: App embeds the PNG for Qt window
+icons and the Windows executable embeds the multi-resolution ICO. The blue
+variant is retained without an assigned runtime mode.
 
 - [Bright blue](IconBlue.png): bright sky-blue mark on dark navy.
 - [Orange](IconOrange.png): warm orange mark on dark navy.
@@ -33,3 +34,6 @@ Both files were visually inspected and decoded successfully with Pillow. Their
 square dimensions match and both contain transparent and opaque pixels. No
 application behavior changed; no build or device verification was needed.
 Both ICO files were reopened and all seven embedded sizes decoded successfully.
+The orange variant is now integrated into Qt window resources and the Windows
+executable. The embedded native images were verified against the source ICO;
+see [application integration](../docs/application.md#application-icon).

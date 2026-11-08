@@ -19,6 +19,17 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
+if(WIN32)
+    set(TERMASTER_APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/../assets/IconOrange.ico")
+    configure_file(app/res/AppIcon.rc.in
+        "${CMAKE_CURRENT_BINARY_DIR}/AppIcon.rc"
+        @ONLY
+    )
+    target_sources(${PROJECT_NAME} PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/AppIcon.rc"
+    )
+endif()
+
 qt_add_resources(${PROJECT_NAME} "icons"
     PREFIX "/icons"
     BASE "res/icon"

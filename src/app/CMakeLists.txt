@@ -21,3 +21,10 @@ target_link_libraries(App PUBLIC
 target_include_directories(App PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/inc"
 )
+
+qt_add_resources(App "appIcons"
+    PREFIX "/Termaster/App"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/../../assets"
+    FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../assets/IconOrange.png"
+)

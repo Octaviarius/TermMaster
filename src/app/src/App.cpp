@@ -56,6 +56,8 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
 {
     setApplicationName("Termaster");
     setApplicationVersion(Version::shortVersion);
+    Q_INIT_RESOURCE(appIcons);
+    setWindowIcon(QIcon(":/Termaster/App/IconOrange.png"));
 
     _data = std::make_unique<Data>(options);
     _setupActions();
