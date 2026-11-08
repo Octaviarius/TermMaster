@@ -718,6 +718,17 @@ private:
 
     Q_SLOT void serialPluginTerminalLifecycle()
     {
+        auto* clipboard      = QApplication::clipboard();
+        auto  savedClipboard = std::make_unique<QMimeData>();
+        if (const auto* source = clipboard->mimeData())
+        {
+            for (const auto& format : source->formats())
+            {
+                savedClipboard->setData(format, source->data(format));
+            }
+        }
+        const auto    restoreClipboard = qScopeGuard([&] { clipboard->setMimeData(savedClipboard.release()); });
+        const auto    editAction       = [this](const char* id) { return _app.commands().find(id)->actions().first(); };
         QTemporaryDir temporary;
         QVERIFY(temporary.isValid());
         QString    error;
@@ -790,8 +801,54 @@ private:
         QVERIFY(!_app.commands().find("Serial.Disconnect")->actions().first()->isEnabled());
         display->receive("synthetic output");
         QVERIFY(display->text().contains("synthetic output"));
+        display->setFocus();
+        QTRY_VERIFY(display->hasFocus());
+        QTRY_VERIFY(editAction("Edit.SelectAll")->isEnabled());
+        QVERIFY(!editAction("Edit.Copy")->isEnabled());
+        QVERIFY(!editAction("Edit.Cut")->isEnabled());
+        QVERIFY(!editAction("Edit.Undo")->isEnabled());
+        QVERIFY(!editAction("Edit.Redo")->isEnabled());
+        editAction("Edit.SelectAll")->trigger();
+        QTRY_VERIFY(editAction("Edit.Copy")->isEnabled());
+        QVERIFY(!editAction("Edit.Cut")->isEnabled());
+        QVERIFY(!editAction("Edit.Undo")->isEnabled());
+        QVERIFY(!editAction("Edit.Redo")->isEnabled());
+        editAction("Edit.Copy")->trigger();
+        QVERIFY(clipboard->text().contains("synthetic output"));
+        clipboard->setText("synthetic paste");
+        QTRY_VERIFY(editAction("Edit.Paste")->isEnabled());
+        QSignalSpy terminalOutput(display.data(), &TerminalDisplay::outputBytes);
+        const auto clipboardBeforeControl = clipboard->text();
+        QTest::keyClick(display, Qt::Key_C, Qt::ControlModifier);
+        QCOMPARE(terminalOutput.size(), 1);
+        QCOMPARE(terminalOutput.first().at(0).toByteArray(), QByteArray(1, '\3'));
+        QCOMPARE(clipboard->text(), clipboardBeforeControl);
+        terminalOutput.clear();
+        QTest::keyClick(display, Qt::Key_Tab);
+        QCOMPARE(terminalOutput.size(), 1);
+        QCOMPARE(terminalOutput.first().at(0).toByteArray(), QByteArray("\t"));
+        QVERIFY(display->hasFocus());
+        terminalOutput.clear();
+
+        editAction("Edit.Paste")->trigger();
+        QCOMPARE(terminalOutput.size(), 1);
+        QCOMPARE(terminalOutput.first().at(0).toByteArray(), QByteArray("synthetic paste"));
+        QCOMPARE(terminalOutput.first().at(1).value<TerminalDisplay::OutputKind>(), TerminalDisplay::OutputKind::Paste);
+        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        clipboard->clear();
+        QTRY_VERIFY(!editAction("Edit.Paste")->isEnabled());
+        auto* workspaceFile = _app.mainWindow().findChild<QLineEdit*>("workspaceFile");
+        QVERIFY(workspaceFile);
+        workspaceFile->setFocus();
+        workspaceFile->deselect();
+        QTRY_VERIFY(!editAction("Edit.Copy")->isEnabled());
+        QVERIFY(!editAction("Edit.Paste")->isEnabled());
+        display->setFocus();
+        QTRY_VERIFY(editAction("Edit.Copy")->isEnabled());
         _app.commands().find("Serial.Clear")->actions().first()->trigger();
         QVERIFY(!display->text().contains("synthetic output"));
+        QTRY_VERIFY(!editAction("Edit.Copy")->isEnabled());
+        QVERIFY(!editAction("Edit.SelectAll")->isEnabled());
         const auto definition = _app.session()->objects().value(id);
         QVERIFY(!definition.toMap().value("settings").toMap().contains("appearance"));
         _app.commands().find("Serial.Settings")->actions().first()->trigger();

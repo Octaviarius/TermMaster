@@ -54,6 +54,13 @@ qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/plugin/HostedPlugin.h
     inc/Termaster/Core/plugin/PluginHost.h
     inc/Termaster/Core/terminal/SerialDevice.h
+    inc/Termaster/Core/terminal/VtParser.h
+    src/terminal/VtParser.cpp
+    inc/Termaster/Core/terminal/TerminalInput.h
+    src/terminal/TerminalInput.cpp
+    inc/Termaster/Core/terminal/TerminalGraphics.h
+    src/terminal/TerminalGraphics.cpp
+    src/terminal/TerminalUnicode.h
     inc/Termaster/Core/terminal/TerminalScreen.h
     src/terminal/TerminalScreen.cpp
     inc/Termaster/Core/gui/terminal/TerminalDisplay.h
@@ -129,3 +136,19 @@ qt_add_resources(Core "settingsFormIcons"
     FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/res/gui/settings/ResetOverride.svg"
 )
+
+# Use the platform zlib when available; the selected Qt kit also provides its bundled headers.
+find_package(ZLIB QUIET)
+if(TARGET ZLIB::ZLIB)
+    target_link_libraries(Core PRIVATE
+        ZLIB::ZLIB
+    )
+else()
+    find_package(Qt6 REQUIRED COMPONENTS
+        ZlibPrivate
+    )
+    set_property(TARGET Qt6::ZlibPrivate PROPERTY IMPORTED_GLOBAL TRUE)
+    target_link_libraries(Core PRIVATE
+        Qt6::ZlibPrivate
+    )
+endif()

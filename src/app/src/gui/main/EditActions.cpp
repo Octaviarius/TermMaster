@@ -14,6 +14,7 @@
 #include <QTimer>
 #include <Termaster/Core/ActionContainer.h>
 #include <Termaster/Core/CommandRegistry.h>
+#include <Termaster/Core/gui/terminal/TerminalDisplay.h>
 
 EditActions::EditActions(QMainWindow& window, CommandRegistry& commands, ActionContainer& menu, QObject* owner) :
     QObject(owner ? owner : &window), _window(&window)
@@ -84,10 +85,18 @@ QWidget* EditActions::_currentEditor() const
     {
         return nullptr;
     }
-    return qobject_cast<QLineEdit*>(widget) || qobject_cast<QTextEdit*>(widget)
-                || qobject_cast<QPlainTextEdit*>(widget) ?
-               widget :
-               nullptr;
+    if (qobject_cast<QLineEdit*>(widget) || qobject_cast<QTextEdit*>(widget) || qobject_cast<QPlainTextEdit*>(widget))
+    {
+        return widget;
+    }
+    for (auto* ancestor = widget; ancestor && ancestor->window() == _window; ancestor = ancestor->parentWidget())
+    {
+        if (auto* terminal = qobject_cast<TerminalDisplay*>(ancestor))
+        {
+            return terminal;
+        }
+    }
+    return nullptr;
 }
 
 void EditActions::_observe(QWidget* target)
@@ -132,6 +141,11 @@ void EditActions::_observe(QWidget* target)
         _targetConnections.append(connect(editor, &QPlainTextEdit::undoAvailable, this, update));
         _targetConnections.append(connect(editor, &QPlainTextEdit::redoAvailable, this, update));
     }
+    else if (auto* terminal = qobject_cast<TerminalDisplay*>(target))
+    {
+        _targetConnections.append(connect(terminal, &TerminalDisplay::selectionChanged, this, update));
+        _targetConnections.append(connect(terminal, &TerminalDisplay::textChanged, this, update));
+    }
 }
 
 void EditActions::_refresh()
@@ -167,6 +181,11 @@ void EditActions::_refresh()
         undo      = editor->document()->isUndoAvailable();
         redo      = editor->document()->isRedoAvailable();
     }
+    else if (auto* terminal = qobject_cast<TerminalDisplay*>(target))
+    {
+        selection = terminal->hasSelection();
+        content   = terminal->hasContent();
+    }
     const auto*      clipboard = QApplication::clipboard()->mimeData();
     const bool       paste     = clipboard && clipboard->hasText() && !clipboard->text().isEmpty();
     const bool       usable    = target && target->isEnabled();
@@ -174,7 +193,7 @@ void EditActions::_refresh()
                               writable && redo,
                               writable && selection,
                               selection,
-                              writable && paste,
+                              (writable || qobject_cast<TerminalDisplay*>(target)) && paste,
                               content};
     for (std::size_t index = 0; index < _actions.size(); ++index)
     {

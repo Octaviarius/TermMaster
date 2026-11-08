@@ -95,6 +95,12 @@ changing behavior. These rules apply repository-wide.
 - Qt is an intentional dependency. Use QObject, signals/slots, QByteArray,
   QString and Qt ownership conventions where appropriate.
   Do not create replacements for Qt infrastructure without a concrete need.
+- Terminal emulation is project-owned Core code. Ready-made terminal engines may
+  serve as reference material, not runtime dependencies. Qt shaping/images and
+  standard compression remain infrastructure. See docs/terminal-emulation.md.
+- Treat TerminalDisplay as a processing endpoint. Future bidirectional script
+  chains belong outside it. Keep Keyboard/Paste/Mouse/Focus/Reply output kinds and
+  display-only local echo distinct; never feed replies back into incoming data.
 - Keep connection backends independent of concrete widgets.
   Move parsing toward screen/model operations when that boundary is changed;
   do not expand direct rendering dependencies inside protocol parsing.

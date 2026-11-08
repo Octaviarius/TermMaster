@@ -110,7 +110,9 @@ Its internal EditActions controller targets the focused QLineEdit, QTextEdit or
 QPlainTextEdit in the active main window. Enabled state follows read-only state,
 selection, undo/redo availability, content and clipboard capabilities. Execution
 resolves the focused editor again. These are real Qt editor operations; terminal
-input and terminal selection routing remain planned.
+input and terminal selection route through TerminalDisplay's own encoder and
+clipboard operations. Terminal-focused Copy/Paste/Select All use the same menu,
+while terminal ShortcutOverride preserves program input such as Ctrl+C and Tab.
 
 View provides Toolbar, Status bar and Full screen. Tools/Settings opens the
 generated settings dialog for the active application, workspace or session scope.
@@ -224,3 +226,8 @@ controller, the Terminal menu, five-layer configuration and unload lifetimes.
 Application, workspace and session settings include real Terminal defaults pages;
 a selected tab adds its own connection and display pages. Production serial
 creation uses the plugin port selector rather than the isolated preview model.
+
+The terminal runtime uses the project-owned [VT widget](terminal-emulation.md).
+Outgoing user events and protocol replies carry distinct kinds; local echo uses
+separate display data. Future script processing inserts before/after this endpoint
+rather than entering the renderer or serial backend.
