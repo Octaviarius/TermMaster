@@ -248,9 +248,10 @@ private:
         QVERIFY(form.findChildren<QCheckBox*>().isEmpty());
         auto* reset = form.findChild<QToolButton*>("reset_fontSize");
         QVERIFY(reset);
-        QVERIFY(!reset->isEnabled());
+        QVERIFY(reset->isHidden());
         QVERIFY(reset->toolTip().contains("16"));
-        const QString capture = qEnvironmentVariable("TERMASTER_SETTINGS_INHERITANCE_GUI_CAPTURE");
+        const auto    inheritedTextColor = form.editor("fontSize")->palette().color(QPalette::Text);
+        const QString capture            = qEnvironmentVariable("TERMASTER_SETTINGS_INHERITANCE_GUI_CAPTURE");
         if (!capture.isEmpty())
         {
             form.resize(640, 220);
@@ -262,6 +263,8 @@ private:
         QVERIFY(input);
         input->setText("17");
         QVERIFY(reset->isEnabled());
+        QVERIFY(!reset->isHidden());
+        QCOMPARE(form.editor("fontSize")->palette().color(QPalette::Text), inheritedTextColor);
         QVERIFY(!form.editor("fontSize")->property("settingsInherited").toBool());
         if (!capture.isEmpty())
         {
@@ -276,6 +279,8 @@ private:
         QCOMPARE(terminal.value("appearance/fontSize").toInt(), 16);
         QVERIFY(session.setValue("appearance/fontSize", 18));
         reset->click();
+        QVERIFY(reset->isHidden());
+        QCOMPARE(form.editor("fontSize")->palette().color(QPalette::Text), inheritedTextColor);
         QCOMPARE(model.value("fontSize").toInt(), 18);
         QVERIFY(model.isValid());
         QVERIFY(model.apply());
