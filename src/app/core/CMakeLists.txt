@@ -22,8 +22,13 @@ qt_add_library(${PROJECT_NAME} STATIC
     ToolbarActionContainer.h ToolbarActionContainer.cpp
     EnumReflection.h
     Deque.h
+    plugin/Plugin.h
+    plugin/PluginManager.h
+    plugin/PluginManager.cpp
 
 )
+
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core

@@ -65,7 +65,7 @@ target without building the provider's implementation sources.
 ## Core plugin contract and location
 
 The shared plugin interface and plugin manager belong under
-`src/app/core/plugins`. Every plugin root inherits the shared interface.
+`src/app/core/plugin`. Every plugin root inherits the shared interface.
 
 The interface exposes four operations:
 
@@ -95,15 +95,24 @@ the loader lifecycle, rather than deleting itself inside `shutdown`.
 The manager must stop dependent plugins and release external uses of the plugin
 before unloading its library. A plugin cannot make unloading safe while another
 module retains callable pointers, live objects or native DLL dependencies on it.
-The shutdown completion/error contract and the handling of native loader
-references remain to be designed. Library unloading must not proceed while
-shutdown is incomplete or outstanding uses remain.
+Shutdown success is required before library unloading. All native module imports
+must be declared as dependencies and loaders must be exclusively manager-owned.
+Untracked native references and arbitrary external pointers cannot be reclaimed
+by the manager. Library unloading must not proceed while shutdown is incomplete
+or outstanding uses remain.
 
-Exact C++ type names, method signatures, information fields, state values,
-error reporting and synchronous/asynchronous lifecycle behavior remain to be
-designed. The relationship between runtime `info` and embedded metadata also
-remains to be defined. This section records the accepted contract outline;
-production interface and manager implementation are pending.
+`Plugin` is a pure interface with synchronous `bool startup(QString* error)`
+and `bool shutdown(QString* error)` methods, plus `Info info() const` and
+`State state() const`. Lifecycle completion is reported by the return value and
+state: successful startup enters `Running`; successful shutdown enters `Stopped`.
+A failed startup must also support shutdown to release partially acquired resources.
+All calls run on the manager's QObject thread and must not reenter the manager.
+
+`PluginManager` owns the Qt loaders and implements `QAbstractListModel`. Catalog
+roles expose ID, name, version, path, enabled preference, lifecycle status,
+dependencies and diagnostic text. The model can be attached to a Widgets view;
+a separate plugin management window is not implemented in this stage.
+The settings owner is borrowed and must outlive the manager.
 
 ## Dependencies and initialization
 
@@ -114,9 +123,102 @@ a dependency DLL without creating its Qt plugin root or preparing its services.
 Native dependency discovery must also be configured; metadata alone does not
 make dependency DLLs discoverable.
 
-The exact metadata schema, dependency/version policy and lifecycle semantics
-remain to be designed. Runtime unloading is required; automatic reloading and
-state restoration are not specified.
+Startup uses deterministic topological order; shutdown reverses actual load
+order. Missing dependencies, duplicate IDs/library filenames and cycles block
+initialization. Disabling a dependency stops its transitive consumers first.
+Their enabled preferences remain unchanged, so they recover automatically when
+all dependencies become available and running. Dependencies are not implicitly
+enabled. A new plugin is disabled unless its ID is already enabled in settings.
+
+Startup/runtime failures remain latched until an explicit targeted retry or a
+replacement of that plugin. Unrelated directory changes do not retry failures.
+A shutdown or unload failure pins the library and its dependencies; it never
+permits unloading code still in use. Misbehaving plugins cannot be forcibly
+cleaned up by the host. The manager retains pinned loaders at process shutdown
+and reports this condition rather than unmapping executing code.
+
+The application starts a manager for `plugin/` beside its executable. Discovery
+is recursive. File and directory watches use a 150 ms debounce, with a two-second
+polling fallback; content hashes detect changes. Removed/replaced watches are
+reattached. Limits are 512 libraries, 8192 catalog entries, 256 MiB per library,
+and 128 dependencies per plugin. A scan failure preserves the previous catalog.
+
+Libraries are loaded directly from their module directories. No shadow copies
+or temporary runtime directories are used. The supported update sequence is:
+
+1. Disable the target with `setEnabled(id, false)` and check the result.
+2. Replace its library after successful shutdown/unload.
+3. Allow discovery to refresh the catalog, or call `rescan()` explicitly.
+4. Enable the target; its enabled consumers recover in dependency order.
+
+An unexpected change to a still-loaded library is reported and held until manual
+unload. `reload(id)` restarts an unchanged plugin and its consumers without
+changing enabled preferences. No session-state restoration is provided.
+Qt load hints are set before assigning the library filename to avoid the default
+`PreventUnloadHint`; tests verify real Windows unmapping and file replacement.
+[Qt plugin loader](https://doc.qt.io/qt-6/qpluginloader.html).
+
+## Metadata and configuration
+
+Embedded metadata uses this schema, under interface IID
+`org.octaviarius.Termaster.Plugin/1.0`:
+
+```json
+{
+    "api": 1,
+    "id": "example.consumer",
+    "name": "Example consumer",
+    "version": "1.0.0",
+    "dependencies": ["example.provider"]
+}
+```
+
+Runtime `info()` must match the embedded description. IDs contain letters,
+digits, dots, hyphens or underscores, start with a letter/digit and have at most
+128 characters. Versions contain three numeric components. Dependency version
+ranges and cross-toolchain ABI compatibility are not implemented; plugins must
+use a compatible compiler, Qt, architecture and configuration.
+
+Enable preferences are stored in `plugins.yaml` under Qt's application-data
+directory, through an independently owned `SettingsManager`:
+
+```yaml
+enabled:
+  example.provider: true
+  example.consumer: true
+```
+
+The YAML layer has been rewritten to remove unsafe QVariant casts, preserve
+unknown mappings/sequences and check parse/serialization/write failures. Plugin
+preferences are validated before atomic `QSaveFile` replacement; malformed files
+are not overwritten. File limits are 4 MiB, 64 nesting levels and 100000 nodes.
+Existing application settings APIs remain active for current consumers.
+
+## Module build helper
+
+`cmake/TermasterPlugin.cmake` provides `termaster_add_plugin`. Each build produces
+an isolated SDK under `build/plugin/<Target>/`: runtime library, import library,
+public headers and a relocatable `Termaster<Target>` CMake package. Public headers
+are authored below `HEADER_BASE_DIR/Termaster/<Target>` and preserve subdirectories.
+`TermasterPluginApi` supplies the common `<Termaster/Core/Plugin.h>` contract.
+
+```cmake
+termaster_add_plugin(ExampleConsumer
+    SOURCES
+        Consumer.cpp
+    HEADER_BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/inc"
+    PUBLIC_HEADERS
+        inc/Termaster/ExampleConsumer/Consumer.h
+    DEPENDENCIES
+        Termaster::ExampleProvider
+)
+```
+
+For an external build, add the API SDK, dependency SDK roots and Qt to
+`CMAKE_PREFIX_PATH`, then use `find_package(TermasterPluginApi CONFIG REQUIRED)`
+and `find_package(TermasterExampleProvider CONFIG REQUIRED)`. The helper creates
+SHARED targets with automatic exports; it does not bundle Qt/compiler runtimes.
+One module SDK represents the last built configuration.
 
 ## Evidence and implementation status
 
@@ -133,5 +235,30 @@ data, cross-DLL inheritance and virtual-table cases need verification when
 introduced; the autoexport experiment does not cover those cases or MinGW.
 Matching toolchain/Qt/architecture/configuration were used for the tests.
 
-Production integration is pending. The examples demonstrate the accepted build,
-metadata, loading and SDK mechanism; they are not the production module manager.
+The runtime implementation is in `src/app/core/plugin`; the application owns
+its manager for the duration of the event loop. Earlier examples remain isolated
+experiments, not production module implementations.
+
+The integration suite in `tools/tests/Plugin` uses real SHARED DLL fixtures and
+an independently built SDK consumer. It checks dependency ordering, native calls,
+cascade/recovery, missing dependencies, cycles/duplicates, failed-start cleanup,
+shutdown pinning, runtime failure, actual Windows unmapping, directory changes,
+replacement after manual unload, and YAML preservation/validation. Fixtures own
+real worker threads and timers and require their cleanup before root destruction.
+Build with `-DTERMASTER_BUILD_PLUGIN_TESTS=ON`; use the Qt bin directory on PATH
+when running `ctest`. `TERMASTER_EXTERNAL_PLUGIN` selects the independently built
+`ExternalConsumer` fixture for the optional SDK scenario.
+
+
+### Verification record
+
+Verified on Windows x64, MSVC 19.44, Qt 6.12.0 and Ninja Release on 2026-11-08.
+The application and integration target built successfully. The final integration
+run reported 13 passed, zero failed and zero skipped, including the external SDK
+consumer. Tests used synthetic modules, real timers and worker threads; no device
+or external-network acceptance was performed. No GUI management window was added.
+
+The SDK consumer was configured independently from
+`tools/tests/Plugin/ExternalConsumer`, with the API and provider SDK roots in
+`CMAKE_PREFIX_PATH`, and built with MSVC Release. The test run selected its DLL
+through `TERMASTER_EXTERNAL_PLUGIN`. Generated logs remain disposable build output.

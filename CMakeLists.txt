@@ -12,8 +12,16 @@ include(common.cmake)
 find_package(Qt6 REQUIRED COMPONENTS Core)
 qt_standard_project_setup()
 
+include(cmake/PluginApi.cmake)
+
 add_subdirectory(src/app)
 add_subdirectory(src/lib/yaml-cpp)
+
+option(TERMASTER_BUILD_PLUGIN_TESTS "Build plugin lifecycle integration tests" OFF)
+if(TERMASTER_BUILD_PLUGIN_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Plugin)
+endif()
 
 message("")
 message("All project options table:")
