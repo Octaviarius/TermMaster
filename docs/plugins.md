@@ -331,3 +331,24 @@ interface remains unchanged. The SDK uses pure virtual headers and Qt/std value
 types so plugins do not link a duplicate static Core. Host lifetime covers
 shutdown. SerialTerminal demonstrates terminal/device factories, settings editor
 registration and scoped icon actions. See [terminal lifecycle](terminals-and-serial.md).
+
+## Test plugin isolation
+
+Desktop presets disable plugin fixtures by default. Explicitly enabling
+`TERMASTER_BUILD_PLUGIN_TESTS` builds the synthetic modules and provider SDKs
+under `<build>/tools/tests/Plugin/plugin`, outside the application's scanned
+`<build>/plugin` directory. The production library there is SerialTerminal, alongside
+the header-only PluginApi SDK. No fixture library is a production plugin.
+
+The independent SDK consumer uses `<build>/plugin/PluginApi` and
+`<build>/tools/tests/Plugin/plugin/PluginFixtureProvider` as package prefixes.
+Normal Desktop configuration restores the fixture option to OFF; its explicit
+`-DTERMASTER_BUILD_PLUGIN_TESTS=ON` override remains available for acceptance.
+
+Verified with MSVC / Qt Debug: both plugin integration/window suites passed
+from the private output, including the independently rebuilt SDK consumer.
+Normal Desktop Debug and Release caches have fixtures disabled. Ninja's
+`-t cleandead` removed historical fixture outputs, and the normal application
+build graph contains no PluginFixture targets. Both runtime directories contain
+only SerialTerminal.dll; generated SDK metadata from older builds is harmless
+and is not a loadable plugin. The normal Debug application target builds.
