@@ -10,6 +10,7 @@ public:
     SettingsOverlay(SettingsOverlay base, Settings::Node overrides);
     bool            isValid() const;
     bool            contains(const QString& key) const;
+    bool            containsOverride(const QString& key) const;
     QVariant        value(const QString& key, const QVariant& fallback = {}) const;
     QVariantMap     values() const;
     bool            containsInherited(const QString& key) const;

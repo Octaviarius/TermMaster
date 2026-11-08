@@ -1,0 +1,78 @@
+version: 1
+type: termaster.settings-schema
+description: Terminal display and input settings
+content:
+  $schema: http://json-schema.org/draft-07/schema#
+  type: object
+  additionalProperties: false
+  required:
+  - fontFamily
+  - fontSize
+  - foreground
+  - background
+  - scrollback
+  - localEcho
+  x-groups:
+  - id: text
+    title: Text
+    order: 0
+  - id: colors
+    title: Colors
+    order: 1
+  - id: screen
+    title: Screen
+    order: 2
+  - id: input
+    title: Input
+    order: 3
+  properties:
+    fontFamily:
+      type: string
+      title: Font family
+      default: Consolas
+      minLength: 1
+      maxLength: 128
+      x-settings-path: appearance/fontFamily
+      x-group: text
+      x-order: 0
+    fontSize:
+      type: number
+      title: Font size (pt)
+      default: 12
+      minimum: 6
+      maximum: 72
+      x-settings-path: appearance/fontSize
+      x-group: text
+      x-order: 1
+    foreground:
+      type: string
+      title: Foreground color
+      default: '#e5e7eb'
+      pattern: ^#[0-9a-fA-F]{6}$
+      x-settings-path: appearance/foreground
+      x-group: colors
+      x-order: 2
+    background:
+      type: string
+      title: Background color
+      default: '#15191f'
+      pattern: ^#[0-9a-fA-F]{6}$
+      x-settings-path: appearance/background
+      x-group: colors
+      x-order: 3
+    scrollback:
+      type: integer
+      title: Scrollback lines
+      default: 10000
+      minimum: 100
+      maximum: 100000
+      x-settings-path: appearance/scrollbackLines
+      x-group: screen
+      x-order: 4
+    localEcho:
+      type: boolean
+      title: Local echo
+      default: false
+      x-settings-path: input/localEcho
+      x-group: input
+      x-order: 5

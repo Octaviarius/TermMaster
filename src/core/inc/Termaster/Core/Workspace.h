@@ -10,6 +10,7 @@ class Workspace
 {
 public:
     explicit Workspace(Path file, Settings::Node baseSettings);
+    Workspace(Path file, SettingsOverlay baseSettings);
     ~Workspace();
     Q_DISABLE_COPY_MOVE(Workspace)
 
@@ -37,7 +38,7 @@ public:
 
 private:
     Path                      _file;
-    Settings::Node            _baseSettings;
+    SettingsOverlay           _baseSettings;
     std::unique_ptr<Settings> _settings;
     static bool               _validate(const Settings& settings, const Path& file, QString* error);
     std::optional<Path>       _directory(const QString& key) const;

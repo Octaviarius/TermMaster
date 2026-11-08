@@ -50,7 +50,7 @@ changing behavior. These rules apply repository-wide.
 
 ## Architecture
 
-- Core and app are the active implementation modules. Modules managers, logic, terminal
+- Core, app and the SerialTerminal plugin are the active implementation modules. Modules managers, logic, terminal
   and widgets are unbuilt reference material for future rewrites, not supported
   dependencies or reasons to preserve obsolete Core APIs. Do not restore them to
   the active target graph or repair their archived callers without a requirement.
@@ -68,8 +68,9 @@ changing behavior. These rules apply repository-wide.
   stable UUID identity separately from mutable human-readable names. Session selection
   belongs to the workspace menu/catalog. Catalog removal does not delete files.
   Keep session paths separate from application-wide configuration/log/plugin paths.
-  Session loading is configuration only; record terminal/backend activation and graph
-  execution as planned, not delivered.
+  Session loading reconstructs recognized terminal objects disconnected through registered
+  plugin factories; explicit connection remains separate. Link/resource graph execution
+  is planned. See docs/terminals-and-serial.md for delivered scope and limits.
 - Preserve meaningful boundaries between:
   - terminal connection backends and byte transport;
   - terminal emulation and escape-sequence parsing;

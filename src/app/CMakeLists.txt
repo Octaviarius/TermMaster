@@ -15,6 +15,8 @@ qt_add_library(App STATIC
     src/gui/settings/SettingsDialog.cpp
     src/gui/settings/SettingsPreview.h
     src/gui/settings/SettingsPreview.cpp
+    src/gui/terminal/TerminalController.h
+    src/gui/terminal/TerminalController.cpp
     src/gui/workspace/WorkspacePage.h
     src/gui/workspace/WorkspacePage.cpp
 )
@@ -42,6 +44,7 @@ qt_add_resources(App "appSettingsSchema"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/res"
     FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/res/SettingsSchema.yaml"
+        "${CMAKE_CURRENT_SOURCE_DIR}/res/TerminalAppearance.yaml"
         "${CMAKE_CURRENT_SOURCE_DIR}/res/settings/ApplicationPreview.yaml"
         "${CMAKE_CURRENT_SOURCE_DIR}/res/settings/WorkspacePreview.yaml"
         "${CMAKE_CURRENT_SOURCE_DIR}/res/settings/SessionPreview.yaml"

@@ -6,6 +6,7 @@ class QLabel;
 class QCheckBox;
 class QFormLayout;
 class QGroupBox;
+class QToolButton;
 
 /** Scrollable view; model and registry are borrowed and must share the GUI thread. */
 class SettingsFormWidget : public QWidget
@@ -41,9 +42,11 @@ private:
     QHash<QString, SettingsFieldEditor*> _editors;
     QHash<QString, QLabel*>              _errors;
     QHash<QString, QCheckBox*>           _presence;
+    QHash<QString, QToolButton*>         _resets;
     QLabel*                              _summary  = nullptr;
     bool                                 _updating = false;
     void                                 _refresh(const QString& key);
+    void                                 _refreshState(const QString& key);
     void                                 _refreshErrors();
     void                                 _applyFilter();
 };

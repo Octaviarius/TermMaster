@@ -9,7 +9,10 @@ project(TermasterProject)
 
 include(common.cmake)
 
-find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS
+    Core
+    Gui
+)
 qt_standard_project_setup()
 
 include(cmake/PluginApi.cmake)
@@ -71,6 +74,13 @@ if(TERMASTER_BUILD_SCHEMA_TESTS)
     enable_testing()
     add_subdirectory(tools/tests/SettingsSchema)
     add_subdirectory(tools/tests/SettingsForm)
+endif()
+
+option(TERMASTER_BUILD_TERMINAL_TESTS "Build terminal display and serial plugin tests" OFF)
+if(TERMASTER_BUILD_TERMINAL_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/TerminalDisplay)
+    add_subdirectory(tools/tests/Serial)
 endif()
 
 message("")

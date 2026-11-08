@@ -9,6 +9,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
+#include <QMap>
 #include <QMimeData>
 #include <QPlainTextEdit>
 #include <QPointer>
@@ -16,9 +17,13 @@
 #include <QProcessEnvironment>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QScreen>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSignalSpy>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QTest>
@@ -38,6 +43,11 @@
 #include <Termaster/Core/gui/action/ToolbarActionContainer.h>
 #include <Termaster/Core/gui/settings/SettingsFormModel.h>
 #include <Termaster/Core/gui/settings/SettingsFormWidget.h>
+#include <Termaster/Core/gui/settings/SettingsWidgetRegistry.h>
+#include <Termaster/Core/gui/terminal/TerminalDisplay.h>
+#include <Termaster/Core/plugin/PluginHost.h>
+#include <Termaster/Core/plugin/PluginManager.h>
+#include <stdexcept>
 
 class AppTests final : public QObject
 {
@@ -704,6 +714,172 @@ private:
         QTRY_VERIFY(dialog.isNull());
         QVERIFY(_app.settings().setValue("settings/ui/toolbarVisible", true));
         QVERIFY(_app.closeWorkspace(&error));
+    }
+
+    Q_SLOT void serialPluginTerminalLifecycle()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        QString    error;
+        const auto pluginFile = QDir(_app.plugins().directory())
+                                    .filePath(QFileInfo(TERMASTER_SERIAL_PLUGIN_FILE).fileName());
+        QVERIFY(QDir().mkpath(_app.plugins().directory()));
+        QVERIFY2(QFile::copy(TERMASTER_SERIAL_PLUGIN_FILE, pluginFile), qPrintable(pluginFile));
+        const auto oldFontSize   = _app.settings().value("settings/appearance/fontSize");
+        const auto oldWindowSize = _app.mainWindow().size();
+        const auto cleanup       = qScopeGuard([&] {
+            _app.plugins().setEnabled("SerialTerminal", false);
+            _app.closeWorkspace();
+            _app.mainWindow().resize(oldWindowSize);
+            _app.settings().setValue("settings/appearance/fontSize", oldFontSize);
+            QFile::remove(pluginFile);
+            _app.plugins().rescan();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        });
+        QVERIFY2(_app.plugins().rescan(&error), qPrintable(error));
+        QVERIFY2(_app.plugins().setEnabled("SerialTerminal", true, &error), qPrintable(error));
+        auto* terminalMenu = _app.mainMenu().findMenu("/terminal");
+        QVERIFY(terminalMenu);
+        const QMap<QString, QString> groups {
+            {       "Serial.New",     "create"},
+            {   "Serial.Connect", "connection"},
+            {"Serial.Disconnect", "connection"},
+            {     "Serial.Close", "management"},
+            {     "Serial.Clear",     "output"},
+            {  "Serial.Settings",   "settings"}
+        };
+        QList<QPointer<QAction>> actions;
+        for (auto it = groups.cbegin(); it != groups.cend(); ++it)
+        {
+            auto* command = _app.commands().find(it.key());
+            QVERIFY(command);
+            auto* action = command->actions().first();
+            actions.append(action);
+            QVERIFY(!action->icon().isNull());
+            QVERIFY(!action->toolTip().isEmpty());
+            QVERIFY(terminalMenu->actions(it.value()).contains(action));
+            QVERIFY(_app.toolbar().actions("terminal").contains(action));
+        }
+        QVERIFY(!_app.commands().find("Serial.New")->actions().first()->isEnabled());
+        QVERIFY(_app.settings().setValue("settings/appearance/fontSize", 15));
+        QVERIFY2(_app.createWorkspace(Path(temporary.filePath("serial.termaster")), "Serial test", &error),
+                 qPrintable(error));
+        QVERIFY(_app.workspace()->settings().setValue("appearance/fontSize", 17));
+        QVERIFY2(_app.createSession("Disconnected serial", &error), qPrintable(error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        _app.pluginHost().refreshTerminalActions();
+        QVERIFY(_app.commands().find("Serial.New")->actions().first()->isEnabled());
+        QVERIFY2(_app.createTerminal("serial",
+                                     {
+                                         {"transport", QVariantMap {{"portName", "COM_TERMASTER_TEST_UNUSED"}}}
+        },
+                                     "Synthetic serial",
+                                     &error),
+                 qPrintable(error));
+        QCOMPARE(_app.terminalIds().size(), 1);
+        const auto id = _app.selectedTerminal();
+        QVERIFY(!id.isEmpty());
+        auto* device = _app.pluginHost().selectedDevice("serial");
+        QVERIFY(device);
+        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        QPointer<TerminalDisplay> display(_app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay"));
+        QVERIFY(display);
+        QCOMPARE(display->font().pointSizeF(), 17.0);
+        QVERIFY(_app.commands().find("Serial.Connect")->actions().first()->isEnabled());
+        QVERIFY(!_app.commands().find("Serial.Disconnect")->actions().first()->isEnabled());
+        display->receive("synthetic output");
+        QVERIFY(display->text().contains("synthetic output"));
+        _app.commands().find("Serial.Clear")->actions().first()->trigger();
+        QVERIFY(!display->text().contains("synthetic output"));
+        const auto definition = _app.session()->objects().value(id);
+        QVERIFY(!definition.toMap().value("settings").toMap().contains("appearance"));
+        _app.commands().find("Serial.Settings")->actions().first()->trigger();
+        QPointer<SettingsDialog> settings(_app.mainWindow().findChild<SettingsDialog*>("settingsDialog"));
+        QVERIFY(settings);
+        QVERIFY(settings->selectPage("terminal.connection"));
+        if (QGuiApplication::platformName() == "windows")
+        {
+            QTRY_VERIFY(settings->screen()->availableGeometry().contains(settings->frameGeometry()));
+            auto* lastField = settings->findChild<QWidget*>("reset_rts");
+            QVERIFY(lastField);
+            auto* scroll = lastField->parentWidget();
+            while (scroll && !qobject_cast<QScrollArea*>(scroll))
+            {
+                scroll = scroll->parentWidget();
+            }
+            auto* area = qobject_cast<QScrollArea*>(scroll);
+            QVERIFY(area);
+            area->ensureWidgetVisible(lastField);
+            QTRY_VERIFY(
+                area->viewport()->rect().contains(lastField->mapTo(area->viewport(), lastField->rect().center())));
+            const auto nativeCapture = qEnvironmentVariable("TERMASTER_APP_NATIVE_CAPTURE");
+            if (!nativeCapture.isEmpty())
+            {
+                QVERIFY(QDir().mkpath(nativeCapture));
+                settings->raise();
+                settings->activateWindow();
+                QTRY_COMPARE(QApplication::activeWindow(), settings.data());
+                QApplication::processEvents();
+                QVERIFY(settings->grab().save(QDir(nativeCapture).filePath("SettingsNativeBottom.png")));
+                area->verticalScrollBar()->setValue(area->verticalScrollBar()->minimum());
+                QApplication::processEvents();
+                QVERIFY(settings->grab().save(QDir(nativeCapture).filePath("SettingsNativeTop.png")));
+            }
+        }
+        QList<QPointer<SettingsFieldEditor>> editors;
+        for (auto* editor : settings->findChildren<SettingsFieldEditor*>())
+        {
+            editors.append(editor);
+        }
+        QVERIFY(!editors.isEmpty());
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            _app.mainWindow().resize(1280, 800);
+            settings->setFixedSize(1280, 800);
+            QApplication::processEvents();
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("SerialTerminal.png")));
+            QVERIFY(settings->grab().save(QDir(capture).filePath("SerialTerminalSettings.png")));
+        }
+        const auto sessionFile = _app.session()->filePath();
+        QVERIFY2(_app.plugins().setEnabled("SerialTerminal", false, &error), qPrintable(error));
+        QVERIFY(display.isNull());
+        QVERIFY(settings.isNull());
+        for (const auto& editor : editors)
+        {
+            QVERIFY(editor.isNull());
+        }
+        QVERIFY(_app.terminalIds().isEmpty());
+        QVERIFY(_app.selectedTerminal().isEmpty());
+        for (const auto& action : actions)
+        {
+            QVERIFY(action.isNull());
+        }
+        for (auto it = groups.cbegin(); it != groups.cend(); ++it)
+        {
+            QVERIFY(!_app.commands().find(it.key()));
+        }
+        SettingsSchema::Field field;
+        field.widget = "serialPortSelector";
+        QVERIFY_THROWS_EXCEPTION(std::invalid_argument, _app.settingsWidgets().create(field, nullptr));
+        QCOMPARE(_app.session()->objects().value(id), definition);
+        Settings persisted(sessionFile, {"termaster.session", "Termaster session"});
+        QVERIFY2(persisted.load(&error), qPrintable(error));
+        QCOMPARE(persisted.value("objects/" + id), definition);
+        QVERIFY2(_app.plugins().setEnabled("SerialTerminal", true, &error), qPrintable(error));
+        QCOMPARE(_app.terminalIds(), QStringList {id});
+        QCOMPARE(_app.selectedTerminal(), id);
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        device = _app.pluginHost().selectedDevice("serial");
+        QVERIFY(device);
+        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(display);
+        QCOMPARE(display->font().pointSizeF(), 17.0);
+        QCOMPARE(_app.session()->objects().value(id), definition);
     }
 
     Q_SLOT void pluginWindowLifecycle()

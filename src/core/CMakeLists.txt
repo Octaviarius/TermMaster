@@ -51,6 +51,13 @@ qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/Session.h
     src/Session.cpp
     inc/Termaster/Core/plugin/Plugin.h
+    inc/Termaster/Core/plugin/HostedPlugin.h
+    inc/Termaster/Core/plugin/PluginHost.h
+    inc/Termaster/Core/terminal/SerialDevice.h
+    inc/Termaster/Core/terminal/TerminalScreen.h
+    src/terminal/TerminalScreen.cpp
+    inc/Termaster/Core/gui/terminal/TerminalDisplay.h
+    src/gui/terminal/TerminalDisplay.cpp
     inc/Termaster/Core/plugin/PluginManager.h
     src/plugin/PluginManager.cpp
     inc/Termaster/Core/gui/plugin/PluginManagerGui.h

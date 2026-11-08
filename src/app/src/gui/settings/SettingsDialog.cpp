@@ -7,11 +7,13 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScreen>
 #include <QSortFilterProxyModel>
 #include <QStackedWidget>
 #include <QStandardItemModel>
 #include <QTreeView>
 #include <QVBoxLayout>
+#include <QWindow>
 #include <Termaster/Core/gui/settings/SettingsFormModel.h>
 #include <Termaster/Core/gui/settings/SettingsFormWidget.h>
 #include <Termaster/Core/gui/settings/SettingsWidgetRegistry.h>
@@ -23,7 +25,6 @@ SettingsDialog::SettingsDialog(SettingsWidgetRegistry&       registry,
 {
     setObjectName("settingsDialog");
     setWindowTitle(tr("Settings"));
-    resize(1020, 720);
     auto* layout     = new QVBoxLayout(this);
     auto* body       = new QHBoxLayout;
     auto* navigation = new QWidget(this);
@@ -119,6 +120,33 @@ void SettingsDialog::addPage(const QString&                        id,
              description,
              new SettingsFormModel(std::move(schema), std::move(target), this),
              preview);
+}
+
+void SettingsDialog::setVisible(bool visible)
+{
+    const bool initialize = visible && !_initialGeometrySet;
+    if (initialize)
+    {
+        ensurePolished();
+        layout()->activate();
+        // Create the native window before measuring its title bar and resize borders.
+        winId();
+        _fitToScreen();
+        _initialGeometrySet = true;
+    }
+    QDialog::setVisible(visible);
+    if (initialize)
+    {
+        // Some platforms provide the complete frame margins only after showing.
+        _fitToScreen();
+    }
+}
+
+bool SettingsDialog::hasHeightForWidth() const
+{
+    // Wrapped page headings reflow inside the available space. The forms scroll,
+    // so their preferred height must not become a native window height constraint.
+    return false;
 }
 
 bool SettingsDialog::selectPage(const QString& id)
@@ -245,6 +273,20 @@ void SettingsDialog::_addPage(const QString&     id,
     connect(model, &SettingsFormModel::dirtyChanged, this, &SettingsDialog::_updateButtons);
     _filterPages();
     _updateButtons();
+}
+
+void SettingsDialog::_fitToScreen()
+{
+    if (const auto* currentScreen = screen())
+    {
+        const auto  available = currentScreen->availableGeometry();
+        const auto  borders   = windowHandle()->frameMargins();
+        const QSize decorations(borders.left() + borders.right(), borders.top() + borders.bottom());
+        resize(QSize(1020, 720).boundedTo(available.size() - decorations));
+        const QSize frameSize = size() + decorations;
+        move(available.topLeft()
+             + QPoint((available.width() - frameSize.width()) / 2, (available.height() - frameSize.height()) / 2));
+    }
 }
 
 void SettingsDialog::_filterPages()

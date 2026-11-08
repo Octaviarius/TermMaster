@@ -324,3 +324,12 @@ Tests also verify that Enter in the filter does not change plugin preferences.
 
 Plugin preferences now use the general [Core Settings owner](settings.md). The plugin manager
 validates its own enabled states; no Managers module or SettingsManager is required.
+
+## Hosted terminal extensions
+
+PluginManager accepts a borrowed PluginHost before starting any module. An
+optional HostedPlugin interface receives it before startup; the base lifecycle
+interface remains unchanged. The SDK uses pure virtual headers and Qt/std value
+types so plugins do not link a duplicate static Core. Host lifetime covers
+shutdown. SerialTerminal demonstrates terminal/device factories, settings editor
+registration and scoped icon actions. See [terminal lifecycle](terminals-and-serial.md).

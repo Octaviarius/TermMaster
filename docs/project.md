@@ -54,7 +54,7 @@ src/<module>/
     src/gui/<feature>/<Form>.ui
 ```
 
-Core and App are the active implementation modules. Core public includes use
+Core, App and SerialTerminal are the active implementation modules. Core public includes use
 `<Termaster/Core/Header.h>` and its implementation hierarchy mirrors that prefix
 without repeating `Termaster/Core`. GUI contracts use `gui/<feature>` under the
 public include root and implementations/internal headers use `src/gui/<feature>`.
@@ -65,7 +65,8 @@ material. Their CMake files and callers are not supported against the current
 Core API. The old application entry point is retained at `src/legacy/Main.cpp`.
 The current main.cpp only constructs App and calls run(). Module src/app owns
 the Qt Widgets application shell, its main window, commands and orchestration.
-Workspace/session loading remains a recorded architecture requirement.
+Workspace/session persistence and disconnected terminal reconstruction are implemented.
+See [terminal support](terminals-and-serial.md) for runtime boundaries.
 No module-root `gui/` directories are used.
 
 The module layout does not change the existing static-library application graph

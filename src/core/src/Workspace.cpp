@@ -100,6 +100,11 @@ std::unique_ptr<Settings> document(const Path& file)
 } // namespace
 
 Workspace::Workspace(Path file, Settings::Node baseSettings) :
+    Workspace(std::move(file), SettingsOverlay(baseSettings, baseSettings))
+{
+}
+
+Workspace::Workspace(Path file, SettingsOverlay baseSettings) :
     _file(file.absolute()), _baseSettings(std::move(baseSettings)), _settings(document(_file))
 {
 }

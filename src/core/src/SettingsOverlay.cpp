@@ -111,6 +111,11 @@ QVariant SettingsOverlay::value(const QString& key, const QVariant& fallback) co
     return found ? result : fallback;
 }
 
+bool SettingsOverlay::containsOverride(const QString& key) const
+{
+    return isValid() && validKey(key) && validKey(_key(key)) && _overrides.contains(_key(key));
+}
+
 QVariantMap SettingsOverlay::values() const
 {
     if (!isValid())

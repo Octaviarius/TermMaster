@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/SerialTerminal">
+        <file>Settings.yaml</file>
+        <file>device-usb.svg</file>
+        <file>device-pci.svg</file>
+        <file>device-virtual.svg</file>
+    </qresource>
+</RCC>

@@ -1,3 +1,4 @@
+#include <QCheckBox>
 #include <QComboBox>
 #include <QFile>
 #include <QHBoxLayout>
@@ -6,6 +7,7 @@
 #include <QStandardItemModel>
 #include <QStyle>
 #include <QTemporaryDir>
+#include <QToolButton>
 #include <QtTest>
 #include <Termaster/Core/gui/settings/SettingsFormWidget.h>
 #include <stdexcept>
@@ -219,6 +221,132 @@ private:
         QVERIFY(model.apply());
         QVERIFY(!overrides.contains("scope/count"));
         QCOMPARE(overlay.value("scope/count").toInt(), 4);
+    }
+
+    Q_SLOT void fourLayerExplicitFontInheritance()
+    {
+        QTemporaryDir directory;
+        Settings      defaults(directory.filePath("defaults.yaml"));
+        Settings      workspace(directory.filePath("workspace.yaml"));
+        Settings      session(directory.filePath("session.yaml"));
+        Settings      terminal(directory.filePath("terminal.yaml"));
+        QVERIFY(defaults.setValue("appearance/fontSize", 12));
+        QVERIFY(workspace.setValue("appearance/fontSize", 14));
+        QVERIFY(session.setValue("appearance/fontSize", 16));
+        SettingsOverlay workspaceView(defaults.node(""), workspace.node(""));
+        SettingsOverlay sessionView(workspaceView, session.node(""));
+        SettingsOverlay terminalView(sessionView, terminal.node(""));
+        auto descriptor = schema("fontSize: {type: integer, minimum: 6, default: 12}", "  required: [fontSize]\n");
+        SettingsFormModel      model(descriptor, terminalView.node("appearance"));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        QVERIFY(model.supportsInheritance());
+        QVERIFY(!model.hasOverride("fontSize"));
+        QCOMPARE(model.value("fontSize").toInt(), 16);
+        QVERIFY(form.editor("fontSize")->isEnabled());
+        QVERIFY(form.editor("fontSize")->property("settingsInherited").toBool());
+        QVERIFY(form.findChildren<QCheckBox*>().isEmpty());
+        auto* reset = form.findChild<QToolButton*>("reset_fontSize");
+        QVERIFY(reset);
+        QVERIFY(!reset->isEnabled());
+        QVERIFY(reset->toolTip().contains("16"));
+        const QString capture = qEnvironmentVariable("TERMASTER_SETTINGS_INHERITANCE_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            form.resize(640, 220);
+            form.show();
+            QTest::qWait(50);
+            QVERIFY(form.grab().save(capture + ".inherited.png"));
+        }
+        auto* input = form.editor("fontSize")->findChild<QLineEdit*>();
+        QVERIFY(input);
+        input->setText("17");
+        QVERIFY(reset->isEnabled());
+        QVERIFY(!form.editor("fontSize")->property("settingsInherited").toBool());
+        if (!capture.isEmpty())
+        {
+            QTest::qWait(50);
+            QVERIFY(form.grab().save(capture + ".override.png"));
+        }
+        input->setText("16"); // Explicit edit back to inherited value still owns the value.
+        QVERIFY(model.hasOverride("fontSize"));
+        QVERIFY(model.isDirty());
+        QVERIFY(model.apply());
+        QVERIFY(terminalView.node("appearance").containsOverride("fontSize"));
+        QCOMPARE(terminal.value("appearance/fontSize").toInt(), 16);
+        QVERIFY(session.setValue("appearance/fontSize", 18));
+        reset->click();
+        QCOMPARE(model.value("fontSize").toInt(), 18);
+        QVERIFY(model.isValid());
+        QVERIFY(model.apply());
+        QVERIFY(!terminal.contains("appearance/fontSize"));
+        QCOMPARE(terminalView.value("appearance/fontSize").toInt(), 18);
+        QVERIFY(!terminalView.node("appearance").containsOverride("../fontSize"));
+        QVERIFY(!terminalView.node("appearance").containsOverride(""));
+    }
+
+    Q_SLOT void requiredInheritanceValidationAndOwnershipConflict()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      local(directory.filePath("local.yaml"));
+        QVERIFY(base.setValue("fontSize", 0));
+        QVERIFY(local.setValue("fontSize", 12));
+        SettingsOverlay overlay(base.node(""), local.node(""));
+        auto descriptor = schema("fontSize: {type: integer, minimum: 6, default: 12}", "  required: [fontSize]\n");
+        SettingsFormModel model(descriptor, overlay);
+        model.removeValue("fontSize");
+        QVERIFY(!model.isValid());
+        QVERIFY(!model.apply());
+        QCOMPARE(local.value("fontSize").toInt(), 12);
+        QVERIFY(base.setValue("fontSize", 12));
+        model.reload();
+        QVERIFY(local.remove("fontSize"));
+        model.setValue("fontSize", 14);
+        QVERIFY(!model.apply()); // Effective value stayed 12; ownership changed.
+        model.reload();
+        model.setValue("fontSize", 12);
+        QVERIFY(local.setValue("fontSize", 12));
+        QVERIFY(!model.apply());
+        model.reload();
+        QVERIFY(base.remove("fontSize"));
+        model.removeValue("fontSize");
+        QVERIFY(!model.hasOverride("fontSize")); // Descriptor default is a valid reset target.
+        QCOMPARE(model.value("fontSize").toInt(), 12);
+        QVERIFY(model.apply());
+        QVERIFY(!local.contains("fontSize"));
+        auto noDefault = schema("fontSize: {type: integer, minimum: 6}", "  required: [fontSize]\n");
+        QVERIFY(local.setValue("fontSize", 14));
+        SettingsFormModel noFallback(noDefault, overlay);
+        QVERIFY(!noFallback.canReset("fontSize"));
+        noFallback.removeValue("fontSize");
+        QVERIFY(noFallback.hasOverride("fontSize"));
+    }
+
+    Q_SLOT void overlayDefaultsDoNotCreateOverrides()
+    {
+        QTemporaryDir     directory;
+        Settings          base(directory.filePath("base.yaml"));
+        Settings          local(directory.filePath("local.yaml"));
+        SettingsOverlay   overlay(base.node(""), local.node(""));
+        auto              descriptor = schema("fontSize: {type: integer, default: 12}", "  required: [fontSize]\n");
+        SettingsFormModel model(descriptor, overlay);
+        QVERIFY(!model.hasOverride("fontSize"));
+        QVERIFY(!model.isDirty());
+        QVERIFY(model.apply());
+        QVERIFY(!local.contains("fontSize"));
+        QVERIFY(!base.contains("fontSize"));
+        model.setValue("fontSize", model.value("fontSize"));
+        QVERIFY(model.hasOverride("fontSize"));
+        QVERIFY(model.apply());
+        QCOMPARE(local.value("fontSize").toInt(), 12);
+        model.removeValue("fontSize");
+        QVERIFY(model.apply());
+        QVERIFY(!local.contains("fontSize"));
+        model.setValue("fontSize", 13);
+        model.removeValue("fontSize");
+        QVERIFY(!model.isDirty());
+        QCOMPARE(model.value("fontSize").toInt(), 12);
     }
 
     Q_SLOT void unionUsesTypedYamlInput()
