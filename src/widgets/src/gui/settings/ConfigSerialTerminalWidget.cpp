@@ -9,7 +9,7 @@
 #include <Termaster/Core/utils.h>
 #include <Termaster/Managers/TerminalManager.h>
 #include <Termaster/Terminal/SerialTerminal.h>
-#include <Termaster/Widgets/ConfigSerialTerminalWidget.h>
+#include <Termaster/Widgets/gui/settings/ConfigSerialTerminalWidget.h>
 
 class TrueSortProxyModel : public QSortFilterProxyModel
 {

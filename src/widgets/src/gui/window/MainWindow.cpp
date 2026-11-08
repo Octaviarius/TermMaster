@@ -7,8 +7,8 @@
 #include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Version.h>
 #include <Termaster/Managers/SettingsManager.h>
-#include <Termaster/Widgets/MainWindow.h>
-#include <Termaster/Widgets/TermWidget.h>
+#include <Termaster/Widgets/gui/terminal/TermWidget.h>
+#include <Termaster/Widgets/gui/window/MainWindow.h>
 
 //===================================================================
 

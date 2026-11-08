@@ -6,7 +6,7 @@
 #include <Termaster/Core/Path.h>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/Singleton.h>
-#include <Termaster/Widgets/ConfigContainer.h>
+#include <Termaster/Widgets/gui/settings/ConfigContainer.h>
 
 class FileSettings : public Settings
 {

@@ -1,4 +1,4 @@
-#include <Termaster/Core/MenuActionContainer.h>
+#include <Termaster/Core/gui/action/MenuActionContainer.h>
 #include <utility>
 
 MenuActionContainer::MenuActionContainer(QString name, QString title, QObject* owner) :

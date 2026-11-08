@@ -5,7 +5,7 @@
 #include <QSet>
 #include <Termaster/Managers/SettingsManager.h>
 #include <Termaster/Terminal/SerialTerminal.h>
-#include <Termaster/Widgets/IConfigWidget.h>
+#include <Termaster/Widgets/gui/settings/IConfigWidget.h>
 
 namespace Ui
 {

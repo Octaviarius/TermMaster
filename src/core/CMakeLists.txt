@@ -22,28 +22,29 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Command.cpp
     inc/Termaster/Core/Settings.h
     src/Settings.cpp
-    inc/Termaster/Core/ActionContainerAdapter.h
-    gui/action/ActionContainerAdapter.cpp
+    inc/Termaster/Core/gui/action/ActionContainerAdapter.h
+    src/gui/action/ActionContainerAdapter.cpp
     inc/Termaster/Core/ActionContainer.h
     src/ActionContainer.cpp
-    inc/Termaster/Core/MenubarActionContainer.h
-    gui/action/MenubarActionContainer.cpp
-    inc/Termaster/Core/MenuActionContainer.h
-    gui/action/MenuActionContainer.cpp
-    inc/Termaster/Core/ToolbarActionContainer.h
-    gui/action/ToolbarActionContainer.cpp
+    inc/Termaster/Core/gui/action/MenubarActionContainer.h
+    src/gui/action/MenubarActionContainer.cpp
+    inc/Termaster/Core/gui/action/MenuActionContainer.h
+    src/gui/action/MenuActionContainer.cpp
+    inc/Termaster/Core/gui/action/ToolbarActionContainer.h
+    src/gui/action/ToolbarActionContainer.cpp
     inc/Termaster/Core/EnumReflection.h
     inc/Termaster/Core/Deque.h
     inc/Termaster/Core/plugin/Plugin.h
     inc/Termaster/Core/plugin/PluginManager.h
     src/plugin/PluginManager.cpp
-    inc/Termaster/Core/gui/PluginManagerGui.h
-    gui/plugin/PluginManagerWindow.h
-    gui/plugin/PluginManagerWindow.cpp
-    gui/plugin/PluginManagerController.h
-    gui/plugin/PluginManagerController.cpp
-    gui/plugin/PluginTableModel.h
-    gui/plugin/PluginTableModel.cpp
+    inc/Termaster/Core/gui/plugin/PluginManagerGui.h
+    src/gui/plugin/PluginManagerGui.cpp
+    src/gui/plugin/PluginManagerWindow.h
+    src/gui/plugin/PluginManagerWindow.cpp
+    src/gui/plugin/PluginManagerController.h
+    src/gui/plugin/PluginManagerController.cpp
+    src/gui/plugin/PluginTableModel.h
+    src/gui/plugin/PluginTableModel.cpp
 
 )
 

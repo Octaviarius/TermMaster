@@ -3,7 +3,7 @@
 #include <QResizeEvent>
 #include <QTextLayout>
 #include <Termaster/Core/utils.h>
-#include <Termaster/Widgets/TermWidget.h>
+#include <Termaster/Widgets/gui/terminal/TermWidget.h>
 
 TermWidget::TermWidget(QWidget* parent) : QWidget(parent), _termModel(nullptr), _minTermSize(1, 1)
 {
