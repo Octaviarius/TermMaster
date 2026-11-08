@@ -18,6 +18,18 @@ realism through pixel graphics, each retaining exactly three tentacles.
 The copied PNG was decoded successfully and verified byte-for-byte against the
 generated original; its sixteen treatments were visually reviewed.
 
+## Character exploration
+
+[Stoic mascot](MascotStoic.png) preserves a humorous Chuck Norris-inspired
+interpretation: a sombrero, narrowed blue eyes and a graphic russet beard
+integrated into the jellyfish bell, with exactly three tentacles. It is an
+illustrative exploration, not a replacement for the application icon.
+
+Generated with the built-in imagegen tool. Prompt intent: a cohesive simplified
+jellyfish character with an understated action-hero expression, smooth graphic
+beard patch, orange/navy palette and transparent background. The PNG was decoded
+and verified byte-for-byte against the generated original.
+
 ## Application icon assets
 
 The orange variant is the application icon: App embeds the PNG for Qt window
