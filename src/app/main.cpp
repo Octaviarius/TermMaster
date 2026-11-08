@@ -205,10 +205,10 @@ int main(int argc, char* argv[])
 
     res = E2::Timeout;
     qDebug() << QString("Valid=%1, ok=%2").arg(res.isValid()).arg(res.isOk());
-    qDebug() << QString("%1 equal %2 = %3").arg(res).arg((int)E2::Timeout).arg(res == E2::Timeout);
+    qDebug() << QString("%1 equal %2 = %3").arg(res.value()).arg((int)E2::Timeout).arg(res == E2::Timeout);
 
     QApplication app(argc, argv);
-    QCoreApplication::setApplicationName("Terminal Master");
+    QCoreApplication::setApplicationName("Termaster");
 
     // config others
     auto terminal = new TermWidget();

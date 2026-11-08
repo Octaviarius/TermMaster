@@ -1,7 +1,7 @@
 # Cross-plugin C++ export probe
 
 Two actual Qt plugins created by `qt_add_plugin()`, plus a console host using
-`QPluginLoader`. The experiment is independent of the TermMaster executable.
+`QPluginLoader`. The experiment is independent of the Termaster executable.
 It targets Windows, Qt 6.7+ and C++20. MinGW GCC 13.1 and MSVC 19.44 were verified
 with their matching Qt 6.12.0 packages. No downloads are performed.
 

@@ -83,7 +83,7 @@ private:
     Row _makeRow(int serial) const
     {
         Row           row;
-        const QString seed = QStringLiteral("[%1] TermMaster RGB text / cache / 0123456789 ")
+        const QString seed = QStringLiteral("[%1] Termaster RGB text / cache / 0123456789 ")
                                  .arg(serial, 6, 10, QLatin1Char('0'));
         while (row.text.size() < _columns)
         {

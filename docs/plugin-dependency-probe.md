@@ -107,7 +107,7 @@ deliberate design if other modules link these APIs.
 
 ## Architectural implications and limits
 
-The user requires a module SDK so an additional plugin can be built separately.
+A module SDK is required to support independently built plugins.
 Its deliverables should include authored public headers, the Windows import
 library (`.dll.a` for MinGW or `.lib` for MSVC), the runtime DLL, and CMake package
 metadata exposing the public include paths, link dependency and Qt requirements.

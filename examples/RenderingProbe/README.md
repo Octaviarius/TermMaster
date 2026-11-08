@@ -1,7 +1,7 @@
 # RenderingProbe
 
 A standalone C++20 / Qt Widgets example with one window, synthetic colored text
-and five renderer choices. It does not change the TermMaster executable or select
+and five renderer choices. It does not change the Termaster executable or select
 its future architecture. It contains no VT parser, transport or disk history.
 
 Keys: **1** fresh QTextLayout, **2** cached QTextLayout, **3** cached QGlyphRun,

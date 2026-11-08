@@ -1,8 +1,7 @@
 # Qt rendering probe: measured results
 
 Date: 2026-11-07. Status: completed synthetic investigation.
-Following discussion of these results, the user selected `QTextLayout` for the
-primary widget. See the [accepted renderer choice](terminal-rendering-research.md#accepted-renderer-choice).
+`QTextLayout` is selected for the primary widget based on these results. See the [accepted renderer choice](terminal-rendering-research.md#accepted-renderer-choice).
 The tables below remain experimental evidence; the remaining architecture is open.
 
 ## Configuration and method
@@ -100,7 +99,7 @@ and visibility must be controlled when repeating visible-widget measurements.
    is incompatible with bounded RAM; a future tile cache needs an explicit budget.
 3. Cached glyph runs are a useful candidate for a general drawing path. The
    data does not show a sufficiently universal improvement over cached layouts
-   to prescribe an architecture without the user's requirements.
+   to prescribe an architecture without defined requirements.
 4. OpenGL through QPainter is slower here than the strongest raster alternatives,
    and its process footprint is larger. This does not measure a custom instanced
    glyph atlas and does not establish that GPU rendering is inherently slower.
@@ -128,7 +127,7 @@ The app and scripts were reviewed for profiling validity. C++ was clang-formatte
 Python scripts were compiled for syntax; repository whitespace checks passed.
 The deployed executable passed five additional static smoke runs. Its native
 window was opened and interactive pause and switching 2 -> 5 -> 4 were verified.
-The original TermMaster target was not built or changed as part of this probe.
+The original Termaster target was not built or changed as part of this probe.
 
 ## Reproduction and evidence
 
@@ -146,3 +145,15 @@ High-DPI subset commands use `Profile.py` with `--cols 100 --rows 22 --repetitio
 --methods 3 4 --cases static scroll --scale 1.5` (then `--scale 2`).
 For automated visual checks run `Verify.py EXE OUTPUT --qt-bin QT_BIN`; Pillow
 is required for image comparison. No files or dependencies were downloaded.
+
+## Naming update verification
+
+The project and synthetic fixture branding were updated to `Termaster` on
+2026-11-08. The illustration was recaptured with the updated fixture. The
+measurements and recorded source hash above describe the original measured
+revision; timing measurements were not repeated for this naming change.
+
+All 15 captures were repeated at 100%, 150% and 200%. The four raster paths
+passed the existing pixel-difference threshold. Fresh layouts and cached
+layouts/glyph runs matched exactly; row tiles had a maximum mean channel
+difference below 0.012. OpenGL retains different antialiasing.

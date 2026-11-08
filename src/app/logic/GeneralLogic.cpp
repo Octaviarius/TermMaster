@@ -13,8 +13,8 @@
 #include <QDesktopServices>
 #include <QUrl>
 
-static const QString _homepageUrl = "https://github.com/Octaviarius/TermMaster";
-static const QString _helpUrl     = "https://github.com/Octaviarius/TermMaster/wiki";
+static const QString _homepageUrl = "https://github.com/Octaviarius/Termaster";
+static const QString _helpUrl     = "https://github.com/Octaviarius/Termaster/wiki";
 
 GeneralLogic::GeneralLogic()
 {

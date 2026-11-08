@@ -1,11 +1,11 @@
-# TermMaster agent instructions
+# Termaster agent instructions
 
 Read existing project documentation, CMake files and relevant sources before
 changing behavior. These rules apply repository-wide.
 
 ## Scope and workflow
 
-- Develop TermMaster as a desktop terminal application using C++ and Qt 6 Widgets.
+- Develop Termaster as a desktop terminal application using C++ and Qt 6 Widgets.
   Preserve the current application model; do not introduce services, IPC or a
   separate backend without an explicit requirement.
 - Continue authorized work until completion or an explicit stop request.
@@ -133,6 +133,8 @@ changing behavior. These rules apply repository-wide.
   Preserve standard metadata filenames and vendored names.
 - Write UTF-8 explicitly in editing scripts. Use English documentation and
   useful Doxygen comments in /** ... */ form.
+- Use neutral, impersonal documentation wording. Record requirements, decisions
+  and verification results without attributing them to conversation participants.
 - Run clang-format -i on each changed C/C++ file after editing.
   Use the repository .clang-format. Do not format unrelated files, Markdown,
   CMake or scripts. Report unavailable formatting.

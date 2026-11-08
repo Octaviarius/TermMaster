@@ -1,25 +1,25 @@
 # Terminal rendering and history research
 
 Research date: 2026-11-07. Status: research completed; text renderer selected.
-The user supplies requirements and architectural direction. The renderer choice
-below is accepted; remaining architectural options are discussion material.
+The renderer choice below is accepted; remaining architectural options are
+subject to further design.
 
 ## Accepted renderer choice
 
-The user also confirmed Qt Widgets as the application UI framework. Build the
+Qt Widgets is the selected application UI framework. Build the
 application windows, dialogs and terminal widget with Widgets. The terminal
 text-rendering choice is `QTextLayout` within that Widgets application.
 
-The user selected `QTextLayout` for the primary terminal widget after reviewing
-the profiling results and the cost of redrawing changed text. Prefer this direct
+`QTextLayout` is selected for the primary terminal widget based on the profiling
+results and the cost of redrawing changed text. Prefer this direct
 Qt text-layout path over introducing a separate glyph-run renderer, raster row
 cache or custom GPU atlas at this stage.
 
 Retain prepared layouts for unchanged visible rows and invalidate affected rows
 when their text, formatting or layout inputs change. Keep layout caching bounded
 to the working viewport rather than retaining a layout for every historical row.
-The exact screen/history model and compatibility scope remain to be designed
-with the user. This decision records direction; production integration is pending.
+The exact screen/history model and compatibility scope remain to be designed.
+This decision records direction; production integration is pending.
 
 ## Requirements recorded so far
 
@@ -160,7 +160,7 @@ Use 64-bit history IDs/offsets; do not stretch QWidget pixel coordinates or a
 Konsole's file history uses cell, index and line-property storage. Its source
 also calls out the limitation of mapping an entire large history file. This
 supports investigating disk-backed history and bounded mapping windows; it
-does not prove the proposed TermMaster format or performance.
+does not prove the proposed Termaster format or performance.
 [HistoryScrollFile](https://github.com/KDE/konsole/blob/master/src/history/HistoryScrollFile.cpp),
 [HistoryFile](https://github.com/KDE/konsole/blob/master/src/history/HistoryFile.cpp).
 

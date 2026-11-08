@@ -11,4 +11,4 @@ public:
     virtual int     calculate() const = 0;
 };
 
-Q_DECLARE_INTERFACE(IProbePlugin, "org.octaviarius.TermMaster.PluginDependencyProbe/1.0")
+Q_DECLARE_INTERFACE(IProbePlugin, "org.octaviarius.Termaster.PluginDependencyProbe/1.0")
