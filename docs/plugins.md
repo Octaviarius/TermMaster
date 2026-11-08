@@ -72,9 +72,32 @@ The interface exposes four operations:
 | Operation | Responsibility |
 |---|---|
 | `startup` | Start the plugin. |
-| `shutdown` | Stop the plugin. |
+| `shutdown` | Stop the plugin and release its owned resources before runtime unloading. |
 | `info` | Expose plugin information. |
 | `state` | Expose the current plugin state. |
+
+### Shutdown and runtime unloading
+
+Runtime unloading is a requirement. Completion of `shutdown` must leave the
+plugin ready for library unloading:
+
+- Stop accepting new work and cancel or complete pending operations.
+- Stop and join owned workers before destroying resources they use.
+- Release owned allocations, handles, connections and other resources.
+- Destroy plugin-created runtime objects, including externally owned objects,
+  through an agreed ownership/release contract before unloading their code.
+- Remove registered callbacks, factories, timers and other entry points; ensure
+  queued work cannot subsequently enter plugin code.
+
+The Qt-managed plugin root remains loader-owned and must be destroyed through
+the loader lifecycle, rather than deleting itself inside `shutdown`.
+
+The manager must stop dependent plugins and release external uses of the plugin
+before unloading its library. A plugin cannot make unloading safe while another
+module retains callable pointers, live objects or native DLL dependencies on it.
+The shutdown completion/error contract and the handling of native loader
+references remain to be designed. Library unloading must not proceed while
+shutdown is incomplete or outstanding uses remain.
 
 Exact C++ type names, method signatures, information fields, state values,
 error reporting and synchronous/asynchronous lifecycle behavior remain to be
@@ -92,8 +115,8 @@ Native dependency discovery must also be configured; metadata alone does not
 make dependency DLLs discoverable.
 
 The exact metadata schema, dependency/version policy and lifecycle semantics
-remain to be designed. This decision does not establish hot reload or other
-lifecycle features.
+remain to be designed. Runtime unloading is required; automatic reloading and
+state restoration are not specified.
 
 ## Evidence and implementation status
 
