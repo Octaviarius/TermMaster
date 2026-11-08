@@ -268,10 +268,11 @@ through `TERMASTER_EXTERNAL_PLUGIN`. Generated logs remain disposable build outp
 
 ## Management window
 
-The implementation belongs to module-root `src/core/gui/plugin/`. The concrete
+The implementation belongs to `src/core/src/gui/plugin/`. The concrete
 window, table projection and controller headers remain internal. The public
-`<Termaster/Core/gui/PluginManagerGui.h>` factory creates a modeless `QDialog`;
-the caller owns it. Destroying the borrowed manager disables the window safely.
+`<Termaster/Core/gui/plugin/PluginManagerGui.h>` factory creates a modeless `QDialog`;
+the caller owns it. Its implementation is `src/gui/plugin/PluginManagerGui.cpp`
+within Core. Destroying the borrowed manager disables the window safely.
 Closing the window does not itself change plugin preferences or stop the manager.
 
 The table shows enabled preferences, names, IDs, versions and runtime states,

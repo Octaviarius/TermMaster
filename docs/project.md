@@ -46,9 +46,12 @@ entry point, resource directory and application CMake assembly are directly in
 ```text
 src/<module>/
     CMakeLists.txt
-    inc/Termaster/<ModuleName>/<Header>.h
-    src/<implementation and internal directories>
-    gui/<module-owned GUI, grouped by feature>
+    inc/Termaster/<ModuleName>/<feature>/<Class>.h
+    src/<feature>/<Class>.cpp
+    inc/Termaster/<ModuleName>/gui/<feature>/<PublicGuiClass>.h
+    src/gui/<feature>/<PublicGuiClass>.cpp
+    src/gui/<feature>/<InternalClass>.h/.cpp
+    src/gui/<feature>/<Form>.ui
 ```
 
 Current modules are `core`, `managers`, `logic`, `terminal` and `widgets`;
@@ -57,9 +60,21 @@ For example, `<Termaster/Core/plugin/Plugin.h>` and
 `<Termaster/Managers/SettingsManager.h>`. Include paths are target-scoped.
 Existing target names and active responsibilities are preserved. Public headers
 use module-qualified paths; plugin headers are grouped under `Core/plugin`.
-Implementation directories such as `plugin`,
-`config` and `TermWidget` remain internal. Two inactive configuration widget
-placeholders remain internal and are not exposed as usable public API.
+The source hierarchy mirrors the public include hierarchy without repeating
+`Termaster/ModuleName`. Internal headers and forms stay beside their implementation.
+No module-root `gui/` or nested `gui/inc` and `gui/src` trees are used.
+
+GUI is grouped by feature: Core uses `gui/action` and `gui/plugin`; Widgets uses
+`gui/window`, `gui/about`, `gui/settings` and `gui/terminal`. Widgets, presentation
+models, delegates and controllers for the same feature live together. Public GUI
+contracts use the same feature path under `inc/Termaster/ModuleName/gui`.
+Existing cross-module widget APIs remain public; implementation-only classes stay
+under `src/gui`. Domain state is independent of that presentation hierarchy:
+`ActionContainer`, `PluginManager`, `TermModel`, `TermCursor` and `TermChar` remain
+outside `gui`. The terminal model classes retain their existing module ownership;
+no transport or emulation behavior is changed by this source relocation.
+Two inactive configuration widget placeholders remain internal and are not
+exposed as usable public API.
 
 The module layout does not change the existing static-library application graph
 into runtime plugins. `termaster_add_plugin` remains the explicit SHARED module
@@ -76,3 +91,19 @@ changes were introduced by the relocation.
 
 [Action containers](action-containers.md) describes ordered command groups, menu
 ownership and native Qt adapters.
+
+## Mirrored GUI layout verification
+
+On 2026-11-08, 44 files were relocated to the mirrored hierarchy. File contents
+were checked byte-for-byte during relocation; include paths were then updated
+and changed C++ files formatted. The plugin-window factory was extracted into
+`Core/src/gui/plugin/PluginManagerGui.cpp` to match its public header. CMake
+source existence, public header/source pairing and application-module includes
+were checked automatically. Forms retained their original contents.
+
+The MSVC 19.44 / Qt 6.12.0 Ninja Release application and all three test executables
+built successfully. All three CTest suites passed, including the external plugin
+SDK consumer. Native action-container and plugin-window suites passed 12 and 9
+QtTest results respectively without failures or skips. Native action-window and
+menu captures were pixel-identical to their pre-relocation references; the
+plugin-window capture was visually inspected. No GUI behavior change is intended.
