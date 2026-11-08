@@ -37,7 +37,8 @@ Every persisted document requires integer `version: 1`, a matching string `type`
 a string `description` and mapping `content`. Generic Settings defaults to type
 `termaster.settings` and description `Termaster settings`; specialized owners
 supply `Settings::Info`. The current application uses `termaster.application`,
-workspace files use `termaster.workspace`, and plugin preferences use
+workspace files use `termaster.workspace`, session files use `termaster.session`,
+and plugin preferences use
 `termaster.plugins`. Incorrect types, unsupported versions and bare legacy
 mappings fail loading. There are no migrations or compatibility aliases.
 
@@ -104,7 +105,9 @@ resolution performs no filesystem I/O and creates no directories.
 
 Session paths belong to [Workspace](workspaces-and-sessions.md), not application
 locations. Workspace owns one document and resolves its optional plugin/script
-directory metadata relative to that file's parent.
+directory metadata relative to that file's parent. Session catalog references
+point into its fixed local `sessions/` root. Each session owns `session.yaml`
+inside its own directory; catalog removal does not delete that directory.
 
 ## Plugin preferences
 
@@ -119,14 +122,20 @@ using the application-data `plugins.yaml` location with the mandatory
 ## Layered configuration
 
 `SettingsOverlay` combines application `content.settings` with workspace
-`content.settings`. Nested mappings merge recursively; overrides replace other
-values, including null. `setValue()` writes only to overrides; `remove()` removes
-only the override and exposes a base value again. Scoped overlays borrow both
-owners and use their thread. Application `content.state.lastWorkspace` is runtime
-state, outside the settings overlay. Application `content.state.recentWorkspaces`
-stores the global ten-entry path history; workspace `content.state.recentSessions`
-stores its own ten-entry session-ID history. Both use newest-first unique string
-lists and remain outside configurable defaults. See [workspace lifecycle](workspaces-and-sessions.md).
+`content.settings`, then allows a session `content.settings` mapping to overlay
+that live result. Nested mappings merge recursively; overrides replace other
+values, including null. Writes affect only the highest active override scope;
+removing an override reveals the inherited value. Parent changes remain visible
+without copying snapshots. Nodes and overlays borrow all owners, use their thread
+and become invalid when a required owner is released or replaced.
+
+Application `content.state.lastWorkspace` is lifecycle state outside configuration.
+Application `content.state.recentWorkspaces` stores the global ten-entry path
+history; workspace `content.state.recentSessions` stores local catalog IDs.
+Both use newest-first unique string lists. No last-session automatic restoration
+is implemented. See [workspace lifecycle](workspaces-and-sessions.md).
+Session settings and three-level overlays passed Debug tests; see
+[session verification](workspaces-and-sessions.md#verification-status).
 
 ## Earlier verification
 
@@ -147,5 +156,5 @@ plugin SDK consumer was included. A native plugin-window run passed all 9 result
 and its rendered capture was reviewed. Core CMake source existence, active module
 includes, preservation of the archived entry point and documentation links were
 validated automatically. Formatting and git diff --check passed. Unix filesystem
-acceptance was not performed; session/terminal-group loading remains planned. These results predate the
+acceptance was not performed. These results predate session configuration loading, the
 mandatory envelope and workspace lifecycle changes; they do not verify them.

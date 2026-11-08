@@ -21,14 +21,14 @@ Groups are stable placement slots. They do not determine whether a command is
 valid and do not own domain state. Empty groups produce no separator or button.
 The application and workspace groups contain implemented commands. New/Open
 workspace commands remain available without an active workspace; Save/Close
-require one. Session/terminal groups remain reserved for their domain stages.
+require one. Session New/Open require a workspace; session Save/Close/Rename
+require an active session. The terminal group remains reserved for runtime work.
 
 ## Context and execution requirements
 
-App currently derives workspace command state from its active Workspace owner,
+App derives workspace and session command state from its active owners,
 and EditActions derives editor command state from the focused standard Qt editor.
-Future session/terminal presentation derives state from the actual session and
-selected terminal. Terminal connection
+Future terminal presentation derives state from the selected terminal. Terminal connection
 state and operation capabilities remain authoritative in the terminal/backend
 owners. The controller must observe target selection changes, target destruction,
 state transitions and capability changes, then update the affected actions.
@@ -62,8 +62,9 @@ remain separate design stages.
 
 Icon-only toolbar presentation, the plugin action icon/tooltip and all four
 ordered extension groups are implemented and checked by AppTests. Empty-group
-separator behavior is covered by action-container tests. Runtime session
-selection beyond the active workspace, terminal capability/state models and
+separator behavior is covered by action-container tests. Session configuration
+selection, persistence, rename and enabled recent actions are implemented. These
+actions load configuration without starting connections. Terminal capability/state models and
 terminal command dispatch remain planned. Standard Edit actions already route to
 QLineEdit, QTextEdit and QPlainTextEdit using their actual capabilities; they do
 not simulate terminal behavior. See [workspaces and sessions](workspaces-and-sessions.md).
@@ -75,3 +76,6 @@ ordered groups and absence of separators for empty groups. Native AppTests passe
 at scale factors 1 and 2; both main-window captures were visually inspected.
 Formatting and git diff --check passed. These results predate workspace and
 standard-editor command changes; they do not verify those additions.
+
+Session actions passed Debug integration tests and native GUI checks at scales
+1 and 2; see [session verification](workspaces-and-sessions.md#verification-status).

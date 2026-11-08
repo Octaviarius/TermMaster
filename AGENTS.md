@@ -62,10 +62,14 @@ changing behavior. These rules apply repository-wide.
 - Core must not depend on those reference modules. Active YAML plugin preferences
   use the general Core Settings owner and preserve validation and atomic writes.
 - The application opens a workspace. A workspace owns general workspace settings,
-  session settings and saved sessions; a session is a group of configured terminals.
-  Session selection belongs to that workspace's menu/catalog. Keep session paths
-  with the workspace, separate from application-wide configuration/log/plugin paths.
-  Record unimplemented workspace/session behavior as planned, not delivered.
+  a session catalog and session history. Sessions persist object, link, resource and
+  presentation configuration in individual session.yaml documents. Catalog entries
+  reference relative directories under the workspace-local sessions root. App assigns
+  stable UUID identity separately from mutable human-readable names. Session selection
+  belongs to the workspace menu/catalog. Catalog removal does not delete files.
+  Keep session paths separate from application-wide configuration/log/plugin paths.
+  Session loading is configuration only; record terminal/backend activation and graph
+  execution as planned, not delivered.
 - Preserve meaningful boundaries between:
   - terminal connection backends and byte transport;
   - terminal emulation and escape-sequence parsing;
@@ -178,6 +182,10 @@ changing behavior. These rules apply repository-wide.
   metadata until discovery/execution is explicitly implemented.
 - Use the existing settings owner rather than reading and writing settings
   independently from every widget.
+- Configuration overlays are live borrowed application/workspace/session layers.
+  Write only to the highest active scope and preserve inherited values. Save active
+  sessions before workspace replacement, closure and normal exit. Startup restores
+  the workspace only; do not imply automatic last-session restoration.
 - Keep persistence separate from widget state and connection lifecycle.
   Validate loaded values before applying them to devices or allocating resources.
 - Do not silently discard unknown settings or overwrite unrelated preferences.

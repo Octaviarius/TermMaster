@@ -57,10 +57,14 @@ cmake --preset Desktop_Qt_6_12_0_MSVC2022_64bit-Debug `
     -DTERMASTER_BUILD_SETTINGS_TESTS=ON `
     -DTERMASTER_BUILD_COMMAND_TESTS=ON `
     -DTERMASTER_BUILD_APP_TESTS=ON `
-    -DTERMASTER_BUILD_WORKSPACE_TESTS=ON
+    -DTERMASTER_BUILD_WORKSPACE_TESTS=ON `
+    -DTERMASTER_BUILD_SESSION_TESTS=ON
 cmake --build --preset Desktop_Qt_6_12_0_MSVC2022_64bit-Debug
 ctest --preset Desktop_Qt_6_12_0_MSVC2022_64bit-Debug
 ```
+
+SessionTests covers independent session documents, graph validation, resources
+and borrowed settings overlays. Session-stage verification is pending.
 
 The independent plugin SDK acceptance additionally needs a separately built
 consumer with matching Debug/Release configuration, Qt and compiler. Supply its
