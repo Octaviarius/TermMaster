@@ -4,8 +4,15 @@
 #include <QIcon>
 #include <QKeySequence>
 #include <QList>
+#include <QMap>
+#include <QPointer>
 #include <QString>
 
+/** GUI-thread command. Actions are borrowed until their parent or command destroys them.
+ * Callbacks must use deleteLater() for their emitting command/action. Shared mode
+ * ignores action parents and owns its action. Empty initial shortcut uses default;
+ * call setShortcut({}) after construction to explicitly disable it.
+ */
 class Command : public QObject
 {
     Q_OBJECT
@@ -17,9 +24,10 @@ public:
             QString      text            = "",
             QIcon        icon            = QIcon(),
             QKeySequence defaultShortcut = QKeySequence(),
-            QKeySequence shortcut        = QKeySequence());
+            QKeySequence shortcut        = QKeySequence(),
+            QObject*     owner           = nullptr);
 
-    ~Command();
+    ~Command() override;
 
     QString      name() const;
     QString      text() const;
@@ -28,7 +36,6 @@ public:
     QKeySequence shortcut() const;
     QKeySequence defaultShortcut() const;
 
-    Command& setName(QString name);
     Command& setText(QString text);
     Command& setTooltip(QString tooltip);
     Command& setIcon(QIcon icon);
@@ -36,27 +43,23 @@ public:
     Command& setDefaultShortcut(QKeySequence shortcuts);
     Command& setSingleInstance(bool isSingle);
 
-    const QList<QAction*> actions() const;
-    QAction*              newAction(QObject* parent = nullptr);
+    QList<QAction*> actions() const;
+    QAction*        newAction(QObject* parent = nullptr);
+
+    Q_SLOT void   resetShortcut();
+    Q_SLOT void   changeShortcut(QKeySequence shortcut);
+    Q_SIGNAL void shortcutChanged(Command* command);
 
 private:
-    QString      _name;
-    QString      _text;
-    QString      _tooltip;
-    QIcon        _icon;
-    QKeySequence _shortcut;
-    QKeySequence _defaultShortcut;
+    const QString            _name;
+    QString                  _text;
+    QString                  _tooltip;
+    QIcon                    _icon;
+    QKeySequence             _shortcut;
+    QKeySequence             _defaultShortcut;
+    QList<QPointer<QAction>> _actions;
+    bool                     _isSingleInstance = false;
+    bool                     _destroying       = false;
 
-    QList<QAction*> _actions;
-    bool            _isSingleInstance;
-
-public slots:
-    void resetShortcut();
-    void changeShortcut(QKeySequence shortcut);
-
-private slots:
-    void _actionDestroyed(QObject* action);
-
-signals:
-    void shortcutChanged(Command* command);
+    void _actionDestroyed();
 };
