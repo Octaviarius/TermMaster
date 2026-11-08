@@ -13,6 +13,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core)
 qt_standard_project_setup()
 
 include(cmake/PluginApi.cmake)
+include(cmake/Valijson.cmake)
 
 add_subdirectory(src)
 add_subdirectory(components/yaml-cpp)
@@ -63,6 +64,13 @@ option(TERMASTER_BUILD_SESSION_TESTS "Build session document tests" OFF)
 if(TERMASTER_BUILD_SESSION_TESTS)
     enable_testing()
     add_subdirectory(tools/tests/Session)
+endif()
+
+option(TERMASTER_BUILD_SCHEMA_TESTS "Build settings schema and generated form tests" OFF)
+if(TERMASTER_BUILD_SCHEMA_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/SettingsSchema)
+    add_subdirectory(tools/tests/SettingsForm)
 endif()
 
 message("")

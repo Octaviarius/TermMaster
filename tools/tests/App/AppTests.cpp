@@ -1,5 +1,6 @@
 #include <QClipboard>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -31,6 +32,7 @@
 #include <Termaster/Core/gui/action/MenuActionContainer.h>
 #include <Termaster/Core/gui/action/MenubarActionContainer.h>
 #include <Termaster/Core/gui/action/ToolbarActionContainer.h>
+#include <Termaster/Core/gui/settings/SettingsFormModel.h>
 
 class AppTests final : public QObject
 {
@@ -532,6 +534,61 @@ private:
         QVERIFY(QDir().rmdir(file));
         QVERIFY(QFile::rename(backup, file));
         QVERIFY(_app.closeWorkspace(&error));
+    }
+
+    Q_SLOT void generatedSettingsDialog()
+    {
+        QString error;
+        QVERIFY(_app.settings().setValue("settings/ui/toolbarVisible", true));
+        QVERIFY(_app.settings().setValue("settings/ui/statusBarVisible", true));
+        auto* command = _app.commands().find("Application.Settings")->actions().first();
+        command->trigger();
+        QPointer<QDialog> dialog(_app.mainWindow().findChild<QDialog*>("settingsDialog"));
+        QVERIFY(dialog);
+        auto* model = dialog->findChild<SettingsFormModel*>();
+        QVERIFY(model);
+        model->setValue("toolbar", false);
+        QVERIFY(_app.configuration().value("ui/toolbarVisible").toBool());
+        dialog->reject();
+        QTRY_VERIFY(dialog.isNull());
+        QVERIFY(_app.configuration().value("ui/toolbarVisible").toBool());
+
+        QTemporaryDir temporary;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("settings.termaster")), "Settings", &error));
+        command->trigger();
+        dialog = _app.mainWindow().findChild<QDialog*>("settingsDialog");
+        QVERIFY(dialog);
+        model = dialog->findChild<SettingsFormModel*>();
+        model->setValue("toolbar", false);
+        auto* buttons = dialog->findChild<QDialogButtonBox*>();
+        QVERIFY(buttons->button(QDialogButtonBox::Apply)->isEnabled());
+        buttons->button(QDialogButtonBox::Apply)->click();
+        QVERIFY(_app.toolbar().toolbar()->isHidden());
+        QVERIFY(_app.settings().value("settings/ui/toolbarVisible").toBool());
+        Settings saved(_app.workspace()->filePath(), {"termaster.workspace", "Termaster workspace"});
+        QVERIFY(saved.load(&error));
+        QVERIFY(!saved.value("settings/ui/toolbarVisible").toBool());
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            QVERIFY(dialog->grab().save(QDir(capture).filePath("Settings.png")));
+        }
+        QVERIFY(_app.createSession("Settings session", &error));
+        QTRY_VERIFY(dialog.isNull());
+        command->trigger();
+        dialog = _app.mainWindow().findChild<QDialog*>("settingsDialog");
+        QVERIFY(dialog);
+        model = dialog->findChild<SettingsFormModel*>();
+        model->setValue("statusBar", false);
+        buttons = dialog->findChild<QDialogButtonBox*>();
+        buttons->button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!_app.configuration().value("ui/statusBarVisible").toBool());
+        QVERIFY(_app.workspace()->settings().value("ui/statusBarVisible", true).toBool());
+        QVERIFY(_app.closeSession(&error));
+        QTRY_VERIFY(dialog.isNull());
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(!_app.toolbar().toolbar()->isHidden());
     }
 
     Q_SLOT void pluginWindowLifecycle()

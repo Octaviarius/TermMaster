@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 #include <memory>
 
@@ -31,6 +32,7 @@ public:
         QVariantMap values() const;
         bool        setValue(const QString& key, const QVariant& value, QString* error = nullptr);
         bool        remove(const QString& key, QString* error = nullptr);
+        bool        applyValues(QVariantMap values, QStringList removed, QString* error = nullptr);
         Node        node(const QString& path) const;
 
     private:
@@ -65,6 +67,9 @@ public:
     Node        node(const QString& path);
     bool        setValue(const QString& key, const QVariant& value, QString* error = nullptr);
     bool        remove(const QString& key, QString* error = nullptr);
+
+    /** Applies an all-or-nothing patch of relative paths to the cached document. */
+    bool applyValues(QVariantMap values, QStringList removed, QString* error = nullptr);
 
 private:
     struct Data;

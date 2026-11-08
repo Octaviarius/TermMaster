@@ -88,7 +88,7 @@ QByteArray serialize(const YAML::Node& root)
 
 bool validKey(const QString& key)
 {
-    if (key.isEmpty() || key.count('/') >= 64)
+    if (key.isEmpty() || key.count('/') >= 64 || key.contains(QChar::Null))
     {
         return false;
     }
@@ -527,32 +527,20 @@ QVariantMap Settings::values() const
 
 bool Settings::setValue(const QString& key, const QVariant& value, QString* error)
 {
-    if (error)
-    {
-        error->clear();
-    }
-    try
-    {
-        if (!validKey(key))
+    return applyValues(
         {
-            throw std::runtime_error("Invalid settings key");
-        }
-        qsizetype  remaining = 100000;
-        const auto converted = toYaml(value, remaining);
-        auto       candidate = YAML::Clone(_data->root);
-        update(detachContent(candidate), key.split('/'), 0, converted, false);
-        serialize(candidate);
-        _data->root.reset(candidate);
-        _data->dirty = true;
-        return true;
-    }
-    catch (const std::exception& exception)
-    {
-        return failure(error, "set", key, exception);
-    }
+            {key, value}
+    },
+        {},
+        error);
 }
 
 bool Settings::remove(const QString& key, QString* error)
+{
+    return applyValues({}, {key}, error);
+}
+
+bool Settings::applyValues(QVariantMap values, QStringList removed, QString* error)
 {
     if (error)
     {
@@ -560,23 +548,70 @@ bool Settings::remove(const QString& key, QString* error)
     }
     try
     {
-        if (!validKey(key))
+        QStringList paths = values.keys();
+        paths.append(removed);
+        for (const auto& path : paths)
         {
-            throw std::runtime_error("Invalid settings key");
+            if (!validKey(path))
+            {
+                throw std::runtime_error("Invalid settings key");
+            }
         }
-        auto candidate = YAML::Clone(_data->root);
-        if (!update(detachContent(candidate), key.split('/'), 0, YAML::Node(), true))
+        QSet<QString> seen;
+        for (const auto& path : paths)
+        {
+            if (seen.contains(path))
+            {
+                throw std::runtime_error("Settings patch paths overlap");
+            }
+            seen.insert(path);
+        }
+        for (const auto& path : paths)
+        {
+            auto parent = path;
+            while (parent.contains('/'))
+            {
+                parent.truncate(parent.lastIndexOf('/'));
+                if (seen.contains(parent))
+                {
+                    throw std::runtime_error("Settings patch paths overlap");
+                }
+            }
+        }
+        if (paths.isEmpty())
         {
             return true;
         }
-        serialize(candidate);
-        _data->root.reset(candidate);
-        _data->dirty = true;
+
+        qsizetype         remaining = 100000;
+        QList<YAML::Node> converted;
+        for (const auto& value : values)
+        {
+            converted.append(toYaml(value, remaining));
+        }
+        auto      candidate = YAML::Clone(_data->root);
+        auto      content   = detachContent(candidate);
+        bool      changed   = !values.isEmpty();
+        qsizetype index     = 0;
+        for (auto it = values.cbegin(); it != values.cend(); ++it)
+        {
+            update(content, it.key().split('/'), 0, converted[index++], false);
+        }
+        for (const auto& path : removed)
+        {
+            changed = update(content, path.split('/'), 0, YAML::Node(), true) || changed;
+        }
+        if (changed)
+        {
+            serialize(candidate);
+            _data->root.reset(candidate);
+            _data->dirty = true;
+        }
         return true;
     }
     catch (const std::exception& exception)
     {
-        return failure(error, "remove", key, exception);
+        return failure(error, "apply settings patch to", _data->path, exception);
     }
 }
 
@@ -677,6 +712,41 @@ bool Settings::Node::setValue(const QString& key, const QVariant& value, QString
 bool Settings::Node::remove(const QString& key, QString* error)
 {
     return _writable(key, error) && _context->owner->remove(_key(key), error);
+}
+
+bool Settings::Node::applyValues(QVariantMap values, QStringList removed, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!isValid())
+    {
+        if (error)
+        {
+            *error = "Settings scope is invalid or its owner has been destroyed";
+        }
+        return false;
+    }
+    QVariantMap prefixed;
+    QStringList prefixedRemoved;
+    for (auto it = values.cbegin(); it != values.cend(); ++it)
+    {
+        if (!_writable(it.key(), error))
+        {
+            return false;
+        }
+        prefixed.insert(_key(it.key()), it.value());
+    }
+    for (const auto& key : removed)
+    {
+        if (!_writable(key, error))
+        {
+            return false;
+        }
+        prefixedRemoved.append(_key(key));
+    }
+    return _context->owner->applyValues(prefixed, prefixedRemoved, error);
 }
 
 Settings::Node Settings::Node::node(const QString& path) const

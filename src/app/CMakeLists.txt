@@ -11,6 +11,8 @@ qt_add_library(App STATIC
     src/gui/main/MainWindow.cpp
     src/gui/main/EditActions.h
     src/gui/main/EditActions.cpp
+    src/gui/settings/SettingsDialog.h
+    src/gui/settings/SettingsDialog.cpp
     src/gui/workspace/WorkspacePage.h
     src/gui/workspace/WorkspacePage.cpp
 )
@@ -31,4 +33,11 @@ qt_add_resources(App "appIcons"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/../../assets"
     FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/../../assets/IconOrange.png"
+)
+
+qt_add_resources(App "appSettingsSchema"
+    PREFIX "/Termaster/App"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/res"
+    FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/res/SettingsSchema.yaml"
 )

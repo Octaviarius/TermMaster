@@ -126,6 +126,28 @@ QVariantMap SettingsOverlay::values() const
     return lookup(merged, _prefix, &found).toMap();
 }
 
+bool SettingsOverlay::containsInherited(const QString& key) const
+{
+    if (!isValid() || !validKey(key) || !validKey(_key(key)))
+    {
+        return false;
+    }
+    bool found = false;
+    lookup(_baseValues(), _key(key), &found);
+    return found;
+}
+
+QVariant SettingsOverlay::inheritedValue(const QString& key, const QVariant& fallback) const
+{
+    if (!isValid() || !validKey(key) || !validKey(_key(key)))
+    {
+        return fallback;
+    }
+    bool       found  = false;
+    const auto result = lookup(_baseValues(), _key(key), &found);
+    return found ? result : fallback;
+}
+
 bool SettingsOverlay::setValue(const QString& key, const QVariant& value, QString* error)
 {
     if (error)
@@ -158,6 +180,49 @@ bool SettingsOverlay::remove(const QString& key, QString* error)
         return false;
     }
     return _overrides.remove(_key(key), error);
+}
+
+bool SettingsOverlay::applyValues(QVariantMap values, QStringList removed, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!isValid())
+    {
+        if (error)
+        {
+            *error = "Invalid or expired settings overlay scope";
+        }
+        return false;
+    }
+    QVariantMap prefixed;
+    QStringList prefixedRemoved;
+    for (auto it = values.cbegin(); it != values.cend(); ++it)
+    {
+        if (!validKey(it.key()) || !validKey(_key(it.key())))
+        {
+            if (error)
+            {
+                *error = "Invalid settings key";
+            }
+            return false;
+        }
+        prefixed.insert(_key(it.key()), it.value());
+    }
+    for (const auto& key : removed)
+    {
+        if (!validKey(key) || !validKey(_key(key)))
+        {
+            if (error)
+            {
+                *error = "Invalid settings key";
+            }
+            return false;
+        }
+        prefixedRemoved.append(_key(key));
+    }
+    return _overrides.applyValues(prefixed, prefixedRemoved, error);
 }
 
 SettingsOverlay SettingsOverlay::node(const QString& path) const

@@ -9,6 +9,7 @@ class CommandRegistry;
 class MenubarActionContainer;
 class ToolbarActionContainer;
 class Settings;
+class SettingsWidgetRegistry;
 class QMainWindow;
 class Path;
 class Workspace;
@@ -40,6 +41,7 @@ public:
     const ApplicationPaths& paths() const;
     Settings&               settings();
     CommandRegistry&        commands();
+    SettingsWidgetRegistry& settingsWidgets();
     QMainWindow&            mainWindow();
     MenubarActionContainer& mainMenu();
     ToolbarActionContainer& toolbar();
@@ -70,6 +72,7 @@ private:
 
     void     _setupActions();
     void     _showPluginManager();
+    void     _showSettings();
     bool     _ensureApplicationSettings(QString* error);
     bool     _rememberWorkspace(const Path& file, QString* error);
     bool     _activateWorkspace(std::unique_ptr<Workspace> workspace, QString* error);

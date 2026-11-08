@@ -1,0 +1,285 @@
+#include <QComboBox>
+#include <QFile>
+#include <QHBoxLayout>
+#include <QLineEdit>
+#include <QPlainTextEdit>
+#include <QStandardItemModel>
+#include <QStyle>
+#include <QTemporaryDir>
+#include <QtTest>
+#include <Termaster/Core/gui/settings/SettingsFormWidget.h>
+#include <stdexcept>
+
+namespace
+{
+std::shared_ptr<const SettingsSchema> schema(const QByteArray& properties, const QByteArray& extra = {})
+{
+    QByteArray yaml
+        = "version: 1\ntype: termaster.settings-schema\ndescription: Test form\ncontent:\n  $schema: http://json-schema.org/draft-07/schema#\n  type: object\n  properties:\n";
+    for (const auto& line : properties.split('\n'))
+    {
+        yaml += "    " + line + '\n';
+    }
+    yaml += extra;
+    return std::make_shared<const SettingsSchema>(yaml);
+}
+
+class PortEditor final : public SettingsFieldEditor
+{
+public:
+    explicit PortEditor(QWidget* parent) : SettingsFieldEditor(parent)
+    {
+        auto* layout = new QHBoxLayout(this);
+        layout->setContentsMargins(0, 0, 0, 0);
+        auto* combo = new QComboBox(this);
+        layout->addWidget(combo);
+        auto* model = new QStandardItemModel(combo);
+        auto* item  = new QStandardItem(QApplication::style()->standardIcon(QStyle::SP_ComputerIcon),
+                                        "Synthetic COM fixture");
+        item->setData(QString("COM_TEST"), Qt::UserRole);
+        model->appendRow(item);
+        combo->setModel(model);
+        _combo = combo;
+        connect(combo, &QComboBox::currentIndexChanged, this, [this] { emit valueChanged(); });
+    }
+    QVariant value() const override
+    {
+        return _combo->currentData();
+    }
+    void setValue(const QVariant& value) override
+    {
+        _combo->setCurrentIndex(_combo->findData(value));
+    }
+
+private:
+    QComboBox* _combo;
+};
+} // namespace
+
+class SettingsFormTests : public QObject
+{
+    Q_OBJECT
+private:
+    Q_SLOT void defaultsCancelAndAtomicApply()
+    {
+        QTemporaryDir directory;
+        const auto    path = directory.filePath("settings.yaml");
+        Settings      settings(path);
+        QVERIFY(settings.setValue("plugin/unknown", "preserved"));
+        auto descriptor = schema(
+            "name: {type: string, default: initial, x-settings-path: nested/name}\ncount: {type: integer, minimum: 1, default: 2}");
+        SettingsFormModel model(descriptor, settings.node("plugin"));
+        QVERIFY(!settings.contains("plugin/nested/name"));
+        QVERIFY(!model.isDirty());
+        QCOMPARE(model.value("name").toString(), "initial");
+        model.setValue("name", "discarded");
+        model.reload();
+        QCOMPARE(model.value("name").toString(), "initial");
+        model.setValue("count", 0);
+        QString error;
+        QVERIFY(!model.apply(&error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!settings.contains("plugin/nested/name"));
+        model.setValue("count", 5);
+        QVERIFY(model.apply(&error));
+        QCOMPARE(settings.value("plugin/count").toLongLong(), 5);
+        QCOMPARE(settings.value("plugin/nested/name").toString(), "initial");
+        QCOMPARE(settings.value("plugin/unknown").toString(), "preserved");
+        QVERIFY(!QFile::exists(path));
+    }
+
+    Q_SLOT void staleScopeAndConcurrentEdits()
+    {
+        QTemporaryDir directory;
+        auto          owner = std::make_unique<Settings>(directory.filePath("settings.yaml"));
+        QVERIFY(owner->setValue("a", "first"));
+        QVERIFY(owner->setValue("b", "first"));
+        auto              descriptor = schema("a: {type: string}\nb: {type: string}");
+        SettingsFormModel model(descriptor, owner->node(""));
+        model.setValue("a", "draft");
+        QVERIFY(owner->setValue("b", "external"));
+        QVERIFY(model.apply());
+        QCOMPARE(owner->value("b").toString(), "external");
+        model.setValue("a", "next");
+        QVERIFY(owner->setValue("a", "conflict"));
+        QString error;
+        QVERIFY(!model.apply(&error));
+        QCOMPARE(owner->value("a").toString(), "conflict");
+        owner.reset();
+        QVERIFY(!model.apply(&error));
+        QVERIFY(!error.isEmpty());
+    }
+
+    Q_SLOT void optionalReadOnlyAndPrecision()
+    {
+        QTemporaryDir directory;
+        Settings      owner(directory.filePath("settings.yaml"));
+        QVERIFY(owner.setValue("locked", "fixed"));
+        auto descriptor = schema(
+            "locked: {type: string, readOnly: true}\noptional: {}\nlarge: {type: integer, default: 9007199254740991}\nnumber: {type: number, default: 1.5}");
+        SettingsFormModel      model(descriptor, owner.node(""));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        model.setValue("locked", "changed");
+        QCOMPARE(model.value("locked").toString(), "fixed");
+        QVERIFY(!form.editor("locked")->isEnabled());
+        model.setValue("optional", QVariant());
+        QVERIFY(model.contains("optional"));
+        QVERIFY(model.apply());
+        QVERIFY(owner.contains("optional"));
+        QVERIFY(!owner.value("optional").isValid());
+        model.removeValue("optional");
+        QVERIFY(model.apply());
+        QVERIFY(!owner.contains("optional"));
+        QVERIFY(model.apply());
+        auto* line = form.editor("large")->findChild<QLineEdit*>();
+        QVERIFY(line);
+        line->setText("18446744073709551615");
+        QVERIFY(!model.isValid());
+        QVERIFY(!model.apply());
+        QCOMPARE(owner.value("large").toLongLong(), qlonglong(9007199254740991LL));
+        line->setText("9007199254740991");
+        QVERIFY(model.isValid());
+        QVERIFY(model.apply());
+        QCOMPARE(owner.value("large").toLongLong(), qlonglong(9007199254740991LL));
+        line->setText("18446744073709551616");
+        QVERIFY(!model.isValid());
+        QVERIFY(!model.apply());
+        QCOMPARE(owner.value("large").toLongLong(), qlonglong(9007199254740991LL));
+        line->setText("123");
+        QVERIFY(model.isValid());
+        form.editor("number")->findChild<QLineEdit*>()->setText("nan");
+        QVERIFY(!model.isValid());
+    }
+
+    Q_SLOT void typedDraftAndConcurrentChanges()
+    {
+        QTemporaryDir directory;
+        Settings      owner(directory.filePath("settings.yaml"));
+        QVERIFY(owner.setValue("value", 1));
+        auto              descriptor = schema("value: {enum: [1, '1', false, 0]}");
+        SettingsFormModel model(descriptor, owner.node(""));
+        model.setValue("value", QString("1"));
+        QVERIFY(model.isDirty());
+        QVERIFY(model.apply());
+        QCOMPARE(owner.value("value").typeId(), QMetaType::QString);
+        model.setValue("value", false);
+        QVERIFY(owner.setValue("value", 1));
+        QVERIFY(!model.apply());
+        QCOMPARE(owner.value("value").toInt(), 1);
+    }
+
+    Q_SLOT void overlayAndInvalidOptionalRemoval()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      overrides(directory.filePath("overrides.yaml"));
+        QVERIFY(base.setValue("name", "inherited"));
+        QVERIFY(base.setValue("unknown", "keep"));
+        SettingsOverlay        overlay(base.node(""), overrides.node(""));
+        auto                   descriptor = schema("name: {type: string}\ncount: {type: integer}");
+        SettingsFormModel      model(descriptor, overlay);
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        model.setValue("name", "override");
+        QVERIFY(model.apply());
+        QCOMPARE(base.value("name").toString(), "inherited");
+        QCOMPARE(overrides.value("name").toString(), "override");
+        QVERIFY(!overrides.contains("unknown"));
+        model.setValue("count", 3);
+        auto* line = form.editor("count")->findChild<QLineEdit*>();
+        QVERIFY(line);
+        line->setText("invalid");
+        QVERIFY(!model.isValid());
+        model.removeValue("count");
+        QVERIFY(model.isValid());
+        QVERIFY(model.apply());
+        QVERIFY(!overrides.contains("count"));
+    }
+
+    Q_SLOT void overlayRemovalValidatesInheritedValue()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      overrides(directory.filePath("overrides.yaml"));
+        QVERIFY(base.setValue("scope/count", 0));
+        QVERIFY(overrides.setValue("scope/count", 3));
+        SettingsOverlay   overlay(base.node(""), overrides.node(""));
+        auto              descriptor = schema("count: {type: integer, minimum: 1}");
+        SettingsFormModel model(descriptor, overlay.node("scope"));
+        model.removeValue("count");
+        QCOMPARE(model.value("count").toInt(), 0);
+        QVERIFY(!model.isValid());
+        QVERIFY(!model.apply());
+        QCOMPARE(overrides.value("scope/count").toInt(), 3);
+        QCOMPARE(base.value("scope/count").toInt(), 0);
+        QVERIFY(base.setValue("scope/count", 4));
+        model.removeValue("count");
+        QVERIFY(model.isValid());
+        QVERIFY(model.apply());
+        QVERIFY(!overrides.contains("scope/count"));
+        QCOMPARE(overlay.value("scope/count").toInt(), 4);
+    }
+
+    Q_SLOT void unionUsesTypedYamlInput()
+    {
+        QTemporaryDir          directory;
+        Settings               owner(directory.filePath("settings.yaml"));
+        auto                   descriptor = schema("value: {type: [integer, 'null'], default: null}");
+        SettingsFormModel      model(descriptor, owner.node(""));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        auto*                  text = form.editor("value")->findChild<QPlainTextEdit*>();
+        QVERIFY(text);
+        text->setPlainText("42");
+        QVERIFY(model.isValid());
+        QVERIFY(model.apply());
+        QCOMPARE(owner.value("value").toLongLong(), 42);
+        text->setPlainText("null");
+        QVERIFY(model.isValid());
+        QVERIFY(model.apply());
+        QVERIFY(owner.contains("value"));
+        QVERIFY(!owner.value("value").isValid());
+    }
+
+    Q_SLOT void customRegistryLifecycleAndCapture()
+    {
+        SettingsWidgetRegistry registry;
+        registry.registerWidget("fixturePort",
+                                [](const SettingsSchema::Field&, QWidget* parent) { return new PortEditor(parent); });
+        QVERIFY_EXCEPTION_THROWN(registry.registerWidget("fixturePort",
+                                                         [](const auto&, QWidget*) -> SettingsFieldEditor* {
+                                                             return nullptr;
+                                                         }),
+                                 std::invalid_argument);
+        QTemporaryDir directory;
+        Settings      owner(directory.filePath("settings.yaml"));
+        auto          descriptor = schema(
+            "port:\n  type: string\n  title: Synthetic serial port\n  default: COM_TEST\n  x-widget: fixturePort\nname:\n  type: string\n  title: Display name\n  description: Unicode display name for this synthetic configuration.\n  default: 'Terminal Ω'\nenabled: {type: boolean, default: true}\nmode: {enum: [1, '1'], default: 1}");
+        SettingsFormModel model(descriptor, owner.node(""));
+        {
+            SettingsFormWidget form(model, registry);
+            QVERIFY(form.editor("port"));
+            QVERIFY_EXCEPTION_THROWN(registry.unregisterWidget("fixturePort"), std::logic_error);
+            auto* combo = form.editor("mode")->findChild<QComboBox*>();
+            QVERIFY(combo);
+            combo->setCurrentIndex(1);
+            QCOMPARE(model.value("mode").typeId(), QMetaType::QString);
+            form.resize(640, 620);
+            form.show();
+            QTest::qWait(30);
+            const auto capture = qEnvironmentVariable("TERMASTER_SETTINGS_GUI_CAPTURE");
+            if (!capture.isEmpty())
+            {
+                QVERIFY(form.grab().save(capture));
+            }
+        }
+        QVERIFY(registry.unregisterWidget("fixturePort"));
+        QVERIFY(!registry.unregisterWidget("fixturePort"));
+        SettingsSchema::Field field;
+        field.widget = "unknown";
+        QVERIFY_EXCEPTION_THROWN(registry.create(field, nullptr), std::invalid_argument);
+    }
+};
+QTEST_MAIN(SettingsFormTests)
+#include "SettingsFormTests.moc"

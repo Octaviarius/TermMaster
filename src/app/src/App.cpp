@@ -1,5 +1,6 @@
 #include "gui/main/EditActions.h"
 #include "gui/main/MainWindow.h"
+#include "gui/settings/SettingsDialog.h"
 
 #include <QCloseEvent>
 #include <QDialog>
@@ -25,10 +26,12 @@
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
+#include <Termaster/Core/SettingsSchema.h>
 #include <Termaster/Core/Version.h>
 #include <Termaster/Core/Workspace.h>
 #include <Termaster/Core/gui/action/MenuActionContainer.h>
 #include <Termaster/Core/gui/plugin/PluginManagerGui.h>
+#include <Termaster/Core/gui/settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/plugin/PluginManager.h>
 #include <array>
 #include <exception>
@@ -41,9 +44,11 @@ struct App::Data
     std::unique_ptr<Workspace>        workspace;
     std::unique_ptr<Session>          session;
     CommandRegistry                   commands;
+    SettingsWidgetRegistry            settingsWidgets;
     std::unique_ptr<MainWindow>       window;
     std::unique_ptr<EditActions>      editing;
     QPointer<QDialog>                 pluginWindow;
+    QPointer<SettingsDialog>          settingsWindow;
     QPointer<QAction>                 createSessionAction;
     QPointer<QAction>                 openSessionAction;
     QPointer<QAction>                 saveSessionAction;
@@ -94,6 +99,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
     setApplicationName("Termaster");
     setApplicationVersion(Version::shortVersion);
     Q_INIT_RESOURCE(appIcons);
+    Q_INIT_RESOURCE(appSettingsSchema);
     setWindowIcon(QIcon(":/Termaster/App/IconOrange.png"));
 
     _data = std::make_unique<Data>(options);
@@ -149,6 +155,11 @@ Settings& App::settings()
 {
     return _data->settings;
 }
+SettingsWidgetRegistry& App::settingsWidgets()
+{
+    return _data->settingsWidgets;
+}
+
 CommandRegistry& App::commands()
 {
     return _data->commands;
@@ -579,6 +590,14 @@ void App::_setupActions()
             _data->window->showNormal();
         }
     });
+    auto* preferences = _addAction("Application.Settings",
+                                   tr("&Settings…"),
+                                   icon("preferences-system", QStyle::SP_FileDialogDetailedView),
+                                   QKeySequence::Preferences,
+                                   "tools",
+                                   "management");
+    preferences->setMenuRole(QAction::PreferencesRole);
+    connect(preferences, &QAction::triggered, this, &App::_showSettings);
     auto* plugins = _addAction("Application.Plugins",
                                tr("&Plugins…"),
                                icon("application-x-addon", QStyle::SP_FileDialogDetailedView),
@@ -1198,4 +1217,49 @@ void App::_chooseSession()
     {
         _showError(error);
     }
+}
+
+void App::_showSettings()
+{
+    if (!_data->settingsWindow)
+    {
+        QString error;
+        if (!_ensureApplicationSettings(&error))
+        {
+            _showError(error);
+            return;
+        }
+        QFile file(":/Termaster/App/SettingsSchema.yaml");
+        if (!file.open(QIODevice::ReadOnly))
+        {
+            _showError(file.errorString());
+            return;
+        }
+        auto  schema = std::make_shared<SettingsSchema>(file.readAll());
+        auto* dialog = new SettingsDialog(
+            std::move(schema),
+            configuration(),
+            settingsWidgets(),
+            [this](QString* error) { return _saveChanges(error); },
+            _data->window.get());
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        _data->settingsWindow = dialog;
+        dialog->setWindowTitle(_data->session   ? tr("Session settings") :
+                               _data->workspace ? tr("Workspace settings") :
+                                                  tr("Application settings"));
+        connect(dialog, &SettingsDialog::applied, this, &App::_applyConfiguration);
+        const auto* workspace          = _data->workspace.get();
+        const auto* session            = _data->session.get();
+        const auto  closeOnScopeChange = [this, dialog, workspace, session] {
+            if (_data->workspace.get() != workspace || _data->session.get() != session)
+            {
+                dialog->reject();
+            }
+        };
+        connect(this, &App::workspaceChanged, dialog, closeOnScopeChange);
+        connect(this, &App::sessionChanged, dialog, closeOnScopeChange);
+    }
+    _data->settingsWindow->show();
+    _data->settingsWindow->raise();
+    _data->settingsWindow->activateWindow();
 }
