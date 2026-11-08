@@ -1,9 +1,8 @@
-#include "core/plugin/Plugin.h"
-
 #include <QFile>
 #include <QObject>
 #include <QThread>
 #include <QTimer>
+#include <Termaster/Core/Plugin.h>
 
 #ifdef FIXTURE_PROVIDER
 extern "C" int termasterFixtureValue()

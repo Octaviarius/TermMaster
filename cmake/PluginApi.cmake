@@ -3,7 +3,7 @@ include(CMakePackageConfigHelpers)
 set(plugin_api_root "${CMAKE_BINARY_DIR}/plugin/PluginApi")
 set(plugin_api_package "${plugin_api_root}/lib/cmake/TermasterPluginApi")
 configure_file(
-    "${CMAKE_CURRENT_LIST_DIR}/../src/app/core/plugin/Plugin.h"
+    "${CMAKE_CURRENT_LIST_DIR}/../src/core/inc/Termaster/Core/Plugin.h"
     "${plugin_api_root}/include/Termaster/Core/Plugin.h"
     COPYONLY
 )

@@ -57,9 +57,10 @@ changing behavior. These rules apply repository-wide.
   - widget rendering and input handling;
   - application orchestration;
   - settings persistence.
-- Use the existing src/app/core, managers, logic, terminal and widgets structure.
-  Place changes with the responsible component. Do not reorganize the whole
-  project merely to implement one feature.
+- Keep application modules under src/. Each module exposes public headers under
+  inc/Termaster/ModuleName and keeps implementation/internal organization under
+  src/. Place changes with the responsible component. Dependencies belong under
+  components/ at the repository root.
 - Qt is an intentional dependency. Use QObject, signals/slots, QByteArray,
   QString and Qt ownership conventions where appropriate.
   Do not create replacements for Qt infrastructure without a concrete need.
@@ -178,7 +179,7 @@ changing behavior. These rules apply repository-wide.
 - Preserve current target names unless renaming is explicitly part of the task.
 - Use four-space CMake indentation, one list item per line and a separate
   closing parenthesis. Prefer lines within 100 columns, at most 120.
-- Do not edit or reformat vendored dependencies under src/lib.
+- Do not edit or reformat vendored dependencies under components/.
   Preserve licenses and pin new source dependencies.
 - Do not download dependencies during CMake configuration.
 - Discover and use actual build commands and toolchain configuration.

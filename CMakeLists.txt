@@ -14,8 +14,8 @@ qt_standard_project_setup()
 
 include(cmake/PluginApi.cmake)
 
-add_subdirectory(src/app)
-add_subdirectory(src/lib/yaml-cpp)
+add_subdirectory(src)
+add_subdirectory(components/yaml-cpp)
 
 option(TERMASTER_BUILD_PLUGIN_TESTS "Build plugin lifecycle integration tests" OFF)
 if(TERMASTER_BUILD_PLUGIN_TESTS)

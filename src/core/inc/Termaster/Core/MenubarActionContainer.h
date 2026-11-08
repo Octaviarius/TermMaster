@@ -1,0 +1,22 @@
+#pragma once
+
+#include <QMenuBar>
+#include <Termaster/Core/ActionContainer.h>
+
+class MenubarActionContainer : public ActionContainer
+{
+public:
+    MenubarActionContainer(QMenuBar* menubar);
+    virtual ~MenubarActionContainer();
+
+    QMenuBar* menubar();
+
+protected:
+    virtual bool _addGroup(QString name);
+    virtual bool _addAction(QAction* action, QString group);
+    virtual bool _addMenu(ActionContainer* menu, QString group);
+
+private:
+    QMenuBar*               _menubar;
+    QMap<QString, QAction*> _separators;
+};
