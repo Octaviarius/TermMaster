@@ -666,13 +666,13 @@ void TerminalController::addSettingsPages(SettingsDialog& dialog)
     if (auto* terminal = _current())
     {
         dialog.addPage("terminal.display",
-                       "Selected terminal",
+                       "Terminal",
                        "Text and screen",
                        "Overrides for the selected terminal.",
                        _appearanceSchema(),
                        terminal->settings);
         dialog.addPage("terminal.connection",
-                       "Selected terminal",
+                       "Terminal",
                        "Connection",
                        "Transport settings take effect on the next connection.",
                        _types.at(terminal->type).schema,

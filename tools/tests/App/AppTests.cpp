@@ -801,7 +801,15 @@ private:
         if (QGuiApplication::platformName() == "windows")
         {
             QTRY_VERIFY(settings->screen()->availableGeometry().contains(settings->frameGeometry()));
-            auto* lastField = settings->findChild<QWidget*>("reset_rts");
+            QWidget* lastField = nullptr;
+            for (auto* form : settings->findChildren<SettingsFormWidget*>())
+            {
+                if (auto* editor = form->editor("rts"))
+                {
+                    lastField = editor;
+                    break;
+                }
+            }
             QVERIFY(lastField);
             auto* scroll = lastField->parentWidget();
             while (scroll && !qobject_cast<QScrollArea*>(scroll))

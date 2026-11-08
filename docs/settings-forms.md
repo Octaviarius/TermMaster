@@ -225,10 +225,18 @@ No serial hardware was enumerated or opened. Release was not rebuilt.
 Overlay-backed fields are immediately editable, including inherited required values.
 Editing establishes a local override. A small reset button to the right removes
 only that override and displays the inherited value or descriptor default; its
-tooltip shows the fallback. Inherited text is muted while local text uses the
-normal palette. Required values without any fallback cannot be reset.
+tooltip shows the fallback. The reset button is an orange vertical rectangle,
+visible only for a local override; its space remains reserved to keep fields
+aligned when editing or resetting. Inherited and local values use the same text
+color. Required values without any fallback cannot be reset.
 An explicit equal value remains an override. Validation checks the effective
 projection, and concurrent changes to ownership conflict even when effective
 values are equal. Defaults remain virtual until explicitly overridden.
 Application, workspace, session and selected-terminal pages use this behavior;
 see [terminal settings](terminals-and-serial.md).
+
+The terminal scope category is titled `Terminal`. The reset presentation update
+was verified with the MSVC Debug build, SettingsFormTests and AppTests. Native
+application checks passed at scale factors 1 and 2. Tests cover reset visibility
+through edit/apply/reset and equal inherited/local text colors; the updated
+1280 by 800 reference is [Serial terminal settings](images/preferences/SerialTerminal.png).

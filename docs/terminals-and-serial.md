@@ -45,8 +45,9 @@ Effective settings are borrowed live overlays:
 Only the highest selected scope receives edits. Overlay fields remain editable;
 editing establishes an override. A compact reset button on the right removes it
 and exposes the inherited value or descriptor default. Its tooltip shows that
-fallback. Inherited values use muted text; local values use normal text. An
-explicit equal value still establishes an override. Descriptor defaults are displayed and
+fallback. The orange vertical reset button appears only for local overrides;
+inherited and local values use the same text color. An explicit equal value
+still establishes an override. Descriptor defaults are displayed and
 validated without silently copying them into persistence. Font family, size,
 foreground, background, scrollback and local echo have real terminal bindings.
 Appearance applies live; connection parameters apply on the next explicit connect.
