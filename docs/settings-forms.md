@@ -283,3 +283,26 @@ defaults for serial ports and other configurable components. Workspace, session
 and individual-terminal overrides must not be mixed into this application
 settings entry point. Keep the distinction between global defaults and settings
 of a specific workspace, session or terminal explicit in navigation.
+
+## Pending context-specific settings visibility requirement
+
+Status: recorded for later implementation; this refines the application settings
+scope requirement above.
+
+Application, workspace, session and individual-terminal configuration are distinct
+settings contexts, rather than categories combined in every settings window.
+Each entry point must show only settings belonging to its target context.
+
+A terminal settings window must contain only sections applicable to that specific
+terminal and its registered capabilities: text/screen, supported input options
+and the actual connection backend's configuration. A serial terminal exposes
+serial connection parameters; unrelated terminal types and example/preview pages
+must not appear. Application, workspace and session settings must not appear in
+that window's navigation tree. Apply and reset must target only the chosen
+terminal's overrides while preserving inherited effective values.
+
+Session settings must similarly expose session-owned options and defaults
+applicable within that session. Application settings expose application options
+and global component defaults. Context-specific navigation must remain separate
+from the underlying settings inheritance chain; hiding ancestor pages does not
+remove inheritance or the ability to reset to an inherited value.
