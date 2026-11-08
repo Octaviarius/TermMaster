@@ -24,9 +24,8 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
     _summary->setStyleSheet("color: #c43c35;");
     _summary->setAccessibleName(tr("Form validation errors"));
     layout->addWidget(_summary);
-    QHash<QString, QFormLayout*> forms;
-    auto                         addGroup = [&](const QString& id, const QString& title) {
-        if (forms.contains(id))
+    auto addGroup = [&](const QString& id, const QString& title) {
+        if (_groups.contains(id))
         {
             return;
         }
@@ -36,7 +35,7 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
         form->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
         form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
         form->setRowWrapPolicy(QFormLayout::DontWrapRows);
-        forms.insert(id, form);
+        _groups.insert(id, {title, box, form});
         layout->addWidget(box);
     };
     auto groups = model.schema().groups();
@@ -95,7 +94,8 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
         label->setWordWrap(false);
         label->setBuddy(editorWidget);
         label->setToolTip(field.description);
-        forms.value(field.group)->addRow(label, container);
+        _groups.value(field.group).form->addRow(label, container);
+        _rows.insert(field.key, {field, container, true});
         connect(editorWidget, &SettingsFieldEditor::valueChanged, this, [this, key = field.key, editorWidget] {
             if (!_model || _updating)
             {
@@ -112,6 +112,10 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
         });
         _refresh(field.key);
     }
+    _empty = new QLabel(tr("No settings match your search."), contents);
+    _empty->setTextFormat(Qt::PlainText);
+    _empty->setWordWrap(true);
+    layout->addWidget(_empty);
     layout->addStretch();
     scroll->setWidget(contents);
     outer->addWidget(scroll);
@@ -119,6 +123,56 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
     connect(&model, &SettingsFormModel::validationChanged, this, &SettingsFormWidget::_refreshErrors);
     connect(&model, &QObject::destroyed, this, [this] { setEnabled(false); });
     _refreshErrors();
+}
+
+void SettingsFormWidget::setFilter(const QString& text)
+{
+    _filter = text.trimmed();
+    _applyFilter();
+}
+
+bool SettingsFormWidget::hasMatches() const
+{
+    return _hasMatches;
+}
+
+QStringList SettingsFormWidget::visibleFields() const
+{
+    QStringList keys;
+    for (auto it = _rows.cbegin(); it != _rows.cend(); ++it)
+    {
+        if (it->visible)
+        {
+            keys.append(it.key());
+        }
+    }
+    keys.sort();
+    return keys;
+}
+
+void SettingsFormWidget::_applyFilter()
+{
+    const auto    matches = [this](const QString& text) { return text.contains(_filter, Qt::CaseInsensitive); };
+    QSet<QString> visibleGroups;
+    _hasMatches = false;
+    for (auto it = _rows.begin(); it != _rows.end(); ++it)
+    {
+        const auto& field = it->field;
+        const auto& group = _groups[field.group];
+        it->visible       = _filter.isEmpty() || matches(field.group) || matches(group.title) || matches(field.key)
+                         || matches(field.title) || matches(field.description) || matches(field.settingsPath);
+        group.form->setRowVisible(it->container, it->visible);
+        if (it->visible)
+        {
+            visibleGroups.insert(field.group);
+            _hasMatches = true;
+        }
+    }
+    for (auto it = _groups.cbegin(); it != _groups.cend(); ++it)
+    {
+        it->box->setVisible(visibleGroups.contains(it.key()));
+    }
+    _empty->setVisible(!_hasMatches);
 }
 
 SettingsFieldEditor* SettingsFormWidget::editor(const QString& key) const
@@ -201,4 +255,5 @@ void SettingsFormWidget::_refreshErrors()
         label->setText(label->text().isEmpty() ? error.message : label->text() + '\n' + error.message);
         label->show();
     }
+    _applyFilter();
 }

@@ -1,6 +1,7 @@
 #include "gui/main/EditActions.h"
 #include "gui/main/MainWindow.h"
 #include "gui/settings/SettingsDialog.h"
+#include "gui/settings/SettingsPreview.h"
 
 #include <QCloseEvent>
 #include <QDialog>
@@ -72,6 +73,7 @@ struct App::Data
         pluginSettings(paths.configFile("plugins"), {"termaster.plugins", "Plugin activation preferences"}),
         window(std::make_unique<MainWindow>()), plugins(pluginSettings, paths.pluginsDirectory().toString())
     {
+        registerSettingsPreviewEditors(settingsWidgets);
     }
 
 private:
@@ -1237,16 +1239,39 @@ void App::_showSettings()
         }
         auto  schema = std::make_shared<SettingsSchema>(file.readAll());
         auto* dialog = new SettingsDialog(
-            std::move(schema),
-            configuration(),
             settingsWidgets(),
             [this](QString* error) { return _saveChanges(error); },
             _data->window.get());
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         _data->settingsWindow = dialog;
-        dialog->setWindowTitle(_data->session   ? tr("Session settings") :
-                               _data->workspace ? tr("Workspace settings") :
-                                                  tr("Application settings"));
+        dialog->addPage("application.appearance",
+                        tr("Application"),
+                        tr("Appearance"),
+                        tr("Global display defaults for all workspaces."),
+                        schema,
+                        _data->settings.node("settings"));
+        if (_data->workspace)
+        {
+            dialog->addPage("workspace.appearance",
+                            tr("Workspace"),
+                            tr("Appearance"),
+                            tr("Display overrides for the current workspace."),
+                            schema,
+                            _data->workspace->settings());
+        }
+        if (_data->session)
+        {
+            dialog->addPage("session.appearance",
+                            tr("Session"),
+                            tr("Appearance"),
+                            tr("Display overrides for the current session."),
+                            schema,
+                            _data->session->settings());
+        }
+        addSettingsPreviewPages(*dialog);
+        dialog->selectPage(_data->session   ? "session.appearance" :
+                           _data->workspace ? "workspace.appearance" :
+                                              "application.appearance");
         connect(dialog, &SettingsDialog::applied, this, &App::_applyConfiguration);
         const auto* workspace          = _data->workspace.get();
         const auto* session            = _data->session.get();
