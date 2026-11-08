@@ -3,7 +3,7 @@
 #include <QImage>
 #include <QPainter>
 #include <QTimer>
-#include <Termaster/Core/gui/terminal/TerminalDisplay.h>
+#include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 
 namespace
 {

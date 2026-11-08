@@ -61,5 +61,5 @@ for name, entries in [("zero", zero), ("wide", wide)]:
     text += "    }};\n"
 text += "};\n"
 root = Path(__file__).resolve().parents[1]
-(root / "src/core/src/terminal/TerminalUnicode.h").write_text(text, encoding="utf-8")
+(root / "src/Core/src/Terminal/TerminalUnicode.h").write_text(text, encoding="utf-8")
 print(f"Generated {len(zero)} zero-width and {len(wide)} wide ranges")

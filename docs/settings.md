@@ -3,7 +3,7 @@
 ## Core ownership
 
 `<Termaster/Core/Settings.h>` is the shared YAML settings owner, implemented in
-`src/core/src/Settings.cpp`. It replaces the old QSettings-derived class and the
+`src/Core/src/Settings.cpp`. It replaces the old QSettings-derived class and the
 plugin-specific SettingsManager; no compatibility aliases or migrations remain.
 `<Termaster/Core/ApplicationPaths.h>` provides application-owned locations.
 

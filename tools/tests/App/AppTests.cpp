@@ -1,4 +1,4 @@
-#include "gui/settings/SettingsDialog.h"
+#include "Gui/Settings/SettingsDialog.h"
 
 #include <QClipboard>
 #include <QDialog>
@@ -33,20 +33,20 @@
 #include <Termaster/App/App.h>
 #include <Termaster/Core/ApplicationPaths.h>
 #include <Termaster/Core/CommandRegistry.h>
+#include <Termaster/Core/Gui/Action/MenuActionContainer.h>
+#include <Termaster/Core/Gui/Action/MenubarActionContainer.h>
+#include <Termaster/Core/Gui/Action/ToolbarActionContainer.h>
+#include <Termaster/Core/Gui/Settings/SettingsFormModel.h>
+#include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
+#include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
+#include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
+#include <Termaster/Core/Plugin/PluginHost.h>
+#include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
 #include <Termaster/Core/Workspace.h>
-#include <Termaster/Core/gui/action/MenuActionContainer.h>
-#include <Termaster/Core/gui/action/MenubarActionContainer.h>
-#include <Termaster/Core/gui/action/ToolbarActionContainer.h>
-#include <Termaster/Core/gui/settings/SettingsFormModel.h>
-#include <Termaster/Core/gui/settings/SettingsFormWidget.h>
-#include <Termaster/Core/gui/settings/SettingsWidgetRegistry.h>
-#include <Termaster/Core/gui/terminal/TerminalDisplay.h>
-#include <Termaster/Core/plugin/PluginHost.h>
-#include <Termaster/Core/plugin/PluginManager.h>
 #include <stdexcept>
 
 class AppTests final : public QObject

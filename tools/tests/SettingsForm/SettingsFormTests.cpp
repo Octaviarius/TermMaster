@@ -9,7 +9,7 @@
 #include <QTemporaryDir>
 #include <QToolButton>
 #include <QtTest>
-#include <Termaster/Core/gui/settings/SettingsFormWidget.h>
+#include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
 #include <stdexcept>
 
 namespace

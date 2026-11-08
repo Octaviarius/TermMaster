@@ -1,7 +1,7 @@
 #include <QKeyEvent>
 #include <QTest>
-#include <Termaster/Core/terminal/TerminalInput.h>
-#include <Termaster/Core/terminal/TerminalScreen.h>
+#include <Termaster/Core/Terminal/TerminalInput.h>
+#include <Termaster/Core/Terminal/TerminalScreen.h>
 
 class TerminalInputTests : public QObject
 {

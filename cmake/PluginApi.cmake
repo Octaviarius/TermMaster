@@ -3,13 +3,13 @@ include(CMakePackageConfigHelpers)
 set(plugin_api_root "${CMAKE_BINARY_DIR}/plugin/PluginApi")
 set(plugin_api_package "${plugin_api_root}/lib/cmake/TermasterPluginApi")
 foreach(api_header IN ITEMS
-    plugin/Plugin.h
-    plugin/HostedPlugin.h
-    plugin/PluginHost.h
-    terminal/SerialDevice.h
+    Plugin/Plugin.h
+    Plugin/HostedPlugin.h
+    Plugin/PluginHost.h
+    Terminal/SerialDevice.h
 )
     configure_file(
-        "${CMAKE_CURRENT_LIST_DIR}/../src/core/inc/Termaster/Core/${api_header}"
+        "${CMAKE_CURRENT_LIST_DIR}/../src/Core/inc/Termaster/Core/${api_header}"
         "${plugin_api_root}/include/Termaster/Core/${api_header}"
         COPYONLY
     )

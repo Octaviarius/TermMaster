@@ -4,9 +4,9 @@
 #include <QTest>
 #include <QToolButton>
 #include <Termaster/Core/ActionContainer.h>
-#include <Termaster/Core/gui/action/MenuActionContainer.h>
-#include <Termaster/Core/gui/action/MenubarActionContainer.h>
-#include <Termaster/Core/gui/action/ToolbarActionContainer.h>
+#include <Termaster/Core/Gui/Action/MenuActionContainer.h>
+#include <Termaster/Core/Gui/Action/MenubarActionContainer.h>
+#include <Termaster/Core/Gui/Action/ToolbarActionContainer.h>
 #include <stdexcept>
 
 /** Data-only backend: no widgets or rendering hooks are needed by the model. */

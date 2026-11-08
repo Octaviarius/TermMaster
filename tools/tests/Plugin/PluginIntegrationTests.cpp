@@ -4,8 +4,8 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/Settings.h>
-#include <Termaster/Core/plugin/PluginManager.h>
 #include <yaml-cpp/yaml.h>
 #ifdef Q_OS_WIN
 #include <windows.h>

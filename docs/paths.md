@@ -7,14 +7,14 @@ component storage have been removed. No compatibility aliases are retained.
 ## Types and placement
 
 - `<Termaster/Core/PurePath.h>` declares PurePath, PurePosixPath and
-  PureWindowsPath together; implementation is `src/core/src/PurePath.cpp`.
+  PureWindowsPath together; implementation is `src/Core/src/PurePath.cpp`.
 - PurePath stores an explicit `Syntax::Posix` or `Syntax::Windows`. Its default
   syntax is native. `PurePath::posix()` and `PurePath::windows()` are factories.
   PurePosixPath and PureWindowsPath provide explicit named construction for their
   syntax on every host. Their inherited value operations return PurePath while
   preserving the syntax. They are value construction types, not polymorphic
   ownership interfaces.
-- `<Termaster/Core/Path.h>` declares Path, implemented in `src/core/src/Path.cpp`.
+- `<Termaster/Core/Path.h>` declares Path, implemented in `src/Core/src/Path.cpp`.
   It contains a native-syntax PurePath and delegates filesystem access to Qt.
   Constructing Path from a foreign-syntax PurePath is rejected; explicit named
   pure types can still process foreign paths without I/O.

@@ -2,8 +2,8 @@
 #include <QClipboard>
 #include <QSignalSpy>
 #include <QTest>
-#include <Termaster/Core/gui/terminal/TerminalDisplay.h>
-#include <Termaster/Core/terminal/TerminalScreen.h>
+#include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
+#include <Termaster/Core/Terminal/TerminalScreen.h>
 
 class TerminalDisplayTests : public QObject
 {

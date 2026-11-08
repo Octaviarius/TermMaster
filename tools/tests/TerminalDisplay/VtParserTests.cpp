@@ -1,5 +1,5 @@
 #include <QTest>
-#include <Termaster/Core/terminal/VtParser.h>
+#include <Termaster/Core/Terminal/VtParser.h>
 
 class VtParserTests : public QObject
 {

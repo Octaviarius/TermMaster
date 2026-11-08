@@ -17,7 +17,7 @@ set_tests_properties(AppTests PROPERTIES
 )
 
 target_include_directories(AppTests PRIVATE
-    "${CMAKE_SOURCE_DIR}/src/app/src"
+    "${CMAKE_SOURCE_DIR}/src/App/src"
 )
 
 add_dependencies(AppTests SerialTerminal)
