@@ -10,12 +10,12 @@
 #include <QRegularExpression>
 #include <QScopedValueRollback>
 #include <QThread>
+#include <Termaster/Core/Settings.h>
 #include <Termaster/Core/plugin/PluginManager.h>
-#include <Termaster/Managers/SettingsManager.h>
 #include <algorithm>
 #include <exception>
 
-PluginManager::PluginManager(SettingsManager& settings, QString directory, QObject* parent) :
+PluginManager::PluginManager(Settings& settings, QString directory, QObject* parent) :
     QAbstractListModel(parent), _settings(settings), _directory(QDir(directory).absolutePath()), _watcher(this),
     _debounce(this), _poll(this)
 {
@@ -153,7 +153,7 @@ bool PluginManager::start(QString* error)
 
     QScopedValueRollback guard(_busy, true);
     QString              cause;
-    if (!_settings.loadPluginStates(_enabled, &cause))
+    if (!_loadEnabledStates(_enabled, &cause))
     {
         if (error)
         {
@@ -234,7 +234,7 @@ bool PluginManager::setEnabled(const QString& id, bool enabled, QString* error)
 
     QScopedValueRollback guard(_busy, true);
     QString              cause;
-    if (!_settings.savePluginState(id, enabled, &cause))
+    if (!_saveEnabledState(id, enabled, &cause))
     {
         if (error)
         {
@@ -328,6 +328,73 @@ bool PluginManager::reload(const QString& id, QString* error)
         *error = QStringLiteral("Reload blocked by incomplete shutdown");
     }
     return stopped && started;
+}
+
+bool PluginManager::_loadEnabledStates(QHash<QString, bool>& states, QString* error)
+{
+    if (_settings.isDirty())
+    {
+        if (error)
+        {
+            *error = "Cannot reload settings with pending changes";
+        }
+        return false;
+    }
+    if (!_settings.load(error))
+    {
+        return false;
+    }
+    QHash<QString, bool> result;
+    if (_settings.contains("enabled"))
+    {
+        const QVariant enabled = _settings.value("enabled");
+        if (enabled.typeId() != QMetaType::QVariantMap)
+        {
+            if (error)
+            {
+                *error = QString("Cannot read %1: 'enabled' must be a mapping").arg(_settings.filePath());
+            }
+            return false;
+        }
+        const auto values = enabled.toMap();
+        for (auto it = values.cbegin(); it != values.cend(); ++it)
+        {
+            if (it.value().typeId() != QMetaType::Bool)
+            {
+                if (error)
+                {
+                    *error = QString("Cannot read %1: plugin '%2' must have a boolean enabled value")
+                                 .arg(_settings.filePath(), it.key());
+                }
+                return false;
+            }
+            result.insert(it.key(), it.value().toBool());
+        }
+    }
+    states = result;
+    return true;
+}
+
+bool PluginManager::_saveEnabledState(const QString& id, bool enabled, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!QRegularExpression("^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$").match(id).hasMatch())
+    {
+        if (error)
+        {
+            *error = "Invalid plugin ID";
+        }
+        return false;
+    }
+    QHash<QString, bool> states;
+    if (!_loadEnabledStates(states, error))
+    {
+        return false;
+    }
+    return _settings.setValue("enabled/" + id, enabled, error) && _settings.sync(error);
 }
 
 bool PluginManager::_checkCall(QString* error) const

@@ -11,10 +11,18 @@
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <Termaster/Core/Settings.h>
 #include <Termaster/Core/gui/plugin/PluginManagerGui.h>
 #include <Termaster/Core/plugin/PluginManager.h>
-#include <Termaster/Managers/SettingsManager.h>
 #include <memory>
+
+namespace
+{
+bool setPreference(Settings& settings, const QString& id, bool enabled)
+{
+    return settings.load() && settings.setValue("enabled/" + id, enabled) && settings.sync();
+}
+} // namespace
 
 class PluginWindowTests final : public QObject
 {
@@ -67,8 +75,8 @@ private slots:
         QVERIFY(copy(FIXTURE_Provider, directory));
         QVERIFY(copy(FIXTURE_Consumer, directory));
         QVERIFY(copy(FIXTURE_Leaf, directory));
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        PluginManager   manager(settings, directory);
+        Settings      settings(temporary.path() + "/settings.yaml");
+        PluginManager manager(settings, directory);
         QVERIFY(manager.start());
         std::unique_ptr<QDialog> window(createPluginManagerWindow(manager));
         window->show();
@@ -102,10 +110,11 @@ private slots:
         QCOMPARE(entry(manager, "leaf").status, PluginManager::Status::Blocked);
         QVERIFY(entry(manager, "consumer").enabled);
         QVERIFY(entry(manager, "leaf").enabled);
-        QHash<QString, bool> states;
-        QVERIFY(settings.loadPluginStates(states));
-        QCOMPARE(states.value("provider", true), false);
-        QCOMPARE(states.value("leaf", false), true);
+        QVariantMap states;
+        QVERIFY(settings.load());
+        states = settings.value("enabled").toMap();
+        QCOMPARE(states.value("provider").toBool(), false);
+        QCOMPARE(states.value("leaf").toBool(), true);
     }
 
     void invalidPluginCanBeDisabled()
@@ -114,8 +123,8 @@ private slots:
         const QString directory = temporary.path() + "/plugin";
         QVERIFY(copy(FIXTURE_Provider, directory));
         QVERIFY(copy(FIXTURE_Provider, directory + "/duplicate"));
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        QVERIFY(settings.savePluginState("provider", true));
+        Settings settings(temporary.path() + "/settings.yaml");
+        QVERIFY(setPreference(settings, "provider", true));
         PluginManager manager(settings, directory);
         QVERIFY(manager.start());
         std::unique_ptr<QDialog> window(createPluginManagerWindow(manager));
@@ -135,8 +144,8 @@ private slots:
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
         QVERIFY(copy(FIXTURE_Provider, directory));
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        PluginManager   manager(settings, directory);
+        Settings      settings(temporary.path() + "/settings.yaml");
+        PluginManager manager(settings, directory);
         QVERIFY(manager.start());
         std::unique_ptr<QDialog> window(createPluginManagerWindow(manager));
         window->show();
@@ -166,8 +175,8 @@ private slots:
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
         QVERIFY(copy(FIXTURE_Consumer, directory));
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        PluginManager   manager(settings, directory);
+        Settings      settings(temporary.path() + "/settings.yaml");
+        PluginManager manager(settings, directory);
         QVERIFY(manager.start());
         std::unique_ptr<QDialog> window(createPluginManagerWindow(manager));
         window->show();
@@ -201,10 +210,10 @@ private slots:
         QVERIFY(copy(FIXTURE_Provider, directory));
         QVERIFY(copy(FIXTURE_Missing, directory));
         QVERIFY(copy(FIXTURE_StartFailure, directory));
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        QVERIFY(settings.savePluginState("provider", true));
-        QVERIFY(settings.savePluginState("missing", true));
-        QVERIFY(settings.savePluginState("startFailure", true));
+        Settings settings(temporary.path() + "/settings.yaml");
+        QVERIFY(setPreference(settings, "provider", true));
+        QVERIFY(setPreference(settings, "missing", true));
+        QVERIFY(setPreference(settings, "startFailure", true));
         PluginManager manager(settings, directory);
         QVERIFY(!manager.start());
         std::unique_ptr<QDialog> window(createPluginManagerWindow(manager));
@@ -237,8 +246,8 @@ private slots:
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
         QVERIFY(copy(FIXTURE_Provider, directory));
-        SettingsManager settings(temporary.path() + "/settings.yaml");
-        auto            manager = std::make_unique<PluginManager>(settings, directory);
+        Settings settings(temporary.path() + "/settings.yaml");
+        auto     manager = std::make_unique<PluginManager>(settings, directory);
         QVERIFY(manager->start());
         std::unique_ptr<QDialog> window(createPluginManagerWindow(*manager));
         window->show();
@@ -263,7 +272,7 @@ private slots:
         QVERIFY(QDir().mkpath(directory));
         const QString settingsPath = temporary.path() + "/settings.yaml";
         {
-            SettingsManager          settings(settingsPath);
+            Settings                 settings(settingsPath);
             PluginManager            manager(settings, directory);
             std::unique_ptr<QDialog> window(createPluginManagerWindow(manager));
             window->show();
@@ -277,7 +286,7 @@ private slots:
         QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
         QCOMPARE(file.write("plugins: [unterminated"), qint64(22));
         file.close();
-        SettingsManager          settings(settingsPath);
+        Settings                 settings(settingsPath);
         PluginManager            manager(settings, directory);
         std::unique_ptr<QDialog> window(createPluginManagerWindow(manager));
         window->show();

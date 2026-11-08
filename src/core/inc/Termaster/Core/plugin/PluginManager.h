@@ -10,10 +10,10 @@
 #include <map>
 #include <memory>
 
-class SettingsManager;
+class Settings;
 
 /** Owns loaders and exposes the live plugin catalog. Use only on its QObject thread.
- * SettingsManager is borrowed and must outlive the manager. Plugin pointers are
+ * Settings is borrowed and must outlive the manager. Plugin pointers are
  * deliberately not exposed: consumers must release uses inside their shutdown.
  */
 class PluginManager final : public QAbstractListModel
@@ -56,46 +56,7 @@ public:
         QString      error;
     };
 
-private:
-    struct Record
-    {
-        Entry                          entry;
-        QByteArray                     fingerprint;
-        QString                        validationError;
-        QString                        lifecycleError;
-        std::unique_ptr<QPluginLoader> loader;
-        Plugin*                        instance         = nullptr;
-        bool                           shutdownComplete = false;
-        bool                           failed           = false;
-    };
-
-    SettingsManager&                           _settings;
-    QString                                    _directory;
-    QFileSystemWatcher                         _watcher;
-    QTimer                                     _debounce;
-    QTimer                                     _poll;
-    std::map<QString, std::unique_ptr<Record>> _records;
-    QStringList                                _loadedOrder;
-    QHash<QString, bool>                       _enabled;
-    bool                                       _active      = false;
-    bool                                       _busy        = false;
-    bool                                       _pendingScan = false;
-
-    bool          _checkCall(QString* error) const;
-    void          _scheduleScan();
-    bool          _scan(QString* error, bool force = false);
-    bool          _reconcile(QString* error);
-    void          _validateGraph(QStringList& order, QHash<QString, Record*>& byId);
-    bool          _startRecord(Record& record);
-    bool          _stopRecord(Record& record);
-    bool          _stopAffected(QSet<QString> paths);
-    QSet<QString> _dependentClosure(QSet<QString> paths) const;
-    void          _readDescription(Record& record);
-    void          _updateWatches(const QStringList& paths);
-    void          _report(const QString& error);
-
-public:
-    explicit PluginManager(SettingsManager& settings, QString directory, QObject* parent = nullptr);
+    explicit PluginManager(Settings& settings, QString directory, QObject* parent = nullptr);
     ~PluginManager() override;
     Q_DISABLE_COPY_MOVE(PluginManager)
 
@@ -113,8 +74,47 @@ public:
     bool         setEnabled(const QString& id, bool enabled, QString* error = nullptr);
     bool         reload(const QString& id, QString* error = nullptr);
 
-signals:
-    void pluginStarted(const QString& id);
-    void pluginStopped(const QString& id);
-    void errorOccurred(const QString& error);
+    Q_SIGNAL void pluginStarted(const QString& id);
+    Q_SIGNAL void pluginStopped(const QString& id);
+    Q_SIGNAL void errorOccurred(const QString& error);
+
+private:
+    struct Record
+    {
+        Entry                          entry;
+        QByteArray                     fingerprint;
+        QString                        validationError;
+        QString                        lifecycleError;
+        std::unique_ptr<QPluginLoader> loader;
+        Plugin*                        instance         = nullptr;
+        bool                           shutdownComplete = false;
+        bool                           failed           = false;
+    };
+
+    Settings&                                  _settings;
+    QString                                    _directory;
+    QFileSystemWatcher                         _watcher;
+    QTimer                                     _debounce;
+    QTimer                                     _poll;
+    std::map<QString, std::unique_ptr<Record>> _records;
+    QStringList                                _loadedOrder;
+    QHash<QString, bool>                       _enabled;
+    bool                                       _active      = false;
+    bool                                       _busy        = false;
+    bool                                       _pendingScan = false;
+
+    bool          _loadEnabledStates(QHash<QString, bool>& states, QString* error);
+    bool          _saveEnabledState(const QString& id, bool enabled, QString* error);
+    bool          _checkCall(QString* error) const;
+    void          _scheduleScan();
+    bool          _scan(QString* error, bool force = false);
+    bool          _reconcile(QString* error);
+    void          _validateGraph(QStringList& order, QHash<QString, Record*>& byId);
+    bool          _startRecord(Record& record);
+    bool          _stopRecord(Record& record);
+    bool          _stopAffected(QSet<QString> paths);
+    QSet<QString> _dependentClosure(QSet<QString> paths) const;
+    void          _readDescription(Record& record);
+    void          _updateWatches(const QStringList& paths);
+    void          _report(const QString& error);
 };

@@ -50,6 +50,19 @@ changing behavior. These rules apply repository-wide.
 
 ## Architecture
 
+- Core is the active implementation boundary. Modules managers, logic, terminal
+  and widgets are unbuilt reference material for future rewrites, not supported
+  dependencies or reasons to preserve obsolete Core APIs. Do not restore them to
+  the active target graph or repair their archived callers without a requirement.
+- Keep application main.cpp as a minimal Qt Widgets bootstrap over Core. The old
+  entry point under src/legacy/ is reference material and is not built.
+- Core must not depend on those reference modules. Active YAML plugin preferences
+  use the general Core Settings owner and preserve validation and atomic writes.
+- The application opens a workspace. A workspace owns general workspace settings,
+  session settings and saved sessions; a session is a group of configured terminals.
+  Session selection belongs to that workspace's menu/catalog. Keep session paths
+  with the workspace, separate from application-wide configuration/log/plugin paths.
+  Record unimplemented workspace/session behavior as planned, not delivered.
 - Preserve meaningful boundaries between:
   - terminal connection backends and byte transport;
   - terminal emulation and escape-sequence parsing;

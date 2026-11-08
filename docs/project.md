@@ -54,27 +54,18 @@ src/<module>/
     src/gui/<feature>/<Form>.ui
 ```
 
-Current modules are `core`, `managers`, `logic`, `terminal` and `widgets`;
-public include names use `Core`, `Managers`, `Logic`, `Terminal` and `Widgets`.
-For example, `<Termaster/Core/plugin/Plugin.h>` and
-`<Termaster/Managers/SettingsManager.h>`. Include paths are target-scoped.
-Existing target names and active responsibilities are preserved. Public headers
-use module-qualified paths; plugin headers are grouped under `Core/plugin`.
-The source hierarchy mirrors the public include hierarchy without repeating
-`Termaster/ModuleName`. Internal headers and forms stay beside their implementation.
-No module-root `gui/` or nested `gui/inc` and `gui/src` trees are used.
+Core is the active implementation module. Its public includes use
+`<Termaster/Core/Header.h>` and its implementation hierarchy mirrors that prefix
+without repeating `Termaster/Core`. GUI contracts use `gui/<feature>` under the
+public include root and implementations/internal headers use `src/gui/<feature>`.
+Core includes no Managers, Logic, Terminal or Widgets module dependencies.
 
-GUI is grouped by feature: Core uses `gui/action` and `gui/plugin`; Widgets uses
-`gui/window`, `gui/about`, `gui/settings` and `gui/terminal`. Widgets, presentation
-models, delegates and controllers for the same feature live together. Public GUI
-contracts use the same feature path under `inc/Termaster/ModuleName/gui`.
-Existing cross-module widget APIs remain public; implementation-only classes stay
-under `src/gui`. Domain state is independent of that presentation hierarchy:
-`ActionContainer`, `PluginManager`, `TermModel`, `TermCursor` and `TermChar` remain
-outside `gui`. The terminal model classes retain their existing module ownership;
-no transport or emulation behavior is changed by this source relocation.
-Two inactive configuration widget placeholders remain internal and are not
-exposed as usable public API.
+The old `managers`, `logic`, `terminal` and `widgets` trees are unbuilt reference
+material. Their CMake files and callers are not supported against the current
+Core API. The old application entry point is retained at `src/legacy/Main.cpp`.
+The current main.cpp is a minimal Qt Widgets Core plugin-management harness;
+workspace/session loading is a recorded architecture requirement, not an active
+feature of that harness. No module-root `gui/` directories are used.
 
 The module layout does not change the existing static-library application graph
 into runtime plugins. `termaster_add_plugin` remains the explicit SHARED module
@@ -109,3 +100,16 @@ menu captures were pixel-identical to their pre-relocation references; the
 plugin-window capture was visually inspected. No GUI behavior change is intended.
 
 [Paths](paths.md) describes lexical POSIX/Windows values and native Qt filesystem operations.
+
+## Active Core cleanup
+
+Obsolete Registree, EnumReflection, Singleton, Deque and utils infrastructure was
+removed from Core. Settings was replaced by a general YAML document owner with
+scoped views. RandomNames is an ordinary explicitly constructed object;
+BuildTime is a dedicated helper used by Version. ApplicationPaths resolves only
+application locations. PluginManager borrows Settings directly and validates its
+own preferences. Core links Qt Core/Widgets and pinned yaml-cpp; the active target
+graph excludes the reference modules and their serial dependencies.
+
+[Settings and paths](settings.md) describes the implemented API.
+[Workspaces and sessions](workspaces-and-sessions.md) records the next domain stage.

@@ -35,6 +35,12 @@ if(TERMASTER_BUILD_PATH_TESTS)
     add_subdirectory(tools/tests/Paths)
 endif()
 
+option(TERMASTER_BUILD_SETTINGS_TESTS "Build YAML settings tests" OFF)
+if(TERMASTER_BUILD_SETTINGS_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Settings)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()

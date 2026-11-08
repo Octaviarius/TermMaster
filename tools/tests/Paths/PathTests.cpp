@@ -2,6 +2,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
+#include <Termaster/Core/ApplicationPaths.h>
 #include <Termaster/Core/Path.h>
 #include <Termaster/Core/PurePath.h>
 #include <stdexcept>
@@ -19,6 +20,7 @@ private:
     Q_SLOT void extensions_data();
     Q_SLOT void extensions();
     Q_SLOT void explicitFlavours();
+    Q_SLOT void applicationLocations();
     Q_SLOT void invalidInputs();
     Q_SLOT void filesystemOperations();
 };
@@ -182,6 +184,35 @@ void PathTests::explicitFlavours()
     QVERIFY((posix / "appearance") == PurePosixPath("/menu/settings/appearance"));
     QVERIFY((windows / "config") == PureWindowsPath("C:/Users/example/config"));
     QVERIFY_THROWS_EXCEPTION(std::invalid_argument, posix.join(windows));
+}
+
+void PathTests::applicationLocations()
+{
+    QTemporaryDir temporary;
+    QVERIFY(temporary.isValid());
+    const Path       root(temporary.path());
+    ApplicationPaths paths(root / "data", root / "modules");
+    QVERIFY(paths.dataDirectory() == root / "data");
+    QVERIFY(paths.configDirectory() == root / "data");
+    QVERIFY(paths.logsDirectory() == root / "data/logs");
+    QVERIFY(paths.pluginsDirectory() == root / "modules");
+    QVERIFY(paths.configFile("plugins") == root / "data/plugins.yaml");
+    QVERIFY(paths.configFile("application.yml") == root / "data/application.yml");
+    QVERIFY(!paths.dataDirectory().exists());
+    paths.setDataDirectory(root / "newData");
+    QVERIFY(paths.configDirectory() == root / "newData");
+    paths.setConfigDirectory(root / "configs");
+    paths.setLogsDirectory(root / "logs");
+    paths.setPluginsDirectory(root / "newModules");
+    paths.setDataDirectory(root / "anotherData");
+    QVERIFY(paths.configDirectory() == root / "configs");
+    QVERIFY(paths.logsDirectory() == root / "logs");
+    QVERIFY(paths.pluginsDirectory() == root / "newModules");
+    for (const QString& invalid : QStringList({"", ".", "..", "../escape", "a/b", "a:b", "a\\b"}))
+    {
+        QVERIFY_THROWS_EXCEPTION(std::invalid_argument, paths.configFile(invalid));
+    }
+    QVERIFY_THROWS_EXCEPTION(std::invalid_argument, paths.configFile(QString("bad") + QChar::Null));
 }
 
 void PathTests::invalidInputs()

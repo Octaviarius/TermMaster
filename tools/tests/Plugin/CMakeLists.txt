@@ -2,8 +2,6 @@ find_package(Qt6 REQUIRED COMPONENTS
     Test
     Gui
     Widgets
-    SerialBus
-    SerialPort
 )
 
 function(add_plugin_fixture fixture_target fixture_id fixture_version fixture_deps)
@@ -58,7 +56,7 @@ target_compile_definitions(PluginFixtureStopFailure PRIVATE FIXTURE_STOP_FAILURE
 
 qt_add_executable(PluginIntegrationTests PluginIntegrationTests.cpp)
 target_compile_features(PluginIntegrationTests PRIVATE cxx_std_20)
-target_link_libraries(PluginIntegrationTests PRIVATE Managers Core Qt6::Test)
+target_link_libraries(PluginIntegrationTests PRIVATE Core Qt6::Test yaml-cpp)
 foreach(fixture IN ITEMS
     Provider
     Consumer
@@ -86,7 +84,6 @@ qt_add_executable(PluginWindowTests
 )
 target_compile_features(PluginWindowTests PRIVATE cxx_std_20)
 target_link_libraries(PluginWindowTests PRIVATE
-    Managers
     Core
     Qt6::Test
 )

@@ -1,6 +1,6 @@
 #include <Termaster/Application/BuildVersion.h>
+#include <Termaster/Core/BuildTime.h>
 #include <Termaster/Core/Version.h>
-#include <Termaster/Core/utils.h>
 
 const QVersionNumber Version::versionNumber = QVersionNumber(APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH);
 
