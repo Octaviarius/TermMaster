@@ -1,12 +1,15 @@
 #include "Gui/Serial/PortSelector.h"
 #include "SerialByteDevice.h"
 
+#include <QAbstractItemView>
 #include <QComboBox>
 #include <QElapsedTimer>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QPainter>
 #include <QSemaphore>
 #include <QSignalSpy>
 #include <QTest>
@@ -201,6 +204,58 @@ private slots:
         QVERIFY(elapsed.elapsed() >= 50);
         QCOMPARE(calls.load(), 1);
     }
+    void richSelectionKeepsRawAddress()
+    {
+        PortSelector selector({}, nullptr, [] {
+            return QList<PortModel::Port> {
+                {"COM7", "synthetic", "Readable USB device", "Vendor", "SERIAL-7", {}},
+                {"COM8", "synthetic",                    {},       {},         {}, {}}
+            };
+        });
+        auto*        combo = selector.findChild<QComboBox*>();
+        QTRY_COMPARE(combo->count(), 2);
+        int changes = 0;
+        selector.setChangedCallback([&changes] { ++changes; });
+        combo->setCurrentIndex(combo->findData("COM7", Qt::EditRole));
+        QCOMPARE(selector.value().toString(), "COM7");
+        QCOMPARE(combo->lineEdit()->text(), "COM7");
+        QCOMPARE(changes, 1);
+        QCOMPARE(combo->currentData(Qt::DisplayRole).toString(), QString::fromUtf8("COM7 — Readable USB device"));
+        QCOMPARE(combo->currentData(PortModel::SerialRole).toString(), "Serial: SERIAL-7");
+        selector.setValue("COM8");
+        QCOMPARE(combo->currentData(Qt::DisplayRole).toString(), "COM8");
+        QCOMPARE(combo->currentData(PortModel::SerialRole).toString(), QString());
+        selector.setValue("unavailable-port");
+        QCOMPARE(selector.value().toString(), "unavailable-port");
+        QVERIFY(combo->currentData(Qt::DisplayRole).toString().contains("Unavailable"));
+        QCOMPARE(changes, 1);
+        combo->setEditText("arbitrary manual address");
+        QCOMPARE(selector.value().toString(), "arbitrary manual address");
+        QCOMPARE(changes, 2);
+        selector.resize(600, selector.sizeHint().height());
+        selector.show();
+        selector.clearFocus();
+        const QString capture = qEnvironmentVariable("TERMASTER_SERIAL_SELECTOR_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            selector.setValue("COM7");
+            combo->clearFocus();
+            combo->lineEdit()->clearFocus();
+            QTest::qWait(50);
+            QVERIFY(selector.grab().save(capture));
+            combo->showPopup();
+            QTest::qWait(50);
+            QVERIFY(combo->view()->window()->grab().save(capture + ".popup.png"));
+            QPixmap overview(1280, 800);
+            overview.fill(selector.palette().color(QPalette::Window));
+            QPainter painter(&overview);
+            painter.drawPixmap(24, 24, selector.grab());
+            painter.drawPixmap(24, 300, combo->view()->window()->grab());
+            painter.end();
+            QVERIFY(overview.save(capture + ".overview.png"));
+            combo->hidePopup();
+        }
+    }
     void stablePortInventory()
     {
         PortModel              model;
@@ -209,8 +264,12 @@ private slots:
             { "COM2",  "location2", "PCI",       {},       {},         {}}
         };
         model.setPorts(ports, {});
-        QCOMPARE(model.data(model.index(0), Qt::DisplayRole).toString(), "COM2");
-        QCOMPARE(model.data(model.index(1), Qt::DisplayRole).toString(), "COM10");
+        QCOMPARE(model.data(model.index(0), Qt::DisplayRole).toString(), QString::fromUtf8("COM2 — PCI"));
+        QCOMPARE(model.data(model.index(1), Qt::DisplayRole).toString(), QString::fromUtf8("COM10 — USB"));
+        QCOMPARE(model.data(model.index(1), Qt::EditRole).toString(), "COM10");
+        QCOMPARE(model.data(model.index(1), PortModel::SerialRole).toString(), "Serial: serial");
+        QCOMPARE(model.data(model.index(0), PortModel::SerialRole).toString(), QString());
+        QVERIFY(!qvariant_cast<QIcon>(model.data(model.index(1), Qt::DecorationRole)).isNull());
         QMutex       mutex;
         PortSelector selector({}, nullptr, [&ports, &mutex] {
             QMutexLocker lock(&mutex);

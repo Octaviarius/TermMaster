@@ -12,6 +12,11 @@ class QLabel;
 class PortModel final : public QAbstractListModel
 {
 public:
+    enum Role
+    {
+        SerialRole = Qt::UserRole + 1
+    };
+
     struct Port
     {
         QString                    name;
