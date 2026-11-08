@@ -19,6 +19,9 @@ public:
     QString                      failRegistration;
     bool                         removalAllowed = true;
     bool                         selected       = false;
+    SerialDevice*                device         = nullptr;
+    bool                         wanted         = false;
+    int                          stopped        = 0;
     bool                         canCreate      = false;
     int                          created        = 0;
     int                          cleared        = 0;
@@ -85,11 +88,15 @@ public:
     }
     SerialDevice* selectedDevice(const QString&) override
     {
-        return nullptr;
+        return device;
     }
     bool canCreateTerminal() const override
     {
         return canCreate;
+    }
+    bool connectionRequested(const QString&) const override
+    {
+        return wanted;
     }
     bool hasSelectedTerminal(const QString&) const override
     {
@@ -100,6 +107,7 @@ public:
     }
     void disconnectSelectedTerminal() override
     {
+        ++stopped;
     }
     void closeSelectedTerminal() override
     {
@@ -241,6 +249,25 @@ private slots:
         QCOMPARE(nextCombo->findData(123456), -1);
         editor.reset();
         next.reset();
+        QVERIFY(plugin.shutdown());
+    }
+    void desiredConnectionKeepsStopAvailable()
+    {
+        FakeHost     host;
+        SerialPlugin plugin;
+        plugin.setHost(&host);
+        QVERIFY(plugin.startup());
+        auto device   = host.type.createDevice();
+        host.device   = device.get();
+        host.selected = true;
+        QVERIFY(host.actions.value("Serial.Connect").enabled());
+        host.wanted = true;
+        QVERIFY(!host.actions.value("Serial.Connect").enabled());
+        QVERIFY(host.actions.value("Serial.Disconnect").enabled());
+        host.actions.value("Serial.Disconnect").trigger();
+        QCOMPARE(host.stopped, 1);
+        device.reset();
+        host.device = nullptr;
         QVERIFY(plugin.shutdown());
     }
     void actionsResolveCurrentTarget()

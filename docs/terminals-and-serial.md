@@ -50,7 +50,7 @@ inherited and local values use the same text color. An explicit equal value
 still establishes an override. Descriptor defaults are displayed and
 validated without silently copying them into persistence. Font family, size,
 foreground, background, scrollback and local echo have real terminal bindings.
-Appearance applies live; connection parameters apply on the next explicit connect.
+Appearance applies live; connection parameters apply on the next connection attempt.
 Settings pages use the approved two-level navigation and search. Existing preview
 pages remain isolated and explicitly identified as previews.
 
@@ -124,7 +124,7 @@ compatibility matrix, limits, demo and verification.
 
 Full VT-family conformance and every Unix terminal extension are not claimed.
 History remains bounded in RAM; disk-backed unlimited history, graph execution,
-terminal rename GUI and reconnect policy are separate work. No SSH, network or
+terminal rename GUI are separate work. No SSH, network or
 local-console backend is implied by the view's protocol support.
 
 ## Verification
@@ -195,3 +195,44 @@ Windows application acceptance covered workspace list validation/persistence,
 manual entry, inheritance reset and plugin unload. No device was opened.
 
 ![Editable baud rate selector, 1280 × 800](images/preferences/SerialBaudRates.png)
+
+## Desired connection and recovery
+
+Start requests an ongoing connection independently of the backend's actual
+Closed/Opening/Open/Closing/Failed state. App's terminal runtime owns this intent
+and a single-shot one-second retry timer. Missing or failed devices remain
+requested; closed/failed backends are reopened from the current effective
+transport settings. Opening/closing backends have no overlapping retry. Device
+I/O, resource release and pending-byte handling remain backend responsibilities.
+
+Stop clears intent before closing the backend and cancels the timer. Runtime
+removal, session/workspace closure and module unload destroy the timer before
+releasing the device. Intent is runtime state: reconstructed session terminals
+remain disconnected until an explicit Start. Automatic recovery never replays
+keyboard data or pending output from the broken connection.
+
+The selected terminal's Start action is disabled while connection is requested;
+Stop stays enabled even when the device is missing or failed. Retries operate
+independently of focus and terminal selection. Tab hover text reports desired
+and actual states, the last error, automatic retry and any received terminal
+title. All dynamic text is escaped before Qt rich-text display. Successful
+connection clears the old error. The amber retry clock also uses Flowgate's
+connection-status glyph geometry.
+
+The hosted-plugin capability IID is version 2 after extending PluginHost with
+workspace settings and requested-connection queries. Hosted plugins must be
+rebuilt against this SDK; no old host-vtable alias is supplied. Base non-hosted
+plugin lifecycle interfaces remain unchanged.
+
+Native Windows synthetic acceptance passed initial failure/recovery, repeated
+device loss, explicit Stop, idempotent Start, module unregister/reload, workspace
+closure and hover-tooltip rendering. The capture combines the native main-window
+and tooltip widgets at their actual relative positions; no desktop pixels are read.
+
+![Connection waiting and hover details, 1280 × 800](images/preferences/ConnectionRetry.png)
+
+The final MSVC / Qt Debug build and all 19 CTest suites passed, including the
+external SDK consumer. After correcting the native hover fixture to place the
+cursor over the tab, the application suite passed again; native serial settings
+and recovery checks also passed at scale factors 1 and 2. No real serial device
+was opened. Release was not rebuilt for these serial UI/recovery changes.

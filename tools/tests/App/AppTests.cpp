@@ -7,11 +7,13 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHelpEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QMap>
 #include <QMimeData>
+#include <QPainter>
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QProcess>
@@ -24,11 +26,14 @@
 #include <QSignalSpy>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextDocumentFragment>
 #include <QTimer>
+#include <QToolTip>
 #include <QTreeView>
 #include <QUuid>
 #include <Termaster/App/App.h>
@@ -49,6 +54,90 @@
 #include <Termaster/Core/SettingsOverlay.h>
 #include <Termaster/Core/Workspace.h>
 #include <stdexcept>
+
+/** Synthetic backend: every connection attempt is in-memory, never a device open. */
+class ReconnectDevice final : public QObject, public SerialDevice
+{
+public:
+    struct Probe
+    {
+        bool             available = false;
+        int              attempts  = 0;
+        ReconnectDevice* device    = nullptr;
+    };
+    explicit ReconnectDevice(std::shared_ptr<Probe> probe) : _probe(std::move(probe))
+    {
+        _probe->device = this;
+    }
+    ~ReconnectDevice() override
+    {
+        _probe->device = nullptr;
+    }
+    QObject* object() override
+    {
+        return this;
+    }
+    State state() const override
+    {
+        return _state;
+    }
+    void setCallbacks(Callbacks callbacks) override
+    {
+        _callbacks = std::move(callbacks);
+    }
+    bool open(const QVariantMap&, QString* error) override
+    {
+        ++_probe->attempts;
+        _setState(State::Opening);
+        if (!_probe->available)
+        {
+            if (error)
+            {
+                *error = "Synthetic port unavailable";
+            }
+            drop("Synthetic port unavailable");
+            return false;
+        }
+        _setState(State::Open);
+        return true;
+    }
+    void close() override
+    {
+        _setState(State::Closing);
+        _setState(State::Closed);
+    }
+    qint64 write(const QByteArray& bytes, QString*) override
+    {
+        return _state == State::Open ? bytes.size() : -1;
+    }
+    qint64 pendingBytes() const override
+    {
+        return 0;
+    }
+    void drop(const QString& error)
+    {
+        _setState(State::Failed);
+        const auto callback = _callbacks.error;
+        if (callback)
+        {
+            callback(error);
+        }
+    }
+
+private:
+    std::shared_ptr<Probe> _probe;
+    State                  _state = State::Closed;
+    Callbacks              _callbacks;
+    void                   _setState(State state)
+    {
+        _state              = state;
+        const auto callback = _callbacks.stateChanged;
+        if (callback)
+        {
+            callback(state);
+        }
+    }
+};
 
 class AppTests final : public QObject
 {
@@ -991,6 +1080,129 @@ private:
         QVERIFY(display);
         QCOMPARE(display->font().pointSizeF(), 17.0);
         QCOMPARE(_app.session()->objects().value(id), definition);
+    }
+
+    Q_SLOT void desiredConnectionSurvivesDeviceLoss()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        QString error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Retry.termaster")), "Retry fixture", &error));
+        QVERIFY(_app.createSession("Retry fixture", &error));
+        auto                     probe = std::make_shared<ReconnectDevice::Probe>();
+        auto&                    host  = _app.pluginHost();
+        PluginHost::TerminalType type;
+        type.id             = "retryFixture";
+        type.title          = "Retry fixture";
+        type.plugin         = "Synthetic";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Synthetic retry fixture
+content:
+  type: object
+  properties:
+    portName:
+      type: string
+      default: synthetic
+      x-settings-path: transport/portName
+)";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(type);
+        const auto cleanup = qScopeGuard([&] {
+            _app.closeWorkspace();
+            host.unregisterTerminalType("retryFixture");
+        });
+        QVERIFY(_app.createTerminal("retryFixture", {}, "Retry terminal", &error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>();
+        QVERIFY(tabs);
+        const auto tooltip = [tabs] {
+            return QTextDocumentFragment::fromHtml(tabs->tabToolTip(tabs->currentIndex()))
+                .toPlainText()
+                .replace(QChar(0x00a0), ' ');
+        };
+        host.connectSelectedTerminal();
+        QVERIFY(host.connectionRequested("retryFixture"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Failed);
+        QVERIFY(tooltip().contains("Desired: Connected"));
+        QVERIFY(tooltip().contains("Synthetic port unavailable"));
+        const auto hoverPoint = tabs->tabBar()->tabRect(tabs->currentIndex()).center();
+        QTest::mouseMove(tabs->tabBar(), hoverPoint);
+        QApplication::processEvents();
+        QHelpEvent hover(QEvent::ToolTip, hoverPoint, tabs->tabBar()->mapToGlobal(hoverPoint));
+        QCoreApplication::sendEvent(tabs->tabBar(), &hover);
+        QTRY_VERIFY(QToolTip::isVisible());
+        QCOMPARE(QToolTip::text(), tabs->tabToolTip(tabs->currentIndex()));
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            _app.mainWindow().resize(1280, 800);
+            QApplication::processEvents();
+            auto     image = _app.mainWindow().grab();
+            QPainter painter(&image);
+            for (auto* widget : QApplication::topLevelWidgets())
+            {
+                if (widget->isVisible() && widget->windowType() == Qt::ToolTip)
+                {
+                    const auto point = widget->mapToGlobal(QPoint()) - _app.mainWindow().mapToGlobal(QPoint());
+                    painter.drawPixmap(point, widget->grab());
+                }
+            }
+            painter.end();
+            QVERIFY(image.save(QDir(capture).filePath("ConnectionRetry.png")));
+        }
+        QToolTip::hideText();
+        const auto failedIcon = tabs->tabIcon(tabs->currentIndex()).pixmap(16, 16).toImage();
+        probe->available      = true;
+        QTRY_COMPARE_WITH_TIMEOUT(probe->device->state(), SerialDevice::State::Open, 3500);
+        QVERIFY(probe->attempts >= 2);
+        QVERIFY(tooltip().contains("Actual: Connected"));
+        QVERIFY(!tooltip().contains("Synthetic port unavailable"));
+        QVERIFY(tabs->tabIcon(tabs->currentIndex()).pixmap(16, 16).toImage() != failedIcon);
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(display);
+        display->receive("\033]2;Remote title\007");
+        QVERIFY(tooltip().contains("Desired: Connected"));
+        QVERIFY(tooltip().contains("Remote title"));
+
+        probe->available = false;
+        probe->device->drop("Removed <synthetic> port");
+        QVERIFY(host.connectionRequested("retryFixture"));
+        QVERIFY(tabs->tabToolTip(tabs->currentIndex()).contains("&lt;synthetic&gt;"));
+        const int beforeRetry = probe->attempts;
+        QTRY_VERIFY_WITH_TIMEOUT(probe->attempts > beforeRetry, 3500);
+        host.disconnectSelectedTerminal();
+        QVERIFY(!host.connectionRequested("retryFixture"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Closed);
+        const int stoppedAttempts = probe->attempts;
+        probe->available          = true;
+        QTest::qWait(1200);
+        QCOMPARE(probe->attempts, stoppedAttempts);
+        host.connectSelectedTerminal();
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        host.connectSelectedTerminal();
+        QCOMPARE(probe->attempts, stoppedAttempts + 1);
+
+        probe->available = false;
+        probe->device->drop("Removed synthetic port again");
+        const int unloadAttempts = probe->attempts;
+        QVERIFY(host.unregisterTerminalType("retryFixture", &error));
+        QVERIFY(!probe->device);
+        QTest::qWait(1200);
+        QCOMPARE(probe->attempts, unloadAttempts);
+        host.registerTerminalType(type);
+        QVERIFY(probe->device);
+        QCOMPARE(probe->device->state(), SerialDevice::State::Closed);
+        QVERIFY(!host.connectionRequested("retryFixture"));
+        host.connectSelectedTerminal();
+        QVERIFY(host.connectionRequested("retryFixture"));
+        const int closedAttempts = probe->attempts;
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(!probe->device);
+        QTest::qWait(1200);
+        QCOMPARE(probe->attempts, closedAttempts);
     }
 
     Q_SLOT void pluginWindowLifecycle()

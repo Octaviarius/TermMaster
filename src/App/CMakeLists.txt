@@ -60,4 +60,5 @@ qt_add_resources(App "connectionStatusIcons"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Open.svg"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Busy.svg"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Failed.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Retry.svg"
 )

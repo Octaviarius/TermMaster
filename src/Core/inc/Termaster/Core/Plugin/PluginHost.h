@@ -69,11 +69,13 @@ public:
     virtual void          showCreateTerminal(const QString& type)                               = 0;
     virtual SerialDevice* selectedDevice(const QString& type)                                   = 0;
     virtual bool          canCreateTerminal() const                                             = 0;
-    virtual bool          hasSelectedTerminal(const QString& type) const                        = 0;
-    virtual void          connectSelectedTerminal()                                             = 0;
-    virtual void          disconnectSelectedTerminal()                                          = 0;
-    virtual void          closeSelectedTerminal()                                               = 0;
-    virtual void          clearSelectedTerminal()                                               = 0;
-    virtual void          showSelectedTerminalSettings()                                        = 0;
-    virtual void          refreshTerminalActions()                                              = 0;
+    /** User intent remains true while a selected terminal waits for reconnection. */
+    virtual bool connectionRequested(const QString& type) const                                 = 0;
+    virtual bool hasSelectedTerminal(const QString& type) const                                 = 0;
+    virtual void connectSelectedTerminal()                                                      = 0;
+    virtual void disconnectSelectedTerminal()                                                   = 0;
+    virtual void closeSelectedTerminal()                                                        = 0;
+    virtual void clearSelectedTerminal()                                                        = 0;
+    virtual void showSelectedTerminalSettings()                                                 = 0;
+    virtual void refreshTerminalActions()                                                       = 0;
 };

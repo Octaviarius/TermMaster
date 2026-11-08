@@ -11,6 +11,7 @@
 #include <QStatusBar>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTimer>
 #include <QToolBar>
 #include <QUuid>
 #include <QVBoxLayout>
@@ -106,11 +107,17 @@ struct TerminalController::Runtime
     std::unique_ptr<SerialDevice> device;
     QPointer<TerminalDisplay>     display;
     QPointer<QWidget>             panel;
+    bool                          connectionRequested = false;
+    QString                       lastError;
+    QString                       title;
+    QTimer                        reconnect;
     explicit Runtime(SettingsOverlay configuration) : settings(std::move(configuration))
     {
     }
     ~Runtime()
     {
+        connectionRequested = false;
+        reconnect.stop();
         if (device)
         {
             device->setCallbacks({});
@@ -216,6 +223,11 @@ bool TerminalController::_activeWindow() const
 bool TerminalController::canCreateTerminal() const
 {
     return _session && _activeWindow();
+}
+bool TerminalController::connectionRequested(const QString& type) const
+{
+    const auto* terminal = _current();
+    return terminal && terminal->type == type && terminal->connectionRequested;
 }
 bool TerminalController::hasSelectedTerminal(const QString& type) const
 {
@@ -514,6 +526,9 @@ bool TerminalController::_materialize(const QString& id, QString* error)
     auto* device  = terminal->device.get();
     auto* panel   = terminal->panel.data();
     auto* display = terminal->display.data();
+    terminal->reconnect.setSingleShot(true);
+    terminal->reconnect.setInterval(1000);
+    connect(&terminal->reconnect, &QTimer::timeout, this, [this, id] { _attemptConnection(id); });
     _terminals.emplace(id, std::move(terminal));
     const QPointer<TerminalController> self(this);
     SerialDevice::Callbacks            callbacks;
@@ -534,10 +549,19 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             self->_changed(id);
         }
     };
-    callbacks.error = [self](const QString& error) {
+    callbacks.error = [self, id](const QString& error) {
         if (self)
         {
-            self->_window.statusBar()->showMessage(owned(error));
+            auto it = self->_terminals.find(id);
+            if (it != self->_terminals.end())
+            {
+                if (it->second->lastError != error)
+                {
+                    self->_window.statusBar()->showMessage(owned(error));
+                }
+                it->second->lastError = owned(error);
+                self->_changed(id);
+            }
         }
     };
     device->setCallbacks(std::move(callbacks));
@@ -567,8 +591,8 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         auto it = _terminals.find(id);
         if (it != _terminals.end())
         {
-            const int index = _window.terminalTabs().indexOf(it->second->panel);
-            _window.terminalTabs().setTabToolTip(index, Qt::convertFromPlainText(title));
+            it->second->title = owned(title);
+            _changed(id);
         }
     });
     const int index = _window.terminalTabs().addTab(panel, _terminals.at(id)->name);
@@ -623,9 +647,26 @@ void TerminalController::_changed(const QString& id)
     {
         return;
     }
-    const auto state = it->second->device->state();
-    QString    icon;
-    QString    status;
+    const auto state    = it->second->device->state();
+    auto&      terminal = *it->second;
+    if (state == SerialDevice::State::Open)
+    {
+        terminal.lastError.clear();
+    }
+    if (terminal.connectionRequested && (state == SerialDevice::State::Closed || state == SerialDevice::State::Failed))
+    {
+        if (!terminal.reconnect.isActive())
+        {
+            terminal.reconnect.start();
+        }
+    }
+    else
+    {
+        terminal.reconnect.stop();
+    }
+
+    QString icon;
+    QString status;
     switch (state)
     {
         case SerialDevice::State::Closed:
@@ -649,39 +690,52 @@ void TerminalController::_changed(const QString& id)
             status = tr("Connection failed");
             break;
     }
+    if (terminal.connectionRequested && (state == SerialDevice::State::Closed || state == SerialDevice::State::Failed))
+    {
+        icon = "Retry";
+    }
     const auto index = _window.terminalTabs().indexOf(it->second->panel);
     _window.terminalTabs().setTabText(index, it->second->name);
     _window.terminalTabs().setTabIcon(index, QIcon(":/Termaster/App/Status/" + icon + ".svg"));
-    _window.terminalTabs().tabBar()->setAccessibleTabName(index, it->second->name + ", " + status);
+    const auto desired = terminal.connectionRequested ? tr("Connected") : tr("Disconnected");
+    QString    tooltip = tr("Desired: %1\nActual: %2").arg(desired, status);
+    if (!terminal.lastError.isEmpty())
+    {
+        tooltip += tr("\nLast error: %1").arg(terminal.lastError);
+    }
+    if (terminal.reconnect.isActive())
+    {
+        tooltip += tr("\nRetrying automatically.");
+    }
+    if (!terminal.title.isEmpty())
+    {
+        tooltip += "\n" + terminal.title;
+    }
+    _window.terminalTabs().setTabToolTip(index, Qt::convertFromPlainText(tooltip));
+    _window.terminalTabs().tabBar()->setAccessibleTabName(index, it->second->name + ", " + tooltip);
     refreshTerminalActions();
 }
 void TerminalController::connectSelectedTerminal()
 {
     auto* terminal = _current();
-    if (!terminal || !_activeWindow())
+    if (!terminal || !_activeWindow() || terminal->connectionRequested)
     {
         return;
     }
-    const auto type = _types.find(terminal->type);
-    if (type == _types.end())
-    {
-        return;
-    }
-    QString error;
-    if (!_validate(type->second, terminal->settings, &error)
-        || !terminal->device->open(_effective(type->second, terminal->settings).value("transport").toMap(), &error))
-    {
-        _window.statusBar()->showMessage(owned(error));
-    }
-    refreshTerminalActions();
+    terminal->connectionRequested = true;
+    terminal->lastError.clear();
+    _attemptConnection(terminal->id);
 }
 void TerminalController::disconnectSelectedTerminal()
 {
     if (auto* terminal = _current(); terminal && _activeWindow())
     {
+        terminal->connectionRequested = false;
+        terminal->reconnect.stop();
+        terminal->lastError.clear();
         terminal->device->close();
+        _changed(terminal->id);
     }
-    refreshTerminalActions();
 }
 void TerminalController::closeSelectedTerminal()
 {
@@ -792,4 +846,42 @@ void TerminalController::showCreateTerminal(const QString& type)
     dialog->selectPage("new.connection");
     connect(dialog, &SettingsDialog::applied, dialog, &QDialog::accept);
     dialog->show();
+}
+
+void TerminalController::_attemptConnection(const QString& id)
+{
+    auto it = _terminals.find(id);
+    if (it == _terminals.end() || !it->second->connectionRequested)
+    {
+        return;
+    }
+    auto& terminal = *it->second;
+    terminal.reconnect.stop();
+    const auto state = terminal.device->state();
+    if (state == SerialDevice::State::Open || state == SerialDevice::State::Opening
+        || state == SerialDevice::State::Closing)
+    {
+        _changed(id);
+        return;
+    }
+    const auto type = _types.find(terminal.type);
+    if (type == _types.end())
+    {
+        return;
+    }
+    QString error;
+    if (!_validate(type->second, terminal.settings, &error)
+        || !terminal.device->open(_effective(type->second, terminal.settings).value("transport").toMap(), &error))
+    {
+        if (error.isEmpty())
+        {
+            error = tr("Connection attempt failed.");
+        }
+        if (terminal.lastError != error)
+        {
+            _window.statusBar()->showMessage(owned(error));
+        }
+        terminal.lastError = owned(error);
+    }
+    _changed(id);
 }
