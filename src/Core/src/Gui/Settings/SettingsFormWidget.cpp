@@ -96,7 +96,8 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
                 _refresh(key);
             });
         }
-        controlRow->addWidget(editorWidget, 1);
+        const bool compact = editorWidget->sizePolicy().horizontalPolicy() == QSizePolicy::Maximum;
+        controlRow->addWidget(editorWidget, compact ? 0 : 1);
         if (model.supportsInheritance())
         {
             auto* reset = new QToolButton(container);
@@ -122,6 +123,10 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
                     _refresh(key);
                 }
             });
+        }
+        if (compact)
+        {
+            controlRow->addStretch();
         }
         auto* error = new QLabel(container);
         error->setTextFormat(Qt::PlainText);
@@ -151,8 +156,18 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
             _updating = false;
             _refreshState(key);
             _refreshErrors();
+            _refreshContext();
         });
         _refresh(field.key);
+    }
+    if (!model.schema().widget().isEmpty())
+    {
+        SettingsSchema::Field presentation;
+        presentation.widget       = model.schema().widget();
+        presentation.presentation = model.schema().presentation();
+        _auxiliary                = registry.create(presentation, contents);
+        layout->insertWidget(1, _auxiliary);
+        _refreshContext();
     }
     _empty = new QLabel(tr("No settings match your search."), contents);
     _empty->setTextFormat(Qt::PlainText);
@@ -215,6 +230,10 @@ void SettingsFormWidget::_applyFilter()
         it->box->setVisible(visibleGroups.contains(it.key()));
     }
     _empty->setVisible(!_hasMatches);
+    if (_auxiliary)
+    {
+        _auxiliary->setVisible(_hasMatches);
+    }
 }
 
 SettingsFieldEditor* SettingsFormWidget::editor(const QString& key) const
@@ -249,6 +268,7 @@ void SettingsFormWidget::_refresh(const QString& key)
     }
     _updating = false;
     _refreshState(key);
+    _refreshContext();
 }
 
 void SettingsFormWidget::_refreshState(const QString& key)
@@ -329,4 +349,18 @@ void SettingsFormWidget::_refreshErrors()
         label->show();
     }
     _applyFilter();
+}
+
+void SettingsFormWidget::_refreshContext()
+{
+    if (!_auxiliary || !_model)
+    {
+        return;
+    }
+    QVariantMap context;
+    for (const auto& field : _model->schema().fields())
+    {
+        context.insert(field.settingsPath, _model->value(field.key));
+    }
+    _auxiliary->setContext(context);
 }

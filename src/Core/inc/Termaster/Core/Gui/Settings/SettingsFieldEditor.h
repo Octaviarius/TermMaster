@@ -10,7 +10,12 @@ public:
     using QWidget::QWidget;
     virtual QVariant value() const                   = 0;
     virtual void     setValue(const QVariant& value) = 0;
-    virtual bool     hasAcceptableInput() const
+    /** Effective draft values keyed by relative settings paths, for auxiliary presentation. */
+    virtual void setContext(const QVariantMap& context)
+    {
+        Q_UNUSED(context)
+    }
+    virtual bool hasAcceptableInput() const
     {
         return true;
     }
