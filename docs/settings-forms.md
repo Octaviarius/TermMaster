@@ -262,3 +262,14 @@ It must update from the form's effective draft values, including inherited
 values and resets, before Apply. Previewing must not change a live terminal's
 configuration, persist settings or open a connection. Reuse the same appearance
 editors and preview behavior across settings scopes.
+
+## Pending reset button placement requirement
+
+Status: recorded for later implementation.
+
+Place the reset-to-inherited/default button directly beside its parameter's
+editor, with a small consistent gap. Compact controls such as checkboxes must
+not push the button to the distant right edge of an expanded form row. Keep
+the control and reset affordance visually grouped across all settings scopes.
+Preserve the approved orange button, its override-only visibility and stable
+alignment when the button is hidden.
