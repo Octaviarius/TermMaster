@@ -1,0 +1,262 @@
+{
+  "provider_exports": [
+    "?<lambda_invoker_cdecl>@<lambda_1>@?3??getDtor@?$QMetaTypeForType@VProviderPlugin@@@QtPrivate@@SAP6AXPEBVQMetaTypeInterface@4@PEAX@ZXZ@SA@01@Z",
+    "?<lambda_invoker_cdecl>@<lambda_1>@?4??getDefaultCtr@?$QMetaTypeForType@VProviderPlugin@@@QtPrivate@@SAP6AXPEBVQMetaTypeInterface@4@PEAX@ZXZ@SA@01@Z",
+    "??$_Atomic_address_as@HU?$_Atomic_padded@H@std@@@std@@YAPEDHAEBU?$_Atomic_padded@H@0@@Z",
+    "??$_Atomic_address_as@JU?$_Atomic_padded@H@std@@@std@@YAPECJAEAU?$_Atomic_padded@H@0@@Z",
+    "??$_Getvals@_W@?$time_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@IEAAX_WAEBV_Locinfo@1@@Z",
+    "??$_Getvals@_W@?$time_get@_WV?$istreambuf_iterator@_WU?$char_traits@_W@std@@@std@@@std@@IEAAX_WAEBV_Locinfo@1@@Z",
+    "??$assign@VQObject@@@?$QWeakPointer@VQObject@@@@AEAAAEAV0@PEAVQObject@@@Z",
+    "??$deref@H@?$QAtomicOps@H@@SA_NAEAU?$atomic@H@std@@@Z",
+    "??$loadRelaxed@H@?$QAtomicOps@H@@SAHAEBU?$atomic@H@std@@@Z",
+    "??$move@AEAV?$QWeakPointer@VQObject@@@@@std@@YA$$QEAV?$QWeakPointer@VQObject@@@@AEAV1@@Z",
+    "??$qt_ptr_swap@UExternalRefCountData@QtSharedPointer@@@@YAXAEAPEAUExternalRefCountData@QtSharedPointer@@0@Z",
+    "??$qt_ptr_swap@VQObject@@@@YAXAEAPEAVQObject@@0@Z",
+    "??$staticMetaObject@$1?staticMetaObject@QObject@@2UQMetaObject@@B@QMetaObject@@SAPEBU0@XZ",
+    "??0?$QArrayDataOps@_S@@QEAA@AEAU?$QArrayDataPointer@_S@@@Z",
+    "??0?$QArrayDataPointer@_S@@QEAA@PEAU?$QTypedArrayData@_S@@PEA_S_J@Z",
+    "??0?$QCommonArrayOps@_S@QtPrivate@@QEAA@AEAU?$QArrayDataPointer@_S@@@Z",
+    "??0?$QPodArrayOps@_S@QtPrivate@@QEAA@AEAU?$QArrayDataPointer@_S@@@Z",
+    "??0?$QWeakPointer@VQObject@@@@AEAA@PEAVQObject@@_N@Z",
+    "??0?$QWeakPointer@VQObject@@@@QEAA@$$QEAV0@@Z",
+    "??0IProbePlugin@@QEAA@XZ",
+    "??0ProviderAccumulator@@QEAA@H@Z",
+    "??0ProviderPlugin@@QEAA@XZ",
+    "??1?$QArrayDataPointer@_S@@QEAA@XZ",
+    "??1?$QPointer@VQObject@@@@QEAA@XZ",
+    "??1?$QWeakPointer@VQObject@@@@QEAA@XZ",
+    "??1ExternalRefCountData@QtSharedPointer@@QEAA@XZ",
+    "??1IProbePlugin@@UEAA@XZ",
+    "??1ProviderAccumulator@@QEAA@XZ",
+    "??1ProviderPlugin@@UEAA@XZ",
+    "??2@YAPEAX_KPEAX@Z",
+    "??3ExternalRefCountData@QtSharedPointer@@SAXPEAX@Z",
+    "??4?$QPointer@VQObject@@@@QEAAAEAV0@PEAVQObject@@@Z",
+    "??4?$QWeakPointer@VQObject@@@@QEAAAEAV0@$$QEAV0@@Z",
+    "??B?$QPointer@VQObject@@@@QEBAPEAVQObject@@XZ",
+    "??B?$QPointer@VQObject@@@@QEBA_NXZ",
+    "??C?$QArrayDataOps@_S@@QEAAPEAU0@XZ",
+    "??C?$QArrayDataPointer@_S@@QEAA?AU?$QArrayDataOps@_S@@XZ",
+    "??C?$QScopedPointer@VQObjectData@@U?$QScopedPointerDeleter@VQObjectData@@@@@@QEBAPEAVQObjectData@@XZ",
+    "??R<lambda_1>@?3??getDtor@?$QMetaTypeForType@VProviderPlugin@@@QtPrivate@@SAP6AXPEBVQMetaTypeInterface@3@PEAX@ZXZ@QEBA@01@Z",
+    "??R<lambda_1>@?4??getDefaultCtr@?$QMetaTypeForType@VProviderPlugin@@@QtPrivate@@SAP6AXPEBVQMetaTypeInterface@3@PEAX@ZXZ@QEBA@01@Z",
+    "??_7IProbePlugin@@6B@",
+    "??_7ProviderPlugin@@6BIProbePlugin@@@",
+    "??_7ProviderPlugin@@6BQObject@@@",
+    "??_R0?AVIProbePlugin@@@8",
+    "??_R0?AVProviderPlugin@@@8",
+    "??_R0?AVQObject@@@8",
+    "?_Check_load_memory_order@std@@YAXW4memory_order@1@@Z",
+    "?_Maklocwcs@std@@YAPEA_WPEB_W@Z",
+    "?_Negate@?$_Atomic_integral_facade@H@std@@SAHH@Z",
+    "?__empty_global_delete@@YAXPEAX@Z",
+    "?__empty_global_delete@@YAXPEAXW4align_val_t@std@@@Z",
+    "?__empty_global_delete@@YAXPEAX_K@Z",
+    "?__empty_global_delete@@YAXPEAX_KW4align_val_t@std@@@Z",
+    "?add@ProviderAccumulator@@QEAAHH@Z",
+    "?calculate@ProviderPlugin@@UEBAHXZ",
+    "?data@?$QPointer@VQObject@@@@QEBAPEAVQObject@@XZ",
+    "?deallocate@?$QTypedArrayData@_S@@SAXPEAUQArrayData@@@Z",
+    "?deref@?$QArrayDataPointer@_S@@QEAA_NXZ",
+    "?deref@?$QBasicAtomicInteger@H@@QEAA_NXZ",
+    "?deref@QArrayData@@QEAA_NXZ",
+    "?destroyAll@?$QPodArrayOps@_S@QtPrivate@@QEAAXXZ",
+    "?fetch_add@?$_Atomic_integral@H$03@std@@QEAAHHW4memory_order@2@@Z",
+    "?fetch_sub@?$_Atomic_integral_facade@H@std@@QEAAHHW4memory_order@2@@Z",
+    "?id@ProviderPlugin@@UEBA?AVQString@@XZ",
+    "?internalData@?$QWeakPointer@VQObject@@@@AEBAPEAVQObject@@XZ",
+    "?isNull@?$QPointer@VQObject@@@@QEBA_NXZ",
+    "?isNull@?$QWeakPointer@VQObject@@@@QEBA_NXZ",
+    "?load@?$_Atomic_storage@H$03@std@@QEBAHW4memory_order@2@@Z",
+    "?loadRelaxed@?$QBasicAtomicInteger@H@@QEBAHXZ",
+    "?metaObject@ProviderPlugin@@UEBAPEBUQMetaObject@@XZ",
+    "?metaObjectFunction@?$MetaObjectForType@VProviderPlugin@@X@QtPrivate@@SAPEBUQMetaObject@@PEBVQMetaTypeInterface@2@@Z",
+    "?metaType@?$QMetaTypeInterfaceWrapper@VProviderPlugin@@@QtPrivate@@2VQMetaTypeInterface@2@B",
+    "?multiply@ProviderMath@@SAHHH@Z",
+    "?providerAdd@@YAHHH@Z",
+    "?qt_metacall@ProviderPlugin@@UEAAHW4Call@QMetaObject@@HPEAPEAX@Z",
+    "?qt_metacast@ProviderPlugin@@UEAAPEAXPEBD@Z",
+    "?qt_static_metacall@ProviderPlugin@@CAXPEAVQObject@@W4Call@QMetaObject@@HPEAPEAX@Z",
+    "?swap@?$QWeakPointer@VQObject@@@@QEAAXAEAV1@@Z",
+    "_Avx2WmemEnabledWeakValue",
+    "_Check_memory_order",
+    "qt_plugin_instance",
+    "qt_plugin_query_metadata_v2",
+    "wmemcpy"
+  ],
+  "consumer_imports_provider": true,
+  "host_imports_plugins": false,
+  "cases": [
+    {
+      "name": "provider-first",
+      "passed": true,
+      "exit_code": 0,
+      "result": {
+        "consumer_id": "probe.consumer",
+        "consumer_loaded": true,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "consumer_result": 84,
+        "provider_first": true,
+        "provider_mapped_after_consumer": true,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "provider_metadata": {
+          "id": "probe.provider",
+          "requires": [],
+          "version": "1.0.0"
+        },
+        "provider_result": 42,
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": [
+        "Provider root constructed",
+        "Consumer root constructed"
+      ]
+    },
+    {
+      "name": "consumer-first-native-autoload",
+      "passed": true,
+      "exit_code": 0,
+      "result": {
+        "consumer_id": "probe.consumer",
+        "consumer_loaded": true,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "consumer_result": 84,
+        "provider_first": false,
+        "provider_mapped_after_consumer": true,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "provider_metadata": {
+          "id": "probe.provider",
+          "requires": [],
+          "version": "1.0.0"
+        },
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": [
+        "Consumer root constructed"
+      ]
+    },
+    {
+      "name": "consumer-first-no-search-path",
+      "passed": true,
+      "exit_code": 1,
+      "result": {
+        "consumer_loaded": false,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "error": "Cannot load library <case-dir>\\Consumer.dll: The specified module could not be found.",
+        "provider_first": false,
+        "provider_mapped_after_consumer": false,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "provider_metadata": {
+          "id": "probe.provider",
+          "requires": [],
+          "version": "1.0.0"
+        },
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": []
+    },
+    {
+      "name": "missing-provider",
+      "passed": true,
+      "exit_code": 1,
+      "result": {
+        "consumer_loaded": false,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "error": "Cannot load library <case-dir>\\Consumer.dll: The specified module could not be found.",
+        "provider_first": false,
+        "provider_mapped_after_consumer": false,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": []
+    },
+    {
+      "name": "independent-sdk-consumer",
+      "passed": true,
+      "exit_code": 0,
+      "result": {
+        "consumer_id": "probe.consumer",
+        "consumer_loaded": true,
+        "consumer_loaded_after_metadata": false,
+        "consumer_metadata": {
+          "id": "probe.consumer",
+          "requires": [
+            "probe.provider"
+          ],
+          "version": "1.0.0"
+        },
+        "consumer_result": 84,
+        "provider_first": false,
+        "provider_mapped_after_consumer": true,
+        "provider_mapped_after_metadata": false,
+        "provider_mapped_before_metadata": false,
+        "provider_metadata": {
+          "id": "probe.provider",
+          "requires": [],
+          "version": "1.0.0"
+        },
+        "qt": "6.12.0"
+      },
+      "lifecycle_log": [
+        "Consumer root constructed"
+      ]
+    }
+  ],
+  "cmake_targets": {
+    "provider_type": "SHARED_LIBRARY",
+    "consumer_type": "SHARED_LIBRARY",
+    "auto_export": true
+  },
+  "consumer_class_imports": [
+    "??0ProviderAccumulator@@QEAA@H@Z",
+    "??1ProviderAccumulator@@QEAA@XZ",
+    "?add@ProviderAccumulator@@QEAAHH@Z"
+  ],
+  "api_export_negative_control": {
+    "passed": true,
+    "exports": [
+      "qt_plugin_instance",
+      "qt_plugin_query_metadata_v2"
+    ],
+    "diagnostics": [
+      "ConsumerPlugin.cpp.obj : error LNK2019: unresolved external symbol \"int __cdecl providerAdd(int,int)\" (?providerAdd@@YAHHH@Z) referenced in function \"public: virtual int __cdecl ConsumerPlugin::calculate(void)const \" (?calculate@ConsumerPlugin@@UEBAHXZ)",
+      "ConsumerPlugin.cpp.obj : error LNK2019: unresolved external symbol \"public: static int __cdecl ProviderMath::multiply(int,int)\" (?multiply@ProviderMath@@SAHHH@Z) referenced in function \"public: virtual int __cdecl ConsumerPlugin::calculate(void)const \" (?calculate@ConsumerPlugin@@UEBAHXZ)",
+      "ConsumerPlugin.cpp.obj : error LNK2019: unresolved external symbol \"public: __cdecl ProviderAccumulator::ProviderAccumulator(int)\" (??0ProviderAccumulator@@QEAA@H@Z) referenced in function \"public: virtual int __cdecl ConsumerPlugin::calculate(void)const \" (?calculate@ConsumerPlugin@@UEBAHXZ)",
+      "ConsumerPlugin.cpp.obj : error LNK2019: unresolved external symbol \"public: __cdecl ProviderAccumulator::~ProviderAccumulator(void)\" (??1ProviderAccumulator@@QEAA@XZ) referenced in function \"public: virtual int __cdecl ConsumerPlugin::calculate(void)const \" (?calculate@ConsumerPlugin@@UEBAHXZ)",
+      "ConsumerPlugin.cpp.obj : error LNK2019: unresolved external symbol \"public: int __cdecl ProviderAccumulator::add(int)\" (?add@ProviderAccumulator@@QEAAHH@Z) referenced in function \"public: virtual int __cdecl ConsumerPlugin::calculate(void)const \" (?calculate@ConsumerPlugin@@UEBAHXZ)",
+      "plugins\\Consumer.dll : fatal error LNK1120: 5 unresolved externals"
+    ]
+  }
+}
