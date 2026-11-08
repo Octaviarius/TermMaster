@@ -11,6 +11,7 @@ class CommandRegistry;
 class SettingsWidgetRegistry;
 class SettingsSchema;
 class Session;
+class Workspace;
 class SettingsDialog;
 class TerminalDisplay;
 class QAction;
@@ -20,12 +21,13 @@ class TerminalController final : public QObject, public PluginHost
 {
     Q_OBJECT
 public:
-    TerminalController(MainWindow&             window,
-                       CommandRegistry&        commands,
-                       SettingsWidgetRegistry& editors,
-                       std::function<void()>   closeSettings,
-                       std::function<void()>   showSettings,
-                       QObject*                parent = nullptr);
+    TerminalController(MainWindow&                 window,
+                       CommandRegistry&            commands,
+                       SettingsWidgetRegistry&     editors,
+                       std::function<Workspace*()> workspace,
+                       std::function<void()>       closeSettings,
+                       std::function<void()>       showSettings,
+                       QObject*                    parent = nullptr);
     ~TerminalController() override;
     Q_DISABLE_COPY_MOVE(TerminalController)
 
@@ -41,6 +43,7 @@ public:
     void            addSettingsPages(SettingsDialog& dialog);
     void            applySettings();
 
+    QVariantMap   workspaceSettings() const override;
     QObject*      context() override;
     void          registerTerminalType(TerminalType type) override;
     bool          unregisterTerminalType(const QString& type, QString* error = nullptr) override;
@@ -66,6 +69,7 @@ private:
     {
         TerminalType                    registration;
         std::shared_ptr<SettingsSchema> schema;
+        std::shared_ptr<SettingsSchema> workspaceSchema;
     };
     struct Runtime;
     struct RegisteredAction
@@ -76,6 +80,7 @@ private:
     MainWindow&                                 _window;
     CommandRegistry&                            _commands;
     SettingsWidgetRegistry&                     _editors;
+    std::function<Workspace*()>                 _workspace;
     std::function<void()>                       _closeSettings;
     std::function<void()>                       _showSettings;
     Session*                                    _session = nullptr;

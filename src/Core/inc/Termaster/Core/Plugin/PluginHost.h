@@ -38,6 +38,7 @@ public:
         QString                                        title;
         QString                                        plugin;
         QByteArray                                     settingsSchema;
+        QByteArray                                     workspaceSettingsSchema;
         std::function<std::unique_ptr<SerialDevice>()> createDevice;
         /** Optional plugin-owned panel; reparents and owns the supplied common display. */
         std::function<QWidget*(QWidget*, const QVariantMap&, QWidget*)> createPanel;
@@ -55,8 +56,10 @@ public:
     };
 
     virtual ~PluginHost()                                                                       = default;
-    virtual QObject* context()                                                                  = 0;
-    virtual void     registerTerminalType(TerminalType type)                                    = 0;
+    /** Snapshot of effective workspace settings; no borrowed storage crosses the plugin ABI. */
+    virtual QVariantMap workspaceSettings() const                                               = 0;
+    virtual QObject*    context()                                                               = 0;
+    virtual void        registerTerminalType(TerminalType type)                                 = 0;
     /** Closes dependent terminals and settings views before removing their factories. */
     virtual bool          unregisterTerminalType(const QString& type, QString* error = nullptr) = 0;
     virtual void          registerAction(Action action)                                         = 0;

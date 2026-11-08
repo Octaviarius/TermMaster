@@ -122,6 +122,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
     setApplicationName("Termaster");
     setApplicationVersion(Version::shortVersion);
     Q_INIT_RESOURCE(appIcons);
+    Q_INIT_RESOURCE(connectionStatusIcons);
     Q_INIT_RESOURCE(appSettingsSchema);
     setWindowIcon(QIcon(":/Termaster/App/IconOrange.png"));
 
@@ -131,6 +132,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
         *_data->window,
         commands(),
         settingsWidgets(),
+        [this] { return _data->workspace.get(); },
         [this] { delete _data->settingsWindow.data(); },
         [this] {
             _showSettings();

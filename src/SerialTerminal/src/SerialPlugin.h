@@ -16,10 +16,10 @@ public:
     State state() const override;
 
 private:
-    PluginHost* _host             = nullptr;
-    State       _state            = State::Stopped;
-    bool        _editorRegistered = false;
-    bool        _typeRegistered   = false;
+    PluginHost* _host  = nullptr;
+    State       _state = State::Stopped;
+    QStringList _editorsRegistered;
+    bool        _typeRegistered = false;
     QStringList _actionsRegistered;
     void        _registerActions();
 };

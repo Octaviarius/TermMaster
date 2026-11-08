@@ -1,6 +1,7 @@
 #include "Gui/Settings/SettingsDialog.h"
 
 #include <QClipboard>
+#include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -776,6 +777,7 @@ private:
         QVERIFY2(_app.createWorkspace(Path(temporary.filePath("serial.termaster")), "Serial test", &error),
                  qPrintable(error));
         QVERIFY(_app.workspace()->settings().setValue("appearance/fontSize", 17));
+        QVERIFY(_app.workspace()->settings().setValue("serial/baudRates", QVariantList {123456, 250000}));
         QVERIFY2(_app.createSession("Disconnected serial", &error), qPrintable(error));
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
@@ -854,6 +856,50 @@ private:
         _app.commands().find("Serial.Settings")->actions().first()->trigger();
         QPointer<SettingsDialog> settings(_app.mainWindow().findChild<SettingsDialog*>("settingsDialog"));
         QVERIFY(settings);
+        QVERIFY(settings->selectPage("workspace.serial"));
+        SettingsFormWidget* workspaceForm  = nullptr;
+        SettingsFormWidget* connectionForm = nullptr;
+        for (auto* form : settings->findChildren<SettingsFormWidget*>())
+        {
+            if (form->editor("baudRates"))
+            {
+                workspaceForm = form;
+            }
+            if (form->findChild<QComboBox*>("baudRateSelector"))
+            {
+                connectionForm = form;
+            }
+        }
+        QVERIFY(workspaceForm);
+        QVERIFY(connectionForm);
+        auto* baud = connectionForm->editor("baudRate")->findChild<QComboBox*>("baudRateSelector");
+        QVERIFY(baud);
+        QVERIFY(baud->isEditable());
+        QVERIFY(baud->findData(123456) >= 0);
+        QVERIFY(baud->findData(250000) >= 0);
+        QCOMPARE(baud->currentText(), "115200");
+        auto* workspaceModel = settings->pageModel("workspace.serial");
+        QVERIFY(workspaceModel);
+        workspaceModel->setValue("baudRates", QVariantList {123456, 123456});
+        QVERIFY(!workspaceModel->isValid());
+        workspaceModel->setValue("baudRates", QVariantList {123456, 250000, 654321});
+        QVERIFY(workspaceModel->isValid());
+        QVERIFY(workspaceModel->apply(&error));
+        QVERIFY(_app.saveWorkspace(&error));
+        QCOMPARE(_app.workspace()->settings().value("serial/baudRates").toList(),
+                 QVariantList({123456, 250000, 654321}));
+        baud->setEditText("234567");
+        auto* connectionModel = settings->pageModel("terminal.connection");
+        QVERIFY(connectionModel->isValid());
+        QCOMPARE(connectionModel->value("baudRate").toInt(), 234567);
+        QVERIFY(connectionModel->canReset("baudRate"));
+        connectionModel->removeValue("baudRate");
+        QCOMPARE(baud->currentText(), "115200");
+
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>();
+        QVERIFY(tabs);
+        QVERIFY(!tabs->tabIcon(tabs->currentIndex()).pixmap(16, 16).isNull());
+        QCOMPARE(tabs->tabText(tabs->currentIndex()), QString("Synthetic serial"));
         QVERIFY(settings->selectPage("terminal.connection"));
         if (QGuiApplication::platformName() == "windows")
         {

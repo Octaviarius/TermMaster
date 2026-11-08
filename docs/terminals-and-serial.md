@@ -158,3 +158,40 @@ wrapped page headings cannot force the outer window beyond the available screen.
 At scale 2 the final RTS control remains reachable through scrolling while dialog
 buttons remain visible. A fixed 1280 by 800 scale-1 reference is stored in
 [Serial terminal settings](images/preferences/SerialTerminal.png).
+
+## Baud rate suggestions
+
+The serial plugin registers an editable `serialBaudRateSelector` field editor.
+Its sorted, unique suggestions combine `QSerialPortInfo::standardBaudRates()`
+with effective workspace settings at `serial/baudRates`. The current integer
+value is retained even when absent from the list. Manual entry accepts baud
+rates from 1 through 2147483647; device support is checked when connecting.
+Typing a rate does not modify the suggestion list.
+
+The real Workspace / Serial port page edits the custom list as YAML, validates
+unique positive 32-bit integers and allows up to 256 entries. Apply uses the
+existing workspace settings owner and atomic persistence. New forms read the
+current workspace; session and individual terminal settings do not replace this
+workspace-wide suggestion list. Invalid loaded suggestions are skipped with a
+concrete diagnostic and never rewritten by the editor. Example workspace payload:
+
+```yaml
+content:
+  settings:
+    serial:
+      baudRates: [250000, 500000, 1000000]
+```
+
+Terminal tabs use the connection-status glyph geometry and colors from the local
+Flowgate `src/gui/qml/ConnectionStatus.qml` component (Drawngate naming). Standalone
+SVG resources under `src/App/Res/Status` represent closed, open, transitional and
+failed states. Tab text is the terminal name; the accessible tab name includes
+the connection state. The transitional arc is static in this Widgets integration.
+No QML dependency or additional transport backend is introduced.
+
+Verified with MSVC 19.44 / Qt 6.12.0 Debug: the application and production plugin
+built; serial plugin/device, application, schema and form suites passed. Native
+Windows application acceptance covered workspace list validation/persistence,
+manual entry, inheritance reset and plugin unload. No device was opened.
+
+![Editable baud rate selector, 1280 × 800](images/preferences/SerialBaudRates.png)

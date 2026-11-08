@@ -51,3 +51,13 @@ qt_add_resources(App "appSettingsSchema"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/Settings/TerminalPreview.yaml"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/Settings/SerialPreview.yaml"
 )
+
+qt_add_resources(App "connectionStatusIcons"
+    PREFIX "/Termaster/App/Status"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status"
+    FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Closed.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Open.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Busy.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Failed.svg"
+)

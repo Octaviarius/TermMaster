@@ -1,7 +1,10 @@
 #include "SerialByteDevice.h"
 #include "SerialPlugin.h"
 
+#include <QComboBox>
 #include <QLabel>
+#include <QLineEdit>
+#include <QSerialPortInfo>
 #include <QTest>
 #include <QWidget>
 #include <stdexcept>
@@ -19,7 +22,12 @@ public:
     bool                         canCreate      = false;
     int                          created        = 0;
     int                          cleared        = 0;
-    QObject*                     context() override
+    QVariantMap                  configuration;
+    QVariantMap                  workspaceSettings() const override
+    {
+        return configuration;
+    }
+    QObject* context() override
     {
         return this;
     }
@@ -122,7 +130,7 @@ private slots:
         QCOMPARE(host.type.plugin, "SerialTerminal");
         QVERIFY(host.type.settingsSchema.contains("x-widget: serialPortSelector"));
         QCOMPARE(host.actions.size(), 6);
-        QCOMPARE(host.editors.size(), 1);
+        QCOMPARE(host.editors.size(), 2);
         auto device = host.type.createDevice();
         QCOMPARE(device->state(), SerialDevice::State::Closed);
         device.reset();
@@ -142,7 +150,7 @@ private slots:
         QCOMPARE(plugin.state(), Plugin::State::Failed);
         QCOMPARE(error, "Synthetic persistence failure");
         QCOMPARE(host.actions.size(), 6);
-        QCOMPARE(host.editors.size(), 1);
+        QCOMPARE(host.editors.size(), 2);
         QVERIFY(!plugin.startup());
         host.removalAllowed = true;
         host.events.clear();
@@ -176,6 +184,64 @@ private slots:
             QVERIFY(plugin.shutdown());
             QCOMPARE(host.actions.size(), 1);
         }
+    }
+    void baudRateSuggestionsAndManualInput()
+    {
+        FakeHost host;
+        host.configuration = {
+            {"serial", QVariantMap {{"baudRates", QVariantList {115200, 123456, 123456, 250000}}}}
+        };
+        SerialPlugin plugin;
+        plugin.setHost(&host);
+        QVERIFY(plugin.startup());
+        const auto factory = host.editors.value("serialBaudRateSelector");
+        auto       editor  = factory({}, nullptr);
+        auto*      combo   = editor->widget()->findChild<QComboBox*>("baudRateSelector");
+        QVERIFY(combo);
+        QVERIFY(combo->isEditable());
+        QList<int> rates;
+        for (int i = 0; i < combo->count(); ++i)
+        {
+            rates.append(combo->itemData(i).toInt());
+        }
+        for (const auto rate : QSerialPortInfo::standardBaudRates())
+        {
+            QVERIFY(rates.contains(rate));
+        }
+        QCOMPARE(rates.count(123456), 1);
+        QCOMPARE(rates.count(115200), 1);
+        QVERIFY(rates.contains(250000));
+        int changes = 0;
+        editor->setChangedCallback([&] { ++changes; });
+        editor->setValue(115200);
+        QCOMPARE(changes, 0);
+        QCOMPARE(editor->value().toInt(), 115200);
+        combo->setCurrentIndex(combo->findData(123456));
+        QCOMPARE(editor->value().toInt(), 123456);
+        QVERIFY(changes > 0);
+        combo->setEditText("234567");
+        QCOMPARE(editor->value().toInt(), 234567);
+        QVERIFY(editor->inputError().isEmpty());
+        for (const auto& text :
+             {QString(), QString("0"), QString("-1"), QString("2147483648"), QString("1.5"), QString("abc")})
+        {
+            combo->setEditText(text);
+            QVERIFY(!editor->inputError().isEmpty());
+        }
+        editor->setValue(765432);
+        QCOMPARE(combo->currentText(), "765432");
+        QCOMPARE(editor->value().toInt(), 765432);
+        QVERIFY(editor->inputError().isEmpty());
+        host.configuration = {
+            {"serial", QVariantMap {{"baudRates", QVariantList {654321}}}}
+        };
+        auto  next      = factory({}, nullptr);
+        auto* nextCombo = next->widget()->findChild<QComboBox*>();
+        QVERIFY(nextCombo->findData(654321) >= 0);
+        QCOMPARE(nextCombo->findData(123456), -1);
+        editor.reset();
+        next.reset();
+        QVERIFY(plugin.shutdown());
     }
     void actionsResolveCurrentTarget()
     {

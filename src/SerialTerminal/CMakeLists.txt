@@ -12,6 +12,7 @@ termaster_add_plugin(SerialTerminal
         src/SerialByteDevice.cpp
         src/SerialByteDevice.h
         src/Gui/Serial/PortSelector.cpp
+        src/Gui/Serial/BaudRateSelector.cpp
         src/Gui/Serial/PortSelector.h
         Resources/SerialTerminal.qrc
     PUBLIC_HEADERS

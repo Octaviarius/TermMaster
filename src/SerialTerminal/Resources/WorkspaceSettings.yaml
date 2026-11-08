@@ -1,0 +1,21 @@
+version: 1
+type: termaster.settings-schema
+description: Workspace serial port suggestions
+content:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Serial port
+  type: object
+  additionalProperties: false
+  properties:
+    baudRates:
+      title: Custom baud rates
+      description: Additional baud rates shown together with standard speeds. Any positive speed can still be entered manually.
+      type: array
+      default: []
+      x-settings-path: serial/baudRates
+      maxItems: 256
+      uniqueItems: true
+      items:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
