@@ -1,8 +1,10 @@
 #include "gui/main/MainWindow.h"
 
 #include <QDialog>
+#include <QIcon>
 #include <QPointer>
 #include <QStatusBar>
+#include <QStyle>
 #include <Termaster/App/App.h>
 #include <Termaster/Core/ApplicationPaths.h>
 #include <Termaster/Core/CommandRegistry.h>
@@ -112,23 +114,33 @@ ToolbarActionContainer& App::toolbar()
 
 void App::_setupActions()
 {
-    auto* plugins = commands().create("Application.Plugins", tr("&Plugins…"));
-    auto* quit    = commands().create("Application.Exit", tr("E&xit"), {}, QKeySequence::Quit);
+    const QIcon pluginIcon = QIcon::fromTheme("application-x-addon",
+                                              style()->standardIcon(QStyle::SP_FileDialogDetailedView));
+    auto*       plugins    = commands().create("Application.Plugins", tr("&Plugins…"), pluginIcon);
+    auto*       quit       = commands().create("Application.Exit", tr("E&xit"), {}, QKeySequence::Quit);
     if (!plugins || !quit)
     {
         throw std::logic_error("Cannot register built-in commands");
     }
+    plugins->setTooltip(tr("Manage plugins"));
     auto* pluginAction = plugins->newAction(_data->window.get());
     auto* quitAction   = quit->newAction(_data->window.get());
     quitAction->setMenuRole(QAction::QuitRole);
     connect(pluginAction, &QAction::triggered, this, &App::_showPluginManager);
     connect(quitAction, &QAction::triggered, this, []() { QCoreApplication::quit(); });
 
+    for (const QString& group : QStringList {"application", "workspace", "session", "terminal"})
+    {
+        if (!toolbar().addGroup(group))
+        {
+            throw std::logic_error("Cannot create toolbar groups");
+        }
+    }
     auto file  = std::make_unique<MenuActionContainer>("file", tr("&File"));
     auto tools = std::make_unique<MenuActionContainer>("tools", tr("&Tools"));
-    if (!mainMenu().addGroup("application") || !toolbar().addGroup("application") || !file->addGroup("application")
-        || !tools->addGroup("management") || !file->addAction(quitAction, "application")
-        || !tools->addAction(pluginAction, "management") || !toolbar().addAction(pluginAction, "application"))
+    if (!mainMenu().addGroup("application") || !file->addGroup("application") || !tools->addGroup("management")
+        || !file->addAction(quitAction, "application") || !tools->addAction(pluginAction, "management")
+        || !toolbar().addAction(pluginAction, "application"))
     {
         throw std::logic_error("Cannot assemble application actions");
     }

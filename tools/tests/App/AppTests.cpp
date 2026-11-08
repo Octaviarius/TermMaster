@@ -41,6 +41,18 @@ private:
         QCOMPARE(quit->shortcut(), QKeySequence(QKeySequence::Quit));
         QVERIFY(tools->actions("management").contains(plugins->actions().first()));
         QVERIFY(_app.toolbar().actions("application").contains(plugins->actions().first()));
+        QCOMPARE(_app.toolbar().groups(), QStringList({"application", "workspace", "session", "terminal"}));
+        QCOMPARE(_app.toolbar().toolbar()->toolButtonStyle(), Qt::ToolButtonIconOnly);
+        QVERIFY(!_app.toolbar().toolbar()->actions().isEmpty());
+        for (auto* action : _app.toolbar().toolbar()->actions())
+        {
+            if (!action->isSeparator())
+            {
+                QVERIFY(!action->icon().isNull());
+                QVERIFY(!action->toolTip().isEmpty());
+            }
+        }
+        QCOMPARE(_app.toolbar().toolbar()->actions().size(), 1);
         QVERIFY(!QFileInfo::exists(_app.paths().configFile("plugins").toString()));
     }
 
