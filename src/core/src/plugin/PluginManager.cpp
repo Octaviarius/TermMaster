@@ -79,6 +79,8 @@ QVariant PluginManager::data(const QModelIndex& index, int role) const
             return entry.error;
         case DependenciesRole:
             return entry.info.dependencies;
+        case ReverseDependenciesRole:
+            return reverseDependencies(entry.info.id);
         default:
             return {};
     }
@@ -87,14 +89,15 @@ QVariant PluginManager::data(const QModelIndex& index, int role) const
 QHash<int, QByteArray> PluginManager::roleNames() const
 {
     return {
-        {          IdRole,           "id"},
-        {        NameRole,         "name"},
-        {     VersionRole,      "version"},
-        {        PathRole,         "path"},
-        {     EnabledRole,      "enabled"},
-        {      StatusRole,       "status"},
-        {       ErrorRole,        "error"},
-        {DependenciesRole, "dependencies"}
+        {                 IdRole,                  "id"},
+        {               NameRole,                "name"},
+        {            VersionRole,             "version"},
+        {               PathRole,                "path"},
+        {            EnabledRole,             "enabled"},
+        {             StatusRole,              "status"},
+        {              ErrorRole,               "error"},
+        {       DependenciesRole,        "dependencies"},
+        {ReverseDependenciesRole, "reverseDependencies"}
     };
 }
 
@@ -111,6 +114,30 @@ QList<PluginManager::Entry> PluginManager::plugins() const
 QString PluginManager::directory() const
 {
     return _directory;
+}
+
+QStringList PluginManager::reverseDependencies(const QString& id) const
+{
+    QStringList result;
+    if (id.isEmpty())
+    {
+        return result;
+    }
+    for (const auto& [path, record] : _records)
+    {
+        if (record->entry.info.dependencies.contains(id))
+        {
+            result.append(record->entry.info.id);
+        }
+    }
+    result.removeDuplicates();
+    result.sort();
+    return result;
+}
+
+bool PluginManager::isActive() const
+{
+    return _active;
 }
 
 bool PluginManager::start(QString* error)

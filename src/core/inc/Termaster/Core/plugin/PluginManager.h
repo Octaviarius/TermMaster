@@ -43,7 +43,8 @@ public:
         EnabledRole,
         StatusRole,
         ErrorRole,
-        DependenciesRole
+        DependenciesRole,
+        ReverseDependenciesRole
     };
 
     struct Entry
@@ -104,6 +105,8 @@ public:
 
     QList<Entry> plugins() const;
     QString      directory() const;
+    QStringList  reverseDependencies(const QString& id) const;
+    bool         isActive() const;
     bool         start(QString* error = nullptr);
     bool         stop(QString* error = nullptr);
     bool         rescan(QString* error = nullptr);
