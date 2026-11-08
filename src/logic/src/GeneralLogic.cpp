@@ -1,15 +1,15 @@
 #include <QApplication>
 #include <QDesktopServices>
 #include <QUrl>
-#include <Termaster/Core/MenuActionContainer.h>
 #include <Termaster/Core/RandomNames.h>
+#include <Termaster/Core/gui/action/MenuActionContainer.h>
 #include <Termaster/Logic/GeneralLogic.h>
 #include <Termaster/Managers/CommandManager.h>
 #include <Termaster/Managers/SettingsManager.h>
 #include <Termaster/Managers/WindowManager.h>
-#include <Termaster/Widgets/AboutDialog.h>
-#include <Termaster/Widgets/ConfigSerialTerminalWidget.h>
-#include <Termaster/Widgets/SettingsDialog.h>
+#include <Termaster/Widgets/gui/about/AboutDialog.h>
+#include <Termaster/Widgets/gui/settings/ConfigSerialTerminalWidget.h>
+#include <Termaster/Widgets/gui/settings/SettingsDialog.h>
 
 static const QString _homepageUrl = "https://github.com/Octaviarius/Termaster";
 static const QString _helpUrl     = "https://github.com/Octaviarius/Termaster/wiki";

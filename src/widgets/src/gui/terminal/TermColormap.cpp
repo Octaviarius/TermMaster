@@ -1,4 +1,4 @@
-#include <Termaster/Widgets/TermColormap.h>
+#include <Termaster/Widgets/gui/terminal/TermColormap.h>
 
 const TermColorMap defaultTermColorMap = ([]() {
     TermColorMap ret;

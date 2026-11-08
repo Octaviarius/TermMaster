@@ -1,7 +1,7 @@
 #ifndef CONFIGCONTAINER_H
 #define CONFIGCONTAINER_H
 
-#include <Termaster/Widgets/IConfigWidget.h>
+#include <Termaster/Widgets/gui/settings/IConfigWidget.h>
 
 class ConfigContainer
 {

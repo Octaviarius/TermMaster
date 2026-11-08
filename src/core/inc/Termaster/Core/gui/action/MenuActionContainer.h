@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QMenu>
-#include <Termaster/Core/ActionContainerAdapter.h>
+#include <Termaster/Core/gui/action/ActionContainerAdapter.h>
 
 /** Owns the QMenu; attaching the wrapper transfers ownership of the entire subtree. */
 class MenuActionContainer final : public ActionContainerAdapter

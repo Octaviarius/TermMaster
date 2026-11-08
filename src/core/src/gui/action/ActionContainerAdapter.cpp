@@ -1,5 +1,5 @@
 #include <QTimer>
-#include <Termaster/Core/ActionContainerAdapter.h>
+#include <Termaster/Core/gui/action/ActionContainerAdapter.h>
 #include <utility>
 
 ActionContainerAdapter::ActionContainerAdapter(QString         name,

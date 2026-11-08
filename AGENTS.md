@@ -61,8 +61,16 @@ changing behavior. These rules apply repository-wide.
   inc/Termaster/ModuleName and keeps implementation/internal organization under
   src/. Place changes with the responsible component. Dependencies belong under
   components/ at the repository root.
-- Keep module-owned GUI under its root gui/ directory, grouped by feature.
-  Concrete widgets remain internal; shared GUI entry contracts belong in inc/.
+- Mirror the public header hierarchy in module src/: a header at
+  inc/Termaster/ModuleName/path/Class.h has its implementation at src/path/Class.cpp.
+  Do not repeat the Termaster/ModuleName prefix under src/.
+- Keep module-owned GUI under src/gui/, grouped by feature. Public GUI headers
+  belong under inc/Termaster/ModuleName/gui/ with the same feature hierarchy.
+  Keep internal headers and .ui files beside their implementations; do not add
+  module-root gui/ directories or separate gui/inc and gui/src trees.
+- Group each feature's widgets, presentation models, delegates and controllers
+  together under gui/feature/. Keep domain models and application state outside
+  gui/; being consumed by a widget does not make a model part of presentation.
 - Qt is an intentional dependency. Use QObject, signals/slots, QByteArray,
   QString and Qt ownership conventions where appropriate.
   Do not create replacements for Qt infrastructure without a concrete need.

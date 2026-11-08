@@ -7,7 +7,7 @@
 #include <QString>
 #include <Termaster/Core/Deque.h>
 #include <Termaster/Core/Singleton.h>
-#include <Termaster/Widgets/MainWindow.h>
+#include <Termaster/Widgets/gui/window/MainWindow.h>
 
 class WindowManager : public QObject, public Singleton<WindowManager>
 {

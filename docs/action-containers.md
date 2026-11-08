@@ -2,8 +2,9 @@
 
 Action containers provide ordered extension points for commands and menu trees in
 Qt Widgets. The implementation is in Core: the abstract model is under `src/`,
-and native Qt projection is under the module-root `gui/action/` directory. Public
-headers use `<Termaster/Core/Header.h>`.
+and native Qt projection is under `src/gui/action/`. The abstract model header is
+`<Termaster/Core/ActionContainer.h>`; public adapter headers use
+`<Termaster/Core/gui/action/Header.h>`, mirroring their implementation paths.
 
 ## Structure
 

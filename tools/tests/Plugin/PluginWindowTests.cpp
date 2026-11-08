@@ -11,7 +11,7 @@
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QtTest>
-#include <Termaster/Core/gui/PluginManagerGui.h>
+#include <Termaster/Core/gui/plugin/PluginManagerGui.h>
 #include <Termaster/Core/plugin/PluginManager.h>
 #include <Termaster/Managers/SettingsManager.h>
 #include <memory>

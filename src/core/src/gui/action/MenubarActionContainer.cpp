@@ -1,4 +1,4 @@
-#include <Termaster/Core/MenubarActionContainer.h>
+#include <Termaster/Core/gui/action/MenubarActionContainer.h>
 #include <utility>
 
 MenubarActionContainer::MenubarActionContainer(QMenuBar* menubar, QObject* owner) :

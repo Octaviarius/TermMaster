@@ -5,7 +5,7 @@
 #include <QIcon>
 #include <QTabWidget>
 #include <QVector>
-#include <Termaster/Widgets/ConfigContainer.h>
+#include <Termaster/Widgets/gui/settings/ConfigContainer.h>
 
 namespace Ui
 {

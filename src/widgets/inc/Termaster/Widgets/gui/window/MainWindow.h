@@ -3,9 +3,9 @@
 
 #include <QMainWindow>
 #include <QPointer>
-#include <Termaster/Core/MenubarActionContainer.h>
 #include <Termaster/Core/Settings.h>
-#include <Termaster/Core/ToolbarActionContainer.h>
+#include <Termaster/Core/gui/action/MenubarActionContainer.h>
+#include <Termaster/Core/gui/action/ToolbarActionContainer.h>
 #include <Termaster/Managers/SettingsManager.h>
 
 QT_BEGIN_NAMESPACE

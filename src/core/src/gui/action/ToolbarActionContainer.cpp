@@ -1,6 +1,6 @@
 #include <QMenu>
 #include <QToolButton>
-#include <Termaster/Core/ToolbarActionContainer.h>
+#include <Termaster/Core/gui/action/ToolbarActionContainer.h>
 #include <utility>
 
 ToolbarActionContainer::ToolbarActionContainer(QToolBar* toolbar, QObject* owner) :

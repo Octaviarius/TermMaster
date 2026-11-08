@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QMenuBar>
-#include <Termaster/Core/ActionContainerAdapter.h>
+#include <Termaster/Core/gui/action/ActionContainerAdapter.h>
 
 /** Borrows the QMenuBar; the widget owns the wrapper unless another owner is supplied. */
 class MenubarActionContainer final : public ActionContainerAdapter

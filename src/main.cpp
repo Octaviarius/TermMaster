@@ -6,7 +6,7 @@
 #include <QMap>
 #include <QStyle>
 #include <Termaster/Core/RandomNames.h>
-#include <Termaster/Core/gui/PluginManagerGui.h>
+#include <Termaster/Core/gui/plugin/PluginManagerGui.h>
 #include <Termaster/Core/plugin/PluginManager.h>
 #include <Termaster/Logic/GeneralLogic.h>
 #include <Termaster/Managers/CommandManager.h>
@@ -14,7 +14,7 @@
 #include <Termaster/Managers/TerminalManager.h>
 #include <Termaster/Managers/WindowManager.h>
 #include <Termaster/Terminal/Emulator.h>
-#include <Termaster/Widgets/TermWidget.h>
+#include <Termaster/Widgets/gui/terminal/TermWidget.h>
 #include <memory>
 
 /////////////////////////////////////////////////////////////////////////////////

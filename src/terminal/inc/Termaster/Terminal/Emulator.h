@@ -2,7 +2,7 @@
 #define EMULATOR_H
 
 #include <QObject>
-#include <Termaster/Widgets/TermWidget.h>
+#include <Termaster/Widgets/gui/terminal/TermWidget.h>
 
 #define EMU_ESC(x)               "\x1b" x
 #define EMU_CSI(x)               EMU_ESC("[") x

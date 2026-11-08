@@ -2,7 +2,7 @@
 
 #include <QStyledItemDelegate>
 #include <QVBoxLayout>
-#include <Termaster/Widgets/SettingsDialog.h>
+#include <Termaster/Widgets/gui/settings/SettingsDialog.h>
 
 #define ROW_HEIGHT (40)
 

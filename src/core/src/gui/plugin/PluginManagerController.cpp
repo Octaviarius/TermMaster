@@ -5,7 +5,7 @@
 #include <QDesktopServices>
 #include <QTimer>
 #include <QUrl>
-#include <Termaster/Core/gui/PluginManagerGui.h>
+#include <Termaster/Core/gui/plugin/PluginManagerGui.h>
 #include <Termaster/Core/plugin/PluginManager.h>
 
 PluginManagerController::PluginManagerController(PluginManager& manager, PluginManagerWindow& window) :
@@ -111,11 +111,4 @@ void PluginManagerController::_finish(bool success, const QString& error)
         const QString cause = _operationError.isEmpty() ? error : _operationError;
         _window->showError(cause.isEmpty() ? tr("The plugin operation did not complete.") : cause);
     }
-}
-
-QDialog* createPluginManagerWindow(PluginManager& manager, QWidget* parent)
-{
-    auto window = new PluginManagerWindow(manager, parent);
-    new PluginManagerController(manager, *window);
-    return window;
 }

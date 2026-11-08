@@ -1,4 +1,4 @@
-#include <Termaster/Widgets/ConfigContainer.h>
+#include <Termaster/Widgets/gui/settings/ConfigContainer.h>
 
 ConfigContainer::ConfigContainer(QString name, QString title, QString tooltip, QIcon icon) :
     _name(name), _title(_title == "" ? _name : _title), _tooltip(tooltip), _icon(icon)

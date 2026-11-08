@@ -8,32 +8,32 @@ find_package(Qt6 REQUIRED COMPONENTS
 )
 
 qt_add_library(${PROJECT_NAME} STATIC
-    inc/Termaster/Widgets/MainWindow.h
-    src/MainWindow.cpp
-    src/MainWindow.ui
-    inc/Termaster/Widgets/AboutDialog.h
-    src/AboutDialog.cpp
-    src/AboutDialog.ui
-    inc/Termaster/Widgets/SettingsDialog.h
-    src/SettingsDialog.cpp
-    src/SettingsDialog.ui
-    inc/Termaster/Widgets/IConfigWidget.h
-    src/config/IConfigWidget.cpp
-    inc/Termaster/Widgets/ConfigContainer.h
-    src/config/ConfigContainer.cpp
-    inc/Termaster/Widgets/ConfigSerialTerminalWidget.h
-    src/config/ConfigSerialTerminalWidget.cpp
-    src/config/ConfigSerialTerminalWidget.ui
-    inc/Termaster/Widgets/TermWidget.h
-    src/TermWidget/TermWidget.cpp
+    inc/Termaster/Widgets/gui/window/MainWindow.h
+    src/gui/window/MainWindow.cpp
+    src/gui/window/MainWindow.ui
+    inc/Termaster/Widgets/gui/about/AboutDialog.h
+    src/gui/about/AboutDialog.cpp
+    src/gui/about/AboutDialog.ui
+    inc/Termaster/Widgets/gui/settings/SettingsDialog.h
+    src/gui/settings/SettingsDialog.cpp
+    src/gui/settings/SettingsDialog.ui
+    inc/Termaster/Widgets/gui/settings/IConfigWidget.h
+    src/gui/settings/IConfigWidget.cpp
+    inc/Termaster/Widgets/gui/settings/ConfigContainer.h
+    src/gui/settings/ConfigContainer.cpp
+    inc/Termaster/Widgets/gui/settings/ConfigSerialTerminalWidget.h
+    src/gui/settings/ConfigSerialTerminalWidget.cpp
+    src/gui/settings/ConfigSerialTerminalWidget.ui
+    inc/Termaster/Widgets/gui/terminal/TermWidget.h
+    src/gui/terminal/TermWidget.cpp
     inc/Termaster/Widgets/TermModel.h
-    src/TermWidget/TermModel.cpp
+    src/TermModel.cpp
     inc/Termaster/Widgets/TermChar.h
-    src/TermWidget/TermChar.cpp
+    src/TermChar.cpp
     inc/Termaster/Widgets/TermCursor.h
-    src/TermWidget/TermCursor.cpp
-    inc/Termaster/Widgets/TermColormap.h
-    src/TermWidget/TermColormap.cpp
+    src/TermCursor.cpp
+    inc/Termaster/Widgets/gui/terminal/TermColormap.h
+    src/gui/terminal/TermColormap.cpp
 
 )
 

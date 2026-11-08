@@ -4,8 +4,8 @@
 #include <QWidget>
 #include <Termaster/Core/utils.h>
 #include <Termaster/Widgets/TermChar.h>
-#include <Termaster/Widgets/TermColormap.h>
 #include <Termaster/Widgets/TermModel.h>
+#include <Termaster/Widgets/gui/terminal/TermColormap.h>
 
 class TermWidget : public QWidget
 {
