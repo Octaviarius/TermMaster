@@ -32,7 +32,24 @@ The build must assemble each module's deliverables under one module-specific
 distribution directory, including its runtime library and public headers. Its
 import library and CMake package belong to that same distribution root. This
 requirement concerns module-owned artifacts; it does not establish bundling of
-Qt or compiler runtimes. The public include-path convention is still under discussion.
+Qt or compiler runtimes.
+
+The user accepted the public include convention `<Termaster/ModuleName/Header.h>`.
+Use the exact, case-sensitive prefix `Termaster` consistently in installed header
+paths and includes. Module-specific subdirectories allow different modules to
+publish identically named header files without include-path ambiguity:
+
+```cpp
+#include <Termaster/Core/AnyHeader.h>
+#include <Termaster/SshTerminal/Serial.h>
+#include <Termaster/SerialTerminal/Serial.h>
+```
+
+Place these under `include/Termaster/ModuleName` inside the module distribution.
+The module's CMake imported target exposes the distribution's `include` directory.
+File path separation does not itself separate C++ type names or linker symbols;
+their naming/namespace policy remains a separate API design question. These are
+include-path examples, not declarations of backend implementation status.
 
 Each module intended for use by separately built extensions supplies:
 
