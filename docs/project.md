@@ -48,6 +48,7 @@ src/<module>/
     CMakeLists.txt
     inc/Termaster/<ModuleName>/<Header>.h
     src/<implementation and internal directories>
+    gui/<module-owned GUI, grouped by feature>
 ```
 
 Current modules are `core`, `managers`, `logic`, `terminal` and `widgets`;

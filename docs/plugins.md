@@ -111,8 +111,8 @@ All calls run on the manager's QObject thread and must not reenter the manager.
 
 `PluginManager` owns the Qt loaders and implements `QAbstractListModel`. Catalog
 roles expose ID, name, version, path, enabled preference, lifecycle status,
-dependencies and diagnostic text. The model can be attached to a Widgets view;
-a separate plugin management window is not implemented in this stage.
+dependencies, direct reverse dependencies and diagnostic text. A module-owned
+Widgets window exposes this model through a table projection and controller.
 The settings owner is borrowed and must outlive the manager.
 
 ## Dependencies and initialization
@@ -257,9 +257,59 @@ Verified on Windows x64, MSVC 19.44, Qt 6.12.0 and Ninja Release on 2026-11-08.
 The application and integration target built successfully. The final integration
 run reported 13 passed, zero failed and zero skipped, including the external SDK
 consumer. Tests used synthetic modules, real timers and worker threads; no device
-or external-network acceptance was performed. No GUI management window was added.
+or external-network acceptance was performed. The GUI verification record below
+covers the subsequently added management window.
 
 The SDK consumer was configured independently from
 `tools/tests/Plugin/ExternalConsumer`, with the API and provider SDK roots in
 `CMAKE_PREFIX_PATH`, and built with MSVC Release. The test run selected its DLL
 through `TERMASTER_EXTERNAL_PLUGIN`. Generated logs remain disposable build output.
+
+
+## Management window
+
+The implementation belongs to module-root `src/core/gui/plugin/`. The concrete
+window, table projection and controller headers remain internal. The public
+`<Termaster/Core/gui/PluginManagerGui.h>` factory creates a modeless `QDialog`;
+the caller owns it. Destroying the borrowed manager disables the window safely.
+Closing the window does not itself change plugin preferences or stop the manager.
+
+The table shows enabled preferences, names, IDs, versions and runtime states,
+with filtering and sorting. Selection is restored by library path when catalog
+resets occur. Commands capture plugin IDs before queued execution; row positions
+are never used as command identities. The controller delegates enable, disable,
+restart and refresh to `PluginManager`; widgets do not read or write YAML.
+
+Details show the library path, dependencies, direct reverse dependencies
+(`Required by`) and concrete diagnostics. Reverse dependencies include disabled
+plugins and are recalculated from the current catalog. Dependency lists are
+bounded scrollable fields. Invalid metadata cannot be enabled through the window.
+Lifecycle and persistence errors are reported without a modal confirmation flow.
+
+In the current terminal prototype, open the window with **Ctrl+Shift+P** or the
+**Plugins…** context-menu action. Launch `Termaster.exe --plugins` to show only
+the manager window. The existing normal-application bootstrap remains unchanged.
+
+The window uses standard Qt Widgets and native palette/font metrics. Content can
+scroll on small displays; the close button and operation diagnostics remain outside the scroll area.
+Initial size is bounded by the current screen's available geometry.
+
+### GUI verification
+
+Windows x64, MSVC 19.44, Qt 6.12.0, Ninja Release. The GUI suite exercises seven
+scenarios: enable/disable/restart with cascade and YAML persistence, live catalog
+and reverse-dependency updates with selection retention, filtering, disabling
+invalid plugins, concrete
+failure diagnostics, manager destruction with a pending command, and recovery
+from invalid YAML. The existing lifecycle suite remains enabled. Native captures
+at scale factors 1, 1.5 and 2 check that the frame fits the available screen and
+permit visual inspection of controls, dependencies and error text. Synthetic
+fixtures are used; no real device or external-network commands are involved.
+
+
+The completed GUI run passed all seven behavior scenarios (nine QtTest results
+including setup/cleanup). The existing lifecycle suite passed all 13 results,
+including the independently built SDK consumer. The Windows application uses
+the GUI subsystem. Final native captures at 100%, 150% and 200% were reviewed;
+small viewports expose scrollable content with persistent close/error controls.
+Tests also verify that Enter in the filter does not change plugin preferences.
