@@ -139,6 +139,12 @@ does not indicate that a serial terminal backend is implemented.
 
 ## Preferences navigation and preview pages
 
+This is the primary settings layout for Termaster. The two-level navigation,
+right-hand page area and shared search form the established layout for future
+settings pages. The captures under `docs/images/preferences/` are the visual
+reference. Preview pages are connected to real owners as their features are
+implemented; their preview designation remains until that integration is complete.
+
 Tools/Settings presents a two-level `QTreeView`: category and page. Page registration
 uses a unique ID, category, title, description, schema and borrowed settings scope.
 The right-hand stack contains the generated forms. Category/page navigation never
