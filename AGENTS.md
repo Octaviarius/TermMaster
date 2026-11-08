@@ -50,17 +50,14 @@ changing behavior. These rules apply repository-wide.
 
 ## Architecture
 
-- Core, app and the SerialTerminal plugin are the active implementation modules. Modules managers, logic, terminal
-  and widgets are unbuilt reference material for future rewrites, not supported
-  dependencies or reasons to preserve obsolete Core APIs. Do not restore them to
-  the active target graph or repair their archived callers without a requirement.
+- Core, App and the SerialTerminal plugin are the active implementation modules.
+  Obsolete Managers, Logic, Terminal, Widgets and the legacy bootstrap were removed.
 - Keep main.cpp as a minimal wrapper that constructs App and calls run(). Module
-  app owns QApplication integration, application orchestration and the base
+  App owns QApplication integration, application orchestration and the base
   application's windows/dialogs under src/gui/. Core owns reusable infrastructure
-  and its own feature GUI; Core must not depend on app. The old src/legacy/ entry
-  point is reference material and is not built.
-- Core must not depend on those reference modules. Active YAML plugin preferences
-  use the general Core Settings owner and preserve validation and atomic writes.
+  and its own feature GUI; Core must not depend on App.
+- Active YAML plugin preferences use the general Core Settings owner and preserve
+  validation and atomic writes.
 - The application opens a workspace. A workspace owns general workspace settings,
   a session catalog and session history. Sessions persist object, link, resource and
   presentation configuration in individual session.yaml documents. Catalog entries

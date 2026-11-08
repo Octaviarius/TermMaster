@@ -2,8 +2,7 @@
 
 `src/app` owns the application shell and orchestration. The executable target
 remains Termaster; App is the static application module and Core is reusable
-infrastructure. Neither the old Widgets/Managers modules nor their bootstrap are
-restored to the active graph. Core does not depend on App.
+infrastructure. The obsolete Widgets/Managers modules and their bootstrap have been removed. Core does not depend on App.
 
 ## Entry and structure
 
