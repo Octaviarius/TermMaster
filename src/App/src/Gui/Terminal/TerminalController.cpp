@@ -269,7 +269,11 @@ void TerminalController::registerTerminalType(TerminalType type)
                                        std::make_shared<SettingsSchema>(type.workspaceSettingsSchema);
     type.workspaceSettingsSchema = QByteArray(type.workspaceSettingsSchema.constData(),
                                               type.workspaceSettingsSchema.size());
-    _types.emplace(id, Type {std::move(type), std::move(schema), std::move(workspaceSchema)});
+    auto defaultSchema           = type.defaultSettingsSchema.isEmpty() ?
+                                       schema :
+                                       std::make_shared<SettingsSchema>(type.defaultSettingsSchema);
+    type.defaultSettingsSchema = QByteArray(type.defaultSettingsSchema.constData(), type.defaultSettingsSchema.size());
+    _types.emplace(id, Type {std::move(type), std::move(schema), std::move(workspaceSchema), std::move(defaultSchema)});
     _restore();
     refreshTerminalActions();
 }
@@ -769,23 +773,29 @@ std::shared_ptr<SettingsSchema> TerminalController::_appearanceSchema()
     }
     return std::make_shared<SettingsSchema>(file.readAll());
 }
-void TerminalController::addSettingsPages(SettingsDialog& dialog)
+void TerminalController::addDefaultSettingsPages(SettingsDialog& dialog, const QString& scope, SettingsOverlay settings)
 {
-    if (auto* workspace = _workspace ? _workspace() : nullptr)
+    for (const auto& [id, type] : _types)
     {
-        for (const auto& [id, type] : _types)
+        dialog.addPage(scope + "." + id,
+                       "Terminals",
+                       type.registration.title,
+                       "Default connection parameters for terminals in this scope.",
+                       type.defaultSchema,
+                       settings);
+        if (scope == "workspace" && type.workspaceSchema)
         {
-            if (type.workspaceSchema)
-            {
-                dialog.addPage("workspace." + id,
-                               "Workspace",
-                               type.registration.title,
-                               "Workspace-wide suggestions for this terminal type.",
-                               type.workspaceSchema,
-                               workspace->settings());
-            }
+            dialog.addPage(scope + "." + id + ".suggestions",
+                           "Terminals",
+                           type.registration.title + " suggestions",
+                           "Additional baud rates offered in this workspace.",
+                           type.workspaceSchema,
+                           settings);
         }
     }
+}
+void TerminalController::addSettingsPages(SettingsDialog& dialog)
+{
     if (auto* terminal = _current())
     {
         dialog.addPage("terminal.display",

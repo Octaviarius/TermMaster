@@ -4,6 +4,9 @@ description: Terminal display and input settings
 content:
   $schema: http://json-schema.org/draft-07/schema#
   type: object
+  x-widget: terminalPreview
+  x-widget-options:
+    title: Terminal preview
   additionalProperties: false
   required:
   - fontFamily
@@ -32,6 +35,7 @@ content:
       default: Consolas
       minLength: 1
       maxLength: 128
+      x-widget: fontFamily
       x-settings-path: appearance/fontFamily
       x-group: text
       x-order: 0
@@ -49,6 +53,7 @@ content:
       title: Foreground color
       default: '#e5e7eb'
       pattern: ^#[0-9a-fA-F]{6}$
+      x-widget: color
       x-settings-path: appearance/foreground
       x-group: colors
       x-order: 2
@@ -57,6 +62,7 @@ content:
       title: Background color
       default: '#15191f'
       pattern: ^#[0-9a-fA-F]{6}$
+      x-widget: color
       x-settings-path: appearance/background
       x-group: colors
       x-order: 3

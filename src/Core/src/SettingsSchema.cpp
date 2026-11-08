@@ -505,6 +505,8 @@ struct SettingsSchema::Data
 {
     QList<Field>     fields;
     QList<Group>     groups;
+    QString          widget;
+    QVariantMap      presentation;
     valijson::Schema schema;
 };
 
@@ -571,6 +573,8 @@ SettingsSchema::SettingsSchema(const QByteArray& yamlDescriptor) : _data(std::ma
         require(validator.validate(metaSchema, Adapter(QVariant(root)), nullptr), "Invalid Draft 7 schema structure");
         parser.populateSchema(Adapter(QVariant(root)), _data->schema);
 
+        _data->widget        = stringMember(root, "x-widget");
+        _data->presentation  = mapMember(root, "x-widget-options");
         auto          rootUi = root;
         QSet<QString> groupIds;
         if (rootUi.contains("x-groups"))
@@ -681,6 +685,16 @@ const QList<SettingsSchema::Field>& SettingsSchema::fields() const
 const QList<SettingsSchema::Group>& SettingsSchema::groups() const
 {
     return _data->groups;
+}
+
+QString SettingsSchema::widget() const
+{
+    return _data->widget;
+}
+
+QVariantMap SettingsSchema::presentation() const
+{
+    return _data->presentation;
 }
 
 QList<SettingsSchema::Error> SettingsSchema::validate(const QVariantMap& document) const

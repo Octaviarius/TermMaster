@@ -15,7 +15,7 @@ content:
     toolbar:
       type: boolean
       title: Show toolbar
-      description: Show the main action toolbar in this settings scope.
+      description: Show the main action toolbar for the application.
       default: true
       x-settings-path: ui/toolbarVisible
       x-group: appearance
@@ -23,7 +23,7 @@ content:
     statusBar:
       type: boolean
       title: Show status bar
-      description: Show the status bar in this settings scope.
+      description: Show the status bar for the application.
       default: true
       x-settings-path: ui/statusBarVisible
       x-group: appearance

@@ -1,5 +1,7 @@
+#include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/SettingsDialog.h"
 
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDialog>
@@ -33,6 +35,7 @@
 #include <QTest>
 #include <QTextDocumentFragment>
 #include <QTimer>
+#include <QToolButton>
 #include <QToolTip>
 #include <QTreeView>
 #include <QUuid>
@@ -159,7 +162,7 @@ private:
         QVERIFY(!QApplication::windowIcon().isNull());
         QVERIFY(!_app.mainWindow().windowIcon().isNull());
         QVERIFY(!QApplication::windowIcon().pixmap(32, 32).isNull());
-        for (const auto& menu : {"/file", "/edit", "/view", "/tools", "/help"})
+        for (const auto& menu : {"/file", "/edit", "/view", "/session", "/terminal", "/tools", "/help"})
         {
             QVERIFY(_app.mainMenu().findMenu(menu));
         }
@@ -392,13 +395,16 @@ private:
         QVERIFY(_app.settings().setValue("settings/ui/statusBarVisible", true));
         action("View.Toolbar")->trigger();
         QVERIFY(_app.toolbar().toolbar()->isHidden());
-        QCOMPARE(_app.workspace()->settings().value("ui/toolbarVisible").toBool(), false);
-        QCOMPARE(_app.settings().value("settings/ui/toolbarVisible").toBool(), true);
+        QVERIFY(!_app.workspace()->settings().containsOverride("ui/toolbarVisible"));
+        QCOMPARE(_app.settings().value("settings/ui/toolbarVisible").toBool(), false);
         action("View.StatusBar")->trigger();
         QVERIFY(_app.mainWindow().statusBar()->isHidden());
-        QCOMPARE(_app.workspace()->settings().value("ui/statusBarVisible").toBool(), false);
-        QCOMPARE(_app.settings().value("settings/ui/statusBarVisible").toBool(), true);
+        QVERIFY(!_app.workspace()->settings().containsOverride("ui/statusBarVisible"));
+        QCOMPARE(_app.settings().value("settings/ui/statusBarVisible").toBool(), false);
         QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(_app.toolbar().toolbar()->isHidden());
+        action("View.Toolbar")->trigger();
+        action("View.StatusBar")->trigger();
         QVERIFY(!_app.toolbar().toolbar()->isHidden());
         QVERIFY(!_app.mainWindow().statusBar()->isHidden());
         QVERIFY(action("View.Toolbar")->isChecked());
@@ -426,7 +432,7 @@ private:
         QVERIFY(!_app.openWorkspace(Path(temporary.filePath("missing.termaster")), &error));
         QCOMPARE(_app.recentWorkspaces(), files);
         QVERIFY(_app.mainMenu().findMenu("/file/recentWorkspaces"));
-        QVERIFY(_app.mainMenu().findMenu("/file/recentSessions"));
+        QVERIFY(_app.mainMenu().findMenu("/session/recentSessions"));
         auto* recentMenu        = static_cast<MenuActionContainer*>(_app.mainMenu().findMenu("/file/recentWorkspaces"))
                                       ->menu();
         int   visibleWorkspaces = 0;
@@ -442,7 +448,8 @@ private:
         QVERIFY(_app.createSession("Recorded", &error));
         const auto recordedId = _app.session()->id();
         QVERIFY(_app.closeSession(&error));
-        auto* sessionMenu = static_cast<MenuActionContainer*>(_app.mainMenu().findMenu("/file/recentSessions"))->menu();
+        auto* sessionMenu = static_cast<MenuActionContainer*>(_app.mainMenu().findMenu("/session/recentSessions"))
+                                ->menu();
         QVERIFY(QMetaObject::invokeMethod(sessionMenu, "aboutToShow", Qt::DirectConnection));
         int visibleSessions = 0;
         for (auto* action : sessionMenu->actions())
@@ -643,126 +650,133 @@ private:
 
     Q_SLOT void generatedSettingsDialog()
     {
-        QString error;
+        QTemporaryDir temporary;
+        QString       error;
         QVERIFY(_app.settings().setValue("settings/ui/toolbarVisible", true));
         QVERIFY(_app.settings().setValue("settings/ui/statusBarVisible", true));
-        auto* command = _app.commands().find("Application.Settings")->actions().first();
-        command->trigger();
-        QPointer<QDialog> dialog(_app.mainWindow().findChild<QDialog*>("settingsDialog"));
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Settings.termaster")), "Settings", &error));
+        const auto cleanup = qScopeGuard([&] {
+            for (auto* dialog : _app.mainWindow().findChildren<SettingsDialog*>())
+            {
+                delete dialog;
+            }
+            _app.closeWorkspace();
+            auto* action = _app.commands().find("View.Toolbar")->actions().first();
+            if (!action->isChecked())
+            {
+                action->trigger();
+            }
+        });
+        _app.commands().find("Application.Settings")->actions().first()->trigger();
+        QPointer<SettingsDialog> dialog(_app.mainWindow().findChild<SettingsDialog*>("settingsDialog"));
         QVERIFY(dialog);
-        auto* model = static_cast<SettingsDialog*>(dialog.data())
-                          ->pageModel(static_cast<SettingsDialog*>(dialog.data())->currentPage());
-        QVERIFY(model);
+        QVERIFY(dialog->pageModel("application.appearance"));
+        QVERIFY(!dialog->pageModel("workspace.terminal"));
+        QVERIFY(!dialog->pageModel("terminal.connection"));
+        auto* model = dialog->pageModel("application.appearance");
         model->setValue("toolbar", false);
-        QVERIFY(_app.configuration().value("ui/toolbarVisible").toBool());
+        QVERIFY(!_app.toolbar().toolbar()->isHidden());
+        auto* reset = dialog->findChild<QToolButton*>("reset_toolbar");
+        QVERIFY(reset && !reset->isHidden());
+        auto* booleanEditor = reset->parentWidget()->findChild<QCheckBox*>();
+        QVERIFY(booleanEditor);
+        QApplication::processEvents();
+        const int gap = reset->mapTo(dialog, QPoint()).x()
+                      - booleanEditor->mapTo(dialog, QPoint(booleanEditor->width(), 0)).x();
+        QVERIFY2(gap >= 0 && gap <= 24, qPrintable(QString::number(gap)));
+        const auto interfaceCapture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!interfaceCapture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(interfaceCapture));
+            dialog->setFixedSize(1280, 800);
+            QApplication::processEvents();
+            QVERIFY(dialog->grab().save(QDir(interfaceCapture).filePath("InterfaceReset.png")));
+        }
         dialog->reject();
         QTRY_VERIFY(dialog.isNull());
-        QVERIFY(_app.configuration().value("ui/toolbarVisible").toBool());
-
-        QTemporaryDir temporary;
-        QVERIFY(_app.createWorkspace(Path(temporary.filePath("settings.termaster")), "Settings", &error));
-        command->trigger();
-        dialog = _app.mainWindow().findChild<QDialog*>("settingsDialog");
-        QVERIFY(dialog);
-        model = static_cast<SettingsDialog*>(dialog.data())
-                    ->pageModel(static_cast<SettingsDialog*>(dialog.data())->currentPage());
+        QVERIFY(!_app.toolbar().toolbar()->isHidden());
+        _app.commands().find("Application.Settings")->actions().first()->trigger();
+        dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+        model  = dialog->pageModel("application.appearance");
         model->setValue("toolbar", false);
-        auto* buttons = dialog->findChild<QDialogButtonBox*>();
-        QVERIFY(buttons->button(QDialogButtonBox::Apply)->isEnabled());
-        buttons->button(QDialogButtonBox::Apply)->click();
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
         QVERIFY(_app.toolbar().toolbar()->isHidden());
-        QVERIFY(_app.settings().value("settings/ui/toolbarVisible").toBool());
-        Settings saved(_app.workspace()->filePath(), {"termaster.workspace", "Termaster workspace"});
-        QVERIFY(saved.load(&error));
-        QVERIFY(!saved.value("settings/ui/toolbarVisible").toBool());
-        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
-        if (!capture.isEmpty())
-        {
-            QVERIFY(QDir().mkpath(capture));
-            QVERIFY(dialog->grab().save(QDir(capture).filePath("Settings.png")));
-        }
+        QVERIFY(!_app.settings().value("settings/ui/toolbarVisible").toBool());
+        QVERIFY(!_app.workspace()->settings().containsOverride("ui/toolbarVisible"));
         QVERIFY(_app.createSession("Settings session", &error));
-        QTRY_VERIFY(dialog.isNull());
-        command->trigger();
-        dialog = _app.mainWindow().findChild<QDialog*>("settingsDialog");
         QVERIFY(dialog);
-        model = static_cast<SettingsDialog*>(dialog.data())
-                    ->pageModel(static_cast<SettingsDialog*>(dialog.data())->currentPage());
-        model->setValue("statusBar", false);
-        buttons = dialog->findChild<QDialogButtonBox*>();
-        buttons->button(QDialogButtonBox::Apply)->click();
-        QVERIFY(!_app.configuration().value("ui/statusBarVisible").toBool());
-        QVERIFY(_app.workspace()->settings().value("ui/statusBarVisible", true).toBool());
+        auto* applicationDraft = dialog->pageModel("application.terminal");
+        applicationDraft->setValue("fontSize", 18.0);
+        _app.commands().find("Session.Settings")->actions().first()->trigger();
+        QVERIFY(dialog);
+        QVERIFY(applicationDraft->isDirty());
+        for (auto* candidate : _app.mainWindow().findChildren<SettingsDialog*>("settingsDialog"))
+        {
+            if (candidate->pageModel("session.terminal"))
+            {
+                dialog = candidate;
+            }
+        }
+        QVERIFY(dialog->pageModel("session.terminal"));
+        QVERIFY(!dialog->pageModel("application.appearance"));
+        QVERIFY(!dialog->pageModel("workspace.terminal"));
+        auto*      font      = dialog->pageModel("session.terminal");
+        const auto inherited = font->value("fontSize");
+        font->setValue("fontSize", 19.0);
+        QCOMPARE(_app.session()->settings().value("appearance/fontSize", inherited), inherited);
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(_app.session()->settings().value("appearance/fontSize").toDouble(), 19.0);
+        QVERIFY(!_app.workspace()->settings().containsOverride("appearance/fontSize"));
         QVERIFY(_app.closeSession(&error));
         QTRY_VERIFY(dialog.isNull());
-        QVERIFY(_app.closeWorkspace(&error));
-        QVERIFY(!_app.toolbar().toolbar()->isHidden());
     }
 
     Q_SLOT void preferencesNavigationSearchAndPreview()
     {
-        QTemporaryDir temporary;
-        QString       error;
-        QVERIFY(_app.settings().setValue("settings/ui/toolbarVisible", true));
-        QVERIFY(_app.createWorkspace(Path(temporary.filePath("preferences.termaster")), "Firmware lab", &error));
-        QVERIFY(_app.createSession("Amber Falcon", &error));
+        QString error;
         _app.commands().find("Application.Settings")->actions().first()->trigger();
         QPointer<SettingsDialog> dialog(_app.mainWindow().findChild<SettingsDialog*>("settingsDialog"));
         QVERIFY(dialog);
         const auto cleanup = qScopeGuard([&] {
             if (dialog)
             {
-                dialog->reject();
+                delete dialog.data();
             }
-            _app.settings().setValue("settings/ui/toolbarVisible", true);
-            _app.closeWorkspace();
-            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         });
-        dialog->setFixedSize(1020, 720);
-        auto* tree   = dialog->findChild<QTreeView*>("settingsTree");
-        auto* search = dialog->findChild<QLineEdit*>("settingsSearch");
+        auto*      tree    = dialog->findChild<QTreeView*>("settingsTree");
+        auto*      search  = dialog->findChild<QLineEdit*>("settingsSearch");
         QVERIFY(tree);
         QVERIFY(search);
-        QCOMPARE(tree->model()->rowCount(), 4);
-        for (int row = 0; row < tree->model()->rowCount(); ++row)
+        QCOMPARE(tree->model()->rowCount(), 2);
+        QVERIFY(dialog->selectPage("application.terminal"));
+        auto*      model         = dialog->pageModel("application.terminal");
+        const auto inheritedSize = model->value("fontSize");
+        auto*      preview       = dialog->findChild<TerminalDisplay*>("settingsAppearancePreview");
+        QVERIFY(preview);
+        model->setValue("fontSize", 21.0);
+        QCOMPARE(preview->font().pointSizeF(), 21.0);
+        model->setValue("fontSize", 72.0);
+        QApplication::processEvents();
+        const auto previewImage      = preview->viewport()->grab().toImage();
+        const auto previewBackground = QColor(model->value("background").toString()).rgb();
+        bool       visibleText       = false;
+        for (int y = 0; y < previewImage.height() && !visibleText; ++y)
         {
-            const auto category = tree->model()->index(row, 0);
-            QVERIFY(tree->model()->rowCount(category) > 0);
-            for (int child = 0; child < tree->model()->rowCount(category); ++child)
+            for (int x = 0; x < previewImage.width(); ++x)
             {
-                QCOMPARE(tree->model()->rowCount(tree->model()->index(child, 0, category)), 0);
+                if (previewImage.pixelColor(x, y).rgb() != previewBackground)
+                {
+                    visibleText = true;
+                    break;
+                }
             }
         }
-        QVERIFY(dialog->selectPage("workspace.general"));
-        auto* preview = dialog->pageModel("workspace.general");
-        preview->setValue("name", "Preview-only workspace");
-        auto* buttons = dialog->findChild<QDialogButtonBox*>();
-        buttons->button(QDialogButtonBox::Apply)->click();
-        QCOMPARE(_app.workspace()->name(), QString("Firmware lab"));
-        QCOMPARE(dialog->previewSettings().node("workspace.general").value("identity/name").toString(),
-                 QString("Preview-only workspace"));
-        preview->setValue("name", "Firmware lab");
-        auto* serial = dialog->pageModel("terminal.serial");
-        serial->setValue("baudRate", 0);
-        QVERIFY(!serial->isValid());
-        search->setText("directory");
-        buttons->button(QDialogButtonBox::Apply)->click();
-        QCOMPARE(dialog->currentPage(), QString("terminal.serial"));
-        QVERIFY(search->text().isEmpty());
-        serial->setValue("baudRate", 115200);
-        auto* base      = dialog->pageModel("application.appearance");
-        auto* workspace = dialog->pageModel("workspace.appearance");
-        base->setValue("toolbar", false);
-        workspace->setValue("toolbar", false);
-        buttons->button(QDialogButtonBox::Apply)->click();
-        QVERIFY(!base->isDirty());
-        QVERIFY(!workspace->isDirty());
-        QVERIFY(!_app.settings().value("settings/ui/toolbarVisible").toBool());
-        QVERIFY(!_app.workspace()->settings().value("ui/toolbarVisible").toBool());
-        QVERIFY(!dialog->pageModel("session.appearance")->value("toolbar").toBool());
-        search->setText("baud");
+        QVERIFY(visibleText);
+        model->setValue("fontSize", 21.0);
+        QVERIFY(!(_app.settings().value("settings/appearance/fontSize").toDouble() == 21.0));
+        search->setText("background");
         QCOMPARE(tree->model()->rowCount(), 1);
-        QCOMPARE(dialog->currentPage(), QString("terminal.serial"));
+        QCOMPARE(dialog->currentPage(), QString("application.terminal"));
         SettingsFormWidget* active = nullptr;
         for (auto* form : dialog->findChildren<SettingsFormWidget*>())
         {
@@ -772,38 +786,54 @@ private:
             }
         }
         QVERIFY(active);
-        QCOMPARE(active->visibleFields(), QStringList {"baudRate"});
-        search->setText("Line parameters");
-        QVERIFY(active->visibleFields().contains("dataBits"));
-        QVERIFY(!active->visibleFields().contains("port"));
+        QCOMPARE(active->visibleFields(), QStringList {"background"});
         search->setText("no-such-setting-5689");
         QCOMPARE(tree->model()->rowCount(), 0);
         search->clear();
-        QCOMPARE(tree->model()->rowCount(), 4);
-
+        QCOMPARE(model->value("fontSize").toDouble(), 21.0);
+        model->removeValue("fontSize");
+        QCOMPARE(preview->font().pointSizeF(), inheritedSize.toDouble());
         const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
         if (!capture.isEmpty())
         {
             QVERIFY(QDir().mkpath(capture));
-            const auto save = [&](const QString& id, const QString& file) {
-                if (!dialog->selectPage(id))
-                {
-                    return false;
-                }
-                QApplication::processEvents();
-                return dialog->size() == QSize(1020, 720) && dialog->grab().save(QDir(capture).filePath(file));
-            };
-            QVERIFY(save("workspace.general", "PreferencesWorkspace.png"));
-            QVERIFY(save("session.layout", "PreferencesSession.png"));
-            QVERIFY(save("terminal.serial", "PreferencesSerial.png"));
-            search->setText("baud");
+            dialog->setFixedSize(1280, 800);
+            QVERIFY(dialog->selectPage("application.terminal"));
             QApplication::processEvents();
-            QVERIFY(dialog->grab().save(QDir(capture).filePath("PreferencesSearch.png")));
+            QVERIFY(dialog->grab().save(QDir(capture).filePath("ApplicationSettings.png")));
         }
-        dialog->reject();
-        QTRY_VERIFY(dialog.isNull());
-        QVERIFY(_app.settings().setValue("settings/ui/toolbarVisible", true));
-        QVERIFY(_app.closeWorkspace(&error));
+    }
+
+    Q_SLOT void sessionPickerKeepsIdentitySeparate()
+    {
+        const QString first("11111111-1111-1111-1111-111111111111");
+        const QString second("22222222-2222-2222-2222-222222222222");
+        SessionPicker picker(
+            {
+                {"Same readable name",  first},
+                {"Same readable name", second}
+        },
+            &_app.mainWindow());
+        picker.show();
+        auto* combo = picker.findChild<QComboBox*>("sessionChoice");
+        QVERIFY(combo);
+        QCOMPARE(combo->currentText(), QString("Same readable name"));
+        QCOMPARE(picker.selectedSession(), first);
+        combo->setCurrentIndex(1);
+        QCOMPARE(picker.selectedSession(), second);
+        QVERIFY(combo->itemData(1, Qt::AccessibleTextRole).toString().contains(second));
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QApplication::processEvents();
+            QPixmap canvas(1280, 800);
+            canvas.fill(picker.palette().color(QPalette::Window));
+            QPainter painter(&canvas);
+            painter.drawPixmap(QPoint((1280 - picker.width()) / 2, (800 - picker.height()) / 2), picker.grab());
+            painter.end();
+            QVERIFY(canvas.save(QDir(capture).filePath("SessionPicker.png")));
+        }
+        picker.reject();
     }
 
     Q_SLOT void serialPluginTerminalLifecycle()
@@ -942,10 +972,34 @@ private:
         QVERIFY(!editAction("Edit.SelectAll")->isEnabled());
         const auto definition = _app.session()->objects().value(id);
         QVERIFY(!definition.toMap().value("settings").toMap().contains("appearance"));
+        _app.commands().find("Workspace.Settings")->actions().first()->trigger();
+        auto* workspaceDialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+        QVERIFY(workspaceDialog);
+        auto* workspaceModel = workspaceDialog->pageModel("workspace.serial.suggestions");
+        QVERIFY(workspaceModel);
+        workspaceModel->setValue("baudRates", QVariantList {123456, 123456});
+        QVERIFY(!workspaceModel->isValid());
+        workspaceModel->setValue("baudRates", QVariantList {123456, 250000, 654321});
+        QVERIFY(workspaceModel->isValid());
+        QVERIFY(workspaceModel->apply(&error));
+        QVERIFY(_app.saveWorkspace(&error));
+        QVERIFY(!workspaceDialog->pageModel("terminal.connection"));
+        delete workspaceDialog;
+        _app.commands().find("Application.Settings")->actions().first()->trigger();
+        auto* applicationDialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+        QVERIFY(applicationDialog->pageModel("application.serial"));
+        QVERIFY(!applicationDialog->pageModel("workspace.serial.suggestions"));
+        QVERIFY(!applicationDialog->pageModel("terminal.connection"));
+        auto* defaultPort = applicationDialog->findChild<QComboBox*>("serialPortCombo");
+        QVERIFY(defaultPort && defaultPort->isEditable());
+        defaultPort->setEditText("COM_GLOBAL_DRAFT");
+        QCOMPARE(_app.settings().value("settings/transport/portName", QString()).toString(), QString());
+        delete applicationDialog;
         _app.commands().find("Serial.Settings")->actions().first()->trigger();
         QPointer<SettingsDialog> settings(_app.mainWindow().findChild<SettingsDialog*>("settingsDialog"));
         QVERIFY(settings);
-        QVERIFY(settings->selectPage("workspace.serial"));
+        QVERIFY(!settings->pageModel("workspace.serial"));
+        QVERIFY(!settings->pageModel("application.appearance"));
         SettingsFormWidget* workspaceForm  = nullptr;
         SettingsFormWidget* connectionForm = nullptr;
         for (auto* form : settings->findChildren<SettingsFormWidget*>())
@@ -959,24 +1013,20 @@ private:
                 connectionForm = form;
             }
         }
-        QVERIFY(workspaceForm);
+        QVERIFY(!workspaceForm);
         QVERIFY(connectionForm);
+        auto* port = connectionForm->findChild<QComboBox*>("serialPortCombo");
+        QVERIFY(port && port->isEditable());
+        QCOMPARE(port->currentText(), QString("COM_TERMASTER_TEST_UNUSED"));
+        auto* terminalTree = settings->findChild<QTreeView*>("settingsTree");
+        QCOMPARE(terminalTree->model()->rowCount(), 1);
+        QCOMPARE(terminalTree->model()->index(0, 0).data().toString(), QString("Terminal"));
         auto* baud = connectionForm->editor("baudRate")->findChild<QComboBox*>("baudRateSelector");
         QVERIFY(baud);
         QVERIFY(baud->isEditable());
         QVERIFY(baud->findData(123456) >= 0);
         QVERIFY(baud->findData(250000) >= 0);
         QCOMPARE(baud->currentText(), "115200");
-        auto* workspaceModel = settings->pageModel("workspace.serial");
-        QVERIFY(workspaceModel);
-        workspaceModel->setValue("baudRates", QVariantList {123456, 123456});
-        QVERIFY(!workspaceModel->isValid());
-        workspaceModel->setValue("baudRates", QVariantList {123456, 250000, 654321});
-        QVERIFY(workspaceModel->isValid());
-        QVERIFY(workspaceModel->apply(&error));
-        QVERIFY(_app.saveWorkspace(&error));
-        QCOMPARE(_app.workspace()->settings().value("serial/baudRates").toList(),
-                 QVariantList({123456, 250000, 654321}));
         baud->setEditText("234567");
         auto* connectionModel = settings->pageModel("terminal.connection");
         QVERIFY(connectionModel->isValid());

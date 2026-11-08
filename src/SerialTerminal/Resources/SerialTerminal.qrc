@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/SerialTerminal">
         <file>Settings.yaml</file>
+        <file>Defaults.yaml</file>
         <file>WorkspaceSettings.yaml</file>
         <file>device-usb.svg</file>
         <file>device-pci.svg</file>

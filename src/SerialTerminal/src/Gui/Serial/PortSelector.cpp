@@ -1,18 +1,123 @@
 #include "PortSelector.h"
 
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QCollator>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPainter>
 #include <QPushButton>
 #include <QSerialPortInfo>
 #include <QSignalBlocker>
 #include <QStyle>
+#include <QStyledItemDelegate>
+#include <QTextDocument>
 #include <QVBoxLayout>
 #include <algorithm>
 #include <tuple>
+
+namespace
+{
+QColor secondaryColor(const QPalette& palette, bool selected)
+{
+    const auto foreground = palette.color(selected ? QPalette::HighlightedText : QPalette::Text);
+    const auto background = palette.color(selected ? QPalette::Highlight : QPalette::Base);
+    if (selected)
+    {
+        return foreground;
+    }
+    return QColor((foreground.red() * 3 + background.red()) / 4,
+                  (foreground.green() * 3 + background.green()) / 4,
+                  (foreground.blue() * 3 + background.blue()) / 4);
+}
+
+class PortDelegate final : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override
+    {
+        auto size = QStyledItemDelegate::sizeHint(option, index);
+        size.setHeight(option.fontMetrics.height() * 2 + 12);
+        size.setWidth(qMax(size.width(), 320));
+        return size;
+    }
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override
+    {
+        QStyleOptionViewItem item(option);
+        initStyleOption(&item, index);
+        const QString primary = item.text;
+        item.text.clear();
+        const bool selected = item.state.testFlag(QStyle::State_Selected);
+        if (selected)
+        {
+            item.backgroundBrush  = item.palette.highlight();
+            item.state           &= ~(QStyle::State_Selected | QStyle::State_MouseOver | QStyle::State_HasFocus);
+        }
+        auto* style = item.widget ? item.widget->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &item, painter, item.widget);
+        QRect text = style->subElementRect(QStyle::SE_ItemViewItemText, &item, item.widget);
+        text.adjust(0, 4, -6, -4);
+        painter->save();
+        painter->setFont(item.font);
+        painter->setPen(item.palette.color(selected ? QPalette::HighlightedText : QPalette::Text));
+        painter->drawText(text,
+                          (index.data(PortModel::SerialRole).toString().isEmpty() ? Qt::AlignVCenter : Qt::AlignTop)
+                              | Qt::AlignLeft,
+                          item.fontMetrics.elidedText(primary, Qt::ElideRight, text.width()));
+        painter->setPen(secondaryColor(item.palette, selected));
+        painter->drawText(text,
+                          Qt::AlignBottom | Qt::AlignLeft,
+                          item.fontMetrics.elidedText(index.data(PortModel::SerialRole).toString(),
+                                                      Qt::ElideRight,
+                                                      text.width()));
+        painter->restore();
+    }
+};
+
+/** Keep the editable buffer as the raw address; paint identity only while unfocused. */
+class PortLineEdit final : public QLineEdit
+{
+public:
+    explicit PortLineEdit(QComboBox* combo) : QLineEdit(combo), _combo(combo)
+    {
+    }
+
+protected:
+    void paintEvent(QPaintEvent* event) override
+    {
+        const int row = _combo->findData(text(), Qt::EditRole);
+        if (hasFocus() || row < 0 || text().isEmpty())
+        {
+            QLineEdit::paintEvent(event);
+            return;
+        }
+        QPainter painter(this);
+        painter.fillRect(rect(), palette().brush(QPalette::Base));
+        const auto index = _combo->model()->index(row, 0);
+        QRect      area  = rect().adjusted(3, 2, -3, -2);
+        painter.setFont(font());
+        painter.setPen(palette().color(QPalette::Text));
+        painter.drawText(area,
+                         Qt::AlignLeft
+                             | (index.data(PortModel::SerialRole).toString().isEmpty() ? Qt::AlignVCenter :
+                                                                                         Qt::AlignTop),
+                         fontMetrics().elidedText(index.data().toString(), Qt::ElideRight, area.width()));
+        painter.setPen(secondaryColor(palette(), false));
+        painter.drawText(area,
+                         Qt::AlignLeft | Qt::AlignBottom,
+                         fontMetrics().elidedText(index.data(PortModel::SerialRole).toString(),
+                                                  Qt::ElideRight,
+                                                  area.width()));
+    }
+
+private:
+    QComboBox* _combo;
+};
+} // namespace
 
 bool PortModel::Port::operator==(const Port& other) const
 {
@@ -47,13 +152,31 @@ QVariant PortModel::data(const QModelIndex& index, int role) const
     {
         return {};
     }
-    if (role == Qt::DisplayRole || role == Qt::EditRole)
+    if (role == Qt::DisplayRole)
+    {
+        return entry->description.isEmpty() ? entry->name : entry->name + QStringLiteral(" — ") + entry->description;
+    }
+    if (role == SerialRole)
+    {
+        return entry->serial.isEmpty() ? QString() : QStringLiteral("Serial: ") + entry->serial;
+    }
+    if (role == Qt::EditRole)
     {
         return entry->name;
     }
     if (role == Qt::ToolTipRole)
     {
-        return entry->description + "\n" + entry->classification.label() + "\n" + entry->classification.evidence;
+        QStringList lines {entry->description};
+        if (!entry->serial.isEmpty())
+        {
+            lines.append(tr("Serial: %1").arg(entry->serial));
+        }
+        lines.append(entry->classification.label());
+        if (!entry->classification.evidence.isEmpty())
+        {
+            lines.append(entry->classification.evidence);
+        }
+        return Qt::convertFromPlainText(lines.join('\n'));
     }
     if (role == Qt::DecorationRole)
     {
@@ -155,14 +278,20 @@ PortSelector::PortSelector(const QVariantMap& options, QWidget* parent, Inventor
     }
     _combo->setObjectName("serialPortCombo");
     _combo->setEditable(true);
+    _combo->setLineEdit(new PortLineEdit(_combo));
+    _combo->setItemDelegate(new PortDelegate(_combo));
+    _combo->setMinimumHeight(fontMetrics().height() * 2 + 12);
     _combo->setInsertPolicy(QComboBox::NoInsert);
     _combo->setModel(_model);
+    _combo->setCompleter(nullptr);
     _combo->setMinimumContentsLength(15);
+    _combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     auto* refreshButton = new QPushButton(QApplication::style()->standardIcon(QStyle::SP_BrowserReload), "", this);
     refreshButton->setToolTip("Refresh serial ports");
     refreshButton->setObjectName("serialPortRefresh");
     _details->setObjectName("serialPortDetails");
     _details->setTextFormat(Qt::PlainText);
+    _details->setForegroundRole(QPalette::PlaceholderText);
     _details->setTextInteractionFlags(Qt::TextSelectableByMouse);
     _details->setWordWrap(true);
     auto* row = new QHBoxLayout;
@@ -263,7 +392,7 @@ void PortSelector::_applySnapshot()
     const int            selectionLength = lineEdit->selectedText().size();
     const QSignalBlocker blocker(_combo);
     _model->setPorts(_snapshot, selected);
-    _combo->setCurrentIndex(_combo->findText(selected));
+    _combo->setCurrentIndex(_combo->findData(selected, Qt::EditRole));
     _combo->setEditText(selected);
     if (selection >= 0)
     {
@@ -275,24 +404,31 @@ void PortSelector::_applySnapshot()
     {
         lineEdit->setCursorPosition(cursor);
     }
+    _combo->lineEdit()->update();
     _updateDetails();
 }
 void PortSelector::_updateDetails()
 {
-    const auto* port = _model->port(_combo->findText(_combo->currentText()));
+    const auto* port = _model->port(_combo->findData(_combo->currentText(), Qt::EditRole));
     if (!port)
     {
-        _details->setText("Port is not currently available.");
+        _details->setText(_combo->currentText().isEmpty() ? tr("Select a port or enter its name.") :
+                                                            tr("Port is not currently available."));
         return;
     }
-    _details->setText(
-        QString(
-            "Location: %1\nDescription: %2\nManufacturer: %3\nSerial: %4\nVID / PID: %5\nClassification: %6\nEvidence: %7")
-            .arg(port->location,
-                 port->description,
-                 port->manufacturer,
-                 port->serial,
-                 port->identifiers,
-                 port->classification.label(),
-                 port->classification.evidence));
+    QStringList details;
+    const auto  add = [&details](const QString& label, const QString& value) {
+        if (!value.isEmpty())
+        {
+            details.append(label + ": " + value);
+        }
+    };
+    add(tr("Location"), port->location);
+    add(tr("Description"), port->description);
+    add(tr("Manufacturer"), port->manufacturer);
+    add(tr("Serial"), port->serial);
+    add(tr("VID / PID"), port->identifiers);
+    add(tr("Classification"), port->classification.label());
+    add(tr("Evidence"), port->classification.evidence);
+    _details->setText(details.join('\n'));
 }

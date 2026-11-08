@@ -1,7 +1,7 @@
 #include "Gui/Main/EditActions.h"
 #include "Gui/Main/MainWindow.h"
+#include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/SettingsDialog.h"
-#include "Gui/Settings/SettingsPreview.h"
 #include "Gui/Terminal/TerminalController.h"
 
 #include <QCloseEvent>
@@ -14,6 +14,7 @@
 #include <QIcon>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QMap>
 #include <QMessageBox>
 #include <QPointer>
 #include <QScopedValueRollback>
@@ -41,33 +42,36 @@
 
 struct App::Data
 {
-    ApplicationPaths                    paths;
-    Settings                            defaults {QString {}};
-    Settings                            settings;
-    Settings                            pluginSettings;
-    std::unique_ptr<Workspace>          workspace;
-    std::unique_ptr<Session>            session;
-    CommandRegistry                     commands;
-    SettingsWidgetRegistry              settingsWidgets;
-    std::unique_ptr<MainWindow>         window;
-    std::unique_ptr<TerminalController> terminals;
-    std::unique_ptr<EditActions>        editing;
-    QPointer<QDialog>                   pluginWindow;
-    QPointer<SettingsDialog>            settingsWindow;
-    QPointer<QAction>                   createSessionAction;
-    QPointer<QAction>                   openSessionAction;
-    QPointer<QAction>                   saveSessionAction;
-    QPointer<QAction>                   closeSessionAction;
-    QPointer<QAction>                   renameSessionAction;
-    QPointer<QAction>                   saveAction;
-    QPointer<QAction>                   closeAction;
-    QPointer<QAction>                   toolbarAction;
-    QPointer<QAction>                   statusAction;
-    QPointer<QAction>                   fullScreenAction;
-    std::array<QPointer<QAction>, 10>   recentWorkspaces;
-    std::array<QPointer<QAction>, 10>   recentSessions;
-    bool                                settingsLoaded        = false;
-    bool                                applyingConfiguration = false;
+    ApplicationPaths                                paths;
+    Settings                                        defaults {QString {}};
+    Settings                                        settings;
+    Settings                                        pluginSettings;
+    std::unique_ptr<Workspace>                      workspace;
+    std::unique_ptr<Session>                        session;
+    CommandRegistry                                 commands;
+    SettingsWidgetRegistry                          settingsWidgets;
+    std::unique_ptr<MainWindow>                     window;
+    std::unique_ptr<TerminalController>             terminals;
+    std::unique_ptr<EditActions>                    editing;
+    QPointer<QDialog>                               pluginWindow;
+    QPointer<SettingsDialog>                        settingsWindow;
+    QMap<SettingsContext, QPointer<SettingsDialog>> settingsWindows;
+    QPointer<QAction>                               createSessionAction;
+    QPointer<QAction>                               openSessionAction;
+    QPointer<QAction>                               saveSessionAction;
+    QPointer<QAction>                               closeSessionAction;
+    QPointer<QAction>                               renameSessionAction;
+    QPointer<QAction>                               workspaceSettingsAction;
+    QPointer<QAction>                               sessionSettingsAction;
+    QPointer<QAction>                               saveAction;
+    QPointer<QAction>                               closeAction;
+    QPointer<QAction>                               toolbarAction;
+    QPointer<QAction>                               statusAction;
+    QPointer<QAction>                               fullScreenAction;
+    std::array<QPointer<QAction>, 10>               recentWorkspaces;
+    std::array<QPointer<QAction>, 10>               recentSessions;
+    bool                                            settingsLoaded        = false;
+    bool                                            applyingConfiguration = false;
     // Shutdown may still use commands, views, workspace and settings.
     PluginManager plugins;
 
@@ -77,7 +81,7 @@ struct App::Data
         pluginSettings(paths.configFile("plugins"), {"termaster.plugins", "Plugin activation preferences"}),
         window(std::make_unique<MainWindow>()), plugins(pluginSettings, paths.pluginsDirectory().toString())
     {
-        registerSettingsPreviewEditors(settingsWidgets);
+
         defaults.applyValues(
             {
                 {     "appearance/fontFamily", QFontDatabase::systemFont(QFontDatabase::FixedFont).family()},
@@ -133,9 +137,15 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
         commands(),
         settingsWidgets(),
         [this] { return _data->workspace.get(); },
-        [this] { delete _data->settingsWindow.data(); },
         [this] {
-            _showSettings();
+            const auto dialogs = _data->settingsWindows.values();
+            for (const auto& dialog : dialogs)
+            {
+                delete dialog.data();
+            }
+        },
+        [this] {
+            _showSettings(SettingsContext::Terminal);
             if (_data->settingsWindow)
             {
                 _data->settingsWindow->selectPage("terminal.connection");
@@ -144,7 +154,11 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
         this);
     _data->plugins.setHost(_data->terminals.get());
     connect(_data->terminals.get(), &TerminalController::selectionChanged, this, [this] {
-        delete _data->settingsWindow.data();
+        const auto dialog = _data->settingsWindows.value(SettingsContext::Terminal);
+        if (dialog && dialog->property("terminalId").toString() != _data->terminals->selectedTerminal())
+        {
+            _closeSettings(SettingsContext::Terminal);
+        }
     });
     _data->window->installEventFilter(this);
     _data->window->statusBar()->installEventFilter(this);
@@ -307,7 +321,10 @@ bool App::restoreLastWorkspace(QString* error)
         }
         const bool hadSession = bool(_data->session);
         _data->terminals->setSession(nullptr);
+        _closeSettings(SettingsContext::Session);
+        _closeSettings(SettingsContext::Terminal);
         _data->session.reset();
+        _closeSettings(SettingsContext::Workspace);
         _data->workspace = std::move(candidate);
         _updateWorkspace();
         if (hadSession)
@@ -386,7 +403,10 @@ bool App::closeWorkspace(QString* error)
     }
     const bool hadSession = bool(_data->session);
     _data->terminals->setSession(nullptr);
+    _closeSettings(SettingsContext::Session);
+    _closeSettings(SettingsContext::Terminal);
     _data->session.reset();
+    _closeSettings(SettingsContext::Workspace);
     _data->workspace.reset();
     _updateWorkspace();
     if (hadSession)
@@ -502,7 +522,7 @@ void App::_setupActions()
                                                   {},
                                                   {},
                                                   {},
-                                                  "file/recentSessions",
+                                                  "session/recentSessions",
                                                   "entries");
     }
     for (const auto& action : _data->recentSessions)
@@ -519,7 +539,7 @@ void App::_setupActions()
                                             tr("New &session…"),
                                             icon("document-new", QStyle::SP_FileIcon),
                                             {},
-                                            "file",
+                                            "session",
                                             "session",
                                             "session");
     _data->createSessionAction->setToolTip(tr("Create a session"));
@@ -528,7 +548,7 @@ void App::_setupActions()
                                           tr("Open session…"),
                                           icon("document-open", QStyle::SP_DirOpenIcon),
                                           {},
-                                          "file",
+                                          "session",
                                           "session",
                                           "session");
     _data->openSessionAction->setToolTip(tr("Open a session from this workspace"));
@@ -537,7 +557,7 @@ void App::_setupActions()
                                           tr("Save session"),
                                           icon("document-save", QStyle::SP_DialogSaveButton),
                                           {},
-                                          "file",
+                                          "session",
                                           "session",
                                           "session");
     _data->saveSessionAction->setToolTip(tr("Save the current session"));
@@ -552,7 +572,7 @@ void App::_setupActions()
                                            tr("Close session"),
                                            icon("document-close", QStyle::SP_DialogCloseButton),
                                            {},
-                                           "file",
+                                           "session",
                                            "session",
                                            "session");
     _data->closeSessionAction->setToolTip(tr("Close the current session"));
@@ -563,7 +583,7 @@ void App::_setupActions()
             _showError(error);
         }
     });
-    _data->renameSessionAction = _addAction("Session.Rename", tr("Rename session…"), {}, {}, "file", "session");
+    _data->renameSessionAction = _addAction("Session.Rename", tr("Rename session…"), {}, {}, "session", "session");
     connect(_data->renameSessionAction, &QAction::triggered, this, [this] {
         if (!_data->session)
         {
@@ -586,7 +606,25 @@ void App::_setupActions()
             _showError(error);
         }
     });
-    for (const auto& path : {"/file/recentWorkspaces", "/file/recentSessions"})
+    _data->workspaceSettingsAction = _addAction("Workspace.Settings",
+                                                tr("Workspace settings…"),
+                                                {},
+                                                {},
+                                                "file",
+                                                "settings");
+    connect(_data->workspaceSettingsAction, &QAction::triggered, this, [this] {
+        _showSettings(SettingsContext::Workspace);
+    });
+    _data->sessionSettingsAction = _addAction("Session.Settings",
+                                              tr("Session settings…"),
+                                              {},
+                                              {},
+                                              "session",
+                                              "settings");
+    connect(_data->sessionSettingsAction, &QAction::triggered, this, [this] {
+        _showSettings(SettingsContext::Session);
+    });
+    for (const auto& path : {"/file/recentWorkspaces", "/session/recentSessions"})
     {
         connect(static_cast<MenuActionContainer*>(mainMenu().findMenu(path))->menu(),
                 &QMenu::aboutToShow,
@@ -651,7 +689,7 @@ void App::_setupActions()
                                    "tools",
                                    "management");
     preferences->setMenuRole(QAction::PreferencesRole);
-    connect(preferences, &QAction::triggered, this, &App::_showSettings);
+    connect(preferences, &QAction::triggered, this, [this] { _showSettings(); });
     auto* plugins = _addAction("Application.Plugins",
                                tr("&Plugins…"),
                                icon("application-x-addon", QStyle::SP_FileDialogDetailedView),
@@ -800,7 +838,10 @@ bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* erro
     }
     const bool hadSession = bool(_data->session);
     _data->terminals->setSession(nullptr);
+    _closeSettings(SettingsContext::Session);
+    _closeSettings(SettingsContext::Terminal);
     _data->session.reset();
+    _closeSettings(SettingsContext::Workspace);
     _data->workspace = std::move(candidate);
     _updateWorkspace();
     if (hadSession)
@@ -823,6 +864,10 @@ bool App::_saveChanges(QString* error)
 void App::_updateWorkspace()
 {
     const bool open = bool(_data->workspace);
+    if (_data->workspaceSettingsAction)
+    {
+        _data->workspaceSettingsAction->setEnabled(open);
+    }
     if (_data->saveAction)
     {
         _data->saveAction->setEnabled(open);
@@ -845,8 +890,8 @@ void App::_updateWorkspace()
 void App::_applyConfiguration()
 {
     const QScopedValueRollback guard(_data->applyingConfiguration, true);
-    const bool                 toolbarVisible = configuration().value("ui/toolbarVisible", true).toBool();
-    const bool                 statusVisible  = configuration().value("ui/statusBarVisible", true).toBool();
+    const bool                 toolbarVisible = _data->applicationSettings().value("ui/toolbarVisible", true).toBool();
+    const bool                 statusVisible = _data->applicationSettings().value("ui/statusBarVisible", true).toBool();
     if (_data->toolbarAction)
     {
         _data->toolbarAction->setChecked(toolbarVisible);
@@ -908,7 +953,7 @@ void App::_updateRecent()
     static_cast<MenuActionContainer*>(mainMenu().findMenu("/file/recentWorkspaces"))
         ->menu()
         ->setEnabled(!workspaces.isEmpty());
-    static_cast<MenuActionContainer*>(mainMenu().findMenu("/file/recentSessions"))
+    static_cast<MenuActionContainer*>(mainMenu().findMenu("/session/recentSessions"))
         ->menu()
         ->setEnabled(!sessions.isEmpty());
 }
@@ -970,7 +1015,7 @@ void App::_storeViewSetting(const QString& key, bool value)
         return;
     }
     QString error;
-    if (!configuration().setValue(key, value, &error))
+    if (!_data->applicationSettings().setValue(key, value, &error))
     {
         _data->window->statusBar()->showMessage(error);
     }
@@ -1150,6 +1195,8 @@ bool App::closeSession(QString* error)
         return false;
     }
     _data->terminals->setSession(nullptr);
+    _closeSettings(SettingsContext::Session);
+    _closeSettings(SettingsContext::Terminal);
     _data->session.reset();
     _updateSession();
     emit sessionChanged();
@@ -1182,6 +1229,7 @@ bool App::_activateSession(std::unique_ptr<Session> candidate, QString* error)
         return false;
     }
     _data->terminals->setSession(nullptr);
+    _closeSettings(SettingsContext::Session);
     _data->session = std::move(candidate);
     _data->terminals->setSession(_data->session.get());
     _updateSession();
@@ -1195,8 +1243,10 @@ void App::_updateSession()
     const bool session   = bool(_data->session);
     _data->createSessionAction->setEnabled(workspace);
     _data->openSessionAction->setEnabled(workspace);
-    for (auto* action :
-         {_data->saveSessionAction.data(), _data->closeSessionAction.data(), _data->renameSessionAction.data()})
+    for (auto* action : {_data->saveSessionAction.data(),
+                         _data->closeSessionAction.data(),
+                         _data->renameSessionAction.data(),
+                         _data->sessionSettingsAction.data()})
     {
         action->setEnabled(session);
     }
@@ -1245,129 +1295,127 @@ void App::_chooseSession()
         _data->window->statusBar()->showMessage(tr("This workspace has no saved sessions."));
         return;
     }
-    QStringList labels;
+    QList<SessionPicker::Entry> entries;
     for (const auto& id : ids)
     {
-        const auto directory = _data->workspace->sessionDirectory(id);
-        if (!directory)
+        QString name = tr("Unavailable session");
+        if (const auto directory = _data->workspace->sessionDirectory(id))
         {
-            labels.append(tr("Unavailable session") + " (" + id + ')');
-            continue;
+            Session candidate(*directory, _data->workspace->settings());
+            QString error;
+            if (candidate.load(&error))
+            {
+                name = candidate.name();
+            }
         }
-        Session    candidate(*directory, _data->workspace->settings());
-        QString    error;
-        const auto label = candidate.load(&error) ? candidate.name() : tr("Unavailable session");
-        labels.append(label + " (" + id + ')');
+        entries.append({name, id});
     }
-    bool       accepted = false;
-    const auto choice   = QInputDialog::getItem(_data->window.get(),
-                                                tr("Open session"),
-                                                tr("Session:"),
-                                                labels,
-                                                0,
-                                                false,
-                                                &accepted);
-    if (!accepted)
+    SessionPicker picker(entries, _data->window.get());
+    if (picker.exec() != QDialog::Accepted)
     {
         return;
     }
+
     QString error;
-    if (!openSession(ids.at(labels.indexOf(choice)), &error))
+    if (!openSession(picker.selectedSession(), &error))
     {
         _showError(error);
     }
 }
 
-void App::_showSettings()
+void App::_showSettings(SettingsContext context)
 {
+    if ((context == SettingsContext::Workspace && !_data->workspace)
+        || (context == SettingsContext::Session && !_data->session)
+        || (context == SettingsContext::Terminal && _data->terminals->selectedTerminal().isEmpty()))
+    {
+        return;
+    }
+    _data->settingsWindow = _data->settingsWindows.value(context);
     if (!_data->settingsWindow)
     {
-        QString error;
-        if (!_ensureApplicationSettings(&error))
-        {
-            _showError(error);
-            return;
-        }
-        QFile file(":/Termaster/App/SettingsSchema.yaml");
-        if (!file.open(QIODevice::ReadOnly))
-        {
-            _showError(file.errorString());
-            return;
-        }
-        auto  schema = std::make_shared<SettingsSchema>(file.readAll());
-        auto* dialog = new SettingsDialog(
+        auto* workspace = _data->workspace.get();
+        auto* session   = _data->session.get();
+        auto* dialog    = new SettingsDialog(
             settingsWidgets(),
-            [this](QString* error) { return _saveChanges(error); },
+            [this, context](QString* error) {
+                if (context == SettingsContext::Application)
+                {
+                    return _data->settings.sync(error);
+                }
+                if (context == SettingsContext::Workspace)
+                {
+                    return _data->workspace && _data->workspace->sync(error);
+                }
+                return _data->session && _data->session->sync(error);
+            },
             _data->window.get());
         dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->setProperty("settingsContext", int(context));
         _data->settingsWindow = dialog;
-        dialog->addPage("application.appearance",
-                        tr("Application"),
-                        tr("Appearance"),
-                        tr("Global display defaults for all workspaces."),
-                        schema,
-                        _data->settings.node("settings"));
-        if (_data->workspace)
-        {
-            dialog->addPage("workspace.appearance",
-                            tr("Workspace"),
-                            tr("Appearance"),
-                            tr("Display overrides for the current workspace."),
-                            schema,
-                            _data->workspace->settings());
-        }
-        if (_data->session)
-        {
-            dialog->addPage("session.appearance",
-                            tr("Session"),
-                            tr("Appearance"),
-                            tr("Display overrides for the current session."),
-                            schema,
-                            _data->session->settings());
-        }
-        QFile appearanceFile(":/Termaster/App/TerminalAppearance.yaml");
-        if (!appearanceFile.open(QIODevice::ReadOnly))
-        {
-            throw std::runtime_error("Terminal appearance schema is unavailable");
-        }
-        auto appearance = std::make_shared<SettingsSchema>(appearanceFile.readAll());
-        dialog->addPage("application.terminal",
-                        tr("Application"),
-                        tr("Terminal defaults"),
-                        tr("Default display and input settings for all terminals."),
-                        appearance,
-                        _data->applicationSettings());
-        if (_data->workspace)
-        {
-            dialog->addPage("workspace.terminal",
-                            tr("Workspace"),
-                            tr("Terminal defaults"),
-                            tr("Terminal defaults for this workspace."),
-                            appearance,
-                            _data->workspace->settings());
-        }
-        if (_data->session)
-        {
-            dialog->addPage("session.terminal",
-                            tr("Session"),
-                            tr("Terminal defaults"),
-                            tr("Terminal defaults for this session."),
-                            appearance,
-                            _data->session->settings());
-        }
-        _data->terminals->addSettingsPages(*dialog);
-        addSettingsPreviewPages(*dialog);
-        dialog->selectPage(_data->session   ? "session.appearance" :
-                           _data->workspace ? "workspace.appearance" :
-                                              "application.appearance");
-        connect(dialog, &SettingsDialog::applied, this, &App::_applyConfiguration);
-        connect(dialog, &SettingsDialog::applied, _data->terminals.get(), &TerminalController::applySettings);
-        const auto* workspace          = _data->workspace.get();
-        const auto* session            = _data->session.get();
-        const auto  closeOnScopeChange = [this, dialog, workspace, session] {
-            if (_data->workspace.get() != workspace || _data->session.get() != session)
+        _data->settingsWindows.insert(context, dialog);
+        const auto schema = [](const QString& resource) {
+            QFile file(":/Termaster/App/" + resource);
+            if (!file.open(QIODevice::ReadOnly))
             {
-                dialog->reject();
+                throw std::runtime_error(file.errorString().toStdString());
+            }
+            return std::make_shared<SettingsSchema>(file.readAll());
+        };
+        if (context == SettingsContext::Terminal)
+        {
+            dialog->setWindowTitle(tr("Terminal settings"));
+            dialog->setProperty("terminalId", _data->terminals->selectedTerminal());
+            _data->terminals->addSettingsPages(*dialog);
+            dialog->selectPage("terminal.connection");
+        }
+        else
+        {
+            const auto scope  = context == SettingsContext::Application ? QString("application") :
+                                context == SettingsContext::Workspace   ? QString("workspace") :
+                                                                          QString("session");
+            auto       target = context == SettingsContext::Application ? _data->applicationSettings() :
+                                context == SettingsContext::Workspace   ? workspace->settings() :
+                                                                          session->settings();
+            dialog->setWindowTitle(context == SettingsContext::Application ? tr("Application settings") :
+                                   context == SettingsContext::Workspace   ? tr("Workspace settings") :
+                                                                             tr("Session settings"));
+            if (context == SettingsContext::Application)
+            {
+                dialog->addPage("application.appearance",
+                                "Application",
+                                "Interface",
+                                "Application interface options.",
+                                schema("SettingsSchema.yaml"),
+                                target);
+            }
+            dialog->addPage(scope + ".terminal",
+                            "Terminals",
+                            "Text and screen",
+                            "Default terminal appearance and input settings.",
+                            schema("TerminalAppearance.yaml"),
+                            target);
+            _data->terminals->addDefaultSettingsPages(*dialog, scope, target);
+            dialog->selectPage(context == SettingsContext::Application ? "application.appearance" :
+                                                                         scope + ".terminal");
+        }
+        connect(dialog, &SettingsDialog::applied, this, &App::_applyConfiguration);
+        connect(dialog, &SettingsDialog::applied, this, [this, dialog] {
+            for (const auto& other : _data->settingsWindows)
+            {
+                if (other && other != dialog)
+                {
+                    other->refreshInheritedValues();
+                }
+            }
+        });
+        connect(dialog, &SettingsDialog::applied, _data->terminals.get(), &TerminalController::applySettings);
+        const auto closeOnScopeChange = [this, dialog, workspace, session, context] {
+            if ((context != SettingsContext::Application && _data->workspace.get() != workspace)
+                || ((context == SettingsContext::Session || context == SettingsContext::Terminal)
+                    && _data->session.get() != session))
+            {
+                delete dialog;
             }
         };
         connect(this, &App::workspaceChanged, dialog, closeOnScopeChange);
@@ -1397,4 +1445,10 @@ QStringList App::terminalIds() const
 QString App::selectedTerminal() const
 {
     return _data->terminals->selectedTerminal();
+}
+
+void App::_closeSettings(SettingsContext context)
+{
+    delete _data->settingsWindows.value(context).data();
+    _data->settingsWindows.remove(context);
 }

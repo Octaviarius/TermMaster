@@ -1,15 +1,19 @@
 #include <QCheckBox>
+#include <QColorDialog>
 #include <QComboBox>
 #include <QFile>
+#include <QFontDialog>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QStandardItemModel>
 #include <QStyle>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QToolButton>
 #include <QtTest>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
+#include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 #include <stdexcept>
 
 namespace
@@ -62,6 +66,130 @@ class SettingsFormTests : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void acceptingInheritedColorCreatesExplicitOverride()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      local(directory.filePath("local.yaml"));
+        QVERIFY(base.setValue("fg", "#112233"));
+        auto                   descriptor = schema("fg: {type: string, default: '#112233', x-widget: color}");
+        SettingsFormModel      model(descriptor, SettingsOverlay(base.node(""), local.node("")));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        QVERIFY(!model.hasOverride("fg"));
+        QTimer::singleShot(0, &form, [] {
+            auto* dialog = qobject_cast<QColorDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->setCurrentColor(QColor("#112233"));
+            dialog->accept();
+        });
+        form.editor("fg")->findChild<QToolButton*>("settingsPicker")->click();
+        QVERIFY(model.hasOverride("fg"));
+        QCOMPARE(model.value("fg").toString(), QString("#112233"));
+        QVERIFY(!local.contains("fg"));
+        model.removeValue("fg");
+        QVERIFY(!model.hasOverride("fg"));
+    }
+
+    Q_SLOT void pickerSurvivesFormDestruction()
+    {
+        QTemporaryDir directory;
+        Settings      owner(directory.filePath("settings.yaml"));
+        for (const QString hint : {QString("fontFamily"), QString("color")})
+        {
+            auto descriptor = schema(("value: {type: string, default: '#112233', x-widget: " + hint + "}").toUtf8());
+            SettingsFormModel            model(descriptor, owner.node(""));
+            SettingsWidgetRegistry       registry;
+            QPointer<SettingsFormWidget> form   = new SettingsFormWidget(model, registry);
+            auto*                        picker = form->editor("value")->findChild<QToolButton*>("settingsPicker");
+            QVERIFY(picker);
+            QPointer<QDialog> activeDialog;
+            QTimer::singleShot(0, this, [&form, &activeDialog] {
+                activeDialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+                QVERIFY(activeDialog);
+                delete form.data();
+            });
+            picker->click();
+            QVERIFY(!form);
+            QVERIFY(!activeDialog);
+            QVERIFY(!model.isDirty());
+            QVERIFY(!owner.contains("value"));
+        }
+    }
+
+    Q_SLOT void appearancePickersAndDraftPreview()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      local(directory.filePath("local.yaml"));
+        QVERIFY(base.setValue("appearance/fontSize", 12));
+        SettingsOverlay overlay(base.node(""), local.node(""));
+        auto            descriptor = schema(
+            "family: {type: string, default: Consolas, x-widget: fontFamily, x-settings-path: appearance/fontFamily}\n"
+            "size: {type: number, default: 12, x-settings-path: appearance/fontSize}\n"
+            "fg: {type: string, default: '#eeeeee', x-widget: color, x-settings-path: appearance/foreground}\n"
+            "bg: {type: string, default: '#111111', x-widget: color, x-settings-path: appearance/background}",
+            "  x-widget: terminalPreview\n  x-widget-options: {title: Draft preview}\n");
+        QCOMPARE(descriptor->widget(), QString("terminalPreview"));
+        QCOMPARE(descriptor->presentation().value("title").toString(), QString("Draft preview"));
+        auto plainDescriptor = schema(
+            "family: {type: string, default: Consolas, x-settings-path: appearance/fontFamily}\n"
+            "size: {type: number, default: 12, x-settings-path: appearance/fontSize}\n"
+            "fg: {type: string, default: '#eeeeee', x-settings-path: appearance/foreground}\n"
+            "bg: {type: string, default: '#111111', x-settings-path: appearance/background}");
+        SettingsFormModel      plainModel(plainDescriptor, overlay);
+        SettingsWidgetRegistry plainRegistry;
+        SettingsFormWidget     plainForm(plainModel, plainRegistry);
+        QVERIFY(!plainForm.findChild<TerminalDisplay*>());
+        SettingsFormModel      model(descriptor, overlay);
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        auto*                  preview = form.findChild<TerminalDisplay*>("settingsAppearancePreview");
+        QVERIFY(preview);
+        QCOMPARE(preview->focusPolicy(), Qt::NoFocus);
+        QCOMPARE(preview->font().pointSizeF(), 12.0);
+        model.setValue("size", 20);
+        QCOMPARE(preview->font().pointSizeF(), 20.0);
+        QVERIFY(!local.contains("appearance/fontSize"));
+        model.removeValue("size");
+        QCOMPARE(preview->font().pointSizeF(), 12.0);
+        for (const QString key : {QString("family"), QString("fg")})
+        {
+            auto*      editor = form.editor(key);
+            const auto before = model.value(key);
+            QTimer::singleShot(0, &form, [] {
+                auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+                QVERIFY(dialog);
+                dialog->reject();
+            });
+            editor->findChild<QToolButton*>("settingsPicker")->click();
+            QCOMPARE(model.value(key), before);
+        }
+        QTimer::singleShot(0, &form, [] {
+            auto* dialog = qobject_cast<QFontDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QFont selected;
+            selected.setFamily("Courier New");
+            dialog->setCurrentFont(selected);
+            dialog->accept();
+        });
+        form.editor("family")->findChild<QToolButton*>("settingsPicker")->click();
+        QVERIFY(!model.value("family").toString().isEmpty());
+        QCOMPARE(preview->font().family(), model.value("family").toString());
+        QVERIFY(!local.contains("appearance/fontFamily"));
+        QTimer::singleShot(0, &form, [] {
+            auto* dialog = qobject_cast<QColorDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->setCurrentColor(QColor("#123456"));
+            dialog->accept();
+        });
+        form.editor("fg")->findChild<QToolButton*>("settingsPicker")->click();
+        QCOMPARE(model.value("fg").toString(), "#123456");
+        QVERIFY(!local.contains("appearance/foreground"));
+        QVERIFY(model.apply());
+        QCOMPARE(local.value("appearance/foreground").toString(), "#123456");
+    }
+
     Q_SLOT void defaultsCancelAndAtomicApply()
     {
         QTemporaryDir directory;

@@ -43,8 +43,10 @@ private:
     QHash<QString, QLabel*>              _errors;
     QHash<QString, QCheckBox*>           _presence;
     QHash<QString, QToolButton*>         _resets;
-    QLabel*                              _summary  = nullptr;
-    bool                                 _updating = false;
+    QLabel*                              _summary   = nullptr;
+    bool                                 _updating  = false;
+    SettingsFieldEditor*                 _auxiliary = nullptr;
+    void                                 _refreshContext();
     void                                 _refresh(const QString& key);
     void                                 _refreshState(const QString& key);
     void                                 _refreshErrors();

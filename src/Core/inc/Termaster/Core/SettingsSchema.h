@@ -45,7 +45,10 @@ public:
 
     const QList<Field>& fields() const;
     const QList<Group>& groups() const;
-    QList<Error>        validate(const QVariantMap& document) const;
+    /** Root auxiliary widget hint and its presentation options; neither is persisted. */
+    QString      widget() const;
+    QVariantMap  presentation() const;
+    QList<Error> validate(const QVariantMap& document) const;
     /** Parses one bounded YAML value, preserving quoted strings and numeric types. */
     static QVariant   parseValue(const QByteArray& yaml);
     static QByteArray serializeValue(const QVariant& value);

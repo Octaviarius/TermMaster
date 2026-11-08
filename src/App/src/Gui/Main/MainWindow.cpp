@@ -72,20 +72,19 @@ void MainWindow::_createMenus()
         _mainMenu.addMenu(item.get(), "main");
         item.release();
     };
-    menu("file", tr("&File"), {"workspace", "session", "recent", "application"});
-    auto* file = _mainMenu.findMenu("/file");
-    for (const auto& entry : {
-             std::pair {"recentWorkspaces", QT_TR_NOOP("Recent &workspaces")},
-             std::pair {  "recentSessions",   QT_TR_NOOP("Recent &sessions")}
-    })
-    {
-        auto item = std::make_unique<MenuActionContainer>(entry.first, tr(entry.second));
-        item->addGroup("entries");
-        file->addMenu(item.get(), "recent");
-        item.release();
-    }
+    menu("file", tr("&File"), {"workspace", "settings", "recent", "application"});
+    auto* file   = _mainMenu.findMenu("/file");
+    auto  recent = std::make_unique<MenuActionContainer>("recentWorkspaces", tr("Recent &workspaces"));
+    recent->addGroup("entries");
+    file->addMenu(recent.get(), "recent");
+    recent.release();
     menu("edit", tr("&Edit"), {"history", "clipboard", "selection"});
     menu("view", tr("&View"), {"panels", "window"});
+    menu("session", tr("&Session"), {"session", "recent", "settings"});
+    auto recentSessions = std::make_unique<MenuActionContainer>("recentSessions", tr("Recent &sessions"));
+    recentSessions->addGroup("entries");
+    _mainMenu.findMenu("/session")->addMenu(recentSessions.get(), "recent");
+    recentSessions.release();
     menu("terminal", tr("&Terminal"), {"create", "connection", "management", "output", "settings"});
     menu("tools", tr("&Tools"), {"management"});
     menu("help", tr("&Help"), {"about"});

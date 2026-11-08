@@ -1,0 +1,85 @@
+version: 1
+type: termaster.settings-schema
+description: Serial terminal default configuration
+content:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Serial port
+  type: object
+  additionalProperties: false
+  required: [portName, baudRate, dataBits, stopBits, parity, flowControl, dtr, rts]
+  x-groups:
+    - id: connection
+      title: Connection
+      order: 0
+  properties:
+    portName:
+      title: Port
+      type: string
+      default: ''
+      x-settings-path: transport/portName
+      x-widget: serialPortSelector
+      x-group: connection
+      x-order: 0
+      minLength: 0
+    baudRate:
+      title: Baud rate
+      type: integer
+      default: 115200
+      x-settings-path: transport/baudRate
+      x-widget: serialBaudRateSelector
+      x-group: connection
+      x-order: 1
+      minimum: 1
+      maximum: 2147483647
+    dataBits:
+      title: Data bits
+      type: integer
+      default: 8
+      x-settings-path: transport/dataBits
+      x-widget: enumCombo
+      x-group: connection
+      x-order: 2
+      enum: [5, 6, 7, 8]
+    stopBits:
+      title: Stop bits
+      type: string
+      default: '1'
+      x-settings-path: transport/stopBits
+      x-widget: enumCombo
+      x-group: connection
+      x-order: 3
+      enum: ['1', '1.5', '2']
+    parity:
+      title: Parity
+      type: string
+      default: None
+      x-settings-path: transport/parity
+      x-widget: enumCombo
+      x-group: connection
+      x-order: 4
+      enum: [None, Even, Odd, Space, Mark]
+    flowControl:
+      title: Flow control
+      type: string
+      default: None
+      x-settings-path: transport/flowControl
+      x-widget: enumCombo
+      x-group: connection
+      x-order: 5
+      enum: [None, 'RTS/CTS', 'XON/XOFF']
+    dtr:
+      title: DTR
+      type: boolean
+      default: false
+      x-settings-path: transport/dtr
+      x-widget: boolCheckBox
+      x-group: connection
+      x-order: 6
+    rts:
+      title: RTS
+      type: boolean
+      default: false
+      x-settings-path: transport/rts
+      x-widget: boolCheckBox
+      x-group: connection
+      x-order: 7

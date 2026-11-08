@@ -85,20 +85,14 @@ void SettingsDialog::addPage(const QString&                        id,
                              const QString&                        title,
                              const QString&                        description,
                              std::shared_ptr<const SettingsSchema> schema,
-                             Settings::Node                        target,
-                             bool                                  preview)
+                             Settings::Node                        target)
 {
     _checkPage(id, category, title, schema);
     if (!target.isValid())
     {
         throw std::invalid_argument("Settings page target is invalid");
     }
-    _addPage(id,
-             category,
-             title,
-             description,
-             new SettingsFormModel(std::move(schema), std::move(target), this),
-             preview);
+    _addPage(id, category, title, description, new SettingsFormModel(std::move(schema), std::move(target), this));
 }
 
 void SettingsDialog::addPage(const QString&                        id,
@@ -106,20 +100,14 @@ void SettingsDialog::addPage(const QString&                        id,
                              const QString&                        title,
                              const QString&                        description,
                              std::shared_ptr<const SettingsSchema> schema,
-                             SettingsOverlay                       target,
-                             bool                                  preview)
+                             SettingsOverlay                       target)
 {
     _checkPage(id, category, title, schema);
     if (!target.isValid())
     {
         throw std::invalid_argument("Settings page target is invalid");
     }
-    _addPage(id,
-             category,
-             title,
-             description,
-             new SettingsFormModel(std::move(schema), std::move(target), this),
-             preview);
+    _addPage(id, category, title, description, new SettingsFormModel(std::move(schema), std::move(target), this));
 }
 
 void SettingsDialog::setVisible(bool visible)
@@ -191,11 +179,6 @@ SettingsFormModel* SettingsDialog::pageModel(const QString& id) const
     return nullptr;
 }
 
-Settings& SettingsDialog::previewSettings()
-{
-    return _previewSettings;
-}
-
 void SettingsDialog::_checkPage(const QString&                               id,
                                 const QString&                               category,
                                 const QString&                               title,
@@ -211,8 +194,7 @@ void SettingsDialog::_addPage(const QString&     id,
                               const QString&     category,
                               const QString&     title,
                               const QString&     description,
-                              SettingsFormModel* model,
-                              bool               preview)
+                              SettingsFormModel* model)
 {
     auto* widget  = new QWidget(_stack);
     auto* layout  = new QVBoxLayout(widget);
@@ -225,21 +207,14 @@ void SettingsDialog::_addPage(const QString&     id,
     layout->addWidget(heading);
     auto* detail = new QLabel(description, widget);
     detail->setTextFormat(Qt::PlainText);
+    detail->setForegroundRole(QPalette::PlaceholderText);
     detail->setWordWrap(true);
     detail->setVisible(!description.isEmpty());
     layout->addWidget(detail);
-    if (preview)
-    {
-        auto* notice = new QLabel(tr("Preview — example values. Changes are not saved and no devices are accessed."),
-                                  widget);
-        notice->setTextFormat(Qt::PlainText);
-        notice->setWordWrap(true);
-        layout->addWidget(notice);
-    }
     auto* form = new SettingsFormWidget(*model, _registry, widget);
     layout->addWidget(form, 1);
     _stack->addWidget(widget);
-    _pages.append({id, category, title, description, model, form, widget, preview});
+    _pages.append({id, category, title, description, model, form, widget});
 
     QStandardItem* parent = nullptr;
     for (int row = 0; row < _treeModel->rowCount(); ++row)
@@ -389,7 +364,7 @@ bool SettingsDialog::_apply()
             _updateButtons();
             return false;
         }
-        _pendingPersistence = _pendingPersistence || !page->preview;
+        _pendingPersistence = true;
     }
     if (_pendingPersistence && _persist && !_persist(&error))
     {
@@ -421,4 +396,19 @@ void SettingsDialog::_updateButtons()
     }
     _buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
     _buttons->button(QDialogButtonBox::Apply)->setEnabled(dirty || _pendingPersistence);
+}
+
+void SettingsDialog::refreshInheritedValues()
+{
+    if (_pendingPersistence)
+    {
+        return;
+    }
+    for (const auto& page : _pages)
+    {
+        if (!page.model->isDirty())
+        {
+            page.model->reload();
+        }
+    }
 }

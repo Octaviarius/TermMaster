@@ -30,21 +30,19 @@ public:
                                const QString&                        title,
                                const QString&                        description,
                                std::shared_ptr<const SettingsSchema> schema,
-                               Settings::Node                        target,
-                               bool                                  preview = false);
+                               Settings::Node                        target);
     void               addPage(const QString&                        id,
                                const QString&                        category,
                                const QString&                        title,
                                const QString&                        description,
                                std::shared_ptr<const SettingsSchema> schema,
-                               SettingsOverlay                       target,
-                               bool                                  preview = false);
+                               SettingsOverlay                       target);
     void               setVisible(bool visible) override;
     bool               hasHeightForWidth() const override;
     bool               selectPage(const QString& id);
     QString            currentPage() const;
     SettingsFormModel* pageModel(const QString& id) const;
-    Settings&          previewSettings();
+    void               refreshInheritedValues();
     Q_SIGNAL void      applied();
 
 private:
@@ -57,7 +55,6 @@ private:
         SettingsFormModel*  model;
         SettingsFormWidget* form;
         QWidget*            widget;
-        bool                preview;
     };
     enum Role
     {
@@ -67,7 +64,6 @@ private:
 
     SettingsWidgetRegistry&       _registry;
     std::function<bool(QString*)> _persist;
-    Settings                      _previewSettings {QString {}};
     QList<Page>                   _pages;
     QLineEdit*                    _search;
     QTreeView*                    _tree;
@@ -88,8 +84,7 @@ private:
                   const QString&     category,
                   const QString&     title,
                   const QString&     description,
-                  SettingsFormModel* model,
-                  bool               preview);
+                  SettingsFormModel* model);
     void _fitToScreen();
     void _filterPages();
     void _showSelection();

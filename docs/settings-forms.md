@@ -78,7 +78,7 @@ Root `x-groups` is an ordered sequence of `{id, title, order}` mappings. A field
 `x-widget` selects an editor hint. `x-widget-options` is a mapping forwarded in
 the field's presentation data for a custom editor. Missing groups are created using
 their IDs as titles. Built-in hints include `boolCheckBox`, `stringLineEdit`,
-`enumCombo`, `integer`, `number`, `password`, `multiline`, and `yaml`; field types
+`enumCombo`, `integer`, `number`, `password`, `multiline`, `yaml`, `fontFamily`, and `color`; field types
 and `enum` can also select standard controls automatically. These flat annotations
 are presentation hints; JSON Schema remains authoritative for validation. The old
 nested `x-ui` annotations are rejected and are not aliases for the flat names.
@@ -137,46 +137,50 @@ The sample application descriptor controls toolbar and status-bar visibility in
 the active scope. The serial example above documents a schema capability only; it
 does not indicate that a serial terminal backend is implemented.
 
-## Preferences navigation and preview pages
+## Preferences navigation
 
-This is the primary settings layout for Termaster. The two-level navigation,
-right-hand page area and shared search form the established layout for future
-settings pages. The captures under `docs/images/preferences/` are the visual
-reference. Preview pages are connected to real owners as their features are
-implemented; their preview designation remains until that integration is complete.
+The primary layout remains a two-level category/page tree, generated forms on
+its right and shared search. Each settings window is scoped to one target:
+Tools / Settings for application configuration and global component defaults,
+File / Workspace settings for workspace defaults, Session / Session settings
+for session defaults, and Terminal / terminal-specific Settings for the selected
+terminal's applicable display/input and connection parameters.
 
-Tools/Settings presents a two-level `QTreeView`: category and page. Page registration
-uses a unique ID, category, title, description, schema and borrowed settings scope.
-The right-hand stack contains the generated forms. Category/page navigation never
-applies or discards drafts. Application, Workspace and Session Appearance pages
-bind to real owners, with workspace/session pages available for active scopes.
+Each context has its own window and drafts. Switching contexts does not discard
+pending edits. Changes apply only to that context's settings owner. Clean forms
+in other windows reload inherited values after Apply; dirty forms retain their
+snapshots and use the existing conflict check before Apply. Scoped windows close
+before their target is released, and plugin-dependent forms close before factory
+unregistration. The former example-only preference pages and serial combo were
+removed together with their resources and preview-cache persistence path.
 
-The search box filters categories, pages, groups and fields, using case-insensitive
-substring matching against titles, descriptions, field identifiers and settings
-paths. Matching a category/page reveals its whole form; matching a group reveals
-all its parameters. Other queries hide unmatched rows and empty groups. Clearing
-the query restores the form without losing edits or changing validation. Applying
-an invalid hidden draft clears the query and selects the affected page.
+Search filters categories, pages, groups and fields without changing drafts or
+validation. It is case-insensitive and includes labels, descriptions and settings
+paths. Invalid hidden drafts remain invalid; Apply reveals their page. Persistence
+failures keep the window open for retry. Multi-page settings and file writes do
+not form a cross-file transaction.
 
-Additional MVP pages demonstrate application behavior, workspace directories,
-session layout, terminal appearance and COM-port parameters. These pages are
-explicitly marked Preview. Their defaults and edits belong to a dialog-owned cache;
-preview-only Apply does not call application persistence. The serial selector uses
-a custom field editor, a `QStandardItemModel`, example device labels/icons and an
-example-list refresh button. No devices are enumerated, opened or configured.
-Preview changes disappear when the dialog closes. The sample pages do not establish
-implemented startup, auto-save, layout, font, encoding or serial-backend behavior.
+### Descriptor-selected appearance widgets
 
-Apply validates every dirty page, including filtered-out pages, before updating
-owners. Dependent scopes are registered base to derived and applied in reverse
-order so a base change from this dialog does not create a false inherited-value
-conflict. Clean page models reload after success to reflect new inherited values.
-Each model patch is atomic; application of several owners and their file writes
-is not a single transaction. Persistence failures keep the dialog open for retry.
+Field hints `x-widget: fontFamily` and `x-widget: color` select the registered Qt
+picker editors. Manual input remains available, picker cancellation leaves drafts
+unchanged, and opening/closing pickers does not save settings. Font-family picking
+changes the family; the point-size field remains independently editable.
 
-The preview screenshots use one native window size: 1020 by 720 pixels at scale 1.
+A root `x-widget: terminalPreview` explicitly selects the auxiliary preview, with
+its title in root `x-widget-options`. SettingsSchema exposes these annotations;
+the generic form creates the registered widget and calls `setContext()` with the
+effective draft values keyed by each field's `x-settings-path`. The auxiliary
+widget has no persisted field or write callback. Terminal-specific rendering is
+owned by the preview editor, not by the generic form. The same TerminalDisplay
+renders a bounded synthetic sample without transport, focus or editable input.
 
-## Verification status
+The preview follows font family, point size, foreground and background drafts,
+including inheritance resets, before Apply. Compact checkboxes keep reset buttons
+immediately beside their controls, reserving button space when hidden. Technical
+subtitles are muted while inherited/local parameter text retains the same color.
+
+## Earlier verification status
 
 `TERMASTER_BUILD_SCHEMA_TESTS` enables `SettingsSchemaTests` and
 `SettingsFormTests`. The schema suite covers typed YAML, schema validation,
@@ -201,7 +205,7 @@ cannot create the required symbolic links. No devices were scanned or opened,
 no external connections were made, and no dependencies were downloaded.
 Release was not rebuilt for this feature.
 
-### Preferences MVP acceptance
+### Earlier preferences MVP acceptance
 
 Verified on 2026-11-08 with Windows x64, MSVC 19.44, Qt 6.12.0 and Ninja Debug.
 The application and affected tests built. All eleven CTest suites passed,
@@ -247,10 +251,9 @@ checked through the static resource link in SettingsFormTests. The updated symbo
 passed the affected Debug tests and native application checks at scales 1 and 2;
 the reference capture above reflects the rounded-button variant.
 
-## Pending terminal appearance requirements
+## Terminal appearance behavior
 
-Status: recorded for later implementation; no new editors or preview behavior
-have been implemented for this request.
+Status: implemented through descriptor-selected editors and the terminal preview.
 
 Terminal appearance forms need a font selection button and foreground/background
 color selection buttons, using appropriate Qt pickers instead of requiring
@@ -263,9 +266,9 @@ values and resets, before Apply. Previewing must not change a live terminal's
 configuration, persist settings or open a connection. Reuse the same appearance
 editors and preview behavior across settings scopes.
 
-## Pending reset button placement requirement
+## Reset button placement
 
-Status: recorded for later implementation.
+Status: implemented.
 
 Place the reset-to-inherited/default button directly beside its parameter's
 editor, with a small consistent gap. Compact controls such as checkboxes must
@@ -274,9 +277,9 @@ the control and reset affordance visually grouped across all settings scopes.
 Preserve the approved orange button, its override-only visibility and stable
 alignment when the button is hidden.
 
-## Pending application settings scope requirement
+## Application settings scope
 
-Status: recorded for later implementation.
+Status: implemented.
 
 Tools / Settings must open application settings only, including application-wide
 defaults for serial ports and other configurable components. Workspace, session
@@ -284,10 +287,9 @@ and individual-terminal overrides must not be mixed into this application
 settings entry point. Keep the distinction between global defaults and settings
 of a specific workspace, session or terminal explicit in navigation.
 
-## Pending context-specific settings visibility requirement
+## Context-specific settings visibility
 
-Status: recorded for later implementation; this refines the application settings
-scope requirement above.
+Status: implemented. This refines the application settings scope contract above.
 
 Application, workspace, session and individual-terminal configuration are distinct
 settings contexts, rather than categories combined in every settings window.
@@ -306,3 +308,26 @@ applicable within that session. Application settings expose application options
 and global component defaults. Context-specific navigation must remain separate
 from the underlying settings inheritance chain; hiding ancestor pages does not
 remove inheritance or the ability to reset to an inherited value.
+
+## Contextual settings acceptance
+
+The complete Debug build and all 19 CTest suites passed on Qt 6.12.0 / MSVC
+19.44 x64. Affected application/schema/form/serial suites passed again after
+the final changes. Native Windows application checks passed at scale factors
+1 and 2, including context isolation, draft retention, picker/reset behavior,
+session identity and production-plugin teardown. Picker acceptance of an equal
+inherited value creates an explicit override; cancellation does not. Destroying
+a form inside either picker loop releases the dialog without accessing the
+dead editor. Native picker checks also passed at scale 2.
+
+Visual inspection covered the actual generated pages, compact reset placement,
+the device identity popup and muted session IDs. Selected rows use a matched
+palette highlight/text pair so native style painting cannot make text unreadable.
+All reference exports below use a 1280 × 800 canvas; smaller native widgets are
+placed on the same canvas. No real serial port was opened. Release was not rebuilt.
+
+![Application defaults](images/preferences/ScopedApplicationSettings.png)
+
+![Adjacent reset buttons](images/preferences/CompactReset.png)
+
+![Terminal-only settings](images/preferences/ScopedTerminalSettings.png)

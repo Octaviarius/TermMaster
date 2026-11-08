@@ -1,15 +1,68 @@
 #include <QCheckBox>
+#include <QColorDialog>
 #include <QComboBox>
+#include <QFontDialog>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QSignalBlocker>
+#include <QToolButton>
+#include <QVBoxLayout>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
+#include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 #include <cmath>
 #include <stdexcept>
 
 namespace
 {
+class TerminalPreviewEditor final : public SettingsFieldEditor
+{
+public:
+    TerminalPreviewEditor(const SettingsSchema::Field& field, QWidget* parent) : SettingsFieldEditor(parent)
+    {
+        auto* layout = new QVBoxLayout(this);
+        layout->setContentsMargins(0, 0, 0, 0);
+        auto* box      = new QGroupBox(field.presentation.value("title", tr("Terminal preview")).toString(), this);
+        auto* contents = new QVBoxLayout(box);
+        _display       = new TerminalDisplay(box);
+        _display->setObjectName("settingsAppearancePreview");
+        _display->setAccessibleName(tr("Terminal appearance draft preview"));
+        _display->setFocusPolicy(Qt::NoFocus);
+        _display->setAttribute(Qt::WA_TransparentForMouseEvents);
+        _display->viewport()->setAttribute(Qt::WA_TransparentForMouseEvents);
+        _display->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        _display->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        _display->setFixedHeight(132);
+        contents->addWidget(_display);
+        layout->addWidget(box);
+    }
+    QVariant value() const override
+    {
+        return {};
+    }
+    void setValue(const QVariant&) override
+    {
+    }
+    void setContext(const QVariantMap& context) override
+    {
+        QVariantMap appearance {
+            {"scrollbackLines", 1}
+        };
+        for (const auto& key :
+             {QString("fontFamily"), QString("fontSize"), QString("foreground"), QString("background")})
+        {
+            appearance.insert(key, context.value("appearance/" + key));
+        }
+        _display->setAppearance(appearance);
+        _display->clear();
+        _display->receive("Aa Bb 0123456789  \x1b[1mBold\x1b[0m\x1b[?25l");
+    }
+
+private:
+    TerminalDisplay* _display = nullptr;
+};
 class BuiltinEditor final : public SettingsFieldEditor
 {
 public:
@@ -32,6 +85,7 @@ public:
         {
             _check = new QCheckBox(this);
             layout->addWidget(_check);
+            setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
             connect(_check, &QCheckBox::toggled, this, [this] { _changed(); });
         }
         else if (hint == "multiline" || _yaml())
@@ -51,6 +105,61 @@ public:
             }
             layout->addWidget(_line);
             connect(_line, &QLineEdit::textChanged, this, [this] { _changed(); });
+            if (hint == "fontFamily" || hint == "color")
+            {
+                auto* picker = new QToolButton(this);
+                picker->setObjectName("settingsPicker");
+                picker->setText(tr("Choose…"));
+                picker->setToolTip(hint == "fontFamily" ? tr("Choose font family") : tr("Choose color"));
+                layout->addWidget(picker);
+                connect(picker, &QToolButton::clicked, this, [this, hint] {
+                    const QPointer<BuiltinEditor> editor(this);
+                    if (hint == "fontFamily")
+                    {
+                        QFont initial;
+                        initial.setFamily(_line->text());
+                        QPointer<QFontDialog> dialog = new QFontDialog(initial, this);
+                        dialog->setOption(QFontDialog::DontUseNativeDialog);
+                        dialog->setWindowTitle(tr("Choose font family"));
+                        dialog->adjustSize();
+                        const int result = dialog->exec();
+                        if (editor && dialog && result == QDialog::Accepted)
+                        {
+                            const auto selected = dialog->selectedFont().family();
+                            if (editor->_line->text() == selected)
+                            {
+                                editor->_changed();
+                            }
+                            else
+                            {
+                                editor->_line->setText(selected);
+                            }
+                        }
+                        delete dialog.data();
+                    }
+                    else
+                    {
+                        QPointer<QColorDialog> dialog = new QColorDialog(QColor(_line->text()), this);
+                        dialog->setOption(QColorDialog::DontUseNativeDialog);
+                        dialog->setWindowTitle(tr("Choose color"));
+                        dialog->adjustSize();
+                        const int result = dialog->exec();
+                        if (editor && dialog && result == QDialog::Accepted && dialog->selectedColor().isValid())
+                        {
+                            const auto selected = dialog->selectedColor().name(QColor::HexRgb);
+                            if (editor->_line->text() == selected)
+                            {
+                                editor->_changed();
+                            }
+                            else
+                            {
+                                editor->_line->setText(selected);
+                            }
+                        }
+                        delete dialog.data();
+                    }
+                });
+            }
         }
     }
 
@@ -203,8 +312,17 @@ private:
         emit valueChanged();
     }
 };
-const QStringList
-    builtins {"boolCheckBox", "stringLineEdit", "enumCombo", "integer", "number", "password", "multiline", "yaml"};
+const QStringList builtins {"boolCheckBox",
+                            "stringLineEdit",
+                            "enumCombo",
+                            "integer",
+                            "number",
+                            "password",
+                            "multiline",
+                            "yaml",
+                            "fontFamily",
+                            "color",
+                            "terminalPreview"};
 } // namespace
 
 SettingsWidgetRegistry::SettingsWidgetRegistry(QObject* parent) : QObject(parent)
@@ -250,6 +368,10 @@ SettingsFieldEditor* SettingsWidgetRegistry::create(const SettingsSchema::Field&
     if (!field.widget.isEmpty() && !builtins.contains(field.widget))
     {
         throw std::invalid_argument(("Unknown settings widget: " + field.widget).toStdString());
+    }
+    if (field.widget == "terminalPreview")
+    {
+        return new TerminalPreviewEditor(field, parent);
     }
     return new BuiltinEditor(field, parent);
 }

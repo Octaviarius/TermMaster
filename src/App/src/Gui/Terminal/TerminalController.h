@@ -41,6 +41,7 @@ public:
     QStringList     terminalIds() const;
     SettingsOverlay selectedSettings();
     void            addSettingsPages(SettingsDialog& dialog);
+    void            addDefaultSettingsPages(SettingsDialog& dialog, const QString& scope, SettingsOverlay settings);
     void            applySettings();
 
     QVariantMap   workspaceSettings() const override;
@@ -71,6 +72,7 @@ private:
         TerminalType                    registration;
         std::shared_ptr<SettingsSchema> schema;
         std::shared_ptr<SettingsSchema> workspaceSchema;
+        std::shared_ptr<SettingsSchema> defaultSchema;
     };
     struct Runtime;
     struct RegisteredAction
