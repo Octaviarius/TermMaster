@@ -78,8 +78,9 @@ The active workspace is owned by App; `workspaceChanged` reports successful
 changes. [Workspaces and sessions](workspaces-and-sessions.md) describes the
 single-file format, settings overlay and save/restore contract.
 
-File provides New/Open/Save/Close workspace and Exit. Its Recent group contains
-separate Workspaces and Sessions submenus, each limited to ten entries.
+File provides New/Open/Save/Close workspace, workspace settings and Exit.
+Recent workspaces stay in File; recent sessions belong to the Session menu.
+Each history is limited to ten entries.
 `recentWorkspaces()` returns the global history; workspace entries perform real
 Open operations. Enabled session entries open saved configuration from the current
 workspace catalog.
@@ -114,7 +115,8 @@ clipboard operations. Terminal-focused Copy/Paste/Select All use the same menu,
 while terminal ShortcutOverride preserves program input such as Ctrl+C and Tab.
 
 View provides Toolbar, Status bar and Full screen. Tools/Settings opens the
-generated settings dialog for the active application, workspace or session scope.
+application settings dialog. Workspace, session and terminal settings use their
+own entry points and windows.
 Its schema and form behavior are described in [settings forms](settings-forms.md).
 Toolbar/status preferences use
 `ui/toolbarVisible` and `ui/statusBarVisible` through the active configuration
@@ -199,7 +201,7 @@ used isolated temporary application data. See
 [workspace verification](workspaces-and-sessions.md#verification-status) for scope
 and remaining runtime limitations.
 
-## Generated preferences verification
+## Earlier generated preferences verification
 
 The Tools/Settings action uses the reusable schema form against the active
 application/workspace/session settings scope. Verified on 2026-11-08 with MSVC
@@ -210,41 +212,49 @@ model-backed editor captures were visually inspected. See
 
 ## Preferences page catalog
 
-The internal SettingsDialog owns category/page navigation, search and page drafts.
-App registers real Appearance pages for application, workspace and session scopes,
-then adds explicitly isolated preview pages from YAML resources under
-`src/App/Res/Settings/`. SerialPortPreviewEditor and its example model belong to
-App's `Gui/Settings` feature. The application-owned widget registry outlives dialogs;
-its preview factory is registered once per App instance. No serial API is used.
-See [preferences navigation](settings-forms.md#preferences-navigation-and-preview-pages).
+The internal SettingsDialog owns navigation, search and drafts for one context.
+App keeps separate application/workspace/session/terminal windows. Only settings
+applicable to each target are registered. Context switching preserves drafts;
+owner replacement and plugin unload close dependent views before resources are
+released. A successful Apply reloads other clean forms; dirty drafts retain
+conflict protection. See [preferences navigation](settings-forms.md#preferences-navigation).
+
+Tools / Settings contains application interface options and global terminal
+appearance/input/transport defaults. File / Workspace settings and Session /
+Session settings contain their own defaults. A terminal's Settings window has
+only its display/input and actual backend connection pages. The synthetic MVP
+pages and separate example serial selector were removed. Registered plugin field
+factories provide the same port editor in defaults and terminal configuration.
 
 ## Terminal runtime
 
 [Terminal support](terminals-and-serial.md) describes SerialTerminal, the selected-tab
 controller, the Terminal menu, five-layer configuration and unload lifetimes.
-Application, workspace and session settings include real Terminal defaults pages;
-a selected tab adds its own connection and display pages. Production serial
-creation uses the plugin port selector rather than the isolated preview model.
+Application, workspace and session settings have separate terminal-default pages;
+a selected terminal has its own isolated connection/display settings window.
+Production creation and every defaults scope use the same plugin port selector.
 
 The terminal runtime uses the project-owned [VT widget](terminal-emulation.md).
 Outgoing user events and protocol replies carry distinct kinds; local echo uses
 separate display data. Future script processing inserts before/after this endpoint
 rather than entering the renderer or serial backend.
 
-## Pending Session menu requirement
+## Session menu
 
-Status: recorded for later implementation.
+Status: implemented.
 
 Provide a dedicated top-level Session menu containing the corresponding session
 management commands. Group existing session actions under this menu and derive
 availability from the current workspace and session state. Keep application
 settings under Tools / Settings limited to application configuration and global
 component defaults; session-specific configuration belongs to session navigation.
-The exact menu contents and ordering remain to be specified.
+The menu groups New, Open, Save, Close and Rename, followed by Recent sessions
+and Session settings. Availability follows the active workspace/session. Recent
+workspaces remain in File; existing command identities and toolbar groups are retained.
 
-## Pending secondary metadata presentation requirement
+## Secondary metadata presentation
 
-Status: recorded for later implementation.
+Status: implemented.
 
 Present incidental technical metadata in a muted secondary text color instead
 of giving it the same emphasis as the information used for normal selection.
@@ -253,3 +263,15 @@ UUID is secondary and must use a subdued, readable color. Apply this hierarchy
 consistently to comparable supplementary identifiers and diagnostic details.
 Secondary text remains legible in the active theme and in selected rows; it
 must not imply that the item is disabled.
+
+## Contextual navigation acceptance
+
+Application windows retain independent drafts when opening session/terminal
+settings. Only the target owner's settings are written; global toolbar/status
+visibility is stored at application scope. Borrowed session/workspace views close
+before owner release. The Session menu retains existing command IDs and toolbar
+groups, and owns its recent-session submenu. Duplicate session display names
+remain distinguishable by stable UUID item data. Native application checks passed
+at scale factors 1 and 2. See [settings acceptance](settings-forms.md#contextual-settings-acceptance).
+
+![Muted session identity](images/preferences/SessionPicker.png)

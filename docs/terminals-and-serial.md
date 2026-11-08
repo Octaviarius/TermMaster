@@ -219,8 +219,8 @@ title. All dynamic text is escaped before Qt rich-text display. Successful
 connection clears the old error. The amber retry clock also uses Flowgate's
 connection-status glyph geometry.
 
-The hosted-plugin capability IID is version 2 after extending PluginHost with
-workspace settings and requested-connection queries. Hosted plugins must be
+The hosted-plugin capability IID is version 3 after extending PluginHost with
+workspace settings, requested-connection queries and optional default descriptors. Hosted plugins must be
 rebuilt against this SDK; no old host-vtable alias is supplied. Base non-hosted
 plugin lifecycle interfaces remain unchanged.
 
@@ -237,10 +237,10 @@ cursor over the tab, the application suite passed again; native serial settings
 and recovery checks also passed at scale factors 1 and 2. No real serial device
 was opened. Release was not rebuilt for these serial UI/recovery changes.
 
-## Pending serial port selector requirements
+## Shared serial port selector
 
-Status: recorded for later implementation; the current selector has not been
-changed for these requirements.
+Status: implemented by the serial plugin PortModel, popup delegate and editable
+selector shared by application/workspace/session defaults and terminal forms.
 
 Each available-port row must show the port identifier, readable device name
 and serial number when supplied by the device. Retain the existing port-type
@@ -250,7 +250,29 @@ identifiers. The device identity used for configuration remains the raw port
 name; presentation text must never become the persisted connection address.
 
 General settings and terminal-specific settings must use the same port selector
-implementation, model and presentation. Remove the divergent example-only combo
-from the active settings flow when this is implemented. Preserve editable manual
+implementation, model and presentation. The divergent example-only combo and its obsolete pages were removed. Preserve editable manual
 port names, configured but currently unavailable ports, background inventory
 updates, selection/caret stability and plugin unload safety.
+
+Popup rows and the unfocused selected field show the port name and device
+description, followed by a muted serial number when available. Missing metadata
+is omitted. Focusing the editable field exposes its raw address for manual entry;
+selection, persistence and refresh use EditRole raw names rather than display
+labels. Inventory updates retain the caret/selection and never report user edits.
+Details remain selectable and muted; empty detail rows are omitted.
+
+SerialTerminal supplies separate default and connection descriptors using the
+same `serialPortSelector` / `serialBaudRateSelector` factories. Defaults permit
+an unset port; creating/connecting an actual terminal still requires an address.
+The standard baud suggestions come only from
+`QSerialPortInfo::standardBaudRates()`; workspace `serial/baudRates` stores optional
+user additions, not a copied standard-speed table. The merged list is sorted
+and unique. No standard-speed list is embedded in the descriptors.
+
+The serial editor's synthetic inventory tests verify rich labels, raw-address
+selection, missing metadata, manual addresses, unchanged refresh callbacks,
+caret/selection preservation and worker draining. Native captures verify selected
+and unselected metadata presentation; application checks verify the same editor
+in defaults and actual terminal settings.
+
+![Rich port identity, synthetic inventory](images/preferences/RichSerialPorts.png)

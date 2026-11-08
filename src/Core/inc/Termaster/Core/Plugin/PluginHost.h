@@ -38,6 +38,7 @@ public:
         QString                                        title;
         QString                                        plugin;
         QByteArray                                     settingsSchema;
+        QByteArray                                     defaultSettingsSchema;
         QByteArray                                     workspaceSettingsSchema;
         std::function<std::unique_ptr<SerialDevice>()> createDevice;
         /** Optional plugin-owned panel; reparents and owns the supplied common display. */

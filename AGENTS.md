@@ -224,8 +224,11 @@ changing behavior. These rules apply repository-wide.
 - The primary settings layout is the approved SettingsDialog: a two-level
   category/page tree on the left, generated settings pages on the right, and
   search filtering categories, pages, groups and parameters without losing drafts.
-  Extend this layout for new settings. Keep preview pages clearly marked until
-  connected to real owners. Reference captures are under docs/images/preferences/.
+  Extend this layout for new settings. Keep application/workspace/session/terminal
+  contexts in separate windows showing only applicable real settings; do not add
+  example-only preference pages. Select editors and auxiliary previews through
+  x-widget descriptors, never through hardcoded field-name detection. Reference
+  captures are under docs/images/preferences/.
 
 - Toolbar actions require meaningful icons and tooltips; application toolbars use
   icon-only presentation. Group actions by application/workspace/session/terminal

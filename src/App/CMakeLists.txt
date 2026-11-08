@@ -13,8 +13,8 @@ qt_add_library(App STATIC
     src/Gui/Main/EditActions.cpp
     src/Gui/Settings/SettingsDialog.h
     src/Gui/Settings/SettingsDialog.cpp
-    src/Gui/Settings/SettingsPreview.h
-    src/Gui/Settings/SettingsPreview.cpp
+    src/Gui/Session/SessionPicker.h
+    src/Gui/Session/SessionPicker.cpp
     src/Gui/Terminal/TerminalController.h
     src/Gui/Terminal/TerminalController.cpp
     src/Gui/Workspace/WorkspacePage.h
@@ -45,11 +45,6 @@ qt_add_resources(App "appSettingsSchema"
     FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/SettingsSchema.yaml"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/TerminalAppearance.yaml"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Settings/ApplicationPreview.yaml"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Settings/WorkspacePreview.yaml"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Settings/SessionPreview.yaml"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Settings/TerminalPreview.yaml"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Settings/SerialPreview.yaml"
 )
 
 qt_add_resources(App "connectionStatusIcons"

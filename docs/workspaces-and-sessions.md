@@ -136,7 +136,7 @@ The last successful workspace remains available for the next startup.
 ## Recent workspaces and sessions
 
 File's recent group contains `/file/recentWorkspaces` and
-`/file/recentSessions`. Histories contain at most ten unique newest-first entries
+`/session/recentSessions`. Histories contain at most ten unique newest-first entries
 and refresh when opened. Workspace entries invoke the real open operation using
 global application `content.state.recentWorkspaces`.
 

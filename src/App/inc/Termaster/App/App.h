@@ -78,12 +78,20 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
+    enum class SettingsContext
+    {
+        Application,
+        Workspace,
+        Session,
+        Terminal
+    };
     struct Data;
     std::unique_ptr<Data> _data;
 
     void     _setupActions();
     void     _showPluginManager();
-    void     _showSettings();
+    void     _showSettings(SettingsContext context = SettingsContext::Application);
+    void     _closeSettings(SettingsContext context);
     bool     _ensureApplicationSettings(QString* error);
     bool     _rememberWorkspace(const Path& file, QString* error);
     bool     _activateWorkspace(std::unique_ptr<Workspace> workspace, QString* error);

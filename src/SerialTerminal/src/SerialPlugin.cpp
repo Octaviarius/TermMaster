@@ -43,12 +43,16 @@ bool SerialPlugin::startup(QString* error)
     }
     _state = State::Starting;
     QFile schema(":/SerialTerminal/Settings.yaml");
+    QFile defaultSchema(":/SerialTerminal/Defaults.yaml");
     QFile workspaceSchema(":/SerialTerminal/WorkspaceSettings.yaml");
-    if (!schema.open(QIODevice::ReadOnly) || !workspaceSchema.open(QIODevice::ReadOnly))
+    if (!schema.open(QIODevice::ReadOnly) || !workspaceSchema.open(QIODevice::ReadOnly)
+        || !defaultSchema.open(QIODevice::ReadOnly))
     {
         if (error)
         {
-            *error = schema.isOpen() ? workspaceSchema.errorString() : schema.errorString();
+            *error = !schema.isOpen() ?
+                         schema.errorString() :
+                         (!workspaceSchema.isOpen() ? workspaceSchema.errorString() : defaultSchema.errorString());
         }
         _state = State::Failed;
         return false;
@@ -69,6 +73,7 @@ bool SerialPlugin::startup(QString* error)
         type.title                   = "Serial port";
         type.plugin                  = "SerialTerminal";
         type.settingsSchema          = schema.readAll();
+        type.defaultSettingsSchema   = defaultSchema.readAll();
         type.workspaceSettingsSchema = workspaceSchema.readAll();
         type.createDevice            = createSerialDevice;
         type.createPanel             = [](QWidget* display, const QVariantMap& configuration, QWidget* parent) {
