@@ -47,6 +47,12 @@ if(TERMASTER_BUILD_COMMAND_TESTS)
     add_subdirectory(tools/tests/Commands)
 endif()
 
+option(TERMASTER_BUILD_APP_TESTS "Build application shell tests" OFF)
+if(TERMASTER_BUILD_APP_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/App)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()

@@ -1,0 +1,23 @@
+project(App)
+
+find_package(Qt6 REQUIRED COMPONENTS
+    Widgets
+)
+
+qt_add_library(App STATIC
+    inc/Termaster/App/App.h
+    src/App.cpp
+    src/gui/main/MainWindow.h
+    src/gui/main/MainWindow.cpp
+)
+
+target_compile_features(App PUBLIC cxx_std_20)
+
+target_link_libraries(App PUBLIC
+    Qt6::Widgets
+    Core
+)
+
+target_include_directories(App PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/inc"
+)
