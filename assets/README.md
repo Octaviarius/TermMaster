@@ -1,5 +1,25 @@
 # Termaster icon variants
 
+## Logo identity
+
+The Termaster logo is a jellyfish wearing a sombrero with exactly three tentacles.
+The broad brim, peaked crown and three flowing tentacles define its recognizable
+silhouette. Color, material and rendering style may vary for different contexts;
+no single illustrative treatment is required.
+
+[Logo exploration sheet](LogoExploration.png) preserves sixteen numbered visual
+treatments, including flat graphics, pixel art, realism, clay, ink and 3D styles.
+It is retained as a design reference, not a replacement for the runtime icons.
+The existing arrow/T icons are the abstract interpretation of this identity.
+
+The sheet was generated with the built-in imagegen tool using the prompt intent:
+sixteen concise jellyfish-in-sombrero variations on one 4-by-4 sheet, spanning
+realism through pixel graphics, each retaining exactly three tentacles.
+The copied PNG was decoded successfully and verified byte-for-byte against the
+generated original; its sixteen treatments were visually reviewed.
+
+## Application icon assets
+
 The orange variant is the application icon: App embeds the PNG for Qt window
 icons and the Windows executable embeds the multi-resolution ICO. The blue
 variant is retained without an assigned runtime mode.
