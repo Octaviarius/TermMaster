@@ -66,8 +66,7 @@ private:
         return window->findChild<QPushButton*>(name);
     }
 
-private slots:
-    void desiredStateAndDependencyCascade()
+    Q_SLOT void desiredStateAndDependencyCascade()
     {
         QTemporaryDir temporary;
         QVERIFY(temporary.isValid());
@@ -117,7 +116,7 @@ private slots:
         QCOMPARE(states.value("leaf").toBool(), true);
     }
 
-    void invalidPluginCanBeDisabled()
+    Q_SLOT void invalidPluginCanBeDisabled()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugin";
@@ -139,7 +138,7 @@ private slots:
         QVERIFY(!table->model()->setData(index(table, "provider"), Qt::Checked, Qt::CheckStateRole));
     }
 
-    void selectionSurvivesDiscoveryAndRefresh()
+    Q_SLOT void selectionSurvivesDiscoveryAndRefresh()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
@@ -170,7 +169,7 @@ private slots:
         QCOMPARE(window->findChild<QLineEdit*>("pluginId")->text(), QString("provider"));
     }
 
-    void filterClearsActionsAndShowsEmptyState()
+    Q_SLOT void filterClearsActionsAndShowsEmptyState()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
@@ -203,7 +202,7 @@ private slots:
         QTRY_COMPARE(window->findChild<QLineEdit*>("pluginId")->text(), QString("consumer"));
     }
 
-    void concreteDiagnostics()
+    Q_SLOT void concreteDiagnostics()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
@@ -241,7 +240,7 @@ private slots:
         }
     }
 
-    void managerDestructionWithQueuedCommand()
+    Q_SLOT void managerDestructionWithQueuedCommand()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
@@ -265,7 +264,7 @@ private slots:
         QTRY_VERIFY(window->findChild<QLabel*>("pluginOperationMessage")->text().contains("no longer available"));
     }
 
-    void emptyFolderAndMalformedSettings()
+    Q_SLOT void emptyFolderAndMalformedSettings()
     {
         QTemporaryDir temporary;
         const QString directory = temporary.path() + "/plugins";
@@ -297,7 +296,10 @@ private slots:
         QVERIFY(!manager.isActive());
         QVERIFY(!button(window.get(), "enablePlugin")->isEnabled());
         QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
-        QVERIFY(file.write("enabled: {}\n") > 0);
+        QVERIFY(
+            file.write(
+                "version: 1\ntype: termaster.settings\ndescription: Plugin test preferences\ncontent: {enabled: {}}\n")
+            > 0);
         file.close();
         QTest::mouseClick(button(window.get(), "refreshPlugins"), Qt::LeftButton);
         QTRY_VERIFY(manager.isActive());

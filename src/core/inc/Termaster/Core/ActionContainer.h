@@ -47,31 +47,37 @@ public:
 
     QStringList groups() const;
     qsizetype   groupIndex(const QString& name) const;
-    bool        addGroup(const QString& name);
-    bool        insertGroup(const QString& name, qsizetype index);
-    bool        insertGroupBefore(const QString& name, const QString& reference);
-    bool        insertGroupAfter(const QString& name, const QString& reference);
-    bool        moveGroup(const QString& name, qsizetype index);
-    bool        moveGroupBefore(const QString& name, const QString& reference);
-    bool        moveGroupAfter(const QString& name, const QString& reference);
-    bool        renameGroup(const QString& name, const QString& newName);
-    bool        clearGroup(const QString& name);
-    bool        removeGroup(const QString& name);
-    bool        clear();
+    /** Registration throws std::invalid_argument for invalid arguments and
+     * std::logic_error when mutation or the backend is unavailable. */
+    void addGroup(const QString& name);
+    void insertGroup(const QString& name, qsizetype index);
+    void insertGroupBefore(const QString& name, const QString& reference);
+    void insertGroupAfter(const QString& name, const QString& reference);
+    bool moveGroup(const QString& name, qsizetype index);
+    bool moveGroupBefore(const QString& name, const QString& reference);
+    bool moveGroupAfter(const QString& name, const QString& reference);
+    bool renameGroup(const QString& name, const QString& newName);
+    bool clearGroup(const QString& name);
+    bool removeGroup(const QString& name);
+    bool clear();
 
     qsizetype       itemCount(const QString& group) const;
     QList<Item>     items(const QString& group) const;
     QList<QAction*> actions(const QString& group) const;
     List            menus(const QString& group) const;
 
-    bool addAction(QAction* action, const QString& group);
-    bool insertAction(QAction* action, const QString& group, qsizetype index);
+    /** Borrow an action; throws std::invalid_argument for invalid registration or
+     * std::logic_error when mutation or the backend is unavailable. State is unchanged on failure. */
+    void addAction(QAction* action, const QString& group);
+    void insertAction(QAction* action, const QString& group, qsizetype index);
     bool moveAction(QAction* action, const QString& group, qsizetype index);
     bool removeAction(QAction* action);
 
-    /** Successful insertion transfers QObject ownership of the entire subtree. */
-    bool addMenu(ActionContainer* menu, const QString& group);
-    bool insertMenu(ActionContainer* menu, const QString& group, qsizetype index);
+    /** Successful insertion transfers QObject ownership of the entire subtree.
+     * Throws std::invalid_argument for invalid registration or std::logic_error when
+     * mutation or the backend is unavailable. Failure preserves ownership and state. */
+    void addMenu(ActionContainer* menu, const QString& group);
+    void insertMenu(ActionContainer* menu, const QString& group, qsizetype index);
     bool moveMenu(ActionContainer* menu, const QString& group, qsizetype index);
     bool transferMenu(ActionContainer* menu, ActionContainer& target, const QString& group, qsizetype index);
     /** Detach without destruction; ownership passes to the caller. */

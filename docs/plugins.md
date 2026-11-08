@@ -184,10 +184,17 @@ Enable preferences are stored in `plugins.yaml` under Qt's application-data
 directory, through an independently owned `Settings`:
 
 ```yaml
-enabled:
-  example.provider: true
-  example.consumer: true
+version: 1
+type: termaster.plugins
+description: Plugin activation preferences
+content:
+  enabled:
+    example.provider: true
+    example.consumer: true
 ```
+
+The envelope is mandatory; bare legacy mappings are rejected without migration.
+Workspace plugin directory metadata does not change application plugin discovery.
 
 The YAML layer has been rewritten to remove unsafe QVariant casts, preserve
 unknown mappings/sequences and check parse/serialization/write failures. Plugin

@@ -169,6 +169,13 @@ changing behavior. These rules apply repository-wide.
 
 ## Settings and diagnostics
 
+- Persist YAML documents with a version, type, description and content envelope.
+  Keep document-specific payload under content and preserve unknown fields.
+- Workspaces are single files located independently of AppData. Application data
+  owns base settings, the last workspace reference and recent workspace history;
+  workspace settings override base settings and own session history. Keep recent
+  histories unique and limited to ten entries. Workspace plugin/script paths are
+  metadata until discovery/execution is explicitly implemented.
 - Use the existing settings owner rather than reading and writing settings
   independently from every widget.
 - Keep persistence separate from widget state and connection lifecycle.

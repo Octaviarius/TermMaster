@@ -53,6 +53,12 @@ if(TERMASTER_BUILD_APP_TESTS)
     add_subdirectory(tools/tests/App)
 endif()
 
+option(TERMASTER_BUILD_WORKSPACE_TESTS "Build workspace and settings overlay tests" OFF)
+if(TERMASTER_BUILD_WORKSPACE_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Workspace)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()

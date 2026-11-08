@@ -13,6 +13,21 @@ bool writeFile(const QString& path, const QByteArray& bytes)
     return file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(bytes) == bytes.size();
 }
 
+QByteArray envelope(const QByteArray& content)
+{
+    QByteArray result("version: 1\ntype: termaster.settings\ndescription: Termaster settings\ncontent:\n");
+    for (const auto& line : content.split('\n'))
+    {
+        result += "  " + line + '\n';
+    }
+    return result;
+}
+
+bool writeDocument(const QString& path, const QByteArray& content)
+{
+    return writeFile(path, envelope(content));
+}
+
 QByteArray readFile(const QString& path)
 {
     QFile file(path);
@@ -82,12 +97,110 @@ private:
         QVERIFY(reloaded.isDirty());
     }
 
+    Q_SLOT void documentMetadata()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString        path = directory.filePath("typed.yaml");
+        const Settings::Info expected {"termaster.workspace", "Workspace settings"};
+        Settings             settings(path, expected);
+        QString              error;
+        QVERIFY(settings.load(&error));
+        QCOMPARE(settings.version(), 1);
+        QCOMPARE(settings.info().type, expected.type);
+        QCOMPARE(settings.info().description, expected.description);
+        QVERIFY(settings.values().isEmpty());
+        QVERIFY(!settings.contains("version"));
+        QVERIFY(!settings.contains("type"));
+        QVERIFY(!settings.contains("description"));
+        QVERIFY(!settings.contains("content"));
+        QVERIFY(settings.setValue("value", 1, &error));
+        QVERIFY(settings.sync(&error));
+        Settings wrongType(path);
+        QVERIFY(!wrongType.load(&error));
+        QVERIFY(settings.load(&error));
+        QCOMPARE(settings.value("value").toInt(), 1);
+    }
+
+    Q_SLOT void rejectsInvalidEnvelopes()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath("invalid.yaml");
+        Settings      settings(path);
+        QString       error;
+        const QList<QByteArray>
+            invalid {"plain: settings\n",
+                     "type: termaster.settings\ndescription: settings\ncontent: {}\n",
+                     "version: 2\ntype: termaster.settings\ndescription: settings\ncontent: {}\n",
+                     "version: '1'\ntype: termaster.settings\ndescription: settings\ncontent: {}\n",
+                     "version: true\ntype: termaster.settings\ndescription: settings\ncontent: {}\n",
+                     "version: 01\ntype: termaster.settings\ndescription: settings\ncontent: {}\n",
+                     "version: 1\ndescription: settings\ncontent: {}\n",
+                     "version: 1\ntype: other\ndescription: settings\ncontent: {}\n",
+                     "version: 1\ntype: termaster.settings\ncontent: {}\n",
+                     "version: 1\ntype: termaster.settings\ndescription: true\ncontent: {}\n",
+                     "version: 1\ntype: termaster.settings\ndescription: 18446744073709551616\ncontent: {}\n",
+                     "version: 1\ntype: termaster.settings\ndescription: 1e9999\ncontent: {}\n",
+                     "version: 1\ntype: termaster.settings\ndescription: settings\n",
+                     "version: 1\ntype: termaster.settings\ndescription: settings\ncontent: []\n"};
+        QVERIFY(settings.setValue("retained", 9, &error));
+        for (const auto& bytes : invalid)
+        {
+            QVERIFY(writeFile(path, bytes));
+            QVERIFY(!settings.load(&error));
+            QVERIFY(!error.isEmpty());
+            QCOMPARE(settings.value("retained").toInt(), 9);
+            QVERIFY(settings.isDirty());
+        }
+    }
+
+    Q_SLOT void quotedNumericDescription()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath("metadata.yaml");
+        QVERIFY(writeFile(path,
+                          "version: 1\ntype: termaster.settings\n"
+                          "description: '18446744073709551616'\ncontent: {}\n"));
+        Settings settings(path);
+        QString  error;
+        QVERIFY2(settings.load(&error), qPrintable(error));
+        QCOMPARE(settings.info().description, QString("18446744073709551616"));
+        QVERIFY(settings.setValue("value", 1, &error));
+        QVERIFY(settings.sync(&error));
+        QVERIFY2(settings.load(&error), qPrintable(error));
+        QCOMPARE(settings.info().description, QString("18446744073709551616"));
+    }
+
+    Q_SLOT void preservesUnknownMetadataAndContentAliases()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath("aliases.yaml");
+        QVERIFY(writeFile(path,
+                          "version: 1\ntype: termaster.settings\ndescription: custom description\n"
+                          "vendor: &shared !vendor {value: 7, quoted: 'true'}\ncontent: *shared\n"));
+        Settings settings(path);
+        QString  error;
+        QVERIFY(settings.load(&error));
+        QCOMPARE(settings.info().description, QString("custom description"));
+        QVERIFY(!settings.contains("vendor"));
+        QVERIFY(settings.setValue("value", 8, &error));
+        QVERIFY(settings.remove("quoted", &error));
+        QVERIFY(settings.sync(&error));
+        const auto document = YAML::Load(readFile(path).toStdString());
+        QCOMPARE(document["vendor"]["value"].as<int>(), 7);
+        QCOMPARE(QString::fromStdString(document["vendor"].Tag()), QString("!vendor"));
+        QCOMPARE(QString::fromStdString(document["vendor"]["quoted"].Scalar()), QString("true"));
+        QCOMPARE(document["content"]["value"].as<int>(), 8);
+        QVERIFY(settings.load(&error));
+        QVERIFY(!settings.contains("quoted"));
+    }
+
     Q_SLOT void failedPersistencePreservesState()
     {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         const QString path = directory.filePath("settings.yaml");
-        QVERIFY(writeFile(path, "stable: 7\n"));
+        QVERIFY(writeDocument(path, "stable: 7\n"));
         Settings settings(path);
         QString  error;
         QVERIFY(settings.load(&error));
@@ -117,17 +230,17 @@ private:
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         const QString path = directory.filePath("settings.yaml");
-        QVERIFY(writeFile(path, "unknown: !vendor {quoted: 'true', code: '0012', list: [a, b]}\nknown: 1\n"));
+        QVERIFY(writeDocument(path, "unknown: !vendor {quoted: 'true', code: '0012', list: [a, b]}\nknown: 1\n"));
         Settings settings(path);
         QString  error;
         QVERIFY2(settings.load(&error), qPrintable(error));
         QVERIFY(settings.setValue("known", 2, &error));
         QVERIFY2(settings.sync(&error), qPrintable(error));
         const YAML::Node document = YAML::Load(readFile(path).toStdString());
-        QCOMPARE(QString::fromStdString(document["unknown"].Tag()), QString("!vendor"));
-        QCOMPARE(QString::fromStdString(document["unknown"]["quoted"].Scalar()), QString("true"));
-        QCOMPARE(QString::fromStdString(document["unknown"]["code"].Scalar()), QString("0012"));
-        QCOMPARE(document["unknown"]["list"].size(), size_t(2));
+        QCOMPARE(QString::fromStdString(document["content"]["unknown"].Tag()), QString("!vendor"));
+        QCOMPARE(QString::fromStdString(document["content"]["unknown"]["quoted"].Scalar()), QString("true"));
+        QCOMPARE(QString::fromStdString(document["content"]["unknown"]["code"].Scalar()), QString("0012"));
+        QCOMPARE(document["content"]["unknown"]["list"].size(), size_t(2));
         Settings reloaded(path);
         QVERIFY(reloaded.load(&error));
         QCOMPARE(reloaded.value("unknown/quoted").metaType(), QMetaType::fromType<QString>());
@@ -144,15 +257,17 @@ private:
         QVERIFY(settings.setValue("retained", 5, &error));
         const QVariantMap before = settings.values();
         QList<QByteArray> invalid {"key: [\n", "key: 1\nkey: 2\n", "a: 1\n---\nb: 2\n", "[a, b]\n"};
+        invalid.append(envelope("key: 1\nkey: 2\n"));
+        invalid.append(envelope("[a, b]\n"));
         invalid.append(QByteArray(4 * 1024 * 1024 + 1, ' '));
-        invalid.append("deep: " + QByteArray(70, '[') + "0" + QByteArray(70, ']') + "\n");
+        invalid.append(envelope("deep: " + QByteArray(70, '[') + "0" + QByteArray(70, ']') + "\n"));
         QByteArray tooManyNodes("nodes: [");
         for (int i = 0; i < 100001; ++i)
         {
             tooManyNodes += "0,";
         }
         tooManyNodes += "]\n";
-        invalid.append(tooManyNodes);
+        invalid.append(envelope(tooManyNodes));
         for (const QByteArray& bytes : invalid)
         {
             QVERIFY(writeFile(path, bytes));
@@ -169,7 +284,7 @@ private:
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         const QString path = directory.filePath("numbers.yaml");
-        QVERIFY(writeFile(path, "huge: 18446744073709551616\n"));
+        QVERIFY(writeDocument(path, "huge: 18446744073709551616\n"));
         Settings settings(path);
         QString  error;
         QVERIFY(settings.load(&error));
@@ -187,7 +302,7 @@ private:
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         const QString path = directory.filePath("aliases.yaml");
-        QVERIFY(writeFile(path, "other: &shared {value: false, nested: {retained: 1}}\nchanged: *shared\n"));
+        QVERIFY(writeDocument(path, "other: &shared {value: false, nested: {retained: 1}}\nchanged: *shared\n"));
         Settings settings(path);
         QString  error;
         QVERIFY(settings.load(&error));
@@ -209,6 +324,11 @@ private:
         QVERIFY(!settings.node(deep).isValid());
         auto prefix = settings.node(QString("a/").repeated(63) + "a");
         QVERIFY(prefix.isValid());
+        const QString boundary = QString("a/").repeated(63) + "value";
+        QVERIFY(settings.setValue(boundary, 1, &error));
+        QCOMPARE(settings.value(boundary).toInt(), 1);
+        QVERIFY(settings.remove(boundary, &error));
+        QVERIFY(settings.load(&error));
         QVERIFY(!prefix.setValue("b", 1, &error));
         QCOMPARE(settings.values(), before);
     }
@@ -253,15 +373,15 @@ private:
         QVERIFY(!first.contains("same"));
         QCOMPARE(second.value("same").toInt(), 2);
         auto copy = nested;
-        QVERIFY(writeFile(path, "first: {nested: {value: 11}}\n"));
+        QVERIFY(writeDocument(path, "first: {nested: {value: 11}}\n"));
         QVERIFY(settings->load(&error));
         QCOMPARE(copy.value("value").toInt(), 11);
-        QVERIFY(writeFile(path, "first: 12\n"));
+        QVERIFY(writeDocument(path, "first: 12\n"));
         QVERIFY(settings->load(&error));
         QVERIFY(!nested.isValid());
         QVERIFY(!nested.setValue("value", 15, &error));
         QCOMPARE(settings->value("first").toInt(), 12);
-        QVERIFY(writeFile(path, "{}\n"));
+        QVERIFY(writeDocument(path, "{}\n"));
         QVERIFY(settings->load(&error));
         QVERIFY(nested.isValid());
         QVERIFY(nested.setValue("value", 16, &error));

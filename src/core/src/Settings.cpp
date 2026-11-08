@@ -17,7 +17,7 @@ constexpr qint64 MaxSettingsBytes = 4 * 1024 * 1024;
 
 void validateTree(const YAML::Node& node, qsizetype& remaining, int depth = 0)
 {
-    if (depth > 64 || --remaining < 0)
+    if (depth > 65 || --remaining < 0)
     {
         throw std::runtime_error("YAML exceeds nesting or node limit");
     }
@@ -190,6 +190,72 @@ QVariant fromYaml(const YAML::Node& node)
     return text;
 }
 
+YAML::Node envelope(const Settings::Info& info)
+{
+    YAML::Node root(YAML::NodeType::Map);
+    root["version"] = 1;
+    root["type"]    = info.type.toStdString();
+    root["type"].SetTag("tag:yaml.org,2002:str");
+    root["description"] = info.description.toStdString();
+    root["description"].SetTag("tag:yaml.org,2002:str");
+    root["content"] = YAML::Node(YAML::NodeType::Map);
+    return root;
+}
+
+bool isStringMetadata(const YAML::Node& node)
+{
+    if (!node.IsScalar())
+    {
+        return false;
+    }
+    const auto tag = node.Tag();
+    if (tag == "!" || tag == "tag:yaml.org,2002:str")
+    {
+        return true;
+    }
+    if (!tag.empty() && tag != "?")
+    {
+        return false;
+    }
+    // Numeric overflow must not turn an implicitly typed number into string metadata.
+    static const QRegularExpression number("^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$");
+    bool                            boolean = false;
+    double                          real    = 0;
+    return !number.match(QString::fromStdString(node.Scalar())).hasMatch()
+        && !YAML::convert<bool>::decode(node, boolean) && !YAML::convert<double>::decode(node, real);
+}
+
+void validateEnvelope(const YAML::Node& root, const Settings::Info& info)
+{
+    const auto version = root["version"];
+    if (!version.IsScalar() || version.Scalar() != "1"
+        || (version.Tag() != "?" && !version.Tag().empty() && version.Tag() != "tag:yaml.org,2002:int"))
+    {
+        throw std::runtime_error("Expected settings version 1 as an integer");
+    }
+    const auto type = fromYaml(root["type"]);
+    if (type.typeId() != QMetaType::QString || type.toString() != info.type)
+    {
+        throw std::runtime_error("Settings document type does not match the expected type");
+    }
+    if (!isStringMetadata(root["description"]))
+    {
+        throw std::runtime_error("Settings description must be a string");
+    }
+    if (!root["content"].IsMap())
+    {
+        throw std::runtime_error("Settings content must be a mapping");
+    }
+}
+
+YAML::Node detachContent(YAML::Node root)
+{
+    const auto content = YAML::Clone(root["content"]);
+    root.remove("content");
+    root["content"] = content;
+    return root["content"];
+}
+
 YAML::Node toYaml(const QVariant& value, qsizetype& remaining, int depth = 0)
 {
     if (depth > 64 || --remaining < 0)
@@ -313,17 +379,28 @@ bool update(YAML::Node node, const QStringList& parts, qsizetype index, const YA
 struct Settings::Data
 {
     QString              path;
+    Info                 expectedInfo;
     YAML::Node           root {YAML::NodeType::Map};
     std::shared_ptr<int> lifetime = std::make_shared<int>(0);
     bool                 dirty    = false;
 };
 
-Settings::Settings(QString filePath) : _data(std::make_unique<Data>())
+Settings::Settings(QString filePath) : Settings(std::move(filePath), Info {})
 {
-    _data->path = std::move(filePath);
 }
 
-Settings::Settings(const Path& filePath) : Settings(filePath.toString())
+Settings::Settings(const Path& filePath) : Settings(filePath.toString(), Info {})
+{
+}
+
+Settings::Settings(QString filePath, Info info) : _data(std::make_unique<Data>())
+{
+    _data->path         = std::move(filePath);
+    _data->expectedInfo = std::move(info);
+    _data->root.reset(envelope(_data->expectedInfo));
+}
+
+Settings::Settings(const Path& filePath, Info info) : Settings(filePath.toString(), std::move(info))
 {
 }
 
@@ -332,6 +409,17 @@ Settings::~Settings() = default;
 QString Settings::filePath() const
 {
     return _data->path;
+}
+
+Settings::Info Settings::info() const
+{
+    return {QString::fromStdString(_data->root["type"].Scalar()),
+            QString::fromStdString(_data->root["description"].Scalar())};
+}
+
+int Settings::version() const
+{
+    return 1;
 }
 
 bool Settings::isDirty() const
@@ -348,7 +436,7 @@ bool Settings::load(QString* error)
     try
     {
         validatePath(_data->path);
-        YAML::Node root(YAML::NodeType::Map);
+        YAML::Node root = envelope(_data->expectedInfo);
         QFile      file(_data->path);
         if (file.exists())
         {
@@ -373,6 +461,7 @@ bool Settings::load(QString* error)
             root.reset(documents.front());
             qsizetype remaining = 100000;
             validateTree(root, remaining);
+            validateEnvelope(root, _data->expectedInfo);
         }
         _data->root.reset(root);
         _data->dirty = false;
@@ -418,7 +507,7 @@ bool Settings::sync(QString* error)
 
 bool Settings::contains(const QString& key) const
 {
-    return validKey(key) && lookup(_data->root, key.split('/')).IsDefined();
+    return validKey(key) && lookup(_data->root["content"], key.split('/')).IsDefined();
 }
 
 QVariant Settings::value(const QString& key, const QVariant& fallback) const
@@ -427,13 +516,13 @@ QVariant Settings::value(const QString& key, const QVariant& fallback) const
     {
         return fallback;
     }
-    const auto node = lookup(_data->root, key.split('/'));
+    const auto node = lookup(_data->root["content"], key.split('/'));
     return node.IsDefined() ? fromYaml(node) : fallback;
 }
 
 QVariantMap Settings::values() const
 {
-    return fromYaml(_data->root).toMap();
+    return fromYaml(_data->root["content"]).toMap();
 }
 
 bool Settings::setValue(const QString& key, const QVariant& value, QString* error)
@@ -451,7 +540,7 @@ bool Settings::setValue(const QString& key, const QVariant& value, QString* erro
         qsizetype  remaining = 100000;
         const auto converted = toYaml(value, remaining);
         auto       candidate = YAML::Clone(_data->root);
-        update(candidate, key.split('/'), 0, converted, false);
+        update(detachContent(candidate), key.split('/'), 0, converted, false);
         serialize(candidate);
         _data->root.reset(candidate);
         _data->dirty = true;
@@ -476,7 +565,7 @@ bool Settings::remove(const QString& key, QString* error)
             throw std::runtime_error("Invalid settings key");
         }
         auto candidate = YAML::Clone(_data->root);
-        if (!update(candidate, key.split('/'), 0, YAML::Node(), true))
+        if (!update(detachContent(candidate), key.split('/'), 0, YAML::Node(), true))
         {
             return true;
         }
@@ -513,7 +602,7 @@ bool Settings::Node::isValid() const
     {
         return true;
     }
-    YAML::Node current = _context->owner->_data->root;
+    YAML::Node current = _context->owner->_data->root["content"];
     for (const auto& part : _context->prefix.split('/'))
     {
         if (!current.IsMap())

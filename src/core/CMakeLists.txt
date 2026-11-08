@@ -34,6 +34,10 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/gui/action/ToolbarActionContainer.cpp
     inc/Termaster/Core/Settings.h
     src/Settings.cpp
+    inc/Termaster/Core/SettingsOverlay.h
+    src/SettingsOverlay.cpp
+    inc/Termaster/Core/Workspace.h
+    src/Workspace.cpp
     inc/Termaster/Core/plugin/Plugin.h
     inc/Termaster/Core/plugin/PluginManager.h
     src/plugin/PluginManager.cpp

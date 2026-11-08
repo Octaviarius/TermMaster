@@ -19,13 +19,16 @@ The toolbar exposes ordered extension groups:
 
 Groups are stable placement slots. They do not determine whether a command is
 valid and do not own domain state. Empty groups produce no separator or button.
-Only the application group currently contains actions; workspace/session/terminal
-groups are reserved for the corresponding domain stages, not simulated features.
+The application and workspace groups contain implemented commands. New/Open
+workspace commands remain available without an active workspace; Save/Close
+require one. Session/terminal groups remain reserved for their domain stages.
 
 ## Context and execution requirements
 
-A future application presentation controller derives action state from the
-actual active workspace, session and selected terminal. Terminal connection
+App currently derives workspace command state from its active Workspace owner,
+and EditActions derives editor command state from the focused standard Qt editor.
+Future session/terminal presentation derives state from the actual session and
+selected terminal. Terminal connection
 state and operation capabilities remain authoritative in the terminal/backend
 owners. The controller must observe target selection changes, target destruction,
 state transitions and capability changes, then update the affected actions.
@@ -59,14 +62,16 @@ remain separate design stages.
 
 Icon-only toolbar presentation, the plugin action icon/tooltip and all four
 ordered extension groups are implemented and checked by AppTests. Empty-group
-separator behavior is covered by action-container tests. Runtime workspace/session
-selection, terminal capability/state models and the contextual controller are
-requirements, not implemented APIs yet. Their presentation/lifetime tests will
-be added with those domain owners. See [workspaces and sessions](workspaces-and-sessions.md).
+separator behavior is covered by action-container tests. Runtime session
+selection beyond the active workspace, terminal capability/state models and
+terminal command dispatch remain planned. Standard Edit actions already route to
+QLineEdit, QTextEdit and QPlainTextEdit using their actual capabilities; they do
+not simulate terminal behavior. See [workspaces and sessions](workspaces-and-sessions.md).
 
 Verified on 2026-11-08 with MSVC 19.44 / Qt 6.12.0 Debug in the Desktop Qt kit
 build directory. All seven CTest suites passed, including the separate Debug SDK
 consumer. AppTests checks toolbar icon presence, tooltips, icon-only style,
 ordered groups and absence of separators for empty groups. Native AppTests passed
 at scale factors 1 and 2; both main-window captures were visually inspected.
-Formatting and git diff --check passed.
+Formatting and git diff --check passed. These results predate workspace and
+standard-editor command changes; they do not verify those additions.

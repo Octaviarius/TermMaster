@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QApplication>
+#include <QStringList>
 #include <memory>
 
 class ApplicationPaths;
@@ -9,6 +10,12 @@ class MenubarActionContainer;
 class ToolbarActionContainer;
 class Settings;
 class QMainWindow;
+class Path;
+class Workspace;
+class SettingsOverlay;
+class QAction;
+class QIcon;
+class QKeySequence;
 
 /** Owns application services and windows. Construct once and use on the GUI thread. */
 class App final : public QApplication
@@ -35,11 +42,41 @@ public:
     QMainWindow&            mainWindow();
     MenubarActionContainer& mainMenu();
     ToolbarActionContainer& toolbar();
+    Workspace*              workspace() const;
+    QStringList             recentWorkspaces() const;
+    SettingsOverlay         configuration();
+    bool                    restoreLastWorkspace(QString* error = nullptr);
+    bool                    openWorkspace(const Path& file, QString* error = nullptr);
+    bool                    createWorkspace(const Path& file, const QString& name, QString* error = nullptr);
+    bool                    saveWorkspace(QString* error = nullptr);
+    bool                    closeWorkspace(QString* error = nullptr);
+    Q_SIGNAL void           workspaceChanged();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     struct Data;
     std::unique_ptr<Data> _data;
 
-    void _setupActions();
-    void _showPluginManager();
+    void     _setupActions();
+    void     _showPluginManager();
+    bool     _ensureApplicationSettings(QString* error);
+    bool     _rememberWorkspace(const Path& file, QString* error);
+    bool     _activateWorkspace(std::unique_ptr<Workspace> workspace, QString* error);
+    bool     _saveChanges(QString* error);
+    void     _updateWorkspace();
+    void     _applyConfiguration();
+    void     _updateRecent();
+    void     _chooseWorkspace();
+    void     _chooseNewWorkspace();
+    void     _showError(const QString& error);
+    void     _storeViewSetting(const QString& key, bool value);
+    QAction* _addAction(const QString&      id,
+                        const QString&      text,
+                        const QIcon&        icon,
+                        const QKeySequence& shortcut,
+                        const QString&      menu,
+                        const QString&      group,
+                        const QString&      toolbarGroup = {});
 };

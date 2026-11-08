@@ -113,7 +113,8 @@ own preferences. Core links Qt Core/Widgets and pinned yaml-cpp; the active targ
 graph excludes the reference modules and their serial dependencies.
 
 [Settings and paths](settings.md) describes the implemented API.
-[Workspaces and sessions](workspaces-and-sessions.md) records the next domain stage.
+[Workspaces and sessions](workspaces-and-sessions.md) describes the implemented
+single-file workspace lifecycle and planned session/terminal-group behavior.
 
 [Application module](application.md) describes App, base windows and command/container access.
 

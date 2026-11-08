@@ -9,6 +9,10 @@ qt_add_library(App STATIC
     src/App.cpp
     src/gui/main/MainWindow.h
     src/gui/main/MainWindow.cpp
+    src/gui/main/EditActions.h
+    src/gui/main/EditActions.cpp
+    src/gui/workspace/WorkspacePage.h
+    src/gui/workspace/WorkspacePage.cpp
 )
 
 target_compile_features(App PUBLIC cxx_std_20)

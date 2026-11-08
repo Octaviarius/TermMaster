@@ -39,8 +39,8 @@ and action-container implementations, which are feature GUI of Core.
 App::Options optionally supplies data/plugin directories for isolated launch or
 embedding. Defaults retain the current ApplicationPaths locations. The owner,
 commands, windows and all accessors are used on the GUI thread. Construct one App
-and invoke run once. The central widget is intentionally empty; workspace/session
-loading is not implemented by this shell.
+and invoke run once. The central area presents workspace Open/New choices or
+the active workspace name/path. Session and terminal-group loading remain planned.
 
 ## Access to commands and containers
 
@@ -51,33 +51,63 @@ singleton or process-wide mutable command registry is introduced.
 
 ```cpp
 auto* command = app.commands().create("Example.Action", "Example");
-if (command)
-{
-    auto* action = command->newAction(&app.mainWindow());
-    auto* tools = app.mainMenu().findMenu("/tools");
-    if (tools && tools->addGroup("example"))
-        tools->addAction(action, "example");
-}
+auto* action = command->newAction(&app.mainWindow());
+auto* tools = app.mainMenu().findMenu("/tools");
+tools->addGroup("example");
+tools->addAction(action, "example");
 ```
 
 Public consumers include the corresponding Core command/container headers to
 call their APIs. CommandRegistry owns registrations, validates bounded immutable
-case-sensitive IDs and rejects duplicates. Removing a command destroys its
+case-sensitive IDs and rejects duplicates. `create()` returns a valid command
+or throws: invalid IDs raise `std::invalid_argument`; duplicate IDs or an
+unavailable registry raise `std::logic_error`. Container add/insert registration
+also throws rather than returning a success flag. Movement/removal retain bool
+results. Registration failures are programming errors, not silently skipped actions. Removing a command destroys its
 remaining actions; ActionContainer automatically drops those registrations.
 Contributors must remove their owned menu groups and unregister their commands
 before unloading their code. Passing App to plugin startup is not added by this
 change; plugin context exposure remains a separate contract decision.
 
-The shell registers Application.Plugins and Application.Exit. File/Exit exits the
-application. Tools/Plugins and the toolbar share one QAction and open the same
-modeless plugin window. Closing that dialog deletes it; another invocation
-creates a new one. QAction handlers perform application operations through App;
-MainWindow only constructs the window and native container wrappers.
+## Workspace and standard menus
 
-Application settings use application.yaml and plugin preferences retain
-plugins.yaml. App checks settings/plugin startup failures and displays causes in
-the window status bar. Settings writes remain explicit; startup does not save
-preferences merely by reading them.
+App exposes `workspace()`, `configuration()`, `restoreLastWorkspace()`,
+`openWorkspace()`, `createWorkspace()`, `saveWorkspace()` and `closeWorkspace()`.
+The active workspace is owned by App; `workspaceChanged` reports successful
+changes. [Workspaces and sessions](workspaces-and-sessions.md) describes the
+single-file format, settings overlay and save/restore contract.
+
+File provides New/Open/Save/Close workspace and Exit. Its Recent group contains
+separate Workspaces and Sessions submenus, each limited to ten entries.
+`recentWorkspaces()` returns the global history; workspace entries perform real
+Open operations. Session entries remain disabled until session loading exists.
+See the [history contract](workspaces-and-sessions.md#recent-workspaces-and-sessions). Save/Close are enabled only
+with an active workspace, and handlers validate their target again. Startup
+restores the last workspace or shows the Open/New choice page. Replacement,
+closure and normal exit persist pending state and report concrete failures.
+
+Edit provides Undo, Redo, Cut, Copy, Paste and Select All with standard shortcuts.
+Its internal EditActions controller targets the focused QLineEdit, QTextEdit or
+QPlainTextEdit in the active main window. Enabled state follows read-only state,
+selection, undo/redo availability, content and clipboard capabilities. Execution
+resolves the focused editor again. These are real Qt editor operations; terminal
+input and terminal selection routing remain planned.
+
+View provides Toolbar, Status bar and Full screen. Toolbar/status preferences use
+`ui/toolbarVisible` and `ui/statusBarVisible` through the active configuration
+scope. Tools/Plugins and the toolbar share one QAction and open the same modeless
+plugin window. Closing the dialog deletes it; another invocation creates a new
+one. Help provides About Termaster and About Qt. MainWindow constructs views and
+native containers; App sequences application operations.
+
+Application settings use `application.yaml` under Qt AppDataLocation with the
+mandatory `termaster.application` envelope. `content.settings` holds defaults;
+`content.state.lastWorkspace` holds the last successfully opened absolute path,
+and `content.state.recentWorkspaces` holds unique canonical absolute paths in
+newest-first order. Successful Open/New persist both together.
+Plugin preferences use `plugins.yaml` with type `termaster.plugins`. Loading does
+not write merely because a file was read. These current formats have no legacy
+reader or migration.
 
 ## Lifetime and command fixes
 
@@ -98,7 +128,7 @@ presentations, avoiding duplicate shortcut registrations for those presentations
 Full context routing, command-level checked/enabled state and shortcut preference
 persistence are not implemented by this stage.
 
-## Verification
+## Earlier verification
 
 Enable TERMASTER_BUILD_COMMAND_TESTS and TERMASTER_BUILD_APP_TESTS for the new
 suites. CommandTests exercises Unicode, shortcuts, shared actions, action/parent
@@ -115,7 +145,8 @@ plugin SDK consumer. Native AppTests passed all four results at scale factors 1
 and 2; main-window and plugin-dialog captures were visually inspected. Source
 layout, public header/source pairing, active dependency boundaries, documentation
 links, clang-format and git diff --check were verified. SerialBus/SerialPort remain
-disabled in this build. Workspace/session behavior remains planned.
+disabled in this build. Session/terminal-group behavior remains planned. These historical results
+predate the workspace lifecycle and standard-menu changes and do not verify them.
 
 [Contextual actions](contextual-actions.md) defines icon-only toolbars and scoped extension groups.
 
@@ -133,3 +164,14 @@ passed, native AppTests passed at scale factors 1 and 2, and the Qt-rendered ico
 was visually inspected. The compiled executable's icon group contains all seven
 images matching the approved ICO bytes exactly. The extracted native icon was
 also visually inspected. The blue asset remains unassigned.
+
+## Workspace verification
+
+The workspace implementation was verified on 2026-11-08 in the Desktop Qt MSVC
+Debug kit. All eight CTest suites passed. Native AppTests passed all eight
+results at scale factors 1 and 2; workspace pages and both recent menus were
+visually inspected. Separate-process checks covered last-workspace restoration,
+normal-close autosave and recovery from a missing last file. Persistence tests
+used isolated temporary application data. See
+[workspace verification](workspaces-and-sessions.md#verification-status) for scope
+and remaining session-loader limitations.

@@ -17,7 +17,7 @@ optional concrete error strings. Successful operations clear stale errors.
 
 ```cpp
 ApplicationPaths paths;
-Settings settings(paths.configFile("application"));
+Settings settings(paths.configFile("example"));
 QString error;
 if (!settings.load(&error))
     reportError(error);
@@ -30,6 +30,30 @@ auto baudRate = serial.value("baudRate", 9600).toInt();
 if (!settings.sync(&error))
     reportError(error);
 ```
+
+## Document envelope
+
+Every persisted document requires integer `version: 1`, a matching string `type`,
+a string `description` and mapping `content`. Generic Settings defaults to type
+`termaster.settings` and description `Termaster settings`; specialized owners
+supply `Settings::Info`. The current application uses `termaster.application`,
+workspace files use `termaster.workspace`, and plugin preferences use
+`termaster.plugins`. Incorrect types, unsupported versions and bare legacy
+mappings fail loading. There are no migrations or compatibility aliases.
+
+```yaml
+version: 1
+type: termaster.settings
+description: Termaster settings
+content:
+  terminal:
+    serial:
+      baudRate: 115200
+```
+
+All value and Node paths are relative to `content`; metadata is outside those
+paths. `info()` and `version()` expose the loaded metadata. Unknown envelope and
+content fields survive writes.
 
 ## Values and scoped views
 
@@ -79,7 +103,8 @@ separators, a drive colon, NUL, or an empty/dot traversal name are rejected. Pat
 resolution performs no filesystem I/O and creates no directories.
 
 Session paths belong to [Workspace](workspaces-and-sessions.md), not application
-locations. Workspace layout and its path API remain a separate design stage.
+locations. Workspace owns one document and resolves its optional plugin/script
+directory metadata relative to that file's parent.
 
 ## Plugin preferences
 
@@ -88,9 +113,22 @@ boolean preferences and owns the meaning of plugin IDs. It rereads preferences
 before changing one enabled state, preserving unrelated external fields. It
 rejects reload/save when the borrowed owner has pending edits, avoiding silent
 loss of those edits. The default bootstrap uses `paths.configFile("plugins")`,
-retaining the existing application-data `plugins.yaml` location and format.
+using the application-data `plugins.yaml` location with the mandatory
+`termaster.plugins` envelope. Preferences are under `content.enabled`.
 
-## Verification
+## Layered configuration
+
+`SettingsOverlay` combines application `content.settings` with workspace
+`content.settings`. Nested mappings merge recursively; overrides replace other
+values, including null. `setValue()` writes only to overrides; `remove()` removes
+only the override and exposes a base value again. Scoped overlays borrow both
+owners and use their thread. Application `content.state.lastWorkspace` is runtime
+state, outside the settings overlay. Application `content.state.recentWorkspaces`
+stores the global ten-entry path history; workspace `content.state.recentSessions`
+stores its own ten-entry session-ID history. Both use newest-first unique string
+lists and remain outside configurable defaults. See [workspace lifecycle](workspaces-and-sessions.md).
+
+## Earlier verification
 
 `TERMASTER_BUILD_SETTINGS_TESTS` builds SettingsTests. Tests use temporary files
 and include typed values, errors, transactional load/write behavior, preservation
@@ -109,4 +147,5 @@ plugin SDK consumer was included. A native plugin-window run passed all 9 result
 and its rendered capture was reviewed. Core CMake source existence, active module
 includes, preservation of the archived entry point and documentation links were
 validated automatically. Formatting and git diff --check passed. Unix filesystem
-acceptance was not performed; workspace/session loading remains planned.
+acceptance was not performed; session/terminal-group loading remains planned. These results predate the
+mandatory envelope and workspace lifecycle changes; they do not verify them.
