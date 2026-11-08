@@ -34,7 +34,8 @@ FileSettings::FileSettings(QString filePath, QString prefixPath, bool autocreate
 const QSettings::Format SettingsManager::YamlFormat = _initSettingsYaml();
 
 SettingsManager::SettingsManager(QString pluginSettingsPath) :
-    _pluginSettingsPath(pluginSettingsPath.isEmpty() ? QString(appDataDirPath() / "plugins.yaml") : pluginSettingsPath)
+    _pluginSettingsPath(pluginSettingsPath.isEmpty() ? (appDataDirPath() / "plugins.yaml").toString() :
+                                                       pluginSettingsPath)
 {
 }
 
@@ -111,40 +112,39 @@ bool SettingsManager::savePluginState(const QString& id, bool enabled, QString* 
     }
 }
 
-PosixPath SettingsManager::appDataDirPath()
+Path SettingsManager::appDataDirPath()
 {
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    return Path::appData();
 }
 
-PosixPath SettingsManager::sessionsDirPath()
+Path SettingsManager::sessionsDirPath()
 {
     return appDataDirPath() / "sessions";
 }
 
-PosixPath SettingsManager::terminalsDirPath()
+Path SettingsManager::terminalsDirPath()
 {
     return appDataDirPath() / "terminals";
 }
 
-PosixPath SettingsManager::generalSettingsFilePath()
+Path SettingsManager::generalSettingsFilePath()
 {
     return appDataDirPath() / "general.yaml";
 }
 
 FileSettings* SettingsManager::applicationSettings(QString fileName, QString nodePath)
 {
-    return new FileSettings(appDataDirPath() / fileName, nodePath);
+    return new FileSettings((appDataDirPath() / fileName).toString(), nodePath);
 }
 
-FileSettings* SettingsManager::environment(const PosixPath& path)
+FileSettings* SettingsManager::environment(const Path& path)
 {
-    QString p = path;
-    return new FileSettings(p);
+    return new FileSettings(path.toString());
 }
 
 FileSettings* SettingsManager::generalSettings(QString nodePath)
 {
-    return new FileSettings(generalSettingsFilePath(), nodePath);
+    return new FileSettings(generalSettingsFilePath().toString(), nodePath);
 }
 
 FileSettings* SettingsManager::session(uint id)
@@ -161,7 +161,7 @@ int SettingsManager::latestSessionId()
 {
     static const auto sessionIdParser = QRegularExpression("session_(\\d+)");
 
-    QDir dir(sessionsDirPath());
+    QDir dir(sessionsDirPath().toString());
 
     uint id = -1;
 
@@ -182,7 +182,7 @@ int SettingsManager::latestTerminalId()
 {
     static const auto terminalIdParser = QRegularExpression("terminal_(\\d+)");
 
-    QDir dir(terminalsDirPath());
+    QDir dir(terminalsDirPath().toString());
 
     int id = -1;
 

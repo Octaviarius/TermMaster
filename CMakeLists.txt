@@ -29,6 +29,12 @@ if(TERMASTER_BUILD_ACTION_TESTS)
     add_subdirectory(tools/tests/ActionContainers)
 endif()
 
+option(TERMASTER_BUILD_PATH_TESTS "Build lexical and filesystem path tests" OFF)
+if(TERMASTER_BUILD_PATH_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Paths)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()

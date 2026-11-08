@@ -14,6 +14,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/RandomNames.cpp
     inc/Termaster/Core/Registree.h
     src/Registree.cpp
+    inc/Termaster/Core/PurePath.h
+    src/PurePath.cpp
     inc/Termaster/Core/Path.h
     src/Path.cpp
     inc/Termaster/Core/Singleton.h
