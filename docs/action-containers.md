@@ -25,11 +25,11 @@ classDiagram
     ToolbarActionContainer --> QToolBar : borrowed
     class ActionContainer {
         <<abstract>>
-        +insertGroup(name, index) bool
-        +insertGroupBefore(name, reference) bool
-        +insertGroupAfter(name, reference) bool
-        +insertAction(action, group, index) bool
-        +insertMenu(menu, group, index) bool
+        +insertGroup(name, index) void
+        +insertGroupBefore(name, reference) void
+        +insertGroupAfter(name, reference) void
+        +insertAction(action, group, index) void
+        +insertMenu(menu, group, index) void
         +transferMenu(menu, target, group, index) bool
         +takeMenu(menu) ActionContainer*
         +removeMenu(menu) bool
@@ -78,7 +78,10 @@ Qt's normal action propagation and requires no container rebuild.
 - Menu names must be nonempty and cannot be `.`, `..`, or contain `/` or `\`.
   Logical or QObject ownership cycles, duplicate entries, unavailable/incompatible backends, cross-thread
   objects and invalid indexes are rejected without changing the hierarchy.
-- Ordinary mutators report success with `bool`. Missing lookups return null or
+- Registration (`add*`/`insert*`) returns void and throws `std::invalid_argument`
+  for invalid registrations or `std::logic_error` when mutation/backend access
+  is unavailable. Failures preserve hierarchy and ownership. Movement, transfer,
+  rename and removal operations retain `bool` results. Missing lookups return null or
   empty collections; `groupIndex` returns -1. Cleanup remains available when a
   widget has disappeared, even though insertion and movement are unavailable.
 
@@ -136,19 +139,19 @@ connection->addGroup("settings");
 auto options = std::make_unique<MenuActionContainer>("options", "Options");
 options->addGroup("commands");
 options->addAction(preferencesAction, "commands");
-if (connection->addMenu(options.get(), "settings"))
-    options.release();
+connection->addMenu(options.get(), "settings");
+options.release();
 
-if (menus.insertMenu(connection.get(), "connections", 0))
-    connection.release();
+menus.insertMenu(connection.get(), "connections", 0);
+connection.release();
 
 // Resolves the attached subtree without knowing its containing group.
 auto settingsMenu = menus.findMenu("/connection/options");
 ```
 
 The example uses `<memory>` for prepared ownership until insertion succeeds.
-Production callers handle failed group/action insertion as appropriate for their
-command registration policy. Root wrappers must be destroyed before stack-owned
+Registration errors propagate as exceptions; callers do not test registration
+return values. Movement/removal failures continue to use bool results. Root wrappers must be destroyed before stack-owned
 widgets, as in normal Qt object lifetime ordering.
 
 ## Verification
