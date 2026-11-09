@@ -13,6 +13,14 @@ and launches it again. Terminal settings contain the executable, a YAML argument
 array, working directory and environment overrides. An empty executable selects
 PowerShell 7, Windows PowerShell or cmd on Windows, and `$SHELL` or `/bin/sh` on
 Unix. Installed bash, ash and other shells can be selected by executable/path.
+The shell executable uses the `consoleShellSelector` x-widget: an editable combo
+with common platform commands. Windows suggestions include `pwsh.exe`,
+`powershell.exe`, `cmd.exe`, `wsl.exe`, `bash.exe`, `sh.exe` and `ash.exe`; Unix
+suggestions include `bash`, `sh`, `zsh`, `fish`, `dash`, `ash` and `pwsh`.
+Suggestions do not imply installation. Any executable or script path can be entered
+manually, including commands that may become available later. Empty input retains
+automatic shell selection. The same descriptor/editor is used for scoped defaults,
+terminal settings and terminal creation. Loading a value does not create an override.
 Arguments are separate strings, not a command line parsed by the application.
 Windows `.bat`/`.cmd` files use cmd; `.ps1` files use PowerShell `-File` without
 changing execution policy. Batch paths/arguments reject quotes, percent signs
@@ -61,6 +69,46 @@ not inject shell-specific commands into a running shell. Shell profile scripts m
 further change the child environment. Restart terminates processes owned by that
 terminal. Environment editing does not write the user's OS environment settings.
 
+## Administrator shells on Windows
+
+Select an executable in the editable shell combo and enable **Run as administrator**
+for an elevated instance of that shell. The `transport/runAsAdministrator` boolean
+inherits like other launch settings and defaults to false. Start requests Windows
+UAC approval for a separate `Helpers/ConsoleHost.exe`; changing the checkbox does
+not itself request elevation. Termaster retains its current token and the terminal
+stays embedded in its existing tab. Cancellation is reported as a failed launch
+without an automatic UAC retry. This mode is Windows-only; Unix can still select
+`sudo` explicitly with suitable arguments.
+
+ConsoleHost is a one-shot QCoreApplication endpoint, not a service. It owns the
+existing native ConPTY implementation and job/process tree. The main application
+uses a bounded local named-pipe protocol for configuration, bytes, geometry,
+completed writes and exit status. Both endpoints check the peer process ID; a
+fresh random nonce authenticates the helper before configuration is transmitted.
+The command line contains pipe/nonce/PID tokens, not shell arguments or environment
+values. Default launch uses the Windows `runas` verb and retains the process handle
+returned by ShellExecuteEx, including when UAC uses another administrator account.
+
+The helper verifies token elevation before accepting production work. It exits on
+channel closure or parent death, terminates its owned shell tree and drains native
+workers. Data output pauses native reading under IPC backpressure; input has a
+1 MiB outstanding-byte credit and completion acknowledges native writes rather than
+pipe buffering. Frames, receive buffers and pending queues have explicit limits.
+A separate `--test-mode` runs the same host at the caller's existing privilege level
+for deterministic tests; the production launcher never passes that option.
+
+Each elevated launch reads the helper account's environment and applies the saved
+explicit overrides. If UAC selects another account, its environment and executable
+search paths may differ from the initiating user's environment editor preview.
+Environment refresh without restart still leaves running shells unchanged.
+
+Building ConsoleTerminal also builds ConsoleHost and copies its Qt Core/Network
+runtime into `Helpers/`. Deploy that folder beside the application. Its runtime
+DLLs stay outside plugin discovery, and the helper does not depend on a development
+Qt/MSVC PATH inherited through UAC. No elevated acceptance is part of default tests.
+The Windows consent dialog and a real elevated token require separate manual
+acceptance; automated IPC tests launch the helper without requesting elevation.
+
 ## SDK and verification
 
 HostedPlugin ABI version 4 adds host messages, optional device geometry,
@@ -87,3 +135,19 @@ editor was rendered with the Windows Qt platform at 100% and 200% scaling; its
 [1280 × 800 capture](images/local-console/ConsoleEnvironment.png) contains only
 synthetic environment values. The POSIX implementation has not been built or run
 on this Windows host.
+
+The editable shell selector was checked for preset selection, arbitrary manual
+paths, empty/automatic values, unchanged-draft loading and invalid-value
+preservation. A [1280 × 800 popup capture](images/local-console/ShellSelector.png)
+shows the actual Windows widget with synthetic configuration.
+
+Administrator-host verification adds bounded/fragmented protocol checks and an
+actual helper/ConPTY round trip at the test process's existing privilege level.
+All 25 Debug CTest suites passed, including UTF-8, resize, output backpressure,
+write credit, invalid authentication, cancellation, reentrant owner replacement
+and reopen from Closed. The helper also starts with PATH removed, using its
+private runtime folder. No UAC prompt or real elevated-token acceptance was run.
+
+The native 1280 × 800 settings capture includes the editable dropdown and the
+administrator flag in the generated Launch group. Environment fields were filtered
+out before capture; the preview edits only a draft and never starts a shell or UAC.

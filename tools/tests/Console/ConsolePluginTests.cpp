@@ -1,6 +1,14 @@
 #include "ConsolePlugin.h"
 
+#include <QAbstractItemView>
+#include <QComboBox>
+#include <QDir>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QLineEdit>
+#include <QPainter>
 #include <QTest>
+#include <QVBoxLayout>
 #include <QWidget>
 #include <stdexcept>
 
@@ -142,7 +150,7 @@ private slots:
         QCOMPARE(host.type.plugin, "ConsoleTerminal");
         QVERIFY(host.type.settingsSchema.contains("x-widget: consoleEnvironment"));
         QCOMPARE(host.actions.size(), 9);
-        QCOMPARE(host.editors.size(), 1);
+        QCOMPARE(host.editors.size(), 2);
         auto device = host.type.createDevice();
         QCOMPARE(device->state(), SerialDevice::State::Closed);
         QVERIFY(!device->autoReconnect());
@@ -152,7 +160,7 @@ private slots:
         QCOMPARE(plugin.state(), Plugin::State::Failed);
         QCOMPARE(error, "Synthetic persistence failure");
         QCOMPARE(host.actions.size(), 9);
-        QCOMPARE(host.editors.size(), 1);
+        QCOMPARE(host.editors.size(), 2);
         QVERIFY(!plugin.startup());
         host.removalAllowed = true;
         host.events.clear();
@@ -235,6 +243,80 @@ private slots:
         refresh.trigger();
         device.reset();
         host.device = nullptr;
+        QVERIFY(plugin.shutdown());
+    }
+
+    void shellSuggestionsAndManualValues()
+    {
+        FakeHost      host;
+        ConsolePlugin plugin;
+        plugin.setHost(&host);
+        QVERIFY(plugin.startup());
+        QVERIFY(host.type.settingsSchema.contains("x-widget: consoleShellSelector"));
+        QVERIFY(host.type.defaultSettingsSchema.contains("x-widget: consoleShellSelector"));
+        QWidget panel;
+        auto*   layout = new QVBoxLayout(&panel);
+        auto*   group  = new QGroupBox("Launch", &panel);
+        auto*   form   = new QFormLayout(group);
+        form->setLabelAlignment(Qt::AlignRight);
+        auto editor = host.editors.value("consoleShellSelector")({}, group);
+        form->addRow("Shell executable", editor->widget());
+        layout->addWidget(group);
+        layout->addStretch();
+        auto* combo = editor->widget()->findChild<QComboBox*>("consoleShellCombo");
+        QVERIFY(combo && combo->isEditable());
+#ifdef Q_OS_WIN
+        QVERIFY(combo->findText("pwsh.exe") >= 0);
+        QVERIFY(combo->findText("cmd.exe") >= 0);
+#else
+        QVERIFY(combo->findText("bash") >= 0);
+        QVERIFY(combo->findText("ash") >= 0);
+#endif
+        int changes = 0;
+        editor->setChangedCallback([&] { ++changes; });
+        editor->setValue(QString());
+        QCOMPARE(editor->value().toString(), QString());
+        QVERIFY(!combo->lineEdit()->placeholderText().isEmpty());
+        QCOMPARE(changes, 0);
+        const QString custom = "F:/Custom tools/My shell.exe";
+        editor->setValue(custom);
+        QCOMPARE(combo->currentText(), custom);
+        QCOMPARE(editor->value().toString(), custom);
+        QCOMPARE(changes, 0);
+        combo->setEditText("custom-shell-not-installed");
+        QCOMPARE(editor->value().toString(), "custom-shell-not-installed");
+        QVERIFY(changes > 0);
+        QVERIFY(editor->inputError().isEmpty());
+        const int count = combo->count();
+        combo->setCurrentIndex(0);
+        QCOMPARE(editor->value().toString(), combo->itemText(0));
+        QCOMPARE(combo->count(), count);
+        editor->setValue(42);
+        QVERIFY(!editor->inputError().isEmpty());
+        QCOMPARE(editor->value(), QVariant(42));
+        editor->setValue(QString(32768, 'x'));
+        QVERIFY(!editor->inputError().isEmpty());
+        QCOMPARE(editor->value().toString().size(), 32768);
+        editor->setValue(QString());
+        QVERIFY(editor->inputError().isEmpty());
+        const auto capture = qEnvironmentVariable("TERMASTER_SHELL_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            panel.resize(1280, 800);
+            panel.show();
+            QTest::qWait(100);
+            combo->showPopup();
+            QTest::qWait(100);
+            auto     image = panel.grab();
+            QPainter painter(&image);
+            auto*    popup = combo->view()->window();
+            painter.drawPixmap(popup->mapToGlobal(QPoint()) - panel.mapToGlobal(QPoint()), popup->grab());
+            painter.end();
+            QVERIFY(image.save(QDir(capture).filePath("ShellSelectorWidget.png")));
+            combo->hidePopup();
+        }
+        editor.reset();
         QVERIFY(plugin.shutdown());
     }
 

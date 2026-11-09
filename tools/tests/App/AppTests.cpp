@@ -1,6 +1,7 @@
 #include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/SettingsDialog.h"
 
+#include <QAbstractItemView>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
@@ -964,6 +965,48 @@ private:
                                      "Console acceptance",
                                      &error),
                  qPrintable(error));
+        const auto launchCapture = qEnvironmentVariable("TERMASTER_SHELL_GUI_CAPTURE");
+        if (!launchCapture.isEmpty())
+        {
+            // Native rendering preview only: editing elevation must not launch UAC.
+            _app.pluginHost().showSelectedTerminalSettings();
+            auto* dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+            QVERIFY(dialog && dialog->selectPage("terminal.connection"));
+            auto* model = dialog->pageModel("terminal.connection");
+            model->setValue("program", "pwsh.exe");
+            model->setValue("arguments", QVariantList {});
+            model->setValue("runAsAdministrator", true);
+            QVERIFY(model->isValid());
+            auto* search = dialog->findChild<QLineEdit*>("settingsSearch");
+            QVERIFY(search);
+            search->setText("Launch");
+            auto*      form  = dialog->findChild<SettingsFormWidget*>();
+            const auto forms = dialog->findChildren<SettingsFormWidget*>();
+            for (auto* candidate : forms)
+            {
+                if (candidate->editor("program"))
+                {
+                    form = candidate;
+                }
+            }
+            QVERIFY(form && form->visibleFields().contains("runAsAdministrator"));
+            QVERIFY(!form->visibleFields().contains("environment"));
+            dialog->resize(1280, 800);
+            QTest::qWait(100);
+            auto* combo = dialog->findChild<QComboBox*>("consoleShellCombo");
+            QVERIFY(combo && combo->isEditable());
+            combo->showPopup();
+            QTest::qWait(100);
+            auto     image = dialog->grab();
+            QPainter painter(&image);
+            auto*    popup = combo->view()->window();
+            painter.drawPixmap(popup->mapToGlobal(QPoint()) - dialog->mapToGlobal(QPoint()), popup->grab());
+            painter.end();
+            QVERIFY(QDir().mkpath(launchCapture));
+            QVERIFY(image.save(QDir(launchCapture).filePath("ShellSelector.png")));
+            combo->hidePopup();
+            return;
+        }
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         auto* device = _app.pluginHost().selectedDevice("console");
@@ -984,6 +1027,14 @@ private:
         QTRY_VERIFY(_app.mainWindow().findChild<SettingsDialog*>());
         auto* settings = _app.mainWindow().findChild<SettingsDialog*>();
         QVERIFY(settings->pageModel("terminal.connection"));
+        auto* shell = settings->findChild<QComboBox*>("consoleShellCombo");
+        QVERIFY(shell && shell->isEditable());
+        QCOMPARE(shell->currentText(), transport.value("program").toString());
+        auto* consoleModel = settings->pageModel("terminal.connection");
+        QCOMPARE(consoleModel->value("runAsAdministrator").toBool(), false);
+        consoleModel->setValue("runAsAdministrator", true);
+        QVERIFY(consoleModel->isValid());
+        consoleModel->setValue("runAsAdministrator", false);
         const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
         if (!capture.isEmpty())
         {

@@ -101,6 +101,10 @@ changing behavior. These rules apply repository-wide.
 - Treat TerminalDisplay as a processing endpoint. Future bidirectional script
   chains belong outside it. Keep Keyboard/Paste/Mouse/Focus/Reply output kinds and
   display-only local echo distinct; never feed replies back into incoming data.
+- Windows local-console elevation uses the explicitly supported one-shot ConsoleHost
+  helper and authenticated local IPC. Keep the main Widgets application unelevated;
+  the helper owns ConPTY/job lifetime and exits when its endpoint closes. Do not
+  turn this helper into a persistent service or move application orchestration into it.
 - Keep connection backends independent of concrete widgets.
   Move parsing toward screen/model operations when that boundary is changed;
   do not expand direct rendering dependencies inside protocol parsing.
