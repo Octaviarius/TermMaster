@@ -87,8 +87,12 @@ owner and its views occurs on the same thread.
 Every update is prepared and validated before replacing cached state. Changes
 through YAML aliases detach the changed branch; editing one scope does not alter
 an unrelated alias-linked scope. Unknown fields and untouched YAML tags survive
-saving. Quoting/formatting/comments are not preserved byte-for-byte; ambiguous
-quoted strings may be emitted with explicit string tags to preserve their type.
+saving. Quoting/formatting/comments are not preserved byte-for-byte. Strings are saved in
+double quotes without explicit string tags, including ambiguous boolean, numeric
+and null-like text. Finite floating-point values use numeric syntax with a decimal
+point or exponent so integral-valued doubles remain floating-point values. Nonempty
+mappings and sequences use indented block layout, including loaded flow collections;
+empty collections retain `{}` and `[]`. Untouched custom tags survive saving.
 The root must be one mapping document. Limits are 4 MiB, depth 64 and 100000 nodes;
 duplicate/non-scalar mapping keys and malformed input are rejected.
 
@@ -162,3 +166,14 @@ includes, preservation of the archived entry point and documentation links were
 validated automatically. Formatting and git diff --check passed. Unix filesystem
 acceptance was not performed. These results predate session configuration loading, the
 mandatory envelope and workspace lifecycle changes; they do not verify them.
+
+## Readable YAML verification
+
+Verified on 2026-11-09 with the existing Windows x64 MSVC/Qt 6.12.0 Debug
+configuration: the full build and all 28 configured CTest suites passed. Settings
+regression coverage includes rewriting loaded flow collections as blocks, quoted
+boolean/numeric/null-like strings, Unicode and escaped newline/NUL characters,
+empty maps/sequences, signed and unsigned integer limits, overflowing integer text,
+explicitly typed integral doubles, negative zero, maximum finite and subnormal
+doubles. Existing unknown-tag, alias, atomic-write and bounded-input checks passed.
+No external-device acceptance was performed.

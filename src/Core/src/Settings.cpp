@@ -7,6 +7,7 @@
 #include <Termaster/Core/Path.h>
 #include <Termaster/Core/Settings.h>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 #include <yaml-cpp/yaml.h>
@@ -46,44 +47,6 @@ void validateTree(const YAML::Node& node, qsizetype& remaining, int depth = 0)
             validateTree(entry, remaining, depth + 1);
         }
     }
-}
-
-void preserveQuotedStrings(YAML::Node node)
-{
-    if (node.IsScalar() && node.Tag() == "!")
-    {
-        // yaml-cpp drops the nonspecific quoted-string tag when dumping nodes.
-        node.SetTag("tag:yaml.org,2002:str");
-    }
-    else if (node.IsMap())
-    {
-        for (auto entry : node)
-        {
-            preserveQuotedStrings(entry.first);
-            preserveQuotedStrings(entry.second);
-        }
-    }
-    else if (node.IsSequence())
-    {
-        for (auto entry : node)
-        {
-            preserveQuotedStrings(entry);
-        }
-    }
-}
-
-QByteArray serialize(const YAML::Node& root)
-{
-    qsizetype remaining = 100000;
-    validateTree(root, remaining);
-    auto output = YAML::Clone(root);
-    preserveQuotedStrings(output);
-    const auto bytes = QByteArray::fromStdString(YAML::Dump(output));
-    if (bytes.size() > MaxSettingsBytes)
-    {
-        throw std::runtime_error("Settings exceed 4 MiB");
-    }
-    return bytes;
 }
 
 bool validKey(const QString& key)
@@ -188,6 +151,104 @@ QVariant fromYaml(const YAML::Node& node)
         }
     }
     return text;
+}
+
+void emitNode(YAML::Emitter& emitter, const YAML::Node& node)
+{
+    const auto tag       = node.Tag();
+    const bool customTag = !tag.empty() && tag != "?" && tag != "!" && tag != "tag:yaml.org,2002:str"
+                        && tag != "tag:yaml.org,2002:bool" && tag != "tag:yaml.org,2002:int"
+                        && tag != "tag:yaml.org,2002:float";
+    if (customTag)
+    {
+        emitter << YAML::VerbatimTag(tag);
+    }
+    if (node.IsMap())
+    {
+        emitter << YAML::Block << YAML::BeginMap;
+        for (const auto& entry : node)
+        {
+            emitter << YAML::Key << YAML::Auto;
+            // Keys are scalar names rather than typed settings values.
+            const auto keyTag = entry.first.Tag();
+            if (!keyTag.empty() && keyTag != "?" && keyTag != "!" && keyTag != "tag:yaml.org,2002:str")
+            {
+                emitter << YAML::VerbatimTag(keyTag);
+            }
+            emitter << entry.first.Scalar() << YAML::Value;
+            emitNode(emitter, entry.second);
+        }
+        emitter << YAML::EndMap;
+    }
+    else if (node.IsSequence())
+    {
+        emitter << YAML::Block << YAML::BeginSeq;
+        for (const auto& entry : node)
+        {
+            emitNode(emitter, entry);
+        }
+        emitter << YAML::EndSeq;
+    }
+    else if (node.IsNull() || !node.IsDefined())
+    {
+        emitter << YAML::Null;
+    }
+    else
+    {
+        const auto value = fromYaml(node);
+        emitter << YAML::Auto;
+        switch (value.typeId())
+        {
+            case QMetaType::Bool:
+                emitter << value.toBool();
+                break;
+            case QMetaType::LongLong:
+                emitter << value.toLongLong();
+                break;
+            case QMetaType::ULongLong:
+                emitter << value.toULongLong();
+                break;
+            case QMetaType::Double:
+            {
+                auto text = value.toDouble() == 0.0 && std::signbit(value.toDouble()) ?
+                                QString("-0.0") :
+                                QString::number(value.toDouble(), 'g', std::numeric_limits<double>::max_digits10);
+                if (!text.contains('.') && !text.contains('e') && !text.contains('E'))
+                {
+                    text += ".0";
+                }
+                emitter << text.toStdString();
+                break;
+            }
+            default:
+                // Explicit non-string standard tags on unsupported values remain intact.
+                if (!customTag && tag != "?" && tag != "!" && !tag.empty() && tag != "tag:yaml.org,2002:str")
+                {
+                    emitter << YAML::VerbatimTag(tag);
+                }
+                emitter << YAML::DoubleQuoted << node.Scalar();
+                break;
+        }
+    }
+}
+
+QByteArray serialize(const YAML::Node& root)
+{
+    qsizetype remaining = 100000;
+    validateTree(root, remaining);
+    YAML::Emitter emitter;
+    emitter.SetIndent(2);
+    emitNode(emitter, root);
+    if (!emitter.good())
+    {
+        throw std::runtime_error(emitter.GetLastError());
+    }
+    const auto bytes = QByteArray(emitter.c_str(), static_cast<qsizetype>(emitter.size()));
+    if (bytes.size() > MaxSettingsBytes)
+    {
+        throw std::runtime_error("Settings exceed 4 MiB");
+    }
+    return bytes;
 }
 
 YAML::Node envelope(const Settings::Info& info)
