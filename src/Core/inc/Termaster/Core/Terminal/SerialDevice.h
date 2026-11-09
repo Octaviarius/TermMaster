@@ -38,7 +38,8 @@ public:
     /** Configuration is a flat transport map. Open never implies data transmission. */
     virtual bool open(const QVariantMap& configuration, QString* error = nullptr) = 0;
     virtual void close()                                                          = 0;
-    /** Returns bytes accepted into a bounded queue, not proof of delivery; -1 on failure. */
+    /** Returns bytes accepted into a bounded queue, not proof of delivery; zero indicates backpressure, -1 failure.
+     * Stream devices may accept a prefix; datagrams are accepted atomically (including empty ones). */
     virtual qint64 write(const QByteArray& data, QString* error = nullptr)        = 0;
     virtual qint64 pendingBytes() const                                           = 0;
     /** Optional terminal geometry, in character cells; serial transports ignore it. */

@@ -2,6 +2,7 @@
 
 #include "../Main/MainWindow.h"
 #include "../Settings/SettingsDialog.h"
+#include "CommandEditor.h"
 
 #include <QAction>
 #include <QApplication>
@@ -24,6 +25,8 @@
 #include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/SettingsSchema.h>
+#include <Termaster/Core/Terminal/CommandInput.h>
+#include <Termaster/Core/Terminal/TerminalSendQueue.h>
 #include <Termaster/Core/Workspace.h>
 #include <algorithm>
 #include <stdexcept>
@@ -103,18 +106,20 @@ private:
 
 struct TerminalController::Runtime
 {
-    QString                       id;
-    QString                       type;
-    QString                       name;
-    SettingsOverlay               settings;
-    std::unique_ptr<SerialDevice> device;
-    QPointer<TerminalDisplay>     display;
-    QPointer<QWidget>             panel;
-    bool                          connectionRequested = false;
-    QString                       lastError;
-    QString                       title;
-    QString                       completion;
-    QTimer                        reconnect;
+    QString                            id;
+    QString                            type;
+    QString                            name;
+    SettingsOverlay                    settings;
+    std::unique_ptr<SerialDevice>      device;
+    std::unique_ptr<TerminalSendQueue> sender;
+    QPointer<CommandEditor>            editor;
+    QPointer<TerminalDisplay>          display;
+    QPointer<QWidget>                  panel;
+    bool                               connectionRequested = false;
+    QString                            lastError;
+    QString                            title;
+    QString                            completion;
+    QTimer                             reconnect;
     explicit Runtime(SettingsOverlay configuration) : settings(std::move(configuration))
     {
     }
@@ -122,6 +127,7 @@ struct TerminalController::Runtime
     {
         connectionRequested = false;
         reconnect.stop();
+        sender.reset();
         if (device)
         {
             device->setCallbacks({});
@@ -566,6 +572,18 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             delete terminal->display.data();
             return fail(error, "Terminal panel factory returned null");
         }
+        auto* content   = terminal->panel.data();
+        auto* container = new QWidget;
+        auto* layout    = new QVBoxLayout(container);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        layout->addWidget(content, 1);
+        terminal->editor = new CommandEditor(container);
+        terminal->editor->setSettings(terminal->settings.value("input").toMap());
+        terminal->display->setFocusProxy(terminal->editor->buffered() ? terminal->editor.data() : nullptr);
+        layout->addWidget(terminal->editor);
+        terminal->panel  = container;
+        terminal->sender = std::make_unique<TerminalSendQueue>(*terminal->device);
     }
     catch (const std::exception& exception)
     {
@@ -598,12 +616,23 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             self->_changed(id);
         }
     };
+    callbacks.written = [self, id](qint64) {
+        if (self)
+        {
+            const auto it = self->_terminals.find(id);
+            if (it != self->_terminals.end())
+            {
+                it->second->sender->flush();
+            }
+        }
+    };
     callbacks.error = [self, id](const QString& error) {
         if (self)
         {
             auto it = self->_terminals.find(id);
             if (it != self->_terminals.end())
             {
+                it->second->sender->reset();
                 if (it->second->lastError != error)
                 {
                     self->_window.statusBar()->showMessage(owned(error));
@@ -642,23 +671,102 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         }
     });
     device->resize(display->terminalSize().width(), display->terminalSize().height());
+    auto* editor = _terminals.at(id)->editor.data();
+    connect(editor, &CommandEditor::settingChanged, this, [this, id](const QString& key, const QVariant& value) {
+        const auto it = _terminals.find(id);
+        if (it == _terminals.end())
+        {
+            return;
+        }
+        QString error;
+        if (!it->second->settings.setValue("input/" + key, value, &error))
+        {
+            showMessage(error);
+        }
+        it->second->editor->setSettings(it->second->settings.value("input").toMap());
+        it->second->display->setFocusProxy(it->second->editor->buffered() ? it->second->editor.data() : nullptr);
+        if (key == "mode")
+        {
+            if (it->second->editor->buffered())
+            {
+                it->second->editor->setFocus();
+            }
+            else
+            {
+                it->second->display->setFocus();
+            }
+        }
+    });
+    connect(_terminals.at(id)->sender.get(), &TerminalSendQueue::failed, this, [this](const QString& error) {
+        showMessage(error);
+    });
+    editor->setSendCallback(
+        [this, id](const QString& text, bool hex, const QString& terminator, const QString& custom) {
+            const auto it = _terminals.find(id);
+            if (it == _terminals.end())
+            {
+                return false;
+            }
+            QString    error;
+            const auto bytes = CommandInput::prepare(text, hex, terminator, custom, &error);
+            if (!bytes || !it->second->sender->enqueue(*bytes, &error))
+            {
+                showMessage(error);
+                return false;
+            }
+            if (it->second->settings.value("input/localEcho", false).toBool())
+            {
+                it->second->display->localEcho(*bytes);
+            }
+            return true;
+        });
     connect(display,
             &TerminalDisplay::outputBytes,
             this,
             [this, id](const QByteArray& data, TerminalDisplay::OutputKind kind, const QByteArray& echo) {
                 auto it = _terminals.find(id);
-                if (it == _terminals.end() || it->second->device->state() != SerialDevice::State::Open)
+                if (it == _terminals.end())
                 {
                     return;
                 }
-                QString    error;
-                const auto accepted = it->second->device->write(data, &error);
-                if (accepted < 0)
+                const QPointer<CommandEditor> editor = it->second->editor;
+                if (kind == TerminalDisplay::OutputKind::Keyboard && editor->buffered())
                 {
-                    _window.statusBar()->showMessage(owned(error));
+                    editor->setFocus();
+                    return;
+                }
+                if (kind == TerminalDisplay::OutputKind::Paste)
+                {
+                    if (editor->buffered())
+                    {
+                        editor->pasteText(QString::fromUtf8(echo));
+                        return;
+                    }
+                    if (it->second->settings.value("input/pastePolicy", "edit").toString() == "edit")
+                    {
+                        editor->retainPaste(QString::fromUtf8(echo));
+                        return;
+                    }
+                    const QPointer<TerminalController> self(this);
+                    const bool                         confirmed = editor->confirmPaste(echo);
+                    if (!self || !confirmed)
+                    {
+                        return;
+                    }
+                    // A confirmation runs a nested event loop; resolve the runtime again.
+                    it = _terminals.find(id);
+                    if (!editor || it == _terminals.end() || it->second->editor != editor)
+                    {
+                        return;
+                    }
+                }
+                QString error;
+                if (!it->second->sender->enqueue(data, &error))
+                {
+                    showMessage(error);
                 }
                 else if ((kind == TerminalDisplay::OutputKind::Keyboard || kind == TerminalDisplay::OutputKind::Paste)
-                         && accepted == data.size() && it->second->settings.value("input/localEcho", false).toBool())
+                         && it->second->settings.value("input/localEcho", false).toBool())
                 {
                     it->second->display->localEcho(echo);
                 }
@@ -750,6 +858,10 @@ void TerminalController::_changed(const QString& id)
     }
     const auto state    = it->second->device->state();
     auto&      terminal = *it->second;
+    if (state != SerialDevice::State::Open)
+    {
+        terminal.sender->reset();
+    }
     if (state == SerialDevice::State::Open)
     {
         terminal.lastError.clear();
@@ -930,6 +1042,8 @@ void TerminalController::applySettings()
     {
         terminal->display->setAppearance(
             _effective(_types.at(terminal->type), terminal->settings).value("appearance").toMap());
+        terminal->editor->setSettings(terminal->settings.value("input").toMap());
+        terminal->display->setFocusProxy(terminal->editor->buffered() ? terminal->editor.data() : nullptr);
         terminal->name = _session->objects().value(id).toMap().value("name", id).toString();
         _changed(id);
     }
@@ -1040,6 +1154,7 @@ void TerminalController::_setConnectionRequested(QString id, bool requested)
     terminal.connectionRequested = false;
     terminal.reconnect.stop();
     terminal.lastError.clear();
+    terminal.sender->reset();
     terminal.device->close();
     _changed(id);
 }

@@ -219,17 +219,37 @@ qint64 SocketDevice::write(const QByteArray& data, QString* error)
         fail(error, "Socket is not open.");
         return -1;
     }
-    if ((_udp && data.size() > 65507) || data.size() > maximumPending - pendingBytes() || _pending.size() >= 1024)
+    if (_udp && data.size() > 65507)
     {
-        fail(error, "Socket output queue or datagram limit exceeded.");
+        fail(error, "UDP datagram exceeds 65507 bytes.");
         return -1;
+    }
+    const auto capacity = qMax<qint64>(0, maximumPending - pendingBytes());
+    if (_pending.size() >= 1024)
+    {
+        if (_udp && data.isEmpty())
+        {
+            // Zero is successful acceptance for an empty datagram, so report rejection explicitly.
+            fail(error, "UDP output queue is full; empty datagram was not accepted.");
+            return -1;
+        }
+        return 0;
+    }
+    if (_udp && data.size() > capacity)
+    {
+        return 0;
+    }
+    const auto accepted = qMin<qint64>(data.size(), capacity);
+    if (!_udp && accepted == 0)
+    {
+        return 0;
     }
     if (!_udp && data.isEmpty())
     {
         return 0;
     }
-    _pending.append(data);
-    _queuedBytes          += data.size();
+    _pending.append(data.first(accepted));
+    _queuedBytes          += accepted;
     const auto generation  = _generation;
     _pump(generation);
     if (generation != _generation || _state != State::Open)
@@ -237,7 +257,7 @@ qint64 SocketDevice::write(const QByteArray& data, QString* error)
         fail(error, "Socket closed while accepting output.");
         return -1;
     }
-    return data.size();
+    return accepted;
 }
 qint64 SocketDevice::pendingBytes() const
 {

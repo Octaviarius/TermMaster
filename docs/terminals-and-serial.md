@@ -13,7 +13,8 @@ routing and layered settings. Core's TerminalScreen owns decoded screen state;
 TerminalDisplay draws cached QTextLayout lines and handles selection and input.
 The SerialTerminal SHARED plugin owns QSerialPort transport, the port selector,
 its presentation model, connection descriptor and action registrations. The shared
-terminal display fills the tab directly; no extra port/baud information strip is added.
+terminal display shares its tab with the [command input panel](command-input.md);
+no extra port/baud information strip is added.
 It links Qt and the packaged PluginApi, without linking another static Core.
 The public SDK and plugin headers are copied into their isolated build folders.
 The selected MSVC build uses auto-export, without per-function export macros.

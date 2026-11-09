@@ -82,3 +82,55 @@ content:
       x-settings-path: input/localEcho
       x-group: input
       x-order: 5
+    inputMode:
+      type: string
+      title: Input mode
+      enum: [interactive, buffered]
+      default: interactive
+      x-widget: enumCombo
+      x-settings-path: input/mode
+      x-group: input
+      x-order: 6
+    terminator:
+      type: string
+      title: Command terminator
+      enum: [lf, crlf, cr, nul, none, custom]
+      default: cr
+      x-widget: enumCombo
+      x-settings-path: input/terminator
+      x-group: input
+      x-order: 7
+    customTerminator:
+      type: string
+      title: Custom terminator (escaped bytes)
+      default: ''
+      maxLength: 1024
+      x-widget: stringLineEdit
+      x-settings-path: input/customTerminator
+      x-group: input
+      x-order: 8
+    hexInput:
+      type: boolean
+      title: HEX command input
+      default: false
+      x-widget: boolCheckBox
+      x-settings-path: input/hex
+      x-group: input
+      x-order: 9
+    pastePolicy:
+      type: string
+      title: Paste policy
+      enum: [edit, immediate]
+      default: edit
+      x-widget: enumCombo
+      x-settings-path: input/pastePolicy
+      x-group: input
+      x-order: 10
+    confirmMultiline:
+      type: boolean
+      title: Confirm multiline sending
+      default: true
+      x-widget: boolCheckBox
+      x-settings-path: input/confirmMultiline
+      x-group: input
+      x-order: 11

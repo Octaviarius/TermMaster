@@ -23,6 +23,7 @@ public:
     static bool validate(const QVariantMap& configuration, QString* error = nullptr);
 
 private:
+    friend class SocketDeviceTests;
     Callbacks                 _callbacks;
     State                     _state = State::Closed;
     QPointer<QAbstractSocket> _socket;

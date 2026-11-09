@@ -76,7 +76,12 @@ private slots:
         })());
         QCOMPARE(output, bytes);
         QTRY_COMPARE(completed, qint64(bytes.size()));
-        QCOMPARE(device.write(QByteArray(1024 * 1024 + 1, 'x')), qint64(-1));
+        QCOMPARE(device.write(QByteArray(1024 * 1024 + 1, 'x')), qint64(1024 * 1024));
+        QTRY_VERIFY(([&] {
+            output += peer->readAll();
+            return output.size() == bytes.size() + 1024 * 1024;
+        })());
+        QCOMPARE(output.mid(bytes.size()), QByteArray(1024 * 1024, 'x'));
         peer->write("tail", 4);
         peer->disconnectFromHost();
         QTRY_COMPARE(device.state(), SerialDevice::State::Closed);
@@ -90,6 +95,32 @@ private slots:
         QTest::qWait(30);
         QCOMPARE(device.state(), SerialDevice::State::Closed);
         QCOMPARE(device.pendingBytes(), qint64(0));
+    }
+    void saturatedEmptyDatagramsRejectExplicitly()
+    {
+        QUdpSocket peer;
+        QVERIFY(peer.bind(QHostAddress(QHostAddress::LocalHost), quint16(0)));
+        SocketDevice device;
+        QVERIFY(device.open({
+            {"protocol",            "UDP"},
+            {    "host",      "127.0.0.1"},
+            {    "port", peer.localPort()}
+        }));
+        QTRY_COMPARE(device.state(), SerialDevice::State::Open);
+        // Hold the internal pump as a synchronous transport callback would do.
+        // Empty datagrams consume slots even though their pending byte count is zero.
+        device._pumping = true;
+        for (int index = 0; index < 1024; ++index)
+        {
+            QCOMPARE(device.write({}), qint64(0));
+        }
+        QCOMPARE(device.pendingBytes(), qint64(0));
+        QString error;
+        QCOMPARE(device.write({}, &error), qint64(-1));
+        QVERIFY(error.contains("empty datagram was not accepted"));
+        QCOMPARE(device.write("nonempty"), qint64(0));
+        device._pumping = false;
+        device.close();
     }
     void udpDatagrams()
     {
