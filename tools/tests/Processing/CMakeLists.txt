@@ -2,6 +2,15 @@ find_package(Qt6 REQUIRED COMPONENTS
     Test
     Widgets
 )
+qt_add_executable(DuplexProcessorTests
+    DuplexProcessorTests.cpp
+)
+target_link_libraries(DuplexProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME DuplexProcessorTests COMMAND DuplexProcessorTests)
+
 qt_add_executable(ProcessingTests
     ProcessingTests.cpp
 )

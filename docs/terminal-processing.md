@@ -134,3 +134,26 @@ The timing assertions test processor emission, not physical device delivery.
 - [Sending tools](images/terminal-processing/Advanced.png)
 - [Interactive input](images/terminal-processing/Interactive.png)
 - [Sending tools at scale 2](images/terminal-processing/2x/Advanced.png)
+
+## Shared duplex selection
+
+The icon beside the selectors switches between independent Rx/Tx processors and a
+shared 2x2 processor selector. Catalog entries are filtered by port shape. Session
+`settings/processing/duplex` stores the same `type`, `configuration` and `overrides`
+selection map as independent directions, exclusively of `rx`/`tx`. Private property
+forms and node occurrence paths work for a shared selection as well.
+
+The controller prepares one 2x2 instance before atomic persistence and assigns it
+to both directions. Port 0 routes to the screen; port 1 routes to the device send
+queue, including responses produced by incoming traffic and timer outputs. Cross-
+direction/generated traffic never inherits manual disconnected-data retention.
+Replacement waits for both old directions to become quiescent before any queued
+new input executes. Cancelling a shared selection stops both directions once;
+reconnect or explicit reset prepares a fresh shared instance. Backpressure and
+byte/chunk limits remain independent at each terminal boundary. No real protocol
+implementation or additional terminal backend is introduced by this feature.
+
+Known favorite entries incompatible with the selected port shape are omitted from
+that selector without changing the workspace favorite list. Genuinely unavailable
+favorite IDs remain visible. Bypass clears a shared selection without instantiating
+a unary processor as a 2x2 flow.

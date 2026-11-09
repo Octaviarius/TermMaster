@@ -1,6 +1,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <Termaster/Core/Processing/ProcessorBlocks.h>
+#include <algorithm>
 #include <functional>
 
 namespace
@@ -61,6 +62,45 @@ bool ProcessorBlocks::validate(const QVariantMap& blocks, QString* error)
         {
             return fail(error, "Processor block name must contain 1 to 256 characters and no NUL");
         }
+        const auto channelValue = block.value("channels", 1);
+        if ((channelValue.typeId() != QMetaType::Int && channelValue.typeId() != QMetaType::UInt
+             && channelValue.typeId() != QMetaType::LongLong && channelValue.typeId() != QMetaType::ULongLong)
+            || channelValue.toLongLong() < 1 || channelValue.toLongLong() > 2)
+        {
+            return fail(error, "Lineflow channels must be 1 or 2");
+        }
+        for (const auto& key : {"inputNames", "outputNames"})
+        {
+            const auto value = block.value(key, QStringList {});
+            if (value.typeId() != QMetaType::QStringList && value.typeId() != QMetaType::QVariantList)
+            {
+                return fail(error, "Lineflow port names must be string lists");
+            }
+            const auto names = value.toList();
+            if (!names.isEmpty() && names.size() != channelValue.toInt())
+            {
+                return fail(error, "Lineflow port names must match its channels");
+            }
+            QSet<QString> seen;
+            for (const auto& name : names)
+            {
+                const auto text = name.toString();
+                if (name.typeId() != QMetaType::QString || name.toString().isEmpty()
+                    || name.toString() != name.toString().trimmed() || name.toString().size() > 128
+                    || name.toString().contains(QChar::Null) || seen.contains(name.toString())
+                    || std::any_of(text.cbegin(), text.cend(), [](QChar character) {
+                           return character.category() == QChar::Other_Control
+                               || character.category() == QChar::Separator_Line
+                               || character.category() == QChar::Separator_Paragraph;
+                       }))
+                {
+                    return fail(
+                        error,
+                        "Lineflow port names must be unique trimmed names of 1 to 128 characters without controls");
+                }
+                seen.insert(name.toString());
+            }
+        }
         const auto nodes = block.value("nodes");
         if (nodes.typeId() != QMetaType::QVariantList || nodes.toList().size() > 256)
         {
@@ -85,6 +125,17 @@ bool ProcessorBlocks::validate(const QVariantMap& blocks, QString* error)
                             "Processor nodes require unique names without slashes, NUL or surrounding whitespace");
             }
             nodeNames.insert(node.value("name").toString());
+            const auto lane = node.value("lane", "rx");
+            if (lane.typeId() != QMetaType::QString || (lane != "rx" && lane != "tx" && lane != "duplex")
+                || (channelValue.toInt() == 1 && lane != "rx"))
+            {
+                return fail(error, "Lineflow lane must match its channel topology");
+            }
+            const auto flipped = node.value("flipped", false);
+            if (flipped.typeId() != QMetaType::Bool || (flipped.toBool() && lane != "duplex"))
+            {
+                return fail(error, "Lineflow flipped must be a boolean on a duplex node");
+            }
             if (node.contains("type") == node.contains("reference"))
             {
                 return fail(error, "Processor block node requires exactly one type or reference");

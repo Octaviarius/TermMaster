@@ -61,7 +61,7 @@ void ProcessorCatalogTree::setFavorites(ProcessorFavorites* favorites)
     }
 }
 
-void ProcessorCatalogTree::prependFavorites(const QString& query)
+void ProcessorCatalogTree::prependFavorites(const QString& query, const QStringList& excluded)
 {
     const auto ids     = _favorites ? _favorites->ids() : QStringList {"native.bypass"};
     const auto current = currentItem() ? currentItem()->data(0, Qt::UserRole).toString() : QString {};
@@ -77,6 +77,11 @@ void ProcessorCatalogTree::prependFavorites(const QString& query)
     int row = 0;
     for (const auto& id : ids)
     {
+        if (excluded.contains(id))
+        {
+            continue;
+        }
+
         auto* source = items.value(id);
         if (!source && !query.isEmpty() && !id.contains(query, Qt::CaseInsensitive))
         {

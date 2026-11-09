@@ -64,7 +64,10 @@ public:
                                    Processor::Chunk                  chunk,
                                    const TerminalSendQueue::Options& options = {},
                                    QString*                          error   = nullptr);
-    void        replace(Direction direction, std::shared_ptr<Processor> processor, std::function<void()> ready = {});
+    void replace(Direction direction, std::shared_ptr<Processor> processor, std::function<void()> ready = {});
+    /** One 2x2 instance owns both directions; ports 0/1 are Rx/Tx. */
+    void        replaceDuplex(std::shared_ptr<Processor> processor, std::function<void()> ready = {});
+    bool        duplex() const;
     void        cancel(Direction direction, std::function<void()> ready = {});
     void        wake(Direction direction);
     Diagnostics diagnostics(Direction direction) const;
@@ -101,16 +104,30 @@ private:
         bool                         replacing = false;
         bool                         failed    = false;
     };
-    Limits              _limits;
-    std::array<Lane, 2> _lanes;
-    QTimer              _retry;
-    bool                _pumping = false;
+    Limits                                    _limits;
+    std::array<Lane, 2>                       _lanes;
+    QTimer                                    _retry;
+    bool                                      _pumping        = false;
+    bool                                      _duplex         = false;
+    bool                                      _pairReplacing  = false;
+    quint64                                   _pairGeneration = 0;
+    std::array<std::shared_ptr<Processor>, 2> _pairProcessors;
+    QList<std::function<void()>>              _pairReady;
+    bool                                      _pairShared = false;
 
     Lane&       _lane(Direction direction);
     const Lane& _lane(Direction direction) const;
-    void        _pump(Direction direction);
-    void        _schedule();
-    void        _fail(Direction direction, QString message);
-    void        _clear(Lane& lane);
+    void        _replaceLane(Direction direction, std::shared_ptr<Processor> processor, std::function<void()> ready);
+    void _replacePair(std::array<std::shared_ptr<Processor>, 2> processors, bool shared, std::function<void()> ready);
+    void _installHandlers(Direction direction);
+    void _output(Direction                         source,
+                 quint64                           generation,
+                 Processor::Chunk                  chunk,
+                 const TerminalSendQueue::Options& options,
+                 bool                              requireActive);
+    void _pump(Direction direction);
+    void _schedule();
+    void _fail(Direction direction, QString message);
+    void _clear(Lane& lane);
     static void _retire(std::shared_ptr<Processor> processor, std::function<void()> ready);
 };

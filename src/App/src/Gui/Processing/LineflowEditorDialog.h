@@ -13,7 +13,9 @@ class QLineEdit;
 class ProcessorCatalogTree;
 class ProcessorFavorites;
 class QPushButton;
-class QTreeView;
+class LineflowCanvas;
+class QMainWindow;
+class QTimer;
 class QVBoxLayout;
 class SettingsFormWidget;
 
@@ -48,6 +50,9 @@ public:
     bool                 applyDraft(QString* error = nullptr);
     void                 releaseEditors();
     void                 setVisible(bool visible) override;
+    QByteArray           dockLayout() const;
+    bool                 restoreDockLayout(const QByteArray& state);
+    Q_SIGNAL void        dockLayoutChanged(const QByteArray& state);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -73,7 +78,10 @@ private:
     LineflowEditorModel*                      _model;
     QComboBox*                                _blocks;
     QComboBox*                                _groups;
-    QTreeView*                                _tree;
+    LineflowCanvas*                           _tree;
+    QMainWindow*                              _dockHost;
+    QTimer*                                   _layoutSave;
+    QComboBox*                                _topology;
     ProcessorCatalogTree*                     _catalog;
     QLineEdit*                                _search;
     QLineEdit*                                _name;
@@ -88,10 +96,6 @@ private:
 
     bool _geometryInitialized = false;
 
-    int  _processorColumnWidth = 150;
-    bool _restoringColumns     = false;
-
-    void _sizeColumns();
     void _refreshBlocks();
     void _refreshCatalog();
     void _select();

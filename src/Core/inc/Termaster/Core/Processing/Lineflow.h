@@ -2,6 +2,7 @@
 
 #include <QStringList>
 #include <Termaster/Core/Processing/Processor.h>
+#include <array>
 #include <deque>
 #include <memory>
 #include <vector>
@@ -19,6 +20,10 @@ public:
     {
     public:
         QVariantMap               configuration() const;
+        int                       inputCount() const;
+        int                       outputCount() const;
+        QStringList               inputNames() const;
+        QStringList               outputNames() const;
         std::unique_ptr<Lineflow> instantiate(ProcessorRegistry& registry, QString* error = nullptr) const;
         std::unique_ptr<Lineflow> instantiate(ProcessorRegistry& registry,
                                               const QVariantMap& overrides,
@@ -31,11 +36,16 @@ public:
             QString     path;
             QString     type;
             QVariantMap configuration;
+            int         lane    = 0;
+            bool        flipped = false;
         };
 
         QVariantMap       _configuration;
         std::vector<Node> _nodes;
         Limits            _limits;
+        int               _channels = 1;
+        QStringList       _inputNames;
+        QStringList       _outputNames;
     };
 
     static std::shared_ptr<const Prepared> prepare(const QVariantMap& blocks,
@@ -46,6 +56,10 @@ public:
     ~Lineflow() override;
 
     QVariantMap  configuration() const override;
+    int          inputCount() const override;
+    int          outputCount() const override;
+    QString      inputName(int port) const override;
+    QString      outputName(int port) const override;
     AcceptResult accept(Chunk input, Callbacks callbacks) override;
     void         cancel(std::function<void()> quiescent) override;
 
@@ -54,19 +68,45 @@ private:
     static std::unique_ptr<Lineflow> compose(std::vector<std::shared_ptr<Processor>> nodes,
                                              QVariantMap                             configuration,
                                              Limits                                  limits,
-                                             QStringList                             nodeNames = {});
+                                             QStringList                             nodeNames   = {},
+                                             int                                     channels    = 1,
+                                             std::vector<int>                        lanes       = {},
+                                             std::vector<bool>                       flipped     = {},
+                                             QStringList                             inputNames  = {},
+                                             QStringList                             outputNames = {});
 
+    struct Budget
+    {
+        qsizetype remaining;
+    };
     struct Work
     {
-        size_t stage;
-        Chunk  chunk;
+        size_t                  stage;
+        Chunk                   chunk;
+        int                     root = -1;
+        std::shared_ptr<Budget> budget;
     };
+    struct Invocation
+    {
+        qsizetype               bytes      = 0;
+        qsizetype               chunks     = 0;
+        quint64                 invocation = 0;
+        bool                    pending    = false;
+        int                     root       = -1;
+        std::shared_ptr<Budget> budget;
+    };
+
     struct Stage
     {
-        qsizetype bytes      = 0;
-        qsizetype chunks     = 0;
-        quint64   invocation = 0;
-        bool      pending    = false;
+        std::array<Invocation, 2> inputs;
+    };
+
+    struct Root
+    {
+        Callbacks callbacks;
+        qsizetype outputBytes  = 0;
+        qsizetype outputChunks = 0;
+        bool      active       = false;
     };
 
     QVariantMap                             _configuration;
@@ -75,24 +115,29 @@ private:
     QStringList                             _nodeNames;
     std::deque<Work>                        _queue;
     std::vector<Stage>                      _stages;
-    Callbacks                               _callbacks;
+    std::vector<Root>                       _roots;
+    std::vector<int>                        _lanes;
+    int                                     _channels = 1;
+    std::vector<bool>                       _flipped;
+    QStringList                             _inputNames;
+    QStringList                             _outputNames;
     std::vector<std::function<void()>>      _cancelCallbacks;
-    qsizetype                               _queuedBytes  = 0;
-    qsizetype                               _outputBytes  = 0;
-    qsizetype                               _outputChunks = 0;
-    quint64                                 _generation   = 0;
-    size_t                                  _cancelling   = 0;
-    bool                                    _active       = false;
-    bool                                    _pumping      = false;
-    bool                                    _scheduled    = false;
-    bool                                    _stopped      = false;
-    bool                                    _quiescent    = false;
+    qsizetype                               _queuedBytes = 0;
+    quint64                                 _generation  = 0;
+    size_t                                  _cancelling  = 0;
+    bool                                    _pumping     = false;
+    bool                                    _scheduled   = false;
+    bool                                    _stopped     = false;
+    bool                                    _quiescent   = false;
     QString                                 _failure;
 
     explicit Lineflow(const Prepared& prepared);
     void    _schedule();
     void    _pump();
-    void    _finish(QString error);
+    void    _finish(int root);
+    size_t  _nextStage(int from, int direction) const;
+    void    _enqueueOutput(size_t stage, Chunk chunk, int root, int inputPort, std::shared_ptr<Budget> budget);
+    void    _connectOutputs();
     void    _fail(QString error);
     QString _nodeError(size_t stage, const QString& error) const;
     void    _cancelNodes();

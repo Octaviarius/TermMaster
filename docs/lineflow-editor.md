@@ -10,7 +10,7 @@ Terminal Rx/Tx selection and private properties are available through the
 ## Draft model and presentation
 
 The block selector addresses stable definition IDs separately from human-readable
-names. The operation tree shows the selected block in traversal order. Nested
+names. The central native Qt canvas shows the selected block as one lane or paired Rx/Tx lanes. Nested
 blocks expand as linked, read-only views; opening their definition edits the shared
 block. The catalog groups native and workspace entries by origin and their descriptor
 `group` subgroup. It contains native, provider-defined and workspace processors,
@@ -18,8 +18,10 @@ including unavailable entries with a concrete reason. No ControlFlow nodes or
 freely connected graph are introduced.
 
 Creation, duplication, naming, deletion and node insertion update a draft model.
-Dragging a catalog entry inserts a processor or a linked block; dragging an
-operation reorders siblings in its containing definition. Linked expanded nodes
+Dragging a palette entry inserts a processor or linked block. A 1x1 entry lands
+on the left Rx or right Tx lane according to pointer position; a 2x2 entry spans
+both lanes. Drop indicators appear only during a valid drag. Dragging an operation
+reorders it and can move a 1x1 node between lanes. Linked expanded nodes
 cannot be moved into another definition implicitly. Cycle validation rejects
 recursive insertion. Deleting a definition preserves references as unavailable.
 
@@ -130,3 +132,73 @@ resets. Latest native captures include the actual built-in HEX encoder and Frame
 schemas instead of an illustrative parameter fixture. See
 [configured node verification](processing-nodes.md#verification) for the 42-target
 acceptance record and updated captures.
+
+## Docked editor and topology
+
+The palette is a movable/resizable/floating QDockWidget initially on the left;
+selected-node properties use a second dock initially on the right. The center
+remains the Lineflow canvas. Qt palette colors, icons and existing generated forms
+are retained. Port counts and direction are communicated through topology icons,
+connection marks and tooltips, not repeated explanatory text on every node.
+The block topology picker chooses 1x1 or 2x2; invalid shape changes preserve the
+draft and report the affected placement. Unary lanes run independently between
+full-width shared stages. Linked nested definitions stay read-only until opened.
+Keyboard selection, Delete and existing insert/move actions remain available.
+
+Dock placement and sizes are presentation state, stored through the application
+settings owner at `settings/ui/lineflow/docks` as bounded Base64 Qt saveState data.
+They are independent of the workspace processor definition and terminal settings.
+The dialog exposes layout state and change notifications; it performs no file I/O.
+
+## FLOW-8 acceptance
+
+Qt 6.12.0 / MSVC2022 x64 Debug built the application, bundled modules and tests.
+The final full run passed all 47 configured CTest executables in 112.48 seconds,
+including named ports, orientation mapping and external chevrons. The full
+application and bundled plugins built after the final rendering changes.
+Native Windows capture fixtures passed at scales 1 and 2, with three QtTest passes
+and no skips per run, using 1100 by 760 logical client areas. Captures were inspected
+for opaque node backgrounds, selected-icon contrast, full-width shared nodes,
+property-form fit and drag-only indicators. Shared protocol nodes in these captures
+are synthetic acceptance fixtures, not a bundled protocol implementation.
+
+Coverage includes independent lane packing, splitting a segment with a duplex
+barrier, insertion/movement between lanes, nested shape validation, keyboard deletion,
+dock movement/resizing/floating/restoration and retained invalid schema drafts.
+The independently configured SDK consumer built and its explicit plugin test passed
+without skips. No real serial device, external endpoint or elevation was used;
+Release was not rebuilt. Changed C++ files were clang-formatted; local links and
+`git diff --check` passed.
+
+- [Paired editor](images/duplex-lineflow/Paired.png)
+- [Insertion indicator](images/duplex-lineflow/Dragging.png)
+- [Paired editor at scale 2](images/duplex-lineflow/Paired2x.png)
+- [Insertion at scale 2](images/duplex-lineflow/Dragging2x.png)
+
+## Named ports and flipping
+
+Wired node connectors use compact chevrons just outside the border, with port labels
+inside gently rounded blocks. Input chevrons point into the node and output
+chevrons away from it; tooltips state the full name and direction. Linked nested rows remain compact reference previews; opening
+the nested definition shows its actual wiring. A selected 2x2 node exposes an
+icon-only Flip action. Its checked state and a small card icon indicate reversed
+orientation. Labels follow the effective port mapping after a flip. The action
+updates only the draft occurrence flag, preserving the processor configuration.
+
+The connector shape follows the compact port-symbol convention illustrated in the
+[MathWorks connection guide](https://www.mathworks.com/help/simulink/ug/connect-blocks.html),
+rotated for vertical Rx/Tx traversal. Port markers have no circular socket or
+arrow shaft. Qt palette colors, selection contrast and font metrics remain native.
+
+Named-port checks cover registered/prepared/runtime label ownership and snapshots,
+invalid/duplicate/control-character labels, useful native labels and nested flips
+in both saved and standalone preparation. Editor checks verify labels inside the
+body, markers wholly outside it, a 6-pixel text inset, narrow canvases and doubled
+fonts. Selected and flipped captures passed native 1x/2x checks. The application
+integration also verifies dock-layout restoration through the application settings
+owner. One earlier suite observed an intermittent ConsoleElevationTests heap failure;
+isolated reruns and the final full suite passed. The unresolved observation is
+recorded in [local console acceptance](local-console.md#intermittent-acceptance-observation-2026-11-09).
+
+- [Flipped shared node](images/duplex-lineflow/Flipped.png)
+- [Flipped shared node at scale 2](images/duplex-lineflow/Flipped2x.png)

@@ -1,34 +1,33 @@
 #include "LineflowEditorDialog.h"
 
+#include "LineflowCanvas.h"
 #include "ProcessorCatalogTree.h"
 
 #include <QAction>
 #include <QComboBox>
 #include <QCryptographicHash>
 #include <QDialogButtonBox>
+#include <QDockWidget>
 #include <QDrag>
 #include <QEvent>
 #include <QFormLayout>
 #include <QGuiApplication>
-#include <QHeaderView>
 #include <QInputDialog>
 #include <QItemSelectionModel>
 #include <QJsonDocument>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMainWindow>
 #include <QMimeData>
 #include <QPushButton>
 #include <QScreen>
 #include <QSignalBlocker>
-#include <QSplitter>
 #include <QTimer>
 #include <QToolBar>
-#include <QTreeView>
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Icons.h>
-#include <Termaster/Core/Gui/SelectionIconDelegate.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
 #include <algorithm>
 #include <exception>
@@ -85,8 +84,29 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     blockBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
     _blocks = new QComboBox(this);
     _blocks->setObjectName("blockSelector");
-    _blocks->setMinimumContentsLength(28);
+    _blocks->setMinimumContentsLength(18);
+    _blocks->setMaximumWidth(260);
     blockBar->addWidget(_blocks);
+    _topology = new QComboBox(this);
+    _topology->setObjectName("blockTopology");
+    _topology->addItem(Icons::icon("arrow-right"), "1 × 1", 1);
+    _topology->addItem(Icons::icon("workflow"), "2 × 2", 2);
+    _topology->setItemData(0, tr("One input and one output"), Qt::ToolTipRole);
+    _topology->setItemData(1, tr("Paired Rx/Tx flow with shared duplex operations"), Qt::ToolTipRole);
+    _topology->setToolTip(tr("Block topology. New blocks use the selected topology."));
+    blockBar->addWidget(_topology);
+    connect(_topology, &QComboBox::activated, this, [this] {
+        if (_updating || _model->selectedBlock().isEmpty())
+        {
+            return;
+        }
+        _select();
+        QString error;
+        _model->setBlockChannels(_model->selectedBlock(), _topology->currentData().toInt(), &error);
+        _refreshBlocks();
+        _message(error);
+    });
+
     blockBar->addWidget(new QLabel(tr("Group:"), this));
     _groups = new QComboBox(this);
     _groups->setObjectName("blockGroup");
@@ -109,47 +129,59 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     auto* rename      = tool(blockBar, "sliders-horizontal", tr("Rename block"), "renameBlock");
     auto* removeBlock = tool(blockBar, "trash", tr("Remove block definition; keep references"), "removeBlock");
     layout->addWidget(blockBar);
-    auto* splitter = new QSplitter(this);
-    splitter->setChildrenCollapsible(false);
-    layout->addWidget(splitter, 1);
-    auto* left       = new QWidget(splitter);
+    _dockHost = new QMainWindow(this);
+    _dockHost->setWindowFlags(Qt::Widget);
+    _dockHost->setObjectName("lineflowDockHost");
+    _dockHost->setDockOptions(QMainWindow::AnimatedDocks | QMainWindow::AllowNestedDocks
+                              | QMainWindow::AllowTabbedDocks);
+    layout->addWidget(_dockHost, 1);
+    _layoutSave = new QTimer(this);
+    _layoutSave->setSingleShot(true);
+    _layoutSave->setInterval(150);
+    connect(_layoutSave, &QTimer::timeout, this, [this] { emit dockLayoutChanged(dockLayout()); });
+    connect(this, &QDialog::finished, this, [this] {
+        _layoutSave->stop();
+        emit dockLayoutChanged(dockLayout());
+    });
+    auto* center       = new QWidget(_dockHost);
+    auto* centerLayout = new QVBoxLayout(center);
+    centerLayout->setContentsMargins(0, 0, 0, 0);
+    _dockHost->setCentralWidget(center);
+    auto* left       = new QWidget(_dockHost);
     auto* leftLayout = new QVBoxLayout(left);
-    leftLayout->setContentsMargins(0, 0, 0, 0);
-    auto* operations = new QToolBar(left);
+    leftLayout->setContentsMargins(6, 6, 6, 6);
+    auto* operations = new QToolBar(center);
     operations->setToolButtonStyle(Qt::ToolButtonIconOnly);
     auto* add    = tool(operations, "arrow-right", tr("Insert selected processor"), "addOperation");
     auto* remove = tool(operations, "trash", tr("Remove selected operation"), "removeOperation");
     auto* up     = tool(operations, "chevron-up", tr("Move operation up"), "moveUp");
     auto* down   = tool(operations, "chevron-down", tr("Move operation down"), "moveDown");
-    leftLayout->addWidget(operations);
-    _tree = new QTreeView(left);
-    _tree->setObjectName("nodeTree");
-    _tree->setModel(_model);
-    _tree->setItemDelegate(new SelectionIconDelegate(_tree));
-    _tree->setAlternatingRowColors(true);
-    _tree->setDragEnabled(true);
-    _tree->setAcceptDrops(true);
-    _tree->setDropIndicatorShown(true);
-    _tree->setDragDropMode(QAbstractItemView::DragDrop);
-    _tree->setDefaultDropAction(Qt::MoveAction);
-    _tree->setSelectionBehavior(QAbstractItemView::SelectRows);
-    _tree->setSelectionMode(QAbstractItemView::SingleSelection);
-    _tree->setTextElideMode(Qt::ElideMiddle);
-    _tree->viewport()->installEventFilter(this);
-    connect(_model, &QAbstractItemModel::columnsAboutToBeInserted, this, [this] { _restoringColumns = true; });
-    connect(_model, &QAbstractItemModel::columnsInserted, this, [this] {
-        _restoringColumns = false;
-        _sizeColumns();
-    });
-    connect(_tree->header(), &QHeaderView::sectionResized, this, [this](int section, int, int size) {
-        if (!_restoringColumns && !_resetting && section == 1 && size > 0)
+    auto* flip   = tool(operations, "rotate-cw", tr("Flip selected duplex operation"), "flipOperation");
+    flip->setCheckable(true);
+    connect(flip, &QAction::triggered, this, [this](bool checked) {
+        const auto index = _tree->currentIndex();
+        if (!index.isValid() || index.data(LineflowEditorModel::LinkedRole).toBool()
+            || index.data(LineflowEditorModel::InputCountRole).toInt() != 2
+            || index.data(LineflowEditorModel::OutputCountRole).toInt() != 2)
         {
-            _processorColumnWidth = size;
-            _sizeColumns();
+            return;
         }
+        _select();
+        const int row = index.row();
+        QString   error;
+        if (_model->setNodeFlipped(index.data(LineflowEditorModel::BlockRole).toString(),
+                                   index.data(LineflowEditorModel::NodeRole).toString(),
+                                   checked,
+                                   &error))
+        {
+            _tree->setCurrentIndex(_model->index(row, 0));
+        }
+        _message(error);
+        _refreshActions();
     });
-    _sizeColumns();
-    leftLayout->addWidget(_tree, 2);
+    centerLayout->addWidget(operations);
+    _tree = new LineflowCanvas(*_model, center);
+    centerLayout->addWidget(_tree, 1);
     leftLayout->addWidget(new QLabel(tr("Processor catalog"), left));
     _search = new QLineEdit(left);
     _search->setObjectName("catalogSearch");
@@ -163,9 +195,9 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     _catalog->setHeaderHidden(true);
     _catalog->setSelectionMode(QAbstractItemView::SingleSelection);
     leftLayout->addWidget(_catalog, 1);
-    auto* right       = new QWidget(splitter);
+    auto* right       = new QWidget(_dockHost);
     auto* rightLayout = new QVBoxLayout(right);
-    rightLayout->setContentsMargins(12, 0, 0, 0);
+    rightLayout->setContentsMargins(6, 6, 6, 6);
     rightLayout->addWidget(new QLabel(tr("Operation properties"), right));
     auto* nameForm = new QFormLayout;
     nameForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
@@ -178,7 +210,38 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     _propertyLayout = new QVBoxLayout(_properties);
     _propertyLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->addWidget(_properties, 1);
-    splitter->setSizes({440, 620});
+    const auto dock = [this](const QString& title, const QString& name, QWidget* content, Qt::DockWidgetArea area) {
+        auto* panel = new QDockWidget(title, _dockHost);
+        panel->setObjectName(name);
+        panel->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+        panel->setAllowedAreas(Qt::AllDockWidgetAreas);
+        panel->setWidget(content);
+        panel->setMinimumWidth(180);
+        content->setMinimumWidth(160);
+        panel->installEventFilter(this);
+        _dockHost->addDockWidget(area, panel);
+        connect(panel, &QDockWidget::dockLocationChanged, this, [this] { _layoutSave->start(); });
+        connect(panel, &QDockWidget::topLevelChanged, this, [this] { _layoutSave->start(); });
+        return panel;
+    };
+    auto* paletteDock    = dock(tr("Processors"), "lineflowPaletteDock", left, Qt::LeftDockWidgetArea);
+    auto* propertiesDock = dock(tr("Properties"), "lineflowPropertiesDock", right, Qt::RightDockWidgetArea);
+    _dockHost->resizeDocks({paletteDock, propertiesDock}, {220, 375}, Qt::Horizontal);
+    operations->addSeparator();
+    auto* restorePanels = tool(operations,
+                               "panels-top-left",
+                               tr("Restore palette and properties layout"),
+                               "restorePanels");
+    connect(restorePanels, &QAction::triggered, this, [this, paletteDock, propertiesDock] {
+        paletteDock->setFloating(false);
+        propertiesDock->setFloating(false);
+        _dockHost->addDockWidget(Qt::LeftDockWidgetArea, paletteDock);
+        _dockHost->addDockWidget(Qt::RightDockWidgetArea, propertiesDock);
+        _dockHost->resizeDocks({paletteDock, propertiesDock}, {220, 375}, Qt::Horizontal);
+        paletteDock->show();
+        propertiesDock->show();
+        _layoutSave->start();
+    });
     _error = new QLabel(this);
     _error->setObjectName("editorError");
     _error->setWordWrap(true);
@@ -211,12 +274,15 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
             _showProperties(index);
         }
     });
-    connect(_model, &QAbstractItemModel::modelAboutToBeReset, this, [this] { _resetting = true; });
+    connect(_model, &QAbstractItemModel::modelAboutToBeReset, this, [this] {
+        _select();
+        _resetting = true;
+    });
     connect(_model, &QAbstractItemModel::modelReset, this, [this] {
         _resetting = false;
         _showProperties({});
     });
-    connect(_tree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
+    connect(_tree, &QAbstractItemView::doubleClicked, this, [this](const QModelIndex& index) {
         const auto target = index.data(LineflowEditorModel::CatalogIdRole).toString();
         if (_model->blockIds().contains(target))
         {
@@ -241,7 +307,7 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
             return;
         }
         QString error;
-        _model->createBlock(name, &error);
+        _model->createBlock(name, _topology->currentData().toInt(), &error);
         _message(error);
     });
     connect(duplicate, &QAction::triggered, this, [this] {
@@ -320,6 +386,7 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
 }
 LineflowEditorDialog::~LineflowEditorDialog()
 {
+    emit dockLayoutChanged(dockLayout());
     _clearProperties();
 }
 void LineflowEditorDialog::setVisible(bool visible)
@@ -346,34 +413,38 @@ void LineflowEditorDialog::_message(const QString& message)
 {
     _error->setText(message);
 }
-bool LineflowEditorDialog::eventFilter(QObject* watched, QEvent* event)
+QByteArray LineflowEditorDialog::dockLayout() const
 {
-    if (watched == _tree->viewport() && event->type() == QEvent::Resize)
-    {
-        QTimer::singleShot(0, this, [this] { _sizeColumns(); });
-    }
-    return QDialog::eventFilter(watched, event);
+    return _dockHost->saveState(1);
 }
 
-void LineflowEditorDialog::_sizeColumns()
+bool LineflowEditorDialog::restoreDockLayout(const QByteArray& state)
 {
-    if (_model->columnCount() < 2 || _restoringColumns)
+    if (state.isEmpty() || state.size() > 64 * 1024)
     {
-        return;
+        return false;
     }
-    _restoringColumns = true;
-    auto* header      = _tree->header();
-    header->setStretchLastSection(false);
-    header->setSectionResizeMode(0, QHeaderView::Stretch);
-    header->setSectionResizeMode(1, QHeaderView::Interactive);
-    const auto maximum = qMax(90, _tree->viewport()->width() * 2 / 5);
-    header->resizeSection(1, std::clamp(_processorColumnWidth, 90, maximum));
-    _restoringColumns = false;
+    return _dockHost->restoreState(state, 1);
+}
+
+bool LineflowEditorDialog::eventFilter(QObject* watched, QEvent* event)
+{
+    if (qobject_cast<QDockWidget*>(watched) && (event->type() == QEvent::Resize || event->type() == QEvent::Move))
+    {
+        _layoutSave->start();
+    }
+    return QDialog::eventFilter(watched, event);
 }
 
 void LineflowEditorDialog::_refreshBlocks()
 {
     const QSignalBlocker blocker(_blocks);
+    const QSignalBlocker topologyBlocker(_topology);
+    if (!_model->selectedBlock().isEmpty())
+    {
+        _topology->setCurrentIndex(_topology->findData(_model->blockChannels(_model->selectedBlock())));
+    }
+
     _blocks->clear();
     const QSignalBlocker groupBlocker(_groups);
     _groups->clear();
@@ -469,8 +540,15 @@ void LineflowEditorDialog::_refreshCatalog()
         item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
         item->setData(0, Qt::UserRole, it.key());
         const auto reason = _model->unavailableReason(it.key());
-        item->setIcon(0, Icons::icon(!reason.isEmpty() ? "triangle-exclamation-point" : local ? "blocks" : "workflow"));
-        item->setToolTip(0, reason.isEmpty() ? it.key() : reason);
+        const auto shape  = _model->processorShape(it.key());
+        item->setIcon(0,
+                      Icons::icon(!reason.isEmpty()                     ? "triangle-exclamation-point" :
+                                  shape.first == 2 && shape.second == 2 ? "network" :
+                                  local                                 ? "blocks" :
+                                                                          "workflow"));
+        item->setToolTip(0,
+                         (reason.isEmpty() ? it.key() : reason)
+                             + QString("\n%1 × %2").arg(shape.first).arg(shape.second));
         if (it.key() == current)
         {
             _catalog->setCurrentItem(item);
@@ -803,6 +881,14 @@ void LineflowEditorDialog::_refreshActions()
     enable("addOperation",
            block && _catalog->currentItem() && !_catalog->currentItem()->data(0, Qt::UserRole).toString().isEmpty());
     enable("removeOperation", editable);
+    const bool duplex = editable && index.data(LineflowEditorModel::InputCountRole).toInt() == 2
+                     && index.data(LineflowEditorModel::OutputCountRole).toInt() == 2;
+    enable("flipOperation", duplex);
+    if (auto* flip = findChild<QAction*>("flipOperation"))
+    {
+        const QSignalBlocker blocker(flip);
+        flip->setChecked(duplex && index.data(LineflowEditorModel::FlippedRole).toBool());
+    }
     enable("moveUp", editable && index.row() > 0);
     enable("moveDown", editable && index.row() + 1 < _model->rowCount());
 }

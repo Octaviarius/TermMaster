@@ -52,6 +52,10 @@ private:
     QVariantMap                             _draft;
     Apply                                   _apply;
     ProcessorSelector*                      _selectors[2];
+    QLabel*                                 _labels[2];
+    ProcessorSelector*                      _duplexSelector;
+    QToolButton*                            _duplexToggle;
+    bool                                    _sharedMode = false;
     QComboBox*                              _direction;
     QPointer<QWidget>                       _properties;
     QTableWidget*                           _table;
@@ -62,6 +66,7 @@ private:
     bool                                    _updating       = false;
     int                                     _shownDirection = 0;
     void                                    _catalog();
+    void                                    _mode(bool shared);
     void                                    _clearRows();
     void                                    _showProperties();
     bool                                    _flush(QString* error);

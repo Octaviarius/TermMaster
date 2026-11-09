@@ -673,7 +673,8 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         if (it != self->_terminals.end() && it->second->display)
         {
             auto& runtime = *it->second;
-            if (runtime.processingConfiguration.value("rx").toMap().isEmpty())
+            if (runtime.processingConfiguration.value("rx").toMap().isEmpty()
+                && !runtime.processingConfiguration.contains("duplex"))
             {
                 runtime.display->receive(bytes);
                 return;
@@ -976,7 +977,8 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                     }
                 }
                 QString    error;
-                const bool accepted = it->second->processingConfiguration.value("tx").toMap().isEmpty() ?
+                const bool accepted = it->second->processingConfiguration.value("tx").toMap().isEmpty()
+                                           && !it->second->processingConfiguration.contains("duplex") ?
                                           it->second->sender->enqueue(data, &error) :
                                           it->second->processing->submit(ProcessingRouter::Direction::Tx,
                                                                          {data,
@@ -1252,8 +1254,14 @@ std::optional<std::array<std::shared_ptr<Processor>, 2>> TerminalController::_pr
     bool               txOnly)
 {
     std::array<std::shared_ptr<Processor>, 2> instances;
-    const QString                             directions[] = {"rx", "tx"};
-    for (int index = txOnly ? 1 : 0; index < 2; ++index)
+    const bool                                shared = configuration.contains("duplex");
+    if (shared && (!configuration.value("rx").toMap().isEmpty() || !configuration.value("tx").toMap().isEmpty()))
+    {
+        fail(error, "Shared processing cannot be combined with independent Rx/Tx selections");
+        return std::nullopt;
+    }
+    const QStringList directions = shared ? QStringList {"duplex"} : QStringList {"rx", "tx"};
+    for (int index = txOnly && !shared ? 1 : 0; index < directions.size(); ++index)
     {
         const auto value = configuration.value(directions[index]);
         if (value.isValid() && value.metaType().id() != QMetaType::QVariantMap)
@@ -1295,6 +1303,14 @@ std::optional<std::array<std::shared_ptr<Processor>, 2>> TerminalController::_pr
         {
             return std::nullopt;
         }
+        const int ports = shared ? 2 : 1;
+        if (prepared->inputCount() != ports || prepared->outputCount() != ports)
+        {
+            fail(error,
+                 shared ? "Shared processing requires a 2x2 processor" :
+                          "Independent Rx/Tx processing requires a 1x1 processor");
+            return std::nullopt;
+        }
         instances[index] = prepared->instantiate(selection.value("overrides").toMap(), error);
         if (!instances[index])
         {
@@ -1302,6 +1318,10 @@ std::optional<std::array<std::shared_ptr<Processor>, 2>> TerminalController::_pr
         }
     }
 
+    if (shared)
+    {
+        instances[1] = instances[0];
+    }
     return instances;
 }
 
@@ -1320,14 +1340,22 @@ bool TerminalController::_configureProcessing(Runtime& terminal, QString* error,
     }
     auto& instances = *prepared;
 
-    if (!txOnly)
+    if (configuration.contains("duplex"))
     {
-        terminal.processing->replace(ProcessingRouter::Direction::Rx, std::move(instances[0]));
+        terminal.processing->replaceDuplex(std::move(instances[0]));
     }
-    terminal.processing->replace(ProcessingRouter::Direction::Tx, std::move(instances[1]));
+    else
+    {
+        if (!txOnly)
+        {
+            terminal.processing->replace(ProcessingRouter::Direction::Rx, std::move(instances[0]));
+        }
+        terminal.processing->replace(ProcessingRouter::Direction::Tx, std::move(instances[1]));
+    }
     terminal.processingConfiguration = configuration;
-    terminal.advanced->setProcessingRouter(configuration.value("tx").toMap().isEmpty() ? nullptr :
-                                                                                         terminal.processing.get());
+    terminal.advanced->setProcessingRouter(
+        configuration.value("tx").toMap().isEmpty() && !configuration.contains("duplex") ? nullptr :
+                                                                                           terminal.processing.get());
     return true;
 }
 
@@ -1353,8 +1381,9 @@ bool TerminalController::_applyProcessing(const QString&     id,
     {
         return true;
     }
-    const bool rxChanged            = configuration.value("rx") != baseline.value("rx");
-    const bool txChanged            = configuration.value("tx") != baseline.value("tx");
+    const bool sharedChanged        = configuration.contains("duplex") || baseline.contains("duplex");
+    const bool rxChanged            = sharedChanged || configuration.value("rx") != baseline.value("rx");
+    const bool txChanged            = sharedChanged || configuration.value("tx") != baseline.value("tx");
     auto       changedConfiguration = configuration;
     if (!rxChanged)
     {
@@ -1426,7 +1455,11 @@ bool TerminalController::_applyProcessing(const QString&     id,
         return true;
     }
     live->processingUpdate = false;
-    if (rxChanged)
+    if (configuration.contains("duplex"))
+    {
+        live->processing->replaceDuplex(std::move((*prepared)[0]));
+    }
+    else if (rxChanged)
     {
         live->processing->replace(ProcessingRouter::Direction::Rx, std::move((*prepared)[0]));
     }
@@ -1435,7 +1468,7 @@ bool TerminalController::_applyProcessing(const QString&     id,
     {
         return true;
     }
-    if (txChanged)
+    if (txChanged && !configuration.contains("duplex"))
     {
         live->processing->replace(ProcessingRouter::Direction::Tx, std::move((*prepared)[1]));
     }
@@ -1445,7 +1478,9 @@ bool TerminalController::_applyProcessing(const QString&     id,
         return true;
     }
     live->processingConfiguration = configuration;
-    live->advanced->setProcessingRouter(configuration.value("tx").toMap().isEmpty() ? nullptr : live->processing.get());
+    live->advanced->setProcessingRouter(
+        configuration.value("tx").toMap().isEmpty() && !configuration.contains("duplex") ? nullptr :
+                                                                                           live->processing.get());
     return true;
 }
 

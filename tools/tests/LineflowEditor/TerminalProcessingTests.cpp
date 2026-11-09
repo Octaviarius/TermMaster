@@ -19,6 +19,7 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
@@ -53,6 +54,72 @@ class TerminalProcessingTests : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void sharedSelectionFiltersShapesAndPersistsOneInstanceConfiguration()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QString error;
+        auto    definition = block();
+        definition.insert("source",
+                          QVariantMap {
+                              {"channels",               2},
+                              {   "nodes", QVariantList {}}
+        });
+        auto definitions = ProcessorRegistry::parseDefinitions(
+            {
+                {"test.protocol", definition}
+        },
+            &error);
+        QVERIFY2(definitions, qPrintable(error));
+        QVERIFY2(registry.publishDefinitions("workspace", *definitions, &error), qPrintable(error));
+        SettingsWidgetRegistry editors;
+        ProcessingRouter       router;
+        QVariantMap            applied;
+        Settings               preferences(QString {});
+        ProcessorFavorites     favorites(preferences.node("processing"));
+        QVERIFY(favorites.setIds({"native.hex-encoder", "test.protocol", "missing.processor"}));
+        TerminalProcessingPanel panel(
+            registry,
+            editors,
+            router,
+            {},
+            [&](const QVariantMap&, const QVariantMap& draft, QString*) {
+                applied = draft;
+                return true;
+            },
+            nullptr,
+            &favorites);
+        panel.show();
+        auto* rx     = panel.findChild<QComboBox*>("rxProcessor");
+        auto* shared = panel.findChild<QComboBox*>("duplexProcessor");
+        auto* toggle = panel.findChild<QToolButton*>("duplexProcessingToggle");
+        QVERIFY(rx && shared && toggle);
+        QCOMPARE(rx->findData("test.protocol"), -1);
+        QVERIFY(shared->findData("test.protocol") >= 0);
+        QCOMPARE(shared->findData("native.hex-encoder"), -1);
+        auto* sharedTree = shared->findChild<QTreeWidget*>("processorSelectorTree");
+        QVERIFY(sharedTree);
+        for (QTreeWidgetItemIterator it(sharedTree); *it; ++it)
+        {
+            QVERIFY((*it)->data(0, Qt::UserRole).toString() != "native.hex-encoder");
+        }
+        QVERIFY(
+            !sharedTree->findItems("Unavailable: missing.processor", Qt::MatchExactly | Qt::MatchRecursive).isEmpty());
+        QCOMPARE(favorites.ids(), QStringList({"native.hex-encoder", "test.protocol", "missing.processor"}));
+        toggle->setChecked(true);
+        QVERIFY(shared->isVisible());
+        QVERIFY(!rx->isVisible());
+        select(shared, "test.protocol");
+        QVERIFY2(panel.applyDraft(&error), qPrintable(error));
+        QCOMPARE(applied.value("duplex").toMap().value("type").toString(), QString("test.protocol"));
+        QVERIFY(!applied.contains("rx") && !applied.contains("tx"));
+        toggle->setChecked(false);
+        select(rx, "native.gate");
+        QVERIFY2(panel.applyDraft(&error), qPrintable(error));
+        QVERIFY(!applied.contains("duplex"));
+        QCOMPARE(applied.value("rx").toMap().value("type").toString(), QString("native.gate"));
+    }
+
     Q_SLOT void selectionsAndPrivateProperties()
     {
         ProcessorRegistry registry;

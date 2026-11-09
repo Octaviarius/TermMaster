@@ -144,7 +144,7 @@ Schemas are consumed by the existing generated settings forms and `x-widget`
 registry. Numeric settings persist as numbers and booleans as booleans. Unknown
 configuration is preserved. Current development IDs are native.gate and
 native.framer; Identity and the fixed CR-only node are removed without aliases.
-HostedPlugin IID 9 includes the descriptor group field; native modules must be
+HostedPlugin IID 10 includes descriptor port counts and lifecycle output/error handlers; native modules must be
 rebuilt against the generated SDK.
 
 ## Verification

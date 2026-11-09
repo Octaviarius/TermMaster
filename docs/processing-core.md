@@ -7,7 +7,8 @@ execution or control-flow language is delivered in this stage.
 
 The core is independent of terminal widgets and transports. Workspace definitions
 are reusable configuration, while each instantiated pipeline owns separate stream
-state. Rx and Tx consumers must instantiate separate pipelines. The [workspace Lineflow editor](lineflow-editor.md) edits reusable definitions
+state. Independent Rx/Tx selections instantiate separate 1x1 pipelines; a shared
+2x2 selection uses one instance for both directions. The [workspace Lineflow editor](lineflow-editor.md) edits reusable definitions
 through the catalog; it does not instantiate processing runtimes.
 
 ```mermaid
@@ -23,7 +24,10 @@ flowchart LR
 
 ## Contract and ownership
 
-`Processor::Chunk` owns a `QByteArray` and a stream-chunk or packet boundary. NUL
+`Processor::Chunk` owns a `QByteArray`, a stream-chunk or packet boundary and a
+zero-based `port` index. Processor input/output counts are immutable for an instance
+and described in catalog metadata without creating a runtime. Native and provider
+processors support 1 to 32 ports on each side; Lineflow supports 1x1 and 2x2. NUL
 bytes remain bytes; an empty packet is an explicit output. Stream chunks do not
 imply complete messages. An accepted invocation can produce zero, one or many
 outputs followed by exactly one completion. A stateful framer completes an input
@@ -32,11 +36,10 @@ consume nothing and do not invoke callbacks. Input acceptance is not delivery to
 a device.
 
 All calls and callbacks run on the processor QObject thread. Workers post through
-context-bound queued connections. A consumer allows only one active invocation;
-Lineflow permits one accepted invocation per stage and preserves each stage's FIFO.
+context-bound queued connections. A consumer allows one active invocation per input port;
+Lineflow permits one accepted invocation per stage input and preserves each input's FIFO.
 An asynchronous child's output can advance through later stages and reach the
-consumer before that child completes. The root completes only after all stages
-and queued work drain. A later error or cancellation suppresses future callbacks;
+consumer before that child completes. Each root invocation completes after its descendant stages and queued work drain. A later error or cancellation suppresses future callbacks;
 already emitted prefixes cannot be rolled back.
 
 The queued pump has a finite event budget and retries a temporarily blocked child
@@ -69,7 +72,7 @@ types, not QObject pointers.
 ## Plugin lifetime
 
 The plugin SDK consists of header-only `Processor`, `ProcessorCatalog`, and the
-existing pure host interfaces. Hosted capability IID version 9 rejects older
+existing pure host interfaces. Hosted capability IID version 10 rejects older
 host layouts before any new SDK field or method can be used. Native plugins link Qt and the SDK, not another
 static Core. `PluginHost::registerProcessorType` uses a manager-assigned owner
 scope during plugin startup. Every type supplies a stable ID, title, version 1
@@ -133,7 +136,7 @@ content:
 ```
 
 Each definition contains `id`, `name`, `kind` and a `source` map. Lineflow source
-contains ordered `nodes`; other providers own their source format. Optional
+contains `channels` (1 or 2, default 1) and ordered `nodes`; other providers own their source format. Optional
 defaults, settings schema, editor metadata and explicit references share the same
 descriptor contract.
 
@@ -244,8 +247,9 @@ private property drafts are described in [terminal processing](terminal-processi
 
 Rx consumes transport chunks before display decoding. UDP receives carry packet
 boundaries, including empty datagrams. On orderly transport closure, already
-received Rx work may finish and display final output. Reconnection recreates both
-processor instances and discards unfinished state from the previous connection.
+received independent Rx work may finish and display final output. A shared duplex
+flow cancels both directions together. Reconnection recreates selected instances
+and discards unfinished state from the previous connection.
 Explicit terminal destruction cancels both directions. Definitions and unavailable
 references remain saved even when preparation fails; connection fails with a
 concrete error instead of silently bypassing processing.
@@ -381,3 +385,71 @@ flowchart LR
     Python[P7: Python runtime] --> Codeflow
     Catalog --> Codeflow
 ```
+
+## Paired Lineflow and unsolicited traffic
+
+In a 2x2 Lineflow, port 0 is Rx and port 1 is Tx. Node order is physical placement
+from device to terminal: Rx follows increasing positions and Tx decreasing positions.
+A 1x1 node has lane `rx` or `tx`; a 2x2 node has lane `duplex` and occupies both
+lanes. For a shared node, input 0/output 0 belong to Rx and input 1/output 1 to Tx.
+Outputs may target either port regardless of the invoking input. One shared node
+instance owns both sides, allowing acknowledgements and protocol state. A nested
+2x2 block is also a shared node; a nested 1x1 block fits either individual lane.
+Other port shapes cannot be inserted into Lineflow. Unsupported placements fail
+validation rather than being silently rewired. Live topology is changed by
+preparing and replacing instances, not by resizing a running node's ports.
+
+An accepted invocation's callbacks remain scoped to its completion. Timer-driven
+traffic after completion uses `setOutputHandler` / protected `publishOutput`, with
+`setErrorHandler` / `publishError` for lifecycle errors. All calls use the owner
+thread. Cancellation clears handlers and stops future publication before its
+quiescence acknowledgement. Registry wrappers validate input/output indices and
+payload bounds; Lineflow applies bounded queues to unsolicited work too. Invalid
+outputs stop processing and report a concrete error. No transport or widget is
+exposed to a processor.
+
+```mermaid
+flowchart TB
+    DR[Device receive] -->|port 0| L[Shared 2x2 Lineflow]
+    L -->|port 0| TS[Terminal screen]
+    TI[Terminal input] -->|port 1| L
+    L -->|port 1| DW[Device write queue]
+```
+
+A shared processor may keep an invocation pending on one input while accepting
+another on its other input, for example waiting for an Rx acknowledgement after a
+Tx command. Lineflow tracks pending calls separately for each child input port.
+Cross-direction paths may revisit shared stages; `Limits.maxSteps` bounds the total
+work in each accepted or unsolicited output lineage, including branches and empty
+chunks. Exceeding the budget cancels the composition instead of circulating forever.
+Independent timer emissions receive independent budgets; lifetime traffic is not
+limited by a cumulative counter.
+
+FLOW-8 synthetic checks additionally exercise cross-port responses, shared stream
+state, Tx waiting for an Rx acknowledgement, concurrent paced Rx and Tx, nested
+shared definitions, direct-preparation parity, general 3x5 native metadata,
+factory/runtime shape mismatch, mutated native counts, invalid ports, cancellation
+during deferred failure and bounded zero-byte cross-direction loops. Terminal
+checks cover queued input during replacement, coalesced ready callbacks, shared
+cancellation exactly once, switching back to independent directions after
+quiescence, binary ingress, property persistence and reconnect. Capture and suite
+acceptance are recorded in [the editor documentation](lineflow-editor.md#flow-8-acceptance).
+
+## Port labels and node orientation
+
+Processor catalog types and saved definitions expose `inputNames` and `outputNames`.
+Names are presentation metadata; connections continue to address stable zero-based
+indices. Empty name lists resolve to bounded defaults. Explicit lists must match
+the port count and contain unique, nonempty single-line names. Native codecs and
+framing/timing nodes provide meaningful labels. Lineflow 2x2 defaults distinguish
+the device and terminal sides. Prepared snapshots and instance wrappers own copies
+of these labels independently of plugin literal storage.
+
+A 2x2 Lineflow node may set `flipped: true` beside `name`, `type`/`reference` and
+`lane`. This swaps both input and output port pairs for that occurrence: outer
+port 0 binds child port 1 and outer port 1 binds child port 0. One shared instance
+and its state are preserved. The same mapping applies to unsolicited output and
+nested blocks. Names and private occurrence override paths remain unchanged.
+Unary nodes cannot enable flipping; malformed flags or incompatible shapes fail
+validation. Changing orientation replaces running terminal instances through the
+existing prepared-configuration path.

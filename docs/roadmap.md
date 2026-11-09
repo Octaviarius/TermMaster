@@ -228,3 +228,15 @@ The earlier unrelated P5/P6 milestones do not block this processing sequence.
 - [x] Verify synthetic timing/lifecycle tests and native 1x/2x rendering.
 
 See [processing nodes](processing-nodes.md) and [terminal processing](terminal-processing.md).
+
+## FLOW-8: Variable processor ports and paired Lineflow
+
+- [x] Add validated processor port metadata and owner-thread asynchronous lifecycle output.
+- [x] Execute 1x1/2x2 Lineflow, nested shared nodes and independent Rx/Tx traversal.
+- [x] Replace the operation tree with a native Qt palette/canvas/properties editor.
+- [x] Support shape-aware drag/drop and movable, resizable, persistent dock panels.
+- [x] Select one shared 2x2 flow per terminal with atomic persistence and cancellation.
+- [x] Verify binary routing, cross-port responses, idle output, bounds and native 1x/2x rendering.
+
+- [x] Name processor ports and display input/output direction at node connectors.
+- [x] Flip a shared node's port pairs with persisted occurrence metadata and runtime parity.

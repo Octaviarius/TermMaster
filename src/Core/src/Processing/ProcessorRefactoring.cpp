@@ -262,7 +262,7 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
             auto settings   = object.value("settings").toMap();
             auto processing = settings.value("processing").toMap();
             bool changed    = false;
-            for (const auto& direction : {"rx", "tx"})
+            for (const auto& direction : {"rx", "tx", "duplex"})
             {
                 auto selection        = processing.value(direction).toMap();
                 bool selectionChanged = false;
