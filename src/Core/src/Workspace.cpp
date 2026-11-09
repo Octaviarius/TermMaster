@@ -193,6 +193,48 @@ bool Workspace::create(const QString& name, QString* error)
     return true;
 }
 
+std::optional<QByteArray> Workspace::prepareProcessorDefinitions(const QVariantMap& values, QString* error) const
+{
+    const auto bytes = _settings->serializedPatch(
+        {
+            {"processorDefinitions", values}
+    },
+        {},
+        error);
+    if (!bytes)
+    {
+        return std::nullopt;
+    }
+    Settings candidate(_file, Settings::Info {"termaster.workspace", "Transaction candidate"});
+    if (!candidate.replaceSerialized(*bytes, error) || !_validate(candidate, _file, error))
+    {
+        return std::nullopt;
+    }
+    return bytes;
+}
+
+bool Workspace::acceptPreparedDocument(const QByteArray& bytes, QString* error, bool dirty)
+{
+    Settings candidate(_file, Settings::Info {"termaster.workspace", "Transaction candidate"});
+    if (!candidate.replaceSerialized(bytes, error) || !_validate(candidate, _file, error)
+        || !_settings->replaceSerialized(bytes, error, dirty))
+    {
+        return false;
+    }
+    _publishProcessors();
+    return true;
+}
+
+bool Workspace::diskUnchanged(QString* error) const
+{
+    return _settings->diskUnchanged(error);
+}
+
+bool Workspace::captureDiskBaseline(QString* error)
+{
+    return _settings->captureDiskBaseline(error);
+}
+
 bool Workspace::sync(QString* error)
 {
     if (error)

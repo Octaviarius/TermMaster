@@ -56,6 +56,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/Processing/ProcessorCatalog.h
     inc/Termaster/Core/Processing/ProcessorRegistry.h
     src/Processing/ProcessorRegistry.cpp
+    inc/Termaster/Core/Processing/ProcessorRefactoring.h
+    src/Processing/ProcessorRefactoring.cpp
     inc/Termaster/Core/Processing/ProcessorBlocks.h
     src/Processing/ProcessorBlocks.cpp
     inc/Termaster/Core/Processing/Lineflow.h
@@ -155,6 +157,15 @@ qt_add_resources(Core "actionIcons"
     PREFIX "/Termaster/Core/Icons"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons"
     FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/plus.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/trash.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/arrow-right.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/chevron-up.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/chevron-down.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/workflow.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/blocks.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/link.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/triangle-exclamation-point.svg"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/app-window.svg"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/keyboard.svg"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/panels-top-left.svg"

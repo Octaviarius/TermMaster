@@ -29,3 +29,13 @@ target_link_libraries(ProcessorCatalogTests PRIVATE
     Qt6::Test
 )
 add_test(NAME ProcessorCatalogTests COMMAND ProcessorCatalogTests)
+
+qt_add_executable(ProcessorRefactoringTests
+    ProcessorRefactoringTests.cpp
+)
+
+target_link_libraries(ProcessorRefactoringTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME ProcessorRefactoringTests COMMAND ProcessorRefactoringTests)

@@ -1,9 +1,11 @@
 #pragma once
 
+#include <QByteArray>
 #include <QString>
 #include <QStringList>
 #include <QVariant>
 #include <memory>
+#include <optional>
 
 class Path;
 
@@ -70,6 +72,17 @@ public:
 
     /** Applies an all-or-nothing patch of relative paths to the cached document. */
     bool applyValues(QVariantMap values, QStringList removed, QString* error = nullptr);
+
+    /** Serializes a validated patch without file I/O or cache mutation; preserves envelope metadata. */
+    std::optional<QByteArray> serializedPatch(QVariantMap values, QStringList removed, QString* error = nullptr) const;
+    /** Validates and adopts serialized content without I/O, retaining borrowed Nodes.
+     * Normally marks clean; dirty=true restores a transaction's pending cache snapshot.
+     */
+    bool replaceSerialized(const QByteArray& bytes, QString* error = nullptr, bool dirty = false);
+    /** Checks exact disk content against the last load, write or clean adoption. No mutation. */
+    bool diskUnchanged(QString* error = nullptr) const;
+    /** Explicit I/O: refreshes only the disk baseline after transaction rollback. */
+    bool captureDiskBaseline(QString* error = nullptr);
 
 private:
     struct Data;
