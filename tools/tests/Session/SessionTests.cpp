@@ -2,7 +2,6 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
-#include <Termaster/Core/Processing/Lineflow.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/Session.h>
@@ -20,22 +19,26 @@ private slots:
         Workspace     workspace(Path(temporary.filePath("workspace.yaml")), base.node(""));
         QVERIFY(workspace.create("Shared blocks"));
         const QVariantMap leaf {
-            {   "id",                                        "leaf-block"                     },
-            { "name",                                                                   "Leaf"},
-            {"nodes",
+            {    "id",                                                      "leaf-block"                      },
+            {  "name",                                                                                  "Leaf"},
+            {  "kind",                                                                              "lineflow"},
+            {"source",
+             QVariantMap {{"nodes",
              QVariantList {QVariantMap {{"name", "leaf"},
              {"type", "native.identity"},
-             {"configuration", QVariantMap {{"label", "shared"}}}}}                           }
+             {"configuration", QVariantMap {{"label", "shared"}}}}}}}                                         }
         };
         const QVariantMap root {
-            {   "id",                                                                   "pipeline"},
-            { "name",                                                                   "Pipeline"},
-            {"nodes", QVariantList {QVariantMap {{"name", "branch"}, {"reference", "leaf-block"}}}}
+            {    "id",                                                            "pipeline"                      },
+            {  "name",                                                                                  "Pipeline"},
+            {  "kind",                                                                                  "lineflow"},
+            {"source",
+             QVariantMap {{"nodes", QVariantList {QVariantMap {{"name", "branch"}, {"reference", "leaf-block"}}}}}}
         };
-        QVERIFY(workspace.setProcessorBlock("leaf-block", leaf));
-        QVERIFY(workspace.setProcessorBlock("pipeline", root));
+        QVERIFY(workspace.setProcessorDefinition("leaf-block", leaf));
+        QVERIFY(workspace.setProcessorDefinition("pipeline", root));
         QVERIFY(workspace.sync());
-        const auto shared = workspace.processorBlocks().values();
+        const auto shared = workspace.processorDefinitions().values();
         Session    session(Path(temporary.filePath("session")), workspace.settings());
         QVERIFY(session.create("private-settings", "Private processor settings"));
         const QVariantMap firstOverrides {
@@ -46,13 +49,13 @@ private slots:
         };
         const auto terminal = [](const QVariantMap& overrides) {
             return QVariantMap {
-                {    "type",                                              "terminal"                            },
-                {  "module",                                                             "unknown.future.module"},
+                {    "type",                                             "terminal"                            },
+                {  "module",                                                            "unknown.future.module"},
                 {"settings",
                  QVariantMap {
                  {"processing",
-                 QVariantMap {{"rx", QVariantMap {{"block", "pipeline"}, {"overrides", overrides}}},
-                 {"tx", QVariantMap {{"block", "pipeline"}, {"overrides", QVariantMap {}}}}}}}                  }
+                 QVariantMap {{"rx", QVariantMap {{"type", "pipeline"}, {"overrides", overrides}}},
+                 {"tx", QVariantMap {{"type", "pipeline"}, {"overrides", QVariantMap {}}}}}}}                  }
             };
         };
         // Write the whole map: occurrence paths contain '/' and are not Settings paths.
@@ -75,18 +78,21 @@ private slots:
         ProcessorRegistry registry;
         QString           error;
         registerNativeProcessors(registry, "native");
-        const auto prepared = Lineflow::prepare(shared, "pipeline", registry, {}, &error);
+        const auto definitions = ProcessorRegistry::parseDefinitions(shared, &error);
+        QVERIFY2(definitions, qPrintable(error));
+        QVERIFY2(registry.publishDefinitions("workspace", *definitions, &error), qPrintable(error));
+        auto prepared = registry.prepare("pipeline", {}, Processor::Limits {}, &error);
         QVERIFY2(prepared, qPrintable(error));
-        auto first  = prepared->instantiate(registry, firstRx.value("overrides").toMap(), &error);
-        auto second = prepared->instantiate(registry, secondRx.value("overrides").toMap(), &error);
+        auto first  = prepared->instantiate(firstRx.value("overrides").toMap(), &error);
+        auto second = prepared->instantiate(secondRx.value("overrides").toMap(), &error);
         QVERIFY2(first, qPrintable(error));
         QVERIFY2(second, qPrintable(error));
         QCOMPARE(first->configuration().value("overrides").toMap(), firstOverrides);
         QCOMPARE(second->configuration().value("overrides").toMap(), secondOverrides);
-        QCOMPARE(workspace.processorBlocks().values(), shared);
-        QCOMPARE(prepared->configuration().value("blocks").toMap(), shared);
+        QCOMPARE(workspace.processorDefinitions().values(), shared);
         first.reset();
         second.reset();
+        prepared.reset();
         QTRY_VERIFY(registry.canRemoveOwner("native"));
     }
 

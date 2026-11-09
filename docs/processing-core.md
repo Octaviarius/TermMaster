@@ -12,8 +12,8 @@ editor remains a standalone interaction prototype and is not connected to this c
 
 ```mermaid
 flowchart LR
-    W[Workspace processorBlocks] --> P[Validated immutable preparation]
-    R[Host processor registry] --> P
+    W[Workspace processorDefinitions] --> R[Host processor registry]
+    R --> P[Validated immutable preparation]
     P --> RX[Independent Lineflow instance]
     P --> TX[Independent Lineflow instance]
     RX --> N[Native Processor instances]
@@ -60,7 +60,7 @@ types, not QObject pointers.
 ## Plugin lifetime
 
 The plugin SDK consists of header-only `Processor`, `ProcessorCatalog`, and the
-existing pure host interfaces. Hosted capability IID version 7 rejects older
+existing pure host interfaces. Hosted capability IID version 8 rejects older
 host layouts before any new SDK field or method can be used. Native plugins link Qt and the SDK, not another
 static Core. `PluginHost::registerProcessorType` uses a manager-assigned owner
 scope during plugin startup. Every type supplies a stable ID, title, version 1
@@ -98,40 +98,52 @@ sequenceDiagram
 
 ## Workspace definitions and preparation
 
-Workspace content contains an optional `processorBlocks` map. Keys are stable
-IDs, independent of mutable names. A block contains matching `id`, `name` and
-ordered `nodes`. Each node has a unique `name` within its block; that name is its identity, and contains
-either a native `type` with a `configuration` map or a `reference` to another block. References reuse definitions, never live
-instances. Reference configuration overrides are rejected during preparation.
-Unknown block and node metadata is retained by the settings owner.
+Workspace content contains an optional `processorDefinitions` map. Keys are stable
+IDs independent of mutable names. Each definition contains matching `id`, `name`,
+`kind` and a `source` map. Lineflow source contains ordered `nodes`; other providers
+own their source format. Optional defaults, settings schema, editor metadata and
+explicit references share the same descriptor contract. Unknown metadata remains
+owned by the settings document.
 
 ```yaml
-processorBlocks:
+processorDefinitions:
   receive-lines:
     id: receive-lines
     name: Receive lines
-    nodes:
-      - name: frame
-        type: native.cr-framer
-        configuration: {}
+    kind: lineflow
+    source:
+      nodes:
+        - name: frame
+          type: native.cr-framer
+          configuration: {}
   receive:
     id: receive
     name: Receive processing
-    nodes:
-      - name: framing
-        reference: receive-lines
-      - name: output
-        type: native.identity
-        configuration: {}
+    kind: lineflow
+    source:
+      nodes:
+        - name: framing
+          reference: receive-lines
+        - name: output
+          type: native.identity
+          configuration: {}
 ```
 
-Workspace load/sync checks structural limits, IDs, reference existence and cycles.
-Unavailable native types remain valid persisted definitions, so a workspace opens
-without a missing plugin. `Lineflow::prepare` checks the selected graph, value
-bounds, expansion depth/instance limits, registered types and settings schemas,
-then snapshots definitions and configurations. Instantiation creates fresh
-processors and revalidates against the currently registered factories. A prepared
-snapshot does not pin plugin libraries or bypass later schema validation.
+Each node has a unique `name` within its composition; the name is its identity.
+Node type/reference IDs resolve through the unified catalog, so compositions can
+include elementary, Lineflow or provider-defined processors. Definitions reuse
+configuration rather than live instances. Missing dependencies and unavailable
+providers preserve saved definitions and expose a reason for execution being
+unavailable. Known dependency cycles and malformed structures are rejected.
+
+Workspace load/sync validates saved definitions. App preflights catalog publication
+and publishes changes; persistence never starts a processor. Terminal selection
+uses `type: <catalog ID>` for every origin. Preparation captures immutable
+configuration and executable provider leases. Independent instances are created
+only when requested. Updating/removing a definition changes future preparation;
+already prepared or running instances remain valid until explicitly replaced.
+The lower-level standalone Lineflow preparation API remains available for explicit
+in-memory composition fixtures.
 
 ## Defaults and private terminal overrides
 
@@ -148,7 +160,7 @@ reference-node names and the leaf-node name with `/`; they do not use positional
 or processor type IDs. Reordering a node preserves its address. Renaming changes identity: old override
 paths are rejected, and a future editor must update affected references atomically. Two references
 to the same definition have separate paths and independent live instances.
-`Prepared::instantiate(registry, overrides, error)` validates exact addresses and
+`ProcessorRegistry::Prepared::instantiate(overrides, error)` validates exact addresses and
 creates a fresh runtime. The prepared common configuration remains immutable.
 
 Terminal-specific settings persist in the session object's existing settings map:
@@ -161,12 +173,12 @@ objects:
     settings:
       processing:
         rx:
-          block: receive
+          type: receive
           overrides:
             framing/frame:
               futureFramerOption: true
         tx:
-          block: receive
+          type: receive
           overrides: {}
 ```
 
@@ -219,8 +231,8 @@ All changed C++ files were clang-formatted; local documentation file links and
 
 The App-owned ProcessingRouter connects each terminal's independent Rx and Tx
 instances to the existing display and transport output queue. Settings under
-`processing/rx` and `processing/tx` select either `block: <workspace block id>` or
-`type: <registered type id>`. Elementary selections accept `configuration` and
+`processing/rx` and `processing/tx` select `type: <catalog ID>` for any
+registered native, Lineflow or provider-defined processor. Elementary selections accept `configuration` and
 `overrides` maps; block overrides retain the occurrence-path format above. An
 absent or empty selection uses direct pass-through. Selection editors remain a
 later milestone; selections can currently be stored in terminal settings.
@@ -287,36 +299,62 @@ network endpoint or elevation was used for the new acceptance. No visual layout
 was changed. Changed C++ files were clang-formatted; local documentation links
 and `git diff --check` passed.
 
-## Planned unified catalog
+## Unified catalog
 
-The registration contract covers elementary native processors and reusable
-composite definitions alike. Saving a validated Python processor or Lineflow block
-publishes an entry into the same catalog used by Rx/Tx selectors and composition
-editors. Opening a workspace restores its saved entries. A dedicated processor
-plugin is not required: any plugin can provide types, while workspace and code
-editors provide saved definitions.
+The registry presents elementary factories and saved composite definitions through
+the same metadata and preparation API. Creating or editing a saved definition
+publishes a complete owner batch atomically. Opening a workspace restores its
+entries; closing or switching workspace removes that owner's published definitions.
+Catalog notifications let future selectors and editors refresh without polling.
+A dedicated processor plugin is not required.
 
-Each entry exposes a stable identifier, display name, defaults, configuration
-schema, editor metadata and an instance factory. Origin and composition kind are
-metadata; callers instantiate the common Processor contract without switching on
-native, Lineflow or Codeflow kinds. Registration publishes a definition and does
-not execute user code or start a processor. Each use creates independent runtime
-state with its own resolved configuration and lifecycle.
+Each entry has an ID, display name, kind, defaults, settings schema and editor
+metadata. Provider-defined source and explicit dependencies support future Python
+and Codeflow editors through the same publication path. Providers validate source
+and prepare an instance factory; user code executes only in the resulting runtime.
+No Python interpreter or production code editor is introduced by this milestone.
+Providers use `PluginHost::registerProcessorProvider` during startup. Their source
+validator must not execute the authored program. Preparation may compile or parse
+source and receives prepared factories for declared catalog references; it must
+return a factory that honors the final resolved configuration. Reference factories
+create independent instances and retain their own provider leases.
 
-Nested compositions resolve catalog references with cycle checks. Definition
-updates notify consumers but do not mutate running instances; application uses
-explicit preparation and safe runtime replacement. Removing a definition or
-closing its provider preserves references as unavailable and respects active
-instance leases and cancellation. Invalid editor drafts are not published.
+Saved code definitions without an installed provider remain visible and unavailable.
 
-This unified publication and notification contract is planned work. The delivered
-native type registry and workspace block storage are still separate APIs.
+Provider removal immediately makes affected definitions unavailable in the catalog.
+Previously prepared factories and running instances remain pinned and usable;
+module removal remains blocked until their leases drain. Native type removal still
+refuses removal while prepared or live instances exist. Invalid provider exceptions
+are reported as validation/preparation failures. Cancellation that discards its
+acknowledgement retains a sentinel lease, so leaked native work cannot silently
+permit module unloading.
+
+Only the registry selects the implementation during preparation. Consumers never
+switch on composition kind. Registration/publication does not construct a live
+processing chain. Missing references, provider removal and reinstallation update
+availability; active preparation/runtime leases guard native provider lifetimes.
+Definition updates use fresh immutable snapshots rather than mutating active state.
+
+Unified catalog verification on 2026-11-09 used Qt 6.12.0 / MSVC x64 Debug.
+The full application and bundled plugins built; all 36 configured CTest executables
+passed (60.39 s). Catalog tests cover atomic publication, cross-kind cycles,
+shared-graph depth/availability bounds, unavailable/late providers, source validation,
+defaults and composite private schema constraints, independent instances, immutable
+updates/removal, provider exceptions and discarded cancellation acknowledgement.
+A real DLL fixture verifies provider registration, prepared/runtime module leases,
+old source snapshots after update/removal and unloading after quiescence. Workspace,
+session and App tests cover automatic publication, persistence, notifications,
+workspace switching and collision rejection without losing the active session.
+The independent SDK consumer was rebuilt from a clean external build and its
+explicit acceptance reported three passes without skips. Changed C++ files were
+clang-formatted; local documentation links and `git diff --check` passed.
+No visual layout changed. Python execution and production editing remain future work.
 
 ## Follow-up delivery order
 
 The single implementation checklist is in [the roadmap](roadmap.md#flow-3-unified-processor-registration).
-The next steps are unified registration, terminal lifecycle/routing, workspace
-editing, compact terminal selectors/private properties and Codeflow.
+The remaining steps are workspace editing, compact terminal selectors/private
+properties and Codeflow.
 Routing requires an explicit receive backpressure and outgoing-kind contract;
 the current core alone does not establish transport integration.
 

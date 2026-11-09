@@ -38,6 +38,18 @@ QVariant ownedValue(const QVariant& value)
 }
 } // namespace
 
+std::unique_ptr<Lineflow> Lineflow::compose(std::vector<std::shared_ptr<Processor>> nodes,
+                                            QVariantMap                             configuration,
+                                            Limits                                  limits)
+{
+    Prepared prepared;
+    prepared._configuration = std::move(configuration);
+    prepared._limits        = limits;
+    auto result             = std::unique_ptr<Lineflow>(new Lineflow(prepared));
+    result->_nodes          = std::move(nodes);
+    return result;
+}
+
 QVariantMap Lineflow::Prepared::configuration() const
 {
     return _configuration;

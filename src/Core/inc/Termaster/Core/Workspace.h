@@ -1,32 +1,38 @@
 #pragma once
 
+#include <QObject>
 #include <QStringList>
 #include <Termaster/Core/Path.h>
 #include <Termaster/Core/SettingsOverlay.h>
+#include <functional>
 #include <memory>
 
 /** Owns one workspace YAML file. Views borrow this owner and use its thread. */
-class Workspace
+class Workspace : public QObject
 {
+    Q_OBJECT
 public:
     explicit Workspace(Path file, Settings::Node baseSettings);
     Workspace(Path file, SettingsOverlay baseSettings);
     ~Workspace();
     Q_DISABLE_COPY_MOVE(Workspace)
 
-    bool                load(QString* error = nullptr);
-    bool                create(const QString& name, QString* error = nullptr);
-    bool                sync(QString* error = nullptr);
-    Path                filePath() const;
-    QString             name() const;
-    bool                setName(const QString& name, QString* error = nullptr);
-    bool                isDirty() const;
-    SettingsOverlay     settings();
-    Settings::Node      sessions();
-    Settings::Node      state();
-    Settings::Node      processorBlocks();
-    bool                setProcessorBlock(const QString& id, const QVariantMap& definition, QString* error = nullptr);
-    bool                removeProcessorBlock(const QString& id, QString* error = nullptr);
+    bool            load(QString* error = nullptr);
+    bool            create(const QString& name, QString* error = nullptr);
+    bool            sync(QString* error = nullptr);
+    Path            filePath() const;
+    QString         name() const;
+    bool            setName(const QString& name, QString* error = nullptr);
+    bool            isDirty() const;
+    SettingsOverlay settings();
+    Settings::Node  sessions();
+    Settings::Node  state();
+    Settings::Node  processorDefinitions();
+    bool            setProcessorDefinition(const QString& id, const QVariantMap& definition, QString* error = nullptr);
+    bool            removeProcessorDefinition(const QString& id, QString* error = nullptr);
+    /** Pure validator borrowed from the application; must not mutate this workspace. */
+    void                setProcessorValidator(std::function<bool(const QVariantMap&, QString*)> validator);
+    Q_SIGNAL void       processorsChanged();
     Path                sessionsDirectory() const;
     QStringList         sessionIds() const;
     std::optional<Path> sessionDirectory(const QString& id, QString* error = nullptr) const;
@@ -40,9 +46,13 @@ public:
     std::optional<Path> scriptDirectory() const;
 
 private:
-    Path                      _file;
-    SettingsOverlay           _baseSettings;
-    std::unique_ptr<Settings> _settings;
-    static bool               _validate(const Settings& settings, const Path& file, QString* error);
-    std::optional<Path>       _directory(const QString& key) const;
+    Path                                              _file;
+    SettingsOverlay                                   _baseSettings;
+    std::unique_ptr<Settings>                         _settings;
+    QVariantMap                                       _publishedProcessors;
+    bool                                              _processorsPublished = false;
+    std::function<bool(const QVariantMap&, QString*)> _processorValidator;
+    bool                _validate(const Settings& settings, const Path& file, QString* error) const;
+    void                _publishProcessors();
+    std::optional<Path> _directory(const QString& key) const;
 };

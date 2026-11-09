@@ -20,3 +20,12 @@ target_link_libraries(ProcessorDefaultsTests PRIVATE
     Qt6::Test
 )
 add_test(NAME ProcessorDefaultsTests COMMAND ProcessorDefaultsTests)
+
+qt_add_executable(ProcessorCatalogTests
+    ProcessorCatalogTests.cpp
+)
+target_link_libraries(ProcessorCatalogTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME ProcessorCatalogTests COMMAND ProcessorCatalogTests)

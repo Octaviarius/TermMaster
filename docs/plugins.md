@@ -373,7 +373,7 @@ HostedPlugin ABI version 6 adds `SerialDevice::atomicWrites()`. The default stre
 capability permits partial writes and byte/line pacing; UDP reports atomic writes
 so the shared output queue preserves datagram boundaries and rejects byte pacing.
 Rebuild every hosted plugin against this SDK. Interface IID
-`org.octaviarius.Termaster.HostedPlugin/7.0` rejects older hosted binary interfaces.
+`org.octaviarius.Termaster.HostedPlugin/8.0` rejects older hosted binary interfaces.
 
 ## Native processor registrations
 
@@ -385,3 +385,13 @@ instances or cancellation retain a module lease. The manager removes remaining
 factories after shutdown and before unloading native code. See the
 [processing core](processing-core.md) for the asynchronous byte contract and
 verification fixture.
+
+## Unified processor providers
+
+HostedPlugin ABI version 8 extends catalog metadata and exposes composition
+providers through the same owner-scoped processing SDK. Providers validate saved
+source and prepare independent Processor factories. Workspace definitions and
+native types share the catalog, defaults, schemas and editor metadata. Prepared
+snapshots and running instances retain provider leases; publishing or removing a
+saved definition does not mutate active instances. Rebuild hosted plugins against
+the current SDK. No Python interpreter is supplied by this interface alone.

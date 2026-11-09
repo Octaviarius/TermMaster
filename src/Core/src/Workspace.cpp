@@ -2,7 +2,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
-#include <Termaster/Core/Processing/ProcessorBlocks.h>
+#include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/Workspace.h>
 #include <utility>
 
@@ -106,7 +106,7 @@ Workspace::Workspace(Path file, Settings::Node baseSettings) :
 }
 
 Workspace::Workspace(Path file, SettingsOverlay baseSettings) :
-    _file(file.absolute()), _baseSettings(std::move(baseSettings)), _settings(document(_file))
+    QObject(nullptr), _file(file.absolute()), _baseSettings(std::move(baseSettings)), _settings(document(_file))
 {
 }
 
@@ -136,6 +136,7 @@ bool Workspace::load(QString* error)
 
     _file     = *canonical;
     _settings = std::move(candidate);
+    _publishProcessors();
     return true;
 }
 
@@ -169,6 +170,11 @@ bool Workspace::create(const QString& name, QString* error)
         return false;
     }
 
+    if (!_validate(*candidate, file, error))
+    {
+        return false;
+    }
+
     QFile reservation(file.toString());
     if (!reservation.open(QIODevice::WriteOnly | QIODevice::NewOnly))
     {
@@ -183,6 +189,7 @@ bool Workspace::create(const QString& name, QString* error)
 
     _file     = file;
     _settings = std::move(candidate);
+    _publishProcessors();
     return true;
 }
 
@@ -192,7 +199,12 @@ bool Workspace::sync(QString* error)
     {
         error->clear();
     }
-    return _validate(*_settings, _file, error) && _settings->sync(error);
+    if (!_validate(*_settings, _file, error) || !_settings->sync(error))
+    {
+        return false;
+    }
+    _publishProcessors();
+    return true;
 }
 
 Path Workspace::filePath() const
@@ -234,30 +246,61 @@ Settings::Node Workspace::state()
     return _settings->node("state");
 }
 
-Settings::Node Workspace::processorBlocks()
+Settings::Node Workspace::processorDefinitions()
 {
-    return _settings->node("processorBlocks");
+    return _settings->node("processorDefinitions");
 }
 
-bool Workspace::setProcessorBlock(const QString& id, const QVariantMap& definition, QString* error)
+bool Workspace::setProcessorDefinition(const QString& id, const QVariantMap& definition, QString* error)
 {
-    auto blocks = _settings->value("processorBlocks").toMap();
-    blocks.insert(id, definition);
-    return ProcessorBlocks::validate(blocks, error) && _settings->setValue("processorBlocks", blocks, error);
+    auto definitions = _settings->value("processorDefinitions").toMap();
+    definitions.insert(id, definition);
+    if (!ProcessorRegistry::parseDefinitions(definitions, error)
+        || (_processorValidator && !_processorValidator(definitions, error))
+        || !_settings->setValue("processorDefinitions", definitions, error))
+    {
+        return false;
+    }
+    _publishProcessors();
+    return true;
 }
 
-bool Workspace::removeProcessorBlock(const QString& id, QString* error)
+bool Workspace::removeProcessorDefinition(const QString& id, QString* error)
 {
     if (error)
     {
         error->clear();
     }
-    auto blocks = _settings->value("processorBlocks").toMap();
-    if (!blocks.remove(id))
+    auto definitions = _settings->value("processorDefinitions").toMap();
+    if (!definitions.remove(id))
     {
-        return fail(error, "Processor block is not registered: " + id);
+        return fail(error, "Processor definition is not registered: " + id);
     }
-    return ProcessorBlocks::validate(blocks, error) && _settings->setValue("processorBlocks", blocks, error);
+    if (!ProcessorRegistry::parseDefinitions(definitions, error)
+        || (_processorValidator && !_processorValidator(definitions, error))
+        || !_settings->setValue("processorDefinitions", definitions, error))
+    {
+        return false;
+    }
+    _publishProcessors();
+    return true;
+}
+
+void Workspace::setProcessorValidator(std::function<bool(const QVariantMap&, QString*)> validator)
+{
+    _processorValidator = std::move(validator);
+}
+
+void Workspace::_publishProcessors()
+{
+    const auto definitions = _settings->value("processorDefinitions").toMap();
+    if (_processorsPublished && definitions == _publishedProcessors)
+    {
+        return;
+    }
+    _publishedProcessors = definitions;
+    _processorsPublished = true;
+    emit processorsChanged();
 }
 
 Path Workspace::sessionsDirectory() const
@@ -401,7 +444,7 @@ std::optional<Path> Workspace::scriptDirectory() const
     return _directory("scripts");
 }
 
-bool Workspace::_validate(const Settings& settings, const Path& file, QString* error)
+bool Workspace::_validate(const Settings& settings, const Path& file, QString* error) const
 {
     const auto name = settings.value("name");
     if (name.typeId() != QMetaType::QString)
@@ -419,17 +462,21 @@ bool Workspace::_validate(const Settings& settings, const Path& file, QString* e
             return fail(error, QString("Workspace %1 must be a mapping").arg(key));
         }
     }
-    if (settings.contains("processorBlocks"))
+    if (settings.contains("processorDefinitions"))
     {
-        const auto blocks = settings.value("processorBlocks");
+        const auto blocks = settings.value("processorDefinitions");
         if (blocks.typeId() != QMetaType::QVariantMap)
         {
-            return fail(error, "Workspace processorBlocks must be a mapping");
+            return fail(error, "Workspace processorDefinitions must be a mapping");
         }
-        if (!ProcessorBlocks::validate(blocks.toMap(), error))
+        if (!ProcessorRegistry::parseDefinitions(blocks.toMap(), error))
         {
             return false;
         }
+    }
+    if (_processorValidator && !_processorValidator(settings.value("processorDefinitions").toMap(), error))
+    {
+        return false;
     }
     const auto entries = settings.value("sessions").toMap();
     for (auto entry = entries.cbegin(); entry != entries.cend(); ++entry)

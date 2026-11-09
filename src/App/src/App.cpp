@@ -33,6 +33,7 @@
 #include <Termaster/Core/Gui/Plugin/PluginManagerGui.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
+#include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
@@ -331,6 +332,10 @@ bool App::restoreLastWorkspace(QString* error)
         {
             return false;
         }
+        if (!_prepareWorkspaceProcessors(*candidate, error))
+        {
+            return false;
+        }
         if (_data->workspace && !saveWorkspace(error))
         {
             return false;
@@ -342,6 +347,7 @@ bool App::restoreLastWorkspace(QString* error)
         _data->session.reset();
         _closeSettings(SettingsContext::Workspace);
         _data->workspace = std::move(candidate);
+        _bindWorkspaceProcessors();
         _updateWorkspace();
         if (hadSession)
         {
@@ -423,6 +429,10 @@ bool App::closeWorkspace(QString* error)
     _closeSettings(SettingsContext::Terminal);
     _data->session.reset();
     _closeSettings(SettingsContext::Workspace);
+    if (!_data->plugins.processors().publishDefinitions("workspace", {}, error))
+    {
+        return false;
+    }
     _data->workspace.reset();
     _updateWorkspace();
     if (hadSession)
@@ -855,6 +865,11 @@ bool App::_rememberWorkspace(const Path& file, QString* error)
 
 bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* error)
 {
+    if (!_prepareWorkspaceProcessors(*candidate, error))
+    {
+        return false;
+    }
+
     if (_data->workspace && !saveWorkspace(error))
     {
         return false;
@@ -870,6 +885,7 @@ bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* erro
     _data->session.reset();
     _closeSettings(SettingsContext::Workspace);
     _data->workspace = std::move(candidate);
+    _bindWorkspaceProcessors();
     _updateWorkspace();
     if (hadSession)
     {
@@ -886,6 +902,35 @@ bool App::_saveChanges(QString* error)
         return false;
     }
     return !_data->settings.isDirty() || _data->settings.sync(error);
+}
+
+bool App::_prepareWorkspaceProcessors(Workspace& workspace, QString* error)
+{
+    const auto validate = [this](const QVariantMap& values, QString* error) {
+        const auto definitions = ProcessorRegistry::parseDefinitions(values, error);
+        return definitions && _data->plugins.processors().validatePublication("workspace", *definitions, error);
+    };
+    if (!validate(workspace.processorDefinitions().values(), error))
+    {
+        return false;
+    }
+    workspace.setProcessorValidator(validate);
+    return true;
+}
+
+void App::_bindWorkspaceProcessors()
+{
+    const auto publish = [this] {
+        QString    error;
+        const auto definitions = ProcessorRegistry::parseDefinitions(_data->workspace->processorDefinitions().values(),
+                                                                     &error);
+        if (!definitions || !_data->plugins.processors().publishDefinitions("workspace", *definitions, &error))
+        {
+            _data->window->statusBar()->showMessage(tr("Cannot publish workspace processors: %1").arg(error));
+        }
+    };
+    connect(_data->workspace.get(), &Workspace::processorsChanged, this, publish);
+    publish();
 }
 
 void App::_updateWorkspace()
