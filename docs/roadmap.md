@@ -1,0 +1,65 @@
+# Development roadmap
+
+This is the single milestone checklist for pending work. Priority applies to the
+requirements collected in [terminal UI requirements](terminal-ui-requirements.md)
+and [process terminal planning](process-terminal.md), not an audit of the entire
+application. Implementation remains deferred until an explicit start instruction.
+Items within each stage are ordered; later stages depend on relevant earlier work.
+
+## P1: Consistent terminal controls
+
+- [ ] Unify terminal toolbar control layout/order across backends and remove Close.
+- [ ] Add terminal tab context menus; settle their action list during design.
+- [ ] Remove the redundant information strip above the terminal display.
+
+These small changes address accidental closure and visual clutter first.
+Preserve backend capability/state checks and verify the affected GUI.
+
+## P2: Essential command input
+
+- [ ] Provide an editor and buffered send-on-submit mode, distinct from local echo.
+- [ ] Add byte-safe terminators: LF, CRLF, CR, NUL, none and custom sequences.
+- [ ] Add paste policy and confirmation for multiline sending.
+- [ ] Add command history with Up/Down navigation and search.
+- [ ] Add HEX input with validation before sending.
+
+Establish one submission path that handles partial writes, backpressure and
+outgoing conversion without duplicating terminators. Verify exact bytes with
+synthetic transports, including embedded NUL. Keep existing interactive input
+available for shells.
+
+## P3: Settings presentation
+
+- [ ] Match reset button height to its adjacent control.
+- [ ] Show synchronized color codes and color samples in shared x-widget editors.
+- [ ] Style the settings window after the supplied Qt Creator reference, add
+      navigation icons and retain the hierarchical tree and search.
+
+These changes can be implemented independently of command submission. Verify
+alignment and rendering at supported display scales before marking them complete.
+
+## P4: Advanced sending
+
+- [ ] Add named favorite commands with per-command terminators.
+- [ ] Add bounded, cancellable sending with character/line delays.
+- [ ] Add file sending as raw bytes or line by line, using the same send pipeline.
+- [ ] Add explicit disconnected-send policy: reject or retain a bounded queue.
+- [ ] Add periodic sending with an active indicator and a stop command.
+
+Share ordering, cancellation and queue ownership with the P2 submission path.
+Design reconnect/replay behavior explicitly before combining queues and timers.
+
+## P5: Process terminal
+
+- [ ] Implement a separate plugin for launching processes through stdio pipes.
+- [ ] Separate process lifetime from its view; support reattachment to retained
+      Termaster-owned endpoints and distinguish detach from terminate.
+- [ ] Add an asynchronous process picker with filtering and process identity checks.
+- [ ] Investigate attachment options for existing external processes and document
+      the supported scope before exposing each method.
+- [ ] Research native-agent/API-hook attachment on controlled fixtures, including
+      output observation, input, asynchronous I/O and safe detach.
+
+Ordinary process pipes come before invasive attachment research. Hooking remains
+experimental and must not delay the usable launch mode. Detailed lifecycle,
+platform limitations and verification boundaries are in the process planning doc.
