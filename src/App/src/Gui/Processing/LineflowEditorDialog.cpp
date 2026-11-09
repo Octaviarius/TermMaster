@@ -5,42 +5,47 @@
 #include <QCryptographicHash>
 #include <QDialogButtonBox>
 #include <QDrag>
+#include <QEvent>
 #include <QFormLayout>
 #include <QGuiApplication>
+#include <QHeaderView>
 #include <QInputDialog>
 #include <QItemSelectionModel>
 #include <QJsonDocument>
 #include <QLabel>
 #include <QLineEdit>
-#include <QListWidget>
 #include <QMimeData>
 #include <QPushButton>
 #include <QScreen>
 #include <QSignalBlocker>
 #include <QSplitter>
+#include <QTimer>
 #include <QToolBar>
 #include <QTreeView>
+#include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
+#include <algorithm>
 #include <exception>
 
 namespace
 {
-class CatalogList final : public QListWidget
+class CatalogList final : public QTreeWidget
 {
 public:
-    using QListWidget::QListWidget;
+    using QTreeWidget::QTreeWidget;
 
 protected:
     void startDrag(Qt::DropActions) override
     {
-        if (!currentItem())
+        if (!currentItem() || currentItem()->data(0, Qt::UserRole).toString().isEmpty())
         {
             return;
         }
         auto* mime = new QMimeData;
-        mime->setData("application/x-termaster-processor", currentItem()->data(Qt::UserRole).toString().toUtf8());
+        mime->setData("application/x-termaster-processor", currentItem()->data(0, Qt::UserRole).toString().toUtf8());
         auto* drag = new QDrag(this);
         drag->setMimeData(mime);
         drag->exec(Qt::CopyAction);
@@ -78,6 +83,23 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     _blocks->setObjectName("blockSelector");
     _blocks->setMinimumContentsLength(28);
     blockBar->addWidget(_blocks);
+    blockBar->addWidget(new QLabel(tr("Group:"), this));
+    _groups = new QComboBox(this);
+    _groups->setObjectName("blockGroup");
+    _groups->setEditable(true);
+    _groups->setMinimumContentsLength(14);
+    _groups->lineEdit()->setMaxLength(128);
+    _groups->lineEdit()->setPlaceholderText(tr("General"));
+    blockBar->addWidget(_groups);
+    connect(_groups->lineEdit(), &QLineEdit::editingFinished, this, [this] {
+        if (_updating)
+        {
+            return;
+        }
+        QString error;
+        _model->setBlockGroup(_model->selectedBlock(), _groups->currentText(), &error);
+        _message(error);
+    });
     auto* addBlock    = tool(blockBar, "plus", tr("Create block"), "addBlock");
     auto* duplicate   = tool(blockBar, "copy", tr("Duplicate block"), "duplicateBlock");
     auto* rename      = tool(blockBar, "sliders-horizontal", tr("Rename block"), "renameBlock");
@@ -107,7 +129,21 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     _tree->setDefaultDropAction(Qt::MoveAction);
     _tree->setSelectionBehavior(QAbstractItemView::SelectRows);
     _tree->setSelectionMode(QAbstractItemView::SingleSelection);
-    _tree->setColumnWidth(0, 200);
+    _tree->setTextElideMode(Qt::ElideMiddle);
+    _tree->viewport()->installEventFilter(this);
+    connect(_model, &QAbstractItemModel::columnsAboutToBeInserted, this, [this] { _restoringColumns = true; });
+    connect(_model, &QAbstractItemModel::columnsInserted, this, [this] {
+        _restoringColumns = false;
+        _sizeColumns();
+    });
+    connect(_tree->header(), &QHeaderView::sectionResized, this, [this](int section, int, int size) {
+        if (!_restoringColumns && !_resetting && section == 1 && size > 0)
+        {
+            _processorColumnWidth = size;
+            _sizeColumns();
+        }
+    });
+    _sizeColumns();
     leftLayout->addWidget(_tree, 2);
     leftLayout->addWidget(new QLabel(tr("Processor catalog"), left));
     _search = new QLineEdit(left);
@@ -117,6 +153,8 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     _catalog = new CatalogList(left);
     _catalog->setObjectName("processorCatalog");
     _catalog->setDragEnabled(true);
+    _catalog->setHeaderHidden(true);
+    _catalog->setSelectionMode(QAbstractItemView::SingleSelection);
     leftLayout->addWidget(_catalog, 1);
     auto* right       = new QWidget(splitter);
     auto* rightLayout = new QVBoxLayout(right);
@@ -178,8 +216,8 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
             _blocks->setCurrentIndex(_blocks->findData(target));
         }
     });
-    connect(_catalog, &QListWidget::currentItemChanged, this, [this] { _refreshActions(); });
-    connect(_catalog, &QListWidget::itemDoubleClicked, this, [this] { _addOperation(); });
+    connect(_catalog, &QTreeWidget::currentItemChanged, this, [this] { _refreshActions(); });
+    connect(_catalog, &QTreeWidget::itemDoubleClicked, this, [this] { _addOperation(); });
     connect(_search, &QLineEdit::textChanged, this, [this] { _refreshCatalog(); });
     connect(add, &QAction::triggered, this, &LineflowEditorDialog::_addOperation);
     connect(_name, &QLineEdit::editingFinished, this, &LineflowEditorDialog::_renameOperation);
@@ -301,10 +339,51 @@ void LineflowEditorDialog::_message(const QString& message)
 {
     _error->setText(message);
 }
+bool LineflowEditorDialog::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == _tree->viewport() && event->type() == QEvent::Resize)
+    {
+        QTimer::singleShot(0, this, [this] { _sizeColumns(); });
+    }
+    return QDialog::eventFilter(watched, event);
+}
+
+void LineflowEditorDialog::_sizeColumns()
+{
+    if (_model->columnCount() < 2 || _restoringColumns)
+    {
+        return;
+    }
+    _restoringColumns = true;
+    auto* header      = _tree->header();
+    header->setStretchLastSection(false);
+    header->setSectionResizeMode(0, QHeaderView::Stretch);
+    header->setSectionResizeMode(1, QHeaderView::Interactive);
+    const auto maximum = qMax(90, _tree->viewport()->width() * 2 / 5);
+    header->resizeSection(1, std::clamp(_processorColumnWidth, 90, maximum));
+    _restoringColumns = false;
+}
+
 void LineflowEditorDialog::_refreshBlocks()
 {
     const QSignalBlocker blocker(_blocks);
     _blocks->clear();
+    const QSignalBlocker groupBlocker(_groups);
+    _groups->clear();
+    QSet<QString> groups;
+    for (const auto& definition : _model->definitions())
+    {
+        const auto value = definition.toMap().value("group").toString();
+        if (!value.isEmpty())
+        {
+            groups.insert(value);
+        }
+    }
+    auto sortedGroups = groups.values();
+    sortedGroups.sort(Qt::CaseInsensitive);
+    _groups->addItems(sortedGroups);
+    _groups->setEditText(_model->blockGroup(_model->selectedBlock()));
+    _groups->setEnabled(!_model->selectedBlock().isEmpty());
     for (const auto& id : _model->blockIds())
     {
         _blocks->addItem(_model->blockName(id), id);
@@ -314,39 +393,89 @@ void LineflowEditorDialog::_refreshBlocks()
 }
 void LineflowEditorDialog::_refreshCatalog()
 {
-    const auto current = _catalog->currentItem() ? _catalog->currentItem()->data(Qt::UserRole).toString() : QString {};
+    const auto    current = _catalog->currentItem() ? _catalog->currentItem()->data(0, Qt::UserRole).toString() :
+                                                      QString {};
+    QSet<QString> collapsed;
+    QSet<QString> seen;
+    for (QTreeWidgetItemIterator it(_catalog); *it; ++it)
+    {
+        if ((*it)->data(0, Qt::UserRole).toString().isEmpty())
+        {
+            const auto key = (*it)->data(0, Qt::UserRole + 1).toString();
+            seen.insert(key);
+            if (!(*it)->isExpanded())
+            {
+                collapsed.insert(key);
+            }
+        }
+    }
     _catalog->clear();
+    const auto             definitions = _model->definitions();
     QMap<QString, QString> entries;
     for (const auto& type : _registry.types())
     {
-        if (type.origin == "workspace" && !_model->definitions().contains(type.id))
+        if (type.origin != "workspace" || definitions.contains(type.id))
         {
-            continue;
+            entries.insert(type.id, type.title);
         }
-        entries.insert(type.id, type.title);
     }
-    const auto definitions = _model->definitions();
     for (auto it = definitions.cbegin(); it != definitions.cend(); ++it)
     {
         entries.insert(it.key(), it.value().toMap().value("name").toString());
     }
+    QMap<QString, QTreeWidgetItem*> roots;
+    QMap<QString, QTreeWidgetItem*> subgroups;
+    for (const auto& origin : {QStringLiteral("Native"), QStringLiteral("Workspace")})
+    {
+        auto* root = new QTreeWidgetItem(_catalog, {origin});
+        root->setFlags(Qt::ItemIsEnabled);
+        root->setData(0, Qt::UserRole + 1, origin);
+        auto font = root->font(0);
+        font.setBold(true);
+        root->setFont(0, font);
+        root->setExpanded(!collapsed.contains(origin) || !_search->text().isEmpty());
+        roots.insert(origin, root);
+    }
     for (auto it = entries.cbegin(); it != entries.cend(); ++it)
     {
-        if (!(it.value() + ' ' + it.key()).contains(_search->text(), Qt::CaseInsensitive))
+        const auto type   = _registry.type(it.key());
+        const bool local  = definitions.contains(it.key()) || (type && type->origin == "workspace");
+        const auto origin = local ? QStringLiteral("Workspace") : QStringLiteral("Native");
+        const auto group  = local ? definitions.value(it.key()).toMap().value("group").toString() :
+                                    (type ? type->group : QString {});
+        const auto label  = group.isEmpty() ? tr("General") : group;
+        if (!(origin + ' ' + label + ' ' + it.value() + ' ' + it.key()).contains(_search->text(), Qt::CaseInsensitive))
         {
             continue;
         }
-        auto* item = new QListWidgetItem(it.value(), _catalog);
-        item->setData(Qt::UserRole, it.key());
-        const auto type        = _registry.type(it.key());
-        const bool local       = definitions.value(it.key()).toMap().value("kind") == "lineflow";
-        const auto reason      = _model->unavailableReason(it.key());
-        const bool unavailable = !reason.isEmpty();
-        item->setIcon(Icons::icon(unavailable ? "triangle-exclamation-point" : local ? "blocks" : "workflow"));
-        item->setToolTip(unavailable ? reason : it.key());
+        const auto key    = origin + QChar::Null + label;
+        auto*      parent = subgroups.value(key);
+        if (!parent)
+        {
+            parent = new QTreeWidgetItem(roots.value(origin), {label});
+            parent->setFlags(Qt::ItemIsEnabled);
+            parent->setData(0, Qt::UserRole + 1, key);
+            parent->setExpanded((seen.contains(key) && !collapsed.contains(key)) || !_search->text().isEmpty());
+            subgroups.insert(key, parent);
+        }
+        auto* item = new QTreeWidgetItem(parent, {it.value()});
+        item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
+        item->setData(0, Qt::UserRole, it.key());
+        const auto reason = _model->unavailableReason(it.key());
+        item->setIcon(0, Icons::icon(!reason.isEmpty() ? "triangle-exclamation-point" : local ? "blocks" : "workflow"));
+        item->setToolTip(0, reason.isEmpty() ? it.key() : reason);
         if (it.key() == current)
         {
             _catalog->setCurrentItem(item);
+        }
+    }
+    for (auto* root : roots)
+    {
+        root->setHidden(!_search->text().isEmpty() && root->childCount() == 0);
+        root->sortChildren(0, Qt::AscendingOrder);
+        for (int index = 0; index < root->childCount(); ++index)
+        {
+            root->child(index)->sortChildren(0, Qt::AscendingOrder);
         }
     }
 }
@@ -514,7 +643,7 @@ void LineflowEditorDialog::_showProperties(const QModelIndex& index)
 }
 void LineflowEditorDialog::_addOperation()
 {
-    if (!_catalog->currentItem())
+    if (!_catalog->currentItem() || _catalog->currentItem()->data(0, Qt::UserRole).toString().isEmpty())
     {
         return;
     }
@@ -524,7 +653,7 @@ void LineflowEditorDialog::_addOperation()
     QString    error;
     const auto name = _model->insertNode(_model->selectedBlock(),
                                          row,
-                                         _catalog->currentItem()->data(Qt::UserRole).toString(),
+                                         _catalog->currentItem()->data(0, Qt::UserRole).toString(),
                                          &error);
     _message(error);
     if (!name.isEmpty())
@@ -569,6 +698,14 @@ bool LineflowEditorDialog::applyDraft(QString* error)
     const auto selected      = _tree->currentIndex();
     const auto selectedBlock = selected.data(LineflowEditorModel::BlockRole).toString();
     const auto selectedNode  = selected.data(LineflowEditorModel::NodeRole).toString();
+    if (_groups->isEnabled() && !_model->setBlockGroup(_model->selectedBlock(), _groups->currentText(), error))
+    {
+        if (error)
+        {
+            _message(*error);
+        }
+        return false;
+    }
     for (auto& [key, draft] : _drafts)
     {
         if (!_flush(*draft, error))
@@ -655,7 +792,8 @@ void LineflowEditorDialog::_refreshActions()
     enable("duplicateBlock", block);
     enable("renameBlock", block);
     enable("removeBlock", block);
-    enable("addOperation", block && _catalog->currentItem());
+    enable("addOperation",
+           block && _catalog->currentItem() && !_catalog->currentItem()->data(0, Qt::UserRole).toString().isEmpty());
     enable("removeOperation", editable);
     enable("moveUp", editable && index.row() > 0);
     enable("moveDown", editable && index.row() + 1 < _model->rowCount());

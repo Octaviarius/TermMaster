@@ -26,6 +26,7 @@ public:
         QStringList references;
         bool        available = true;
         QString     unavailableReason;
+        QString     group;
     };
 
     /** Source validation is static and must not execute user code. Preparation may

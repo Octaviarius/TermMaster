@@ -1,6 +1,7 @@
 #include <QtTest>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
+#include <stdexcept>
 
 namespace
 {
@@ -55,6 +56,144 @@ class ProcessorCatalogTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void nativeGroupMetadataOwnsSnapshotsAndStripsFactories()
+    {
+        ProcessorRegistry      registry;
+        QChar                  rawGroup[] {'B', 'y', 't', 'e', 's'};
+        ProcessorCatalog::Type type {"grouped",
+                                     "Grouped fixture",
+                                     schema(),
+                                     [](const auto& config, const auto&, QString*) {
+                                         return std::make_unique<FixtureProcessor>(config);
+                                     }};
+        type.group = QString::fromRawData(rawGroup, 5);
+        registry.registerType("native-owner", type);
+        rawGroup[0]         = 'X';
+        const auto snapshot = registry.type("grouped");
+        QVERIFY(snapshot);
+        QCOMPARE(snapshot->group, QString("Bytes"));
+        QVERIFY(!snapshot->create);
+        const auto all = registry.types();
+        QCOMPARE(all.size(), 1);
+        QCOMPARE(all[0].group, QString("Bytes"));
+        QVERIFY(!all[0].create);
+        QVERIFY(registry.removeOwner("native-owner"));
+        QCOMPARE(snapshot->group, QString("Bytes"));
+        QCOMPARE(all[0].group, QString("Bytes"));
+        QVERIFY(!registry.type("grouped"));
+    }
+
+    void savedGroupsParsePublishUpdateAndPreserveSnapshots()
+    {
+        QVariantMap value {
+            {     "id",                                "grouped"},
+            {   "name",                                "Grouped"},
+            {   "kind",                               "lineflow"},
+            { "source", QVariantMap {{"nodes", QVariantList {}}}},
+            {  "group",         QString::fromUtf8("Protocol 雪")},
+            {"unknown",                "retained by persistence"}
+        };
+        QString error;
+        auto    parsed = ProcessorRegistry::parseDefinitions(
+            {
+                {"grouped", value}
+        },
+            &error);
+        QVERIFY2(parsed, qPrintable(error));
+        QCOMPARE(parsed->first().group, QString::fromUtf8("Protocol 雪"));
+        ProcessorRegistry registry;
+        QSignalSpy        changed(&registry, &ProcessorRegistry::changed);
+        QVERIFY(registry.publishDefinitions("workspace", *parsed, &error));
+        QCOMPARE(changed.count(), 1);
+        const auto snapshot = registry.type("grouped");
+        QVERIFY(snapshot);
+        QCOMPARE(snapshot->group, QString::fromUtf8("Protocol 雪"));
+        QVERIFY(!snapshot->create);
+        auto definition  = parsed->first();
+        definition.group = "Updated group";
+        QVERIFY(registry.publishDefinitions("workspace", {definition}, &error));
+        QCOMPARE(changed.count(), 2);
+        QCOMPARE(registry.type("grouped")->group, QString("Updated group"));
+        QCOMPARE(registry.types().first().group, QString("Updated group"));
+        QCOMPARE(snapshot->group, QString::fromUtf8("Protocol 雪"));
+        QVERIFY(registry.publishDefinitions("workspace", {}, &error));
+        QCOMPARE(snapshot->group, QString::fromUtf8("Protocol 雪"));
+        value.remove("group");
+        parsed = ProcessorRegistry::parseDefinitions(
+            {
+                {"grouped", value}
+        },
+            &error);
+        QVERIFY(parsed);
+        QVERIFY(parsed->first().group.isEmpty());
+        value.insert("group", QString {});
+        QVERIFY(ProcessorRegistry::parseDefinitions(
+            {
+                {"grouped", value}
+        },
+            &error));
+    }
+
+    void invalidGroupsRejectAtomicallyAcrossRegistrationPaths()
+    {
+        ProcessorRegistry registry;
+        auto              original = line("root", {});
+        original.group             = "Original group";
+        QVERIFY(registry.publishDefinitions("workspace", {original}));
+        QSignalSpy            changed(&registry, &ProcessorRegistry::changed);
+        const QList<QVariant> invalid {7,
+                                       true,
+                                       QVariantMap {},
+                                       QString(" leading"),
+                                       QString("trailing "),
+                                       QString(129, 'x'),
+                                       QString("nul") + QChar::Null + QString("inside")};
+        QString               error;
+        for (const auto& group : invalid)
+        {
+            const QVariantMap definition {
+                {    "id",                                   "root"},
+                {  "name",                                   "Root"},
+                {  "kind",                               "lineflow"},
+                {"source", QVariantMap {{"nodes", QVariantList {}}}},
+                { "group",                                    group}
+            };
+            QVERIFY(!ProcessorRegistry::parseDefinitions(
+                {
+                    {"root", definition}
+            },
+                &error));
+            QVERIFY(!error.isEmpty());
+            QCOMPARE(registry.type("root")->group, QString("Original group"));
+            QCOMPARE(changed.count(), 0);
+            if (group.typeId() != QMetaType::QString)
+            {
+                continue;
+            }
+            auto replacement  = original;
+            replacement.group = group.toString();
+            QVERIFY(!registry.publishDefinitions("workspace", {replacement}, &error));
+            QVERIFY(!error.isEmpty());
+            QCOMPARE(registry.type("root")->group, QString("Original group"));
+            QCOMPARE(changed.count(), 0);
+            ProcessorCatalog::Type native {"invalid",
+                                           "Invalid group",
+                                           schema(),
+                                           [](const auto& config, const auto&, QString*) {
+                                               return std::make_unique<FixtureProcessor>(config);
+                                           }};
+            native.group = group.toString();
+            QVERIFY_EXCEPTION_THROWN(registry.registerType("native-owner", native), std::invalid_argument);
+            QVERIFY(!registry.type("invalid"));
+            QCOMPARE(changed.count(), 0);
+        }
+        auto valid  = original;
+        valid.group = QString(128, 'x');
+        QVERIFY(registry.publishDefinitions("workspace", {valid}, &error));
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(registry.type("root")->group.size(), 128);
+    }
+
     void atomicPublicationAvailabilityAndCrossKindCycles()
     {
         ProcessorRegistry registry;
@@ -65,7 +204,7 @@ private slots:
         QVERIFY(!registry.type("root")->available);
         QVERIFY(registry.type("root")->unavailableReason.contains("missing"));
         registerNativeProcessors(registry, "native-owner");
-        root.source.insert("nodes", QVariantList {leaf("native.identity")});
+        root.source.insert("nodes", QVariantList {leaf("native.gate")});
         QVERIFY(registry.publishDefinitions("workspace", {root}, &error));
         QVERIFY(registry.type("root")->available);
         const auto count = changes.size();
@@ -86,7 +225,7 @@ private slots:
     {
         ProcessorRegistry registry;
         registerNativeProcessors(registry, "native-owner");
-        auto    root = line("root", {leaf("native.cr-framer")});
+        auto    root = line("root", {leaf("native.framer")});
         QString error;
         QVERIFY(registry.publishDefinitions("workspace", {root}, &error));
         auto prepared = registry.prepare("root", {}, {}, &error);
@@ -107,7 +246,7 @@ private slots:
                  Processor::AcceptResult::Accepted);
         QTRY_VERIFY(completed);
         QVERIFY(firstOutput.isEmpty());
-        root.source.insert("nodes", QVariantList {leaf("native.identity")});
+        root.source.insert("nodes", QVariantList {leaf("native.gate")});
         QVERIFY(registry.publishDefinitions("workspace", {root}, &error));
         QVERIFY(registry.publishDefinitions("workspace", {}, &error));
         completed = false;
@@ -293,7 +432,7 @@ private slots:
         QVERIFY(!registry.type("code"));
         QVERIFY(!error.isEmpty());
         registerNativeProcessors(registry, "native-owner");
-        auto root           = line("root", {leaf("native.identity")});
+        auto root           = line("root", {leaf("native.gate")});
         root.settingsSchema = QByteArray(
             "version: 1\ntype: termaster.settings-schema\ndescription: Composite constraint\ncontent:\n  type: object\n  properties:\n    overrides:\n      type: object\n      properties:\n        leaf:\n          type: object\n          properties:\n            prefix: {type: string, enum: [valid]}\n");
         QVERIFY(registry.publishDefinitions("workspace", {root}, &error));

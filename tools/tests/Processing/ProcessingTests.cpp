@@ -147,7 +147,7 @@ private slots:
         ProcessorRegistry registry;
         QString           error;
         registerNativeProcessors(registry, "native");
-        const auto plan = Lineflow::prepare(blocks({native("native.cr-framer")}), "root", registry, {}, &error);
+        const auto plan = Lineflow::prepare(blocks({native("native.framer")}), "root", registry, {}, &error);
         QVERIFY2(plan, qPrintable(error));
         auto                    first  = plan->instantiate(registry, &error);
         auto                    second = plan->instantiate(registry, &error);
@@ -187,15 +187,15 @@ private slots:
         limits.maxBytes    = 4096;
         limits.maxChunks   = 64;
         limits.eventBudget = 2;
-        auto document      = blocks({native("native.identity"),
-                                     native("native.identity"),
-                                     native("native.identity"),
+        auto document      = blocks({native("native.gate"),
+                                     native("native.gate"),
+                                     native("native.gate"),
                                      QVariantMap {{"reference", "child"}}});
         document.insert("child",
                         QVariantMap {
-                            {   "id",                                  "child"},
-                            { "name",                                  "Child"},
-                            {"nodes", QVariantList {native("native.identity")}}
+                            {   "id",                              "child"},
+                            { "name",                              "Child"},
+                            {"nodes", QVariantList {native("native.gate")}}
         });
         QString error;
         auto    plan = Lineflow::prepare(document, "root", registry, limits, &error);
@@ -217,7 +217,7 @@ private slots:
 
         auto root  = document.value("root").toMap();
         auto nodes = root.value("nodes").toList();
-        nodes.prepend(native("native.cr-framer"));
+        nodes.prepend(native("native.framer"));
         root.insert("nodes", nodes);
         document.insert("root", root);
         plan = Lineflow::prepare(document, "root", registry, limits, &error);
@@ -271,9 +271,9 @@ private slots:
         auto    document = blocks({QVariantMap {{"reference", "child"}}});
         document.insert("child",
                         QVariantMap {
-                            {   "id",                                  "child"},
-                            { "name",                                  "Child"},
-                            {"nodes", QVariantList {native("native.identity")}}
+                            {   "id",                              "child"},
+                            { "name",                              "Child"},
+                            {"nodes", QVariantList {native("native.gate")}}
         });
         auto plan = Lineflow::prepare(document, "root", registry, {}, &error);
         QVERIFY2(plan, qPrintable(error));
@@ -289,7 +289,7 @@ private slots:
         QVERIFY(!Lineflow::prepare(blocks({native("missing")}), "root", registry, {}, &error));
         Processor::Limits limits;
         limits.maxInstances = 1;
-        QVERIFY(!Lineflow::prepare(blocks({native("native.identity"), native("native.identity")}),
+        QVERIFY(!Lineflow::prepare(blocks({native("native.gate"), native("native.gate")}),
                                    "root",
                                    registry,
                                    limits,
@@ -303,7 +303,7 @@ private slots:
         ProcessorRegistry registry;
         auto              fixture = [] {
             ProcessorCatalog::Type type;
-            type.id             = "native.cr-framer";
+            type.id             = "native.framer";
             type.title          = "Configuration fixture";
             type.settingsSchema = R"(version: 1
 type: termaster.settings-schema
@@ -329,9 +329,9 @@ content:
         QVERIFY_THROWS_EXCEPTION(std::invalid_argument, registry.registerType("fixture", valid));
         QVERIFY_THROWS_EXCEPTION(std::invalid_argument, registerNativeProcessors(registry, "native"));
         QCOMPARE(registry.types().size(), 1);
-        QVERIFY(!registry.type("native.identity"));
-        QVERIFY(registry.type("native.cr-framer"));
-        auto instance = registry.create("native.cr-framer", {}, {});
+        QVERIFY(!registry.type("native.gate"));
+        QVERIFY(registry.type("native.framer"));
+        auto instance = registry.create("native.framer", {}, {});
         QVERIFY(instance);
         QCOMPARE(instance->configuration().value("label").toString(), QString("ready"));
         instance.reset();
@@ -486,7 +486,7 @@ content:
     {
         ProcessorRegistry registry;
         registerNativeProcessors(registry, "native");
-        auto processor = registry.create("native.cr-framer", {}, {});
+        auto processor = registry.create("native.framer", {}, {});
         int  outputs   = 0;
         bool completed = false;
         processor->accept({"a\rb\r"},

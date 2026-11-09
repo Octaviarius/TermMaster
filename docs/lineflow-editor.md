@@ -1,7 +1,7 @@
 # Workspace Lineflow editor
 
 The application opens the editor through **Tools > Lineflow editor** when a
-workspace is open. Core provides the existing identity, CR framing and HEX decoder
+workspace is open. Core provides configurable Gate, Framer and HEX/Base64 encoder/decoder
 processors; plugins can add processors through the common catalog. The editor
 creates reusable workspace definitions and never creates processing runtimes.
 Terminal Rx/Tx selection and private property panels remain FLOW-5 work.
@@ -11,7 +11,8 @@ Terminal Rx/Tx selection and private property panels remain FLOW-5 work.
 The block selector addresses stable definition IDs separately from human-readable
 names. The operation tree shows the selected block in traversal order. Nested
 blocks expand as linked, read-only views; opening their definition edits the shared
-block. The catalog contains native, provider-defined and workspace processors,
+block. The catalog groups native and workspace entries by origin and their descriptor
+`group` subgroup. It contains native, provider-defined and workspace processors,
 including unavailable entries with a concrete reason. No ControlFlow nodes or
 freely connected graph are introduced.
 
@@ -105,3 +106,13 @@ of foreign/duplicate journal targets. No real serial device, external network
 endpoint or elevation was used. The obsolete standalone operation prototype and
 its captures were removed after checking callers. Source files were clang-formatted;
 local documentation links, pinned SVG XML and `git diff --check` were checked.
+
+Built-in options and framing/codec boundary rules are specified in
+[processing nodes](processing-nodes.md).
+
+The configurable node/catalog follow-up adds descriptor subgroups and prioritizes
+the operation name column, preserving the compact class-column width across model
+resets. Latest native captures include the actual built-in HEX encoder and Framer
+schemas instead of an illustrative parameter fixture. See
+[configured node verification](processing-nodes.md#verification) for the 42-target
+acceptance record and updated captures.

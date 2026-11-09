@@ -64,6 +64,19 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Lineflow.cpp
     inc/Termaster/Core/Processing/NativeProcessors.h
     src/Processing/NativeProcessors.cpp
+    src/Processing/Nodes/Gate.h
+    src/Processing/Nodes/Gate.cpp
+    src/Processing/Nodes/Framer.h
+    src/Processing/Nodes/Framer.cpp
+    src/Processing/Nodes/HexEncoder.h
+    src/Processing/Nodes/HexEncoder.cpp
+    src/Processing/Nodes/HexDecoder.h
+    src/Processing/Nodes/HexDecoder.cpp
+    src/Processing/Nodes/Base64Encoder.h
+    src/Processing/Nodes/Base64Encoder.cpp
+    src/Processing/Nodes/Base64Decoder.h
+    src/Processing/Nodes/Base64Decoder.cpp
+    src/Processing/Nodes/SyncProcessorNode.h
     inc/Termaster/Core/Workspace.h
     src/Workspace.cpp
     inc/Termaster/Core/Session.h

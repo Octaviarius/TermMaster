@@ -25,6 +25,7 @@ public:
         QVariantMap defaults;
         QVariantMap editor;
         QStringList references;
+        QString     group;
     };
     class Prepared
     {

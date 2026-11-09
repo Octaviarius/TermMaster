@@ -105,6 +105,28 @@ QString LineflowEditorModel::blockName(const QString& id) const
 {
     return _draft.value(id).toMap().value("name").toString();
 }
+QString LineflowEditorModel::blockGroup(const QString& id) const
+{
+    return _draft.value(id).toMap().value("group").toString();
+}
+
+bool LineflowEditorModel::setBlockGroup(const QString& id, const QString& group, QString* error)
+{
+    if (!blockIds().contains(id))
+    {
+        return fail(error, tr("Block no longer exists."));
+    }
+    if (blockGroup(id) == group)
+    {
+        return true;
+    }
+    auto draft      = _draft;
+    auto definition = draft.value(id).toMap();
+    definition.insert("group", group);
+    draft.insert(id, definition);
+    return _commit(draft, error);
+}
+
 QString LineflowEditorModel::selectedBlock() const
 {
     return _selected;
@@ -468,6 +490,7 @@ void LineflowEditorModel::_append(QStandardItem* parent,
             column->setDropEnabled(false);
             column->setDragEnabled(!linked);
         }
+        item->setToolTip(node.value("name").toString() + '\n' + (unavailable ? reason : target));
         item->setIcon(Icons::icon(unavailable ? "triangle-exclamation-point" : localBlock ? "link" : "workflow"));
         parent->appendRow({item, description});
         if (localBlock)

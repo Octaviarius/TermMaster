@@ -126,6 +126,7 @@ ProcessorRegistry::Type metadata(const ProcessorRegistry::Type& type)
     result.settingsSchema = QByteArray(type.settingsSchema.constData(), type.settingsSchema.size());
     result.kind           = owned(type.kind);
     result.origin         = owned(type.origin);
+    result.group          = owned(type.group);
     result.defaults       = copyValue(type.defaults).toMap();
     result.editor         = copyValue(type.editor).toMap();
     result.definition     = copyValue(type.definition).toMap();
@@ -215,13 +216,19 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
     {
         throw std::invalid_argument("Invalid processor definition ID, title or kind");
     }
-    auto entry                 = std::make_shared<Entry>();
-    entry->owner               = owned(owner);
-    entry->saved               = true;
-    entry->type.id             = owned(definition.id);
-    entry->type.title          = owned(definition.title);
-    entry->type.kind           = owned(definition.kind);
-    entry->type.origin         = owned(owner);
+    auto entry         = std::make_shared<Entry>();
+    entry->owner       = owned(owner);
+    entry->saved       = true;
+    entry->type.id     = owned(definition.id);
+    entry->type.title  = owned(definition.title);
+    entry->type.kind   = owned(definition.kind);
+    entry->type.origin = owned(owner);
+    if (definition.group.size() > 128 || definition.group.contains(QChar::Null)
+        || definition.group != definition.group.trimmed())
+    {
+        throw std::invalid_argument("Processor group must be trimmed, at most 128 characters and contain no NUL");
+    }
+    entry->type.group          = owned(definition.group);
     entry->type.settingsSchema = definition.settingsSchema.isEmpty() ? defaultSchema :
                                                                        QByteArray(definition.settingsSchema.constData(),
                                                                                   definition.settingsSchema.size());
@@ -372,10 +379,15 @@ std::optional<QList<ProcessorRegistry::Definition>> ProcessorRegistry::parseDefi
             {
                 throw std::invalid_argument("Processor schema must be YAML text");
             }
+            if (map.contains("group") && map.value("group").typeId() != QMetaType::QString)
+            {
+                throw std::invalid_argument("Processor group must be a string");
+            }
             Definition definition;
             definition.id             = it.key();
             definition.title          = map.value("name").toString();
             definition.kind           = map.value("kind").toString();
+            definition.group          = map.value("group").toString();
             definition.source         = map.value("source").toMap();
             definition.defaults       = map.value("defaults").toMap();
             definition.editor         = map.value("editor").toMap();
@@ -502,6 +514,7 @@ bool ProcessorRegistry::validatePublication(const QString&           owner,
                                   {            "id",                                definition.id},
                                   {          "name",                             definition.title},
                                   {          "kind",                              definition.kind},
+                                  {         "group",                             definition.group},
                                   {        "source",                            definition.source},
                                   {      "defaults",                          definition.defaults},
                                   {        "editor",                            definition.editor},
@@ -642,7 +655,8 @@ void ProcessorRegistry::registerType(const QString& owner, Type type)
                            type.settingsSchema,
                            type.defaults,
                            type.editor,
-                           type.references};
+                           type.references,
+                           type.group};
     auto       entry = _definitionEntry(owner, definition);
     if (owner.isEmpty() || owner.contains(QChar::Null))
     {
