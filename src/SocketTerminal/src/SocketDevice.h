@@ -13,13 +13,17 @@ class SocketDevice final : public QObject, public SerialDevice
 public:
     SocketDevice() = default;
     ~SocketDevice() override;
-    QObject*    object() override;
-    State       state() const override;
-    void        setCallbacks(Callbacks callbacks) override;
-    bool        open(const QVariantMap& configuration, QString* error = nullptr) override;
-    void        close() override;
-    qint64      write(const QByteArray& data, QString* error = nullptr) override;
-    qint64      pendingBytes() const override;
+    QObject* object() override;
+    State    state() const override;
+    void     setCallbacks(Callbacks callbacks) override;
+    bool     open(const QVariantMap& configuration, QString* error = nullptr) override;
+    void     close() override;
+    qint64   write(const QByteArray& data, QString* error = nullptr) override;
+    qint64   pendingBytes() const override;
+    bool     atomicWrites() const override
+    {
+        return _udp;
+    }
     static bool validate(const QVariantMap& configuration, QString* error = nullptr);
 
 private:
