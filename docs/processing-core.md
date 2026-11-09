@@ -37,7 +37,7 @@ Lineflow serializes child invocations and preserves emitted output order. Its
 queued pump has a finite event budget and retries a temporarily blocked child in
 a later event-loop turn. Output callbacks have no per-output credit: the host
 bounds its queue, each child invocation's expansion and the final output of an
-accepted input, then fails and cancels on overflow. Identity stages do not divide
+accepted input, then fails and cancels on overflow. Pass-through stages do not divide
 the maximum payload size by pipeline depth.
 Native plugin code is trusted to bound its own buffers according to factory limits;
 these bounds do not sandbox arbitrary plugin memory or CPU usage.
@@ -60,7 +60,7 @@ types, not QObject pointers.
 ## Plugin lifetime
 
 The plugin SDK consists of header-only `Processor`, `ProcessorCatalog`, and the
-existing pure host interfaces. Hosted capability IID version 8 rejects older
+existing pure host interfaces. Hosted capability IID version 9 rejects older
 host layouts before any new SDK field or method can be used. Native plugins link Qt and the SDK, not another
 static Core. `PluginHost::registerProcessorType` uses a manager-assigned owner
 scope during plugin startup. Every type supplies a stable ID, title, version 1
@@ -114,7 +114,7 @@ processorDefinitions:
     source:
       nodes:
         - name: frame
-          type: native.cr-framer
+          type: native.framer
           configuration: {}
   receive:
     id: receive
@@ -125,7 +125,7 @@ processorDefinitions:
         - name: framing
           reference: receive-lines
         - name: output
-          type: native.identity
+          type: native.gate
           configuration: {}
 ```
 
@@ -188,12 +188,9 @@ settings path API. Terminal A and terminal B keep separate maps, as do Rx and Tx
 Saving these opaque settings does not load a plugin, resolve defaults, start a
 processor, or connect terminal routing.
 
-The supplied native factories are `native.identity`, `native.cr-framer` and
-`native.hex-decoder`; register them explicitly with `registerNativeProcessors`.
-The CR framer preserves partial frames across stream chunks and emits packet
-boundaries at CR, including empty packets. The HEX decoder preserves a split
-nibble across stream chunks, rejects invalid hexadecimal bytes and rejects a
-packet ending in a half byte. These processors have no terminal UI integration.
+The built-in catalog contains Gate, Framer and separate HEX/Base64 encoders and
+decoders, with independent parameter schemas and descriptor groups. See
+[processing nodes](processing-nodes.md) for configuration and byte-boundary rules.
 
 ## Verification
 

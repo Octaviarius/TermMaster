@@ -168,6 +168,18 @@ The delivered editor and persistence acceptance are recorded in
 [Lineflow editor](lineflow-editor.md). No freely connected graph or ControlFlow
 nodes are part of Lineflow.
 
+## FLOW-4.1: Configurable nodes and catalog groups
+
+- [x] Replace placeholder native operations with independent Processing/Nodes implementations.
+- [x] Add Gate enabled by default, configurable Framer and HEX/Base64 encoder/decoder pairs.
+- [x] Preserve stream state across reads and enforce packet finalization, strict decoding and bounds.
+- [x] Add descriptor group metadata and Native/Workspace subgroup presentation with search.
+- [x] Keep operation names wider than processor classes across model resets and user resizing.
+- [x] Verify binary splits, schemas, lifecycle, grouped forms and native 1x/2x captures.
+
+Configuration and byte-boundary contracts are specified in
+[processing nodes](processing-nodes.md).
+
 ## FLOW-5: Terminal selection and private properties
 
 - [ ] Add compact independent Rx/Tx selectors for a block, elementary processor or bypass.
