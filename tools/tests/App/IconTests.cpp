@@ -1,13 +1,74 @@
 #include <QApplication>
 #include <QDir>
 #include <QImage>
+#include <QLineEdit>
 #include <QMenu>
 #include <QPainter>
 #include <QScopeGuard>
+#include <QStandardItemModel>
+#include <QStyle>
+#include <QStyleFactory>
 #include <QTest>
 #include <QToolBar>
+#include <QTreeView>
+#include <QTreeWidget>
 #include <QVBoxLayout>
+#include <QtMath>
 #include <Termaster/Core/Gui/Icons.h>
+#include <Termaster/Core/Gui/SelectionIconDelegate.h>
+#include <cmath>
+#include <memory>
+
+namespace
+{
+class IconProbeDelegate final : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::initStyleOption;
+};
+QImage renderRow(const QStyledItemDelegate&  delegate,
+                 const QStyleOptionViewItem& option,
+                 const QModelIndex&          index,
+                 qreal                       dpr)
+{
+    QImage result(option.rect.size() * dpr, QImage::Format_ARGB32_Premultiplied);
+    result.setDevicePixelRatio(dpr);
+    result.fill(option.palette.color(QPalette::Base));
+    QPainter painter(&result);
+    delegate.paint(&painter, option, index);
+    return result;
+}
+qreal iconLuminance(const QColor& color)
+{
+    const auto channel = [](qreal value) {
+        return value <= 0.04045 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * channel(color.redF()) + 0.7152 * channel(color.greenF()) + 0.0722 * channel(color.blueF());
+}
+int contrastingIconPixels(const QImage& image, const QRect& decoration, qreal dpr)
+{
+    const auto  background          = image.pixelColor(image.width() - 5, image.height() / 2);
+    const auto  backgroundLuminance = iconLuminance(background);
+    int         result              = 0;
+    const QRect pixels(qRound(decoration.x() * dpr),
+                       qRound(decoration.y() * dpr),
+                       qRound(decoration.width() * dpr),
+                       qRound(decoration.height() * dpr));
+    for (int y = pixels.top(); y <= pixels.bottom(); ++y)
+    {
+        for (int x = pixels.left(); x <= pixels.right(); ++x)
+        {
+            const auto value = iconLuminance(image.pixelColor(x, y));
+            const auto ratio = (qMax(value, backgroundLuminance) + 0.05) / (qMin(value, backgroundLuminance) + 0.05);
+            if (ratio >= 3.0)
+            {
+                ++result;
+            }
+        }
+    }
+    return result;
+}
+} // namespace
 
 class IconTests final : public QObject
 {
@@ -118,6 +179,124 @@ private:
                 }
             }
         }
+    }
+
+    Q_SLOT void selectedItemIconsUseActualRowContrast()
+    {
+        const auto original           = QApplication::palette();
+        const auto restore            = qScopeGuard([&] { QApplication::setPalette(original); });
+        auto       applicationPalette = original;
+        applicationPalette.setColor(QPalette::Active, QPalette::HighlightedText, Qt::white);
+        QApplication::setPalette(applicationPalette);
+        auto style = std::unique_ptr<QStyle>(QStyleFactory::create("Fusion"));
+        QVERIFY(style);
+        QStandardItemModel model;
+        auto*              item = new QStandardItem(Icons::icon("square-terminal"), "Processor text");
+        model.appendRow(item);
+        QTreeView view;
+        view.setStyle(style.get());
+        view.setModel(&model);
+        IconProbeDelegate     baseline;
+        SelectionIconDelegate corrected;
+        for (int state = 0; state < 3; ++state)
+        {
+            QStyleOptionViewItem option;
+            option.initFrom(&view);
+            option.widget                 = &view;
+            option.rect                   = QRect(0, 0, 300, 36);
+            option.decorationSize         = QSize(20, 20);
+            option.showDecorationSelected = true;
+            option.state                  = QStyle::State_Enabled | QStyle::State_Selected;
+            if (state == 1)
+            {
+                option.state |= QStyle::State_Active | QStyle::State_HasFocus;
+            }
+            if (state == 2)
+            {
+                option.state |= QStyle::State_Active;
+            }
+            const bool dark = state == 1;
+            option.palette.setColor(QPalette::Base, dark ? QColor("#202733") : QColor("#ffffff"));
+            option.palette.setColor(QPalette::Text, dark ? QColor("#e2e8f1") : QColor("#172333"));
+            option.palette.setColor(QPalette::Highlight, dark ? QColor("#354c69") : QColor("#dedede"));
+            option.palette.setColor(QPalette::HighlightedText, state == 0 ? QColor("#172333") : QColor(Qt::white));
+            auto initialized = option;
+            baseline.initStyleOption(&initialized, model.index(0, 0));
+            const auto decoration = style->subElementRect(QStyle::SE_ItemViewItemDecoration, &initialized, &view);
+            QVERIFY(!decoration.isEmpty());
+            for (const auto dpr : {1.0, 2.0})
+            {
+                const auto before = renderRow(baseline, option, model.index(0, 0), dpr);
+                const auto after  = renderRow(corrected, option, model.index(0, 0), dpr);
+                QVERIFY(contrastingIconPixels(after, decoration, dpr) > 10);
+                if (!dark)
+                {
+                    QVERIFY(contrastingIconPixels(after, decoration, dpr)
+                            > contrastingIconPixels(before, decoration, dpr));
+                }
+                // The regular Qt style still renders every text/background/focus pixel.
+                const auto excluded = decoration.adjusted(-2, -2, 2, 2);
+                for (int y = 0; y < before.height(); ++y)
+                {
+                    for (int x = 0; x < before.width(); ++x)
+                    {
+                        if (!excluded.contains(QPoint(qFloor(x / dpr), qFloor(y / dpr))))
+                        {
+                            QCOMPARE(after.pixel(x, y), before.pixel(x, y));
+                        }
+                    }
+                }
+                for (const auto flags : {QStyle::State_Enabled, QStyle::State_Selected, QStyle::State_None})
+                {
+                    auto unchanged  = option;
+                    unchanged.state = flags;
+                    QCOMPARE(renderRow(corrected, unchanged, model.index(0, 0), dpr),
+                             renderRow(baseline, unchanged, model.index(0, 0), dpr));
+                }
+            }
+        }
+    }
+
+    Q_SLOT void nativeSelectedItemCapture()
+    {
+        const auto destination = qEnvironmentVariable("TERMASTER_SELECTION_CAPTURE");
+        if (destination.isEmpty())
+        {
+            QSKIP("Selection capture is opt-in");
+        }
+        QVERIFY(QDir().mkpath(destination));
+        QWidget window;
+        window.setFixedSize(420, 180);
+        auto* layout = new QVBoxLayout(&window);
+        auto* tree   = new QTreeWidget(&window);
+        tree->setHeaderHidden(true);
+        tree->setIconSize(QSize(20, 20));
+        tree->setItemDelegate(new SelectionIconDelegate(tree));
+        auto* first = new QTreeWidgetItem(tree, QStringList {"Selected processor"});
+        first->setIcon(0, Icons::icon("square-terminal"));
+        auto* second = new QTreeWidgetItem(tree, QStringList {"Another processor"});
+        second->setIcon(0, Icons::icon("sliders-horizontal"));
+        auto* otherFocus = new QLineEdit("Focus target", &window);
+        layout->addWidget(tree);
+        layout->addWidget(otherFocus);
+        auto palette = window.palette();
+        palette.setColor(QPalette::Window, Qt::white);
+        palette.setColor(QPalette::Base, Qt::white);
+        palette.setColor(QPalette::Text, QColor("#172333"));
+        palette.setColor(QPalette::Active, QPalette::Highlight, QColor("#3065a0"));
+        palette.setColor(QPalette::Active, QPalette::HighlightedText, Qt::white);
+        palette.setColor(QPalette::Inactive, QPalette::Highlight, QColor("#dedede"));
+        palette.setColor(QPalette::Inactive, QPalette::HighlightedText, QColor("#172333"));
+        window.setPalette(palette);
+        tree->setCurrentItem(first);
+        window.show();
+        window.activateWindow();
+        tree->setFocus();
+        QTest::qWait(40);
+        QVERIFY(window.grab().save(QDir(destination).filePath("SelectionActive.png")));
+        otherFocus->setFocus();
+        QTest::qWait(40);
+        QVERIFY(window.grab().save(QDir(destination).filePath("SelectionUnfocused.png")));
     }
 
     Q_SLOT void nativeToolbarAndMenu()

@@ -26,6 +26,7 @@
 #include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Icons.h>
+#include <Termaster/Core/Gui/SelectionIconDelegate.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
 #include <algorithm>
 #include <exception>
@@ -121,6 +122,7 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     _tree = new QTreeView(left);
     _tree->setObjectName("nodeTree");
     _tree->setModel(_model);
+    _tree->setItemDelegate(new SelectionIconDelegate(_tree));
     _tree->setAlternatingRowColors(true);
     _tree->setDragEnabled(true);
     _tree->setAcceptDrops(true);
@@ -152,6 +154,7 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     leftLayout->addWidget(_search);
     _catalog = new CatalogList(left);
     _catalog->setObjectName("processorCatalog");
+    _catalog->setItemDelegate(new SelectionIconDelegate(_catalog));
     _catalog->setDragEnabled(true);
     _catalog->setHeaderHidden(true);
     _catalog->setSelectionMode(QAbstractItemView::SingleSelection);
