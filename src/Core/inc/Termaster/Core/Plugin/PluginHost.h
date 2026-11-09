@@ -46,9 +46,11 @@ public:
     };
     struct Action
     {
-        QString               id;
-        QString               title;
-        QIcon                 icon;
+        QString id;
+        QString title;
+        QIcon   icon;
+        /** Optional bundled icon name, resolved and owned by the host on registration. */
+        QString               iconName;
         QKeySequence          shortcut;
         QString               group;
         std::function<void()> trigger;

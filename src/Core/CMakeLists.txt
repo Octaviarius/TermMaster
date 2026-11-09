@@ -3,9 +3,13 @@ project(Core)
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
+    Svg
 )
+set_property(TARGET Qt6::Svg PROPERTY IMPORTED_GLOBAL TRUE)
 
 qt_add_library(${PROJECT_NAME} STATIC
+    inc/Termaster/Core/Gui/Icons.h
+    src/Gui/Icons.cpp
     inc/Termaster/Core/ApplicationPaths.h
     src/ApplicationPaths.cpp
     inc/Termaster/Core/Version.h
@@ -86,6 +90,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    Qt6::Svg
     yaml-cpp
     valijson
 )
@@ -130,11 +135,36 @@ qt_add_resources(Core "settingsSchemaMeta"
         "${settings_meta_schema}"
 )
 
-qt_add_resources(Core "settingsFormIcons"
-    PREFIX "/Termaster/Core/Gui/Settings"
-    BASE "${CMAKE_CURRENT_SOURCE_DIR}/Res/Gui/Settings"
+qt_add_resources(Core "actionIcons"
+    PREFIX "/Termaster/Core/Icons"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons"
     FILES
-        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Gui/Settings/ResetOverride.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/cable.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/clipboard-paste.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/copy.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/eraser.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/file-plus.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/folder-open.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/folder-plus.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/network.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/panel-bottom.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/panel-top.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/pencil.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/play.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/plug.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/puzzle.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/redo-2.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/refresh-cw.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/rotate-cw.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/save.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/scan-text.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/scissors.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/sliders-horizontal.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/square-terminal.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/square.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/undo-2.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/unplug.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/x.svg"
 )
 
 # Use the platform zlib when available; the selected Qt kit also provides its bundled headers.

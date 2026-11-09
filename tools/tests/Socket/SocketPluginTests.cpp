@@ -276,7 +276,7 @@ private slots:
         QVERIFY(!create.enabled());
         for (auto it = host.actions.cbegin(); it != host.actions.cend(); ++it)
         {
-            QVERIFY(!it->icon.isNull());
+            QVERIFY(!it->iconName.isEmpty());
             QVERIFY(!it->group.isEmpty());
             if (it.key() != "Socket.New")
             {

@@ -1,18 +1,25 @@
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFontDialog>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPointer>
+#include <QRegularExpression>
 #include <QSignalBlocker>
+#include <QSpinBox>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
+#include <algorithm>
 #include <cmath>
+#include <functional>
+#include <limits>
 #include <stdexcept>
 
 namespace
@@ -63,6 +70,110 @@ public:
 private:
     TerminalDisplay* _display = nullptr;
 };
+template <class Base>
+class NumericSpinBox : public Base
+{
+public:
+    explicit NumericSpinBox(QWidget* parent) : Base(parent)
+    {
+    }
+
+    bool normalizing() const
+    {
+        return _normalizing;
+    }
+
+    void setSteppedCallback(std::function<void()> callback)
+    {
+        _stepped = std::move(callback);
+    }
+    void setActivatedCallback(std::function<void()> callback)
+    {
+        _activated = std::move(callback);
+    }
+
+protected:
+    void stepBy(int steps) override
+    {
+        const QPointer<NumericSpinBox> guard(this);
+        Base::stepBy(steps);
+        if (!guard)
+        {
+            return;
+        }
+        const auto callback = _stepped;
+        if (callback)
+        {
+            callback();
+        }
+    }
+    bool event(QEvent* event) override
+    {
+        if (event->type() != QEvent::Show && event->type() != QEvent::FocusIn && event->type() != QEvent::FocusOut)
+        {
+            return Base::event(event);
+        }
+        const bool previous = _normalizing;
+        _normalizing        = true;
+        const QPointer<NumericSpinBox> guard(this);
+        const bool                     result = Base::event(event);
+        if (!guard)
+        {
+            return result;
+        }
+        _normalizing        = previous;
+        const auto callback = _activated;
+        if ((event->type() == QEvent::Show || event->type() == QEvent::FocusIn) && callback)
+        {
+            callback();
+        }
+        return result;
+    }
+
+private:
+    bool                  _normalizing = false;
+    std::function<void()> _stepped;
+    std::function<void()> _activated;
+};
+class NumberSpinBox final : public NumericSpinBox<QDoubleSpinBox>
+{
+public:
+    explicit NumberSpinBox(QWidget* parent) : NumericSpinBox<QDoubleSpinBox>(parent)
+    {
+        setLocale(QLocale::c());
+        setDecimals(323);
+    }
+    QSize sizeHint() const override
+    {
+        return QSize(fontMetrics().horizontalAdvance(QStringLiteral("-9007199254740991.123")) + 32,
+                     QDoubleSpinBox::sizeHint().height());
+    }
+
+protected:
+    QString textFromValue(double value) const override
+    {
+        return QString::number(value, 'g', 17);
+    }
+    double valueFromText(const QString& text) const override
+    {
+        bool         ok     = false;
+        const double parsed = text.toDouble(&ok);
+        return ok && std::isfinite(parsed) ? parsed : value();
+    }
+    QValidator::State validate(QString& text, int& position) const override
+    {
+        Q_UNUSED(position)
+        bool         ok     = false;
+        const double parsed = text.toDouble(&ok);
+        if (ok && std::isfinite(parsed) && parsed >= minimum() && parsed <= maximum()
+            && (decimals() != 0 || std::trunc(parsed) == parsed))
+        {
+            return QValidator::Acceptable;
+        }
+        const QRegularExpression partial(QStringLiteral("^[+-]?(?:[0-9]*(?:\\.[0-9]*)?)(?:[eE][+-]?[0-9]*)?$"));
+        return partial.match(text).hasMatch() ? QValidator::Intermediate : QValidator::Invalid;
+    }
+};
 class BuiltinEditor final : public SettingsFieldEditor
 {
 public:
@@ -95,6 +206,88 @@ public:
             _text->setMaximumHeight(180);
             layout->addWidget(_text);
             connect(_text, &QPlainTextEdit::textChanged, this, [this] { _changed(); });
+        }
+        else if (hint == "integer" || hint == "number"
+                 || (hint.isEmpty() && (field.type == "integer" || field.type == "number")))
+        {
+            constexpr double exactLimit = 9007199254740991.0;
+            double           minimum    = field.definition.value("minimum", -exactLimit).toDouble();
+            double           maximum    = field.definition.value("maximum", exactLimit).toDouble();
+            const bool       integer    = field.type == "integer" || hint == "integer";
+            if (field.definition.contains("exclusiveMinimum"))
+            {
+                const double bound = field.definition.value("exclusiveMinimum").toDouble();
+                minimum = std::max(minimum, integer ? std::floor(bound) + 1 : std::nextafter(bound, exactLimit));
+            }
+            if (field.definition.contains("exclusiveMaximum"))
+            {
+                const double bound = field.definition.value("exclusiveMaximum").toDouble();
+                maximum = std::min(maximum, integer ? std::ceil(bound) - 1 : std::nextafter(bound, -exactLimit));
+            }
+            if (integer)
+            {
+                minimum = std::ceil(minimum);
+                maximum = std::floor(maximum);
+            }
+            minimum = std::clamp(minimum, -exactLimit, exactLimit);
+            maximum = std::clamp(maximum, -exactLimit, exactLimit);
+            // An unsatisfiable schema remains invalid in the draft; Qt requires an ordered range.
+            if (minimum > maximum)
+            {
+                maximum = minimum;
+            }
+            if (integer && minimum >= std::numeric_limits<int>::min() && maximum <= std::numeric_limits<int>::max())
+            {
+                _integer = new NumericSpinBox<QSpinBox>(this);
+                _integer->setLocale(QLocale::c());
+                _integer->setRange(static_cast<int>(minimum), static_cast<int>(maximum));
+                layout->addWidget(_integer);
+                _line = _integer->findChild<QLineEdit*>();
+            }
+            else
+            {
+                _number = new NumberSpinBox(this);
+                if (integer)
+                {
+                    _number->setDecimals(0);
+                }
+                _number->setRange(minimum, maximum);
+                layout->addWidget(_number);
+                _line = _number->findChild<QLineEdit*>();
+            }
+            auto restoreOriginal = [this] {
+                if (_untouched)
+                {
+                    const QSignalBlocker blocker(_line);
+                    _line->setText(_value.typeId() == QMetaType::Double ? QString::number(_value.toDouble(), 'g', 17) :
+                                                                          _value.toString());
+                }
+            };
+            if (_integer)
+            {
+                _integer->setSteppedCallback([this] { _changed(); });
+                _integer->setActivatedCallback(restoreOriginal);
+                connect(_integer, &QSpinBox::valueChanged, this, [this] {
+                    if (!_integer->normalizing())
+                    {
+                        _changed();
+                    }
+                });
+            }
+            if (_number)
+            {
+                _number->setSteppedCallback([this] { _changed(); });
+                _number->setActivatedCallback(restoreOriginal);
+                connect(_number, &QDoubleSpinBox::valueChanged, this, [this] {
+                    if (!_number->normalizing())
+                    {
+                        _changed();
+                    }
+                });
+            }
+            _line->installEventFilter(this);
+            (_integer ? static_cast<QAbstractSpinBox*>(_integer) : _number)->installEventFilter(this);
+            connect(_line, &QLineEdit::textChanged, this, [this] { _changed(); });
         }
         else
         {
@@ -251,7 +444,19 @@ public:
         if (_line)
         {
             const QSignalBlocker blocker(_line);
-            _line->setText(value.toString());
+            // Preserve the original text and QVariant even when Qt cannot represent a loaded value.
+            if (_integer)
+            {
+                const QSignalBlocker spinBlocker(_integer);
+                _integer->setValue(value.toInt());
+            }
+            if (_number)
+            {
+                const QSignalBlocker spinBlocker(_number);
+                _number->setValue(value.toDouble());
+            }
+            _line->setText(value.typeId() == QMetaType::Double ? QString::number(value.toDouble(), 'g', 17) :
+                                                                 value.toString());
         }
         if (_text)
         {
@@ -293,15 +498,35 @@ public:
         return {};
     }
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (_untouched && _line && (_integer || _number) && !_line->hasAcceptableInput())
+        {
+            const bool  focusOut = event->type() == QEvent::FocusOut;
+            const auto* key      = event->type() == QEvent::KeyPress ? static_cast<QKeyEvent*>(event) : nullptr;
+            const bool  confirm  = key && (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter);
+            // Focus changes and confirmation must not turn a loaded invalid value into a clamped edit.
+            // A real text change or a step clears _untouched and restores normal spinbox behavior.
+            if (focusOut || confirm)
+            {
+                return true;
+            }
+        }
+        return SettingsFieldEditor::eventFilter(watched, event);
+    }
+
 private:
-    SettingsSchema::Field _field;
-    QLineEdit*            _line  = nullptr;
-    QPlainTextEdit*       _text  = nullptr;
-    QComboBox*            _combo = nullptr;
-    QCheckBox*            _check = nullptr;
-    QVariant              _value;
-    bool                  _untouched = true;
-    bool                  _yaml() const
+    SettingsSchema::Field     _field;
+    NumericSpinBox<QSpinBox>* _integer = nullptr;
+    NumberSpinBox*            _number  = nullptr;
+    QLineEdit*                _line    = nullptr;
+    QPlainTextEdit*           _text    = nullptr;
+    QComboBox*                _combo   = nullptr;
+    QCheckBox*                _check   = nullptr;
+    QVariant                  _value;
+    bool                      _untouched = true;
+    bool                      _yaml() const
     {
         return _field.widget == "yaml" || _field.type == "object" || _field.type == "array"
             || (_field.widget.isEmpty() && (_field.type.isEmpty() || _field.type == "null"));

@@ -99,6 +99,7 @@ private:
     void                                   _restore();
     void                                   _close(const QString& id);
     void                                   _changed(const QString& id);
+    QString                                _mainParameter(const Runtime& terminal) const;
     void                                   _attemptConnection(const QString& id);
     QVariantMap                            _effective(const Type& type, SettingsOverlay settings) const;
     bool                                   _validate(const Type& type, SettingsOverlay settings, QString* error) const;

@@ -8,12 +8,12 @@
 #include <QMainWindow>
 #include <QMimeData>
 #include <QPlainTextEdit>
-#include <QStyle>
 #include <QTextDocument>
 #include <QTextEdit>
 #include <QTimer>
 #include <Termaster/Core/ActionContainer.h>
 #include <Termaster/Core/CommandRegistry.h>
+#include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 
 EditActions::EditActions(QMainWindow& window, CommandRegistry& commands, ActionContainer& menu, QObject* owner) :
@@ -28,30 +28,23 @@ EditActions::EditActions(QMainWindow& window, CommandRegistry& commands, ActionC
         QKeySequence::StandardKey shortcut;
     };
     const std::array definitions {
-        Definition {     "Edit.Undo",QT_TR_NOOP("&Undo"),"edit-undo",   "history",QKeySequence::Undo                                                                                        },
-        Definition {     "Edit.Redo",  QT_TR_NOOP("&Redo"),    "edit-redo",   "history",  QKeySequence::Redo},
-        Definition {      "Edit.Cut",   QT_TR_NOOP("Cu&t"),     "edit-cut", "clipboard",   QKeySequence::Cut},
-        Definition {     "Edit.Copy",  QT_TR_NOOP("&Copy"),    "edit-copy", "clipboard",  QKeySequence::Copy},
-        Definition {    "Edit.Paste", QT_TR_NOOP("&Paste"),   "edit-paste", "clipboard", QKeySequence::Paste},
-        Definition {"Edit.SelectAll",
-                    QT_TR_NOOP("Select &All"),
-                    "edit-select-all", "selection",
-                    QKeySequence::SelectAll                                                                 }
+        Definition {     "Edit.Undo",       QT_TR_NOOP("&Undo"),          "undo-2",   "history",      QKeySequence::Undo},
+        Definition {     "Edit.Redo",       QT_TR_NOOP("&Redo"),          "redo-2",   "history",      QKeySequence::Redo},
+        Definition {      "Edit.Cut",        QT_TR_NOOP("Cu&t"),        "scissors", "clipboard",       QKeySequence::Cut},
+        Definition {     "Edit.Copy",       QT_TR_NOOP("&Copy"),            "copy", "clipboard",      QKeySequence::Copy},
+        Definition {    "Edit.Paste",      QT_TR_NOOP("&Paste"), "clipboard-paste", "clipboard",     QKeySequence::Paste},
+        Definition {"Edit.SelectAll", QT_TR_NOOP("Select &All"),       "scan-text", "selection", QKeySequence::SelectAll}
     };
     for (std::size_t index = 0; index < definitions.size(); ++index)
     {
         const auto& definition = definitions[index];
-        QIcon       icon       = QIcon::fromTheme(QString::fromLatin1(definition.icon));
-        if (icon.isNull() && index < 2)
-        {
-            icon = window.style()->standardIcon(index == 0 ? QStyle::SP_ArrowBack : QStyle::SP_ArrowForward);
-        }
-        auto* command   = commands.create(QString::fromLatin1(definition.id),
-                                          tr(definition.text),
-                                          icon,
-                                          QKeySequence(definition.shortcut));
-        auto* action    = command->newAction(&window);
-        _actions[index] = action;
+        const auto  icon       = Icons::icon(QString::fromLatin1(definition.icon));
+        auto*       command    = commands.create(QString::fromLatin1(definition.id),
+                                                 tr(definition.text),
+                                                 icon,
+                                                 QKeySequence(definition.shortcut));
+        auto*       action     = command->newAction(&window);
+        _actions[index]        = action;
         menu.addAction(action, QString::fromLatin1(definition.group));
         window.addAction(action);
         connect(action, &QAction::triggered, this, [this, operation = static_cast<Operation>(index)] {

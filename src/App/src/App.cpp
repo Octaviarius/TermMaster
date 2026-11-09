@@ -21,12 +21,12 @@
 #include <QSet>
 #include <QSignalBlocker>
 #include <QStatusBar>
-#include <QStyle>
 #include <QUuid>
 #include <Termaster/App/App.h>
 #include <Termaster/Core/ApplicationPaths.h>
 #include <Termaster/Core/CommandRegistry.h>
 #include <Termaster/Core/Gui/Action/MenuActionContainer.h>
+#include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Plugin/PluginManagerGui.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
@@ -453,12 +453,9 @@ bool App::eventFilter(QObject* watched, QEvent* event)
 
 void App::_setupActions()
 {
-    const auto icon = [this](const QString& name, QStyle::StandardPixmap fallback) {
-        return QIcon::fromTheme(name, style()->standardIcon(fallback));
-    };
     auto* create = _addAction("Workspace.New",
                               tr("&New workspace…"),
-                              icon("document-new", QStyle::SP_FileIcon),
+                              Icons::icon("folder-plus"),
                               QKeySequence::New,
                               "file",
                               "workspace");
@@ -466,7 +463,7 @@ void App::_setupActions()
     connect(create, &QAction::triggered, this, &App::_chooseNewWorkspace);
     auto* open = _addAction("Workspace.Open",
                             tr("&Open workspace…"),
-                            icon("document-open", QStyle::SP_DirOpenIcon),
+                            Icons::icon("folder-open"),
                             QKeySequence::Open,
                             "file",
                             "workspace");
@@ -474,7 +471,7 @@ void App::_setupActions()
     connect(open, &QAction::triggered, this, &App::_chooseWorkspace);
     _data->saveAction = _addAction("Workspace.Save",
                                    tr("&Save workspace"),
-                                   icon("document-save", QStyle::SP_DialogSaveButton),
+                                   Icons::icon("save"),
                                    QKeySequence::Save,
                                    "file",
                                    "workspace");
@@ -488,7 +485,7 @@ void App::_setupActions()
     });
     _data->closeAction = _addAction("Workspace.Close",
                                     tr("&Close workspace"),
-                                    icon("document-close", QStyle::SP_DialogCloseButton),
+                                    Icons::icon("x"),
                                     QKeySequence::Close,
                                     "file",
                                     "workspace");
@@ -535,7 +532,7 @@ void App::_setupActions()
     }
     _data->createSessionAction = _addAction("Session.New",
                                             tr("New &session…"),
-                                            icon("document-new", QStyle::SP_FileIcon),
+                                            Icons::icon("file-plus"),
                                             {},
                                             "session",
                                             "session");
@@ -543,7 +540,7 @@ void App::_setupActions()
     connect(_data->createSessionAction, &QAction::triggered, this, &App::_chooseNewSession);
     _data->openSessionAction = _addAction("Session.Open",
                                           tr("Open session…"),
-                                          icon("document-open", QStyle::SP_DirOpenIcon),
+                                          Icons::icon("folder-open"),
                                           {},
                                           "session",
                                           "session");
@@ -551,7 +548,7 @@ void App::_setupActions()
     connect(_data->openSessionAction, &QAction::triggered, this, &App::_chooseSession);
     _data->saveSessionAction = _addAction("Session.Save",
                                           tr("Save session"),
-                                          icon("document-save", QStyle::SP_DialogSaveButton),
+                                          Icons::icon("save"),
                                           {},
                                           "session",
                                           "session");
@@ -565,7 +562,7 @@ void App::_setupActions()
     });
     _data->closeSessionAction = _addAction("Session.Close",
                                            tr("Close session"),
-                                           icon("document-close", QStyle::SP_DialogCloseButton),
+                                           Icons::icon("x"),
                                            {},
                                            "session",
                                            "session");
@@ -577,7 +574,12 @@ void App::_setupActions()
             _showError(error);
         }
     });
-    _data->renameSessionAction = _addAction("Session.Rename", tr("Rename session…"), {}, {}, "session", "session");
+    _data->renameSessionAction = _addAction("Session.Rename",
+                                            tr("Rename session…"),
+                                            Icons::icon("pencil"),
+                                            {},
+                                            "session",
+                                            "session");
     connect(_data->renameSessionAction, &QAction::triggered, this, [this] {
         if (!_data->session)
         {
@@ -602,7 +604,7 @@ void App::_setupActions()
     });
     _data->workspaceSettingsAction = _addAction("Workspace.Settings",
                                                 tr("Workspace settings…"),
-                                                {},
+                                                Icons::icon("sliders-horizontal"),
                                                 {},
                                                 "file",
                                                 "settings");
@@ -611,7 +613,7 @@ void App::_setupActions()
     });
     _data->sessionSettingsAction = _addAction("Session.Settings",
                                               tr("Session settings…"),
-                                              {},
+                                              Icons::icon("sliders-horizontal"),
                                               {},
                                               "session",
                                               "settings");
@@ -630,8 +632,13 @@ void App::_setupActions()
     connect(quit, &QAction::triggered, _data->window.get(), &QWidget::close);
 
     _data->editing       = std::make_unique<EditActions>(*_data->window, commands(), *mainMenu().findMenu("/edit"));
-    _data->toolbarAction = _addAction("View.Toolbar", tr("&Toolbar"), {}, {}, "view", "panels");
-    _data->statusAction  = _addAction("View.StatusBar", tr("&Status bar"), {}, {}, "view", "panels");
+    _data->toolbarAction = _addAction("View.Toolbar", tr("&Toolbar"), Icons::icon("panel-top"), {}, "view", "panels");
+    _data->statusAction  = _addAction("View.StatusBar",
+                                      tr("&Status bar"),
+                                      Icons::icon("panel-bottom"),
+                                      {},
+                                      "view",
+                                      "panels");
     for (auto* action : {_data->toolbarAction.data(), _data->statusAction.data()})
     {
         action->setCheckable(true);
@@ -678,7 +685,7 @@ void App::_setupActions()
     });
     auto* preferences = _addAction("Application.Settings",
                                    tr("&Settings…"),
-                                   icon("preferences-system", QStyle::SP_FileDialogDetailedView),
+                                   Icons::icon("sliders-horizontal"),
                                    QKeySequence::Preferences,
                                    "tools",
                                    "management");
@@ -686,7 +693,7 @@ void App::_setupActions()
     connect(preferences, &QAction::triggered, this, [this] { _showSettings(); });
     auto* plugins = _addAction("Application.Plugins",
                                tr("&Plugins…"),
-                               icon("application-x-addon", QStyle::SP_FileDialogDetailedView),
+                               Icons::icon("puzzle"),
                                {},
                                "tools",
                                "management");

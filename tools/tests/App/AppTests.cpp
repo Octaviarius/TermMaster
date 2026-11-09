@@ -29,6 +29,8 @@
 #include <QSignalSpy>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
+#include <QStyle>
+#include <QStyleHints>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTableView>
@@ -849,6 +851,215 @@ private:
         picker.reject();
     }
 
+    Q_SLOT void terminalTabTypeAndEndpoint()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        QString error;
+        QVERIFY2(_app.createWorkspace(Path(temporary.filePath("Tabs.termaster")), "Tab fixture", &error),
+                 qPrintable(error));
+        QVERIFY2(_app.createSession("Tab fixture", &error), qPrintable(error));
+        auto&      host         = _app.pluginHost();
+        const auto probe        = std::make_shared<ReconnectDevice::Probe>();
+        const auto registration = [probe](const QString& id) {
+            PluginHost::TerminalType type;
+            type.id             = id;
+            type.title          = "Fixture " + id;
+            type.plugin         = "TabFixture";
+            type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Synthetic tab presentation fixture
+content:
+  type: object
+  properties:
+    host:
+      type: string
+      default: localhost
+      x-settings-path: transport/host
+    port:
+      type: integer
+      default: 5000
+      x-settings-path: transport/port
+    portName:
+      type: string
+      default: COM1
+      x-settings-path: transport/portName
+    program:
+      type: string
+      default: ''
+      x-settings-path: transport/program
+)";
+            type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+            return type;
+        };
+        const auto cleanup = qScopeGuard([&] {
+            _app.closeWorkspace();
+            for (const auto& id : {"socket", "serial", "console"})
+            {
+                host.unregisterTerminalType(id);
+            }
+        });
+        for (const auto& id : {"socket", "serial", "console"})
+        {
+            host.registerTerminalType(registration(id));
+        }
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        QVERIFY(tabs);
+        QVERIFY2(_app.createTerminal("socket", {}, "Saved <friendly> socket", &error), qPrintable(error));
+        const auto socketId = _app.selectedTerminal();
+        QCOMPARE(tabs->tabText(0), "Socket\nlocalhost:5000");
+        const auto socketGlyph = qvariant_cast<QIcon>(tabs->tabBar()->tabData(0)).pixmap(16, 16).toImage();
+        QVERIFY(!socketGlyph.isNull());
+        QVERIFY(!tabs->tabIcon(0).isNull());
+        QVERIFY(QTextDocumentFragment::fromHtml(tabs->tabToolTip(0)).toPlainText().contains("Saved <friendly> socket"));
+        QVERIFY(tabs->tabBar()->accessibleTabName(0).contains("localhost:5000"));
+        QVERIFY(tabs->tabBar()->accessibleTabName(0).contains("Disconnected"));
+
+        host.showSelectedTerminalSettings();
+        auto* dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+        QVERIFY(dialog);
+        auto* model = dialog->pageModel("terminal.connection");
+        QVERIFY(model);
+        QVERIFY(_app.workspace()->settings().setValue("transport/host", "inherited.example"));
+        dialog->refreshInheritedValues();
+        model->setValue("port", 5001);
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(tabs->tabText(0), "Socket\ninherited.example:5001");
+        QVERIFY(!_app.session()->objects().node(socketId + "/settings").contains("transport/host"));
+        model->setValue("host", "2001:db8::1");
+        model->setValue("port", 6000);
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(tabs->tabText(0), "Socket\n[2001:db8::1]:6000");
+        delete dialog;
+        const auto objectBefore = _app.session()->objects().value(socketId);
+        QVERIFY(host.unregisterTerminalType("socket", &error));
+        host.registerTerminalType(registration("socket"));
+        QCOMPARE(_app.selectedTerminal(), socketId);
+        QCOMPARE(tabs->tabText(0), "Socket\n[2001:db8::1]:6000");
+        QCOMPARE(_app.session()->objects().value(socketId), objectBefore);
+        QCOMPARE(qvariant_cast<QIcon>(tabs->tabBar()->tabData(0)).pixmap(16, 16).toImage(), socketGlyph);
+        QVERIFY(tabs->tabBar()->accessibleTabName(0).contains("Saved <friendly> socket"));
+
+        QVERIFY2(_app.createTerminal("serial", {}, "Saved serial", &error), qPrintable(error));
+        QCOMPARE(tabs->tabText(1), "Serial\nCOM1");
+        QVERIFY2(_app.createTerminal("console",
+                                     {
+                                         {"transport",
+                                          QVariantMap {{"program", "sh"},
+                                                       {"arguments", QStringList {"private-argument"}},
+                                                       {"environment", QVariantMap {{"TOKEN", "private-token"}}}}}
+        },
+                                     "Saved console",
+                                     &error),
+                 qPrintable(error));
+        QCOMPARE(tabs->tabText(2), "Console\nsh");
+        const auto serialGlyph  = qvariant_cast<QIcon>(tabs->tabBar()->tabData(1)).pixmap(16, 16).toImage();
+        const auto consoleGlyph = qvariant_cast<QIcon>(tabs->tabBar()->tabData(2)).pixmap(16, 16).toImage();
+        QVERIFY(!serialGlyph.isNull());
+        QVERIFY(!consoleGlyph.isNull());
+        QVERIFY(serialGlyph != socketGlyph);
+        QVERIFY(consoleGlyph != socketGlyph);
+        QVERIFY(consoleGlyph != serialGlyph);
+        QVERIFY(!tabs->tabToolTip(2).contains("private-"));
+        QVERIFY(!tabs->tabBar()->accessibleTabName(2).contains("private-"));
+        tabs->tabBar()->moveTab(2, 0);
+        QCOMPARE(tabs->tabText(tabs->currentIndex()), "Console\nsh");
+        QCOMPARE(qvariant_cast<QIcon>(tabs->tabBar()->tabData(0)).pixmap(16, 16).toImage(), consoleGlyph);
+        QCOMPARE(qvariant_cast<QIcon>(tabs->tabBar()->tabData(1)).pixmap(16, 16).toImage(), socketGlyph);
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        QCoreApplication::processEvents();
+        QVERIFY(tabs->tabBar()->tabRect(0).height() >= 2 * tabs->tabBar()->fontMetrics().height());
+        const auto closeSide = tabs->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition) == QTabBar::LeftSide ?
+                                   QTabBar::LeftSide :
+                                   QTabBar::RightSide;
+        for (int index = 0; index < tabs->count(); ++index)
+        {
+            const auto* close = tabs->tabBar()->tabButton(index, closeSide);
+            QVERIFY(close);
+            const auto firstLineCenter = tabs->tabBar()->tabRect(index).center().y()
+                                       - tabs->tabBar()->fontMetrics().lineSpacing() / 2;
+            QVERIFY(qAbs(close->geometry().center().y() - firstLineCenter) <= 3);
+        }
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("TerminalTabs.png")));
+        }
+
+        const auto originalScheme  = QApplication::styleHints()->colorScheme();
+        const auto originalPalette = QApplication::palette();
+        const auto restoreScheme   = qScopeGuard([originalScheme, originalPalette] {
+            QApplication::styleHints()->setColorScheme(originalScheme);
+            QApplication::setPalette(originalPalette);
+        });
+        for (const auto scheme : {Qt::ColorScheme::Light, Qt::ColorScheme::Dark})
+        {
+            QApplication::styleHints()->setColorScheme(scheme);
+            auto colors = originalPalette;
+            if (scheme == Qt::ColorScheme::Dark)
+            {
+                colors.setColor(QPalette::Window, QColor("#202020"));
+                colors.setColor(QPalette::WindowText, QColor("#eeeeee"));
+                colors.setColor(QPalette::Base, QColor("#161616"));
+                colors.setColor(QPalette::Button, QColor("#303030"));
+                colors.setColor(QPalette::ButtonText, QColor("#eeeeee"));
+                colors.setColor(QPalette::Highlight, QColor("#4aa3ff"));
+                colors.setColor(QPalette::HighlightedText, QColor("#000000"));
+            }
+            QApplication::setPalette(colors);
+            QCoreApplication::processEvents();
+            for (const int selected : {0, 1})
+            {
+                tabs->setCurrentIndex(selected);
+                QCoreApplication::processEvents();
+                const auto image  = tabs->tabBar()->grab().toImage();
+                const auto ratio  = image.devicePixelRatio();
+                const auto stripe = tabs->tabBar()->tabRect(selected).bottomLeft() + QPoint(8, -1);
+                QCOMPARE(image.pixelColor(qRound(stripe.x() * ratio), qRound(stripe.y() * ratio)),
+                         tabs->tabBar()->palette().color(QPalette::Highlight));
+                const auto selectedBackground = tabs->tabBar()->tabRect(selected).topLeft() + QPoint(3, 3);
+                const auto inactiveBackground = tabs->tabBar()->tabRect(1 - selected).topLeft() + QPoint(3, 3);
+                QCOMPARE(image.pixelColor(qRound(inactiveBackground.x() * ratio),
+                                          qRound(inactiveBackground.y() * ratio)),
+                         QApplication::palette().color(QPalette::Window));
+                QVERIFY(image.pixelColor(qRound(selectedBackground.x() * ratio), qRound(selectedBackground.y() * ratio))
+                        != QApplication::palette().color(QPalette::Window));
+                const auto inactiveStripe = tabs->tabBar()->tabRect(1 - selected).bottomLeft() + QPoint(8, -1);
+                QVERIFY(image.pixelColor(qRound(inactiveStripe.x() * ratio), qRound(inactiveStripe.y() * ratio))
+                        != tabs->tabBar()->palette().color(QPalette::Highlight));
+            }
+            if (!capture.isEmpty())
+            {
+                const auto name = scheme == Qt::ColorScheme::Dark ? "TerminalTabsSelectedDark.png" :
+                                                                    "TerminalTabsSelectedLight.png";
+                QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath(name)));
+            }
+        }
+        QApplication::styleHints()->setColorScheme(originalScheme);
+        QApplication::setPalette(originalPalette);
+        QCoreApplication::processEvents();
+        tabs->setCurrentIndex(1);
+        host.showSelectedTerminalSettings();
+        dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+        QVERIFY(dialog);
+        model               = dialog->pageModel("terminal.connection");
+        const auto longHost = QString(180, 'a') + ".example";
+        model->setValue("host", longHost);
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        const auto label = tabs->tabText(1);
+        QVERIFY(label.startsWith("Socket\n"));
+        QVERIFY(label.size() < longHost.size());
+        QVERIFY(tabs->tabToolTip(1).contains(longHost));
+        QVERIFY(tabs->tabBar()->accessibleTabName(1).contains(longHost));
+        delete dialog;
+        if (!capture.isEmpty())
+        {
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("TerminalTabsLongEndpoint.png")));
+        }
+        QCOMPARE(probe->attempts, 0);
+    }
     Q_SLOT void socketPluginTerminalLifecycle()
     {
         QTemporaryDir temporary;
@@ -1288,7 +1499,7 @@ private:
         auto* tabs = _app.mainWindow().findChild<QTabWidget*>();
         QVERIFY(tabs);
         QVERIFY(!tabs->tabIcon(tabs->currentIndex()).pixmap(16, 16).isNull());
-        QCOMPARE(tabs->tabText(tabs->currentIndex()), QString("Synthetic serial"));
+        QCOMPARE(tabs->tabText(tabs->currentIndex()), QString("Serial\nCOM_TERMASTER_TEST_UNUSED"));
         QVERIFY(settings->selectPage("terminal.connection"));
         if (QGuiApplication::platformName() == "windows")
         {

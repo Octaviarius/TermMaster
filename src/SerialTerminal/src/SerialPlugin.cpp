@@ -3,10 +3,8 @@
 #include "Gui/Serial/BaudRateSelector.h"
 #include "Gui/Serial/PortSelector.h"
 
-#include <QApplication>
 #include <QFile>
 #include <QLabel>
-#include <QStyle>
 #include <QVBoxLayout>
 #include <Termaster/SerialTerminal/SerialTerminal.h>
 #include <exception>
@@ -163,27 +161,27 @@ void SerialPlugin::_registerActions()
     _actionsRegistered.reserve(6);
     struct Description
     {
-        QString                id;
-        QString                title;
-        QString                group;
-        QStyle::StandardPixmap icon;
+        QString id;
+        QString title;
+        QString group;
+        QString icon;
     };
     const QList<Description> descriptions {
-        {       "Serial.New",   "New serial",     "create",               QStyle::SP_FileIcon},
-        {   "Serial.Connect",      "Connect", "connection",              QStyle::SP_MediaPlay},
-        {"Serial.Disconnect",   "Disconnect", "connection",              QStyle::SP_MediaStop},
-        {     "Serial.Close",        "Close", "management",      QStyle::SP_DialogCloseButton},
-        {     "Serial.Clear", "Clear screen",     "output",      QStyle::SP_DialogResetButton},
-        {  "Serial.Settings",  "Settings...",   "settings", QStyle::SP_FileDialogDetailedView}
+        {       "Serial.New",   "New serial",     "create",              "cable"},
+        {   "Serial.Connect",      "Connect", "connection",               "plug"},
+        {"Serial.Disconnect",   "Disconnect", "connection",             "unplug"},
+        {     "Serial.Close",        "Close", "management",                  "x"},
+        {     "Serial.Clear", "Clear screen",     "output",             "eraser"},
+        {  "Serial.Settings",  "Settings...",   "settings", "sliders-horizontal"}
     };
     for (const auto& item : descriptions)
     {
         PluginHost::Action action;
-        action.id      = item.id;
-        action.title   = item.title;
-        action.group   = item.group;
-        action.icon    = QApplication::style()->standardIcon(item.icon);
-        action.visible = [this, id = item.id] {
+        action.id       = item.id;
+        action.title    = item.title;
+        action.group    = item.group;
+        action.iconName = item.icon;
+        action.visible  = [this, id = item.id] {
             return _host && (id == "Serial.New" ? true : _host->hasSelectedTerminal("serial"));
         };
         action.enabled = [this, id = item.id] {
