@@ -110,7 +110,86 @@ See [codec requirements](python-and-codecs.md#stream-codecs-and-packet-input).
 - [x] Persist reusable ProcessorBlocks in the workspace without shared runtime state.
 - [x] Prepare and execute bounded Lineflow compositions with cancellation and plugin leases.
 - [x] Verify synthetic processing and a real native plugin lifecycle.
-- [ ] Connect terminal Rx/Tx routing and production editing UI in a separate stage.
-- [ ] Implement Codeflow with the separately specified Python runtime.
 
 The delivered scope and execution contract are recorded in [processing core](processing-core.md).
+
+## FLOW-2: Terminal processing lifecycle and routing
+
+- [ ] Define routing of byte chunks versus packets, outgoing input kinds and local
+      echo. Command terminators must not be appended to protocol replies.
+- [ ] Define bounded receive ingress and transport backpressure behavior before
+      connecting asynchronous processors to live input; report overflow explicitly.
+- [ ] Add an App-owned coordinator with independent Rx and Tx instances, supporting
+      either a workspace Lineflow block or one registered Processor per direction.
+- [ ] Route device input through Rx to the display and outgoing data through Tx to
+      the existing bounded transport queue, preserving ordering and datagram boundaries.
+- [ ] Add pass-through selection and safe replacement: cancel/quiesce the old runtime,
+      handle buffered state explicitly and prevent old output reaching the replacement.
+- [ ] Verify chunk splits, delayed output, multiple results, reconnect, replacement,
+      queue saturation and plugin unload using synthetic transports.
+
+This stage makes processing usable without requiring the full editor. It must not
+silently change protocol reply, paste, keyboard, packet or local-echo semantics.
+
+## FLOW-3: Production native processor plugin
+
+- [ ] Package the initial native processors in a production plugin through the
+      delivered registration SDK; preserve existing native core fixtures as references.
+- [ ] Supply valid defaults, configuration schemas, icons and descriptions for each type.
+- [ ] Add the useful initial native codecs/framing operations tracked in P8, including
+      explicit encoding/decoding directions and malformed-input behavior.
+- [ ] Verify independent state, bounded frame accumulation and incremental decoding,
+      plus real plugin registration, cancellation and unload through terminal routing.
+
+P8 remains the codec capability checklist. Native processing does not depend on Python.
+
+## FLOW-4: Workspace Lineflow editor
+
+- [ ] Replace prototype-only tree contents with workspace block definitions and the
+      registered processor catalog; provide block creation, naming, duplication and removal.
+- [ ] Preserve drag/drop ordering and nested block insertion with cycle checks.
+- [ ] Generate selected-node forms from schemas and x-widget registrations; support
+      plugin-owned editors without coupling them to runtime instances.
+- [ ] Keep edits as drafts with explicit Apply/Cancel and validate before persistence.
+- [ ] Add node rename refactoring that handles affected occurrence overrides and
+      references, including closed sessions; preflight failures must not leave partial changes.
+- [ ] Preserve unavailable processor definitions visibly and explain why execution
+      is unavailable without silently replacing or removing those nodes.
+- [ ] Verify editor state, nested reuse, renaming, persistence failures and plugin
+      removal, with native visual acceptance at supported display scales.
+
+No freely connected graph or ControlFlow nodes are part of Lineflow.
+
+## FLOW-5: Terminal selection and private properties
+
+- [ ] Add compact independent Rx/Tx selectors for a block, elementary processor or bypass.
+- [ ] Persist selections and private configuration in each terminal's session settings.
+- [ ] Show properties in a side table, grouped by node name in expanded Lineflow order;
+      distinguish repeated nested occurrences and expose the default/inherited value.
+- [ ] Reset individual overrides without modifying the shared workspace definition.
+- [ ] Apply changes through a prepared replacement plan; do not mutate an active runtime.
+- [ ] Show node-path errors, busy/cancelling state and bounded diagnostic counters
+      without recording payloads by default.
+
+Private values resolve over workspace node configuration and processor defaults.
+Rx/Tx and different terminals must remain independent even when sharing a block.
+
+## FLOW-6: Codeflow
+
+- [ ] Build on the Python ownership and execution work tracked in P7; define an
+      explicit processing/control context without granting implicit transport ownership.
+- [ ] Implement Codeflow as another Processor composition, accepting bytes and
+      producing asynchronous results under the same limits and cancellation contract.
+- [ ] Expose registered native processors and Lineflow blocks to scripts through
+      owned instance handles, with defined async waits, ordering and error propagation.
+- [ ] Add code editing, validation and diagnostics, preserving saved source/configuration
+      separately from live script state and worker/interpreter resources.
+- [ ] Verify cancellation, plugin/interpreter shutdown and bounded expansion without
+      representing arbitrary script execution as sandboxed.
+
+Codeflow can be selected on Rx/Tx or used inside Lineflow through the common
+Processor contract. It does not add ControlFlow nodes to the Lineflow editor.
+
+Recommended processing order is FLOW-2 through FLOW-6. FLOW-3 can proceed alongside
+FLOW-2; FLOW-4 can begin once the catalog and workspace editing contracts are stable.
+The earlier unrelated P5/P6 milestones do not block this processing sequence.

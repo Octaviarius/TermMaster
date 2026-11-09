@@ -214,3 +214,23 @@ suite leaves opt-in visual capture disabled; host symlink privileges were not
 available for the existing confinement fixtures. No processing test was skipped.
 All changed C++ files were clang-formatted; local documentation file links and
 `git diff --check` passed.
+
+## Follow-up delivery order
+
+The single implementation checklist is in [the roadmap](roadmap.md#flow-2-terminal-processing-lifecycle-and-routing).
+The next steps are terminal lifecycle/routing, a production native processor plugin,
+workspace editing, compact terminal selectors/private properties and Codeflow.
+Routing requires an explicit receive backpressure and outgoing-kind contract;
+the current core alone does not establish transport integration.
+
+```mermaid
+flowchart LR
+    Core[Delivered Processor core] --> Routing[FLOW-2: Rx/Tx lifecycle and routing]
+    Core --> Native[FLOW-3: Native processor plugin]
+    Core --> Editor[FLOW-4: Workspace Lineflow editor]
+    Routing --> Binding[FLOW-5: Terminal selectors and properties]
+    Native --> Binding
+    Editor --> Binding
+    Binding --> Codeflow[FLOW-6: Codeflow]
+    Python[P7: Python runtime] --> Codeflow
+```
