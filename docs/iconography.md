@@ -9,8 +9,9 @@ during CMake configuration. Qt Svg renders the vectors.
 
 Core's `Icons::icon()` creates a palette-aware QIcon engine. It resolves color at
 paint time from the current QApplication palette: active ButtonText for normal
-and hover, disabled ButtonText for disabled actions, and HighlightedText for
-the Selected icon mode. Native menu styles choose their own icon mode. Existing icon instances follow palette changes without
+and hover, and HighlightedText for
+the Selected icon mode. Disabled icons retain the normal glyph and active color
+with 15% painter opacity (85% fading), without an added background or frame. Native menu styles choose their own icon mode. Existing icon instances follow palette changes without
 rebuilding commands. Device-independent rendering preserves stroke weight at
 fractional and integer device pixel ratios.
 
@@ -36,7 +37,7 @@ Workspace, session, editing and plugin-management commands use the same icon
 family. Command IDs, shortcuts, order, eligibility and execution are unchanged.
 
 The compact reset button keeps an orange background and an explicit dark icon
-tint for contrast in both themes; disabled tinted icons use reduced opacity.
+tint for contrast in both themes; disabled tinted icons use the same 15% opacity.
 
 ## Plugin boundary
 
@@ -89,3 +90,29 @@ remain readable. The five additional SVGs are unchanged files from the existing
 pinned revision in [source metadata](../components/lucide/SOURCE.md).
 Native scale-1 and scale-2 acceptance is recorded in
 [settings forms](settings-forms.md#p3-verification).
+
+## Disabled icon fading
+
+Disabled command icons use 85% fading (15% opacity) for both palette-derived and
+explicitly tinted glyphs. The active ButtonText color supplies the base color;
+disabled palette colors do not apply an additional fade. Normal, hover and selected
+presentations retain their existing colors, geometry and transparent padding.
+
+Verified on 2026-11-09 with Qt 6.12.0 / MSVC 19.44 Debug: the normal application
+and plugin build and all 28 CTest suites passed. IconTests verifies disabled alpha
+and light/dark background compositing for palette and tinted icons across device
+pixel ratios 1, 1.5 and 2, including existing icons after palette changes. Native
+Windows application captures use a fixed 1280 by 800 logical pixel client area
+and disconnected synthetic terminal fixtures. No hardware or external network
+acceptance was performed.
+
+Full application references at 100%:
+[light](images/icons/disabled-85/scale-1/consoleLight.png),
+[dark](images/icons/disabled-85/scale-1/consoleDark.png).
+At 200%: [light](images/icons/disabled-85/scale-2/consoleLight.png),
+[dark](images/icons/disabled-85/scale-2/consoleDark.png).
+Native toolbar/menu fixture at 100%:
+[light](images/icons/disabled-85/scale-1/IconsLight.png),
+[dark](images/icons/disabled-85/scale-1/IconsDark.png).
+At 200%: [light](images/icons/disabled-85/scale-2/IconsLight.png),
+[dark](images/icons/disabled-85/scale-2/IconsDark.png).

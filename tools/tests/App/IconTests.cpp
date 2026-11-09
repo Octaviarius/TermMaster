@@ -29,9 +29,7 @@ private:
             QApplication::setPalette(palette);
             for (const auto mode : {QIcon::Normal, QIcon::Active, QIcon::Disabled, QIcon::Selected})
             {
-                const auto expected = mode == QIcon::Disabled ? QColor("#788493") :
-                                      mode == QIcon::Selected ? QColor("#fefefe") :
-                                                                color;
+                const auto expected = mode == QIcon::Selected ? QColor("#fefefe") : color;
                 for (const auto dpr : {1.0, 1.5, 2.0})
                 {
                     for (const auto size : {16, 24})
@@ -46,7 +44,11 @@ private:
                             for (int x = 0; x < image.width(); ++x)
                             {
                                 const auto pixel = image.pixelColor(x, y);
-                                if (pixel.alpha() > 250 && pixel.rgb() == expected.rgb())
+                                if (mode == QIcon::Disabled ?
+                                        qAbs(pixel.alpha() - 38) <= 1 && qAbs(pixel.red() - expected.red()) <= 4
+                                            && qAbs(pixel.green() - expected.green()) <= 4
+                                            && qAbs(pixel.blue() - expected.blue()) <= 4 :
+                                        pixel.alpha() > 250 && pixel.rgb() == expected.rgb())
                                 {
                                     found = true;
                                 }
@@ -55,6 +57,64 @@ private:
                         QVERIFY(found);
                         QCOMPARE(image.pixelColor(0, 0).alpha(), 0);
                     }
+                }
+            }
+        }
+    }
+
+    Q_SLOT void disabledOpacity()
+    {
+        const auto original = QApplication::palette();
+        const auto restore  = qScopeGuard([&] { QApplication::setPalette(original); });
+        for (const auto tint : {QColor(), QColor("#172333")})
+        {
+            const auto icon = Icons::icon("square-terminal", tint);
+            for (const auto foreground : {QColor("#263245"), QColor("#e1e9f7")})
+            {
+                auto palette = original;
+                palette.setColor(QPalette::Active, QPalette::ButtonText, foreground);
+                palette.setColor(QPalette::Disabled, QPalette::ButtonText, Qt::red);
+                QApplication::setPalette(palette);
+                for (const auto dpr : {1.0, 1.5, 2.0})
+                {
+                    const auto normal   = icon.pixmap(QSize(24, 24), dpr, QIcon::Normal).toImage();
+                    const auto disabled = icon.pixmap(QSize(24, 24), dpr, QIcon::Disabled).toImage();
+                    int        checked  = 0;
+                    for (int y = 0; y < normal.height(); ++y)
+                    {
+                        for (int x = 0; x < normal.width(); ++x)
+                        {
+                            const auto source = normal.pixelColor(x, y);
+                            const auto faded  = disabled.pixelColor(x, y);
+                            if (source.alpha() == 0)
+                            {
+                                QCOMPARE(faded.alpha(), 0);
+                            }
+                            if (source.alpha() == 255 && qAbs(faded.alpha() - 38) <= 1)
+                            {
+                                for (const auto background : {QColor("#ffffff"), QColor("#202733")})
+                                {
+                                    const auto composite = [&](const QColor& value) {
+                                        QImage image(1, 1, QImage::Format_ARGB32_Premultiplied);
+                                        image.fill(background);
+                                        QPainter painter(&image);
+                                        painter.fillRect(image.rect(), value);
+                                        painter.end();
+                                        return image.pixelColor(0, 0);
+                                    };
+                                    auto expected = source;
+                                    expected.setAlphaF(0.15f);
+                                    const auto actualComposite   = composite(faded);
+                                    const auto expectedComposite = composite(expected);
+                                    QVERIFY(qAbs(actualComposite.red() - expectedComposite.red()) <= 1);
+                                    QVERIFY(qAbs(actualComposite.green() - expectedComposite.green()) <= 1);
+                                    QVERIFY(qAbs(actualComposite.blue() - expectedComposite.blue()) <= 1);
+                                }
+                                ++checked;
+                            }
+                        }
+                    }
+                    QVERIFY(checked > 10);
                 }
             }
         }
