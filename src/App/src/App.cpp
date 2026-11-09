@@ -816,6 +816,15 @@ void App::_showLineflowEditor()
             },
             _data->window.get(),
             _data->processorFavorites.get());
+        _data->lineflowWindow->restoreDockLayout(
+            QByteArray::fromBase64(_data->settings.value("settings/ui/lineflow/docks").toString().toLatin1()));
+        connect(_data->lineflowWindow, &LineflowEditorDialog::dockLayoutChanged, this, [this](const QByteArray& state) {
+            QString error;
+            if (!_data->settings.setValue("settings/ui/lineflow/docks", QString::fromLatin1(state.toBase64()), &error))
+            {
+                _data->window->statusBar()->showMessage(error);
+            }
+        });
         _data->lineflowWindow->setAttribute(Qt::WA_DeleteOnClose);
     }
     _data->lineflowWindow->show();
@@ -976,6 +985,14 @@ bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* erro
 
 bool App::_saveChanges(QString* error)
 {
+    if (_data->lineflowWindow
+        && !_data->settings.setValue("settings/ui/lineflow/docks",
+                                     QString::fromLatin1(_data->lineflowWindow->dockLayout().toBase64()),
+                                     error))
+    {
+        return false;
+    }
+
     if (_data->workspace && !saveWorkspace(error))
     {
         return false;

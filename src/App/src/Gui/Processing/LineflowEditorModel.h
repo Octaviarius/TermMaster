@@ -17,6 +17,9 @@ public:
         NodeRole,
         CatalogIdRole,
         LinkedRole,
+        LaneRole,
+        InputCountRole,
+        OutputCountRole,
         UnavailableRole
     };
     LineflowEditorModel(QVariantMap definitions, ProcessorRegistry& registry, QObject* parent = nullptr);
@@ -25,6 +28,9 @@ public:
     QList<Rename>   renames() const;
     QStringList     blockIds() const;
     QString         blockName(const QString& id) const;
+    int             blockChannels(const QString& id) const;
+    bool            setBlockChannels(const QString& id, int channels, QString* error = nullptr);
+    QPair<int, int> processorShape(const QString& id) const;
     QString         blockGroup(const QString& id) const;
     bool            setBlockGroup(const QString& id, const QString& group, QString* error = nullptr);
     QString         selectedBlock() const;
@@ -32,6 +38,19 @@ public:
     void            setSelectedBlock(const QString& id);
     QVariantMap     node(const QString& block, const QString& name) const;
     QString         createBlock(const QString& name, QString* error = nullptr);
+    QString         createBlock(const QString& name, int channels, QString* error = nullptr);
+    QString         insertNodeAt(const QString& block,
+                                 int            row,
+                                 const QString& catalogId,
+                                 const QString& lane,
+                                 QString*       error = nullptr);
+    bool            moveNodeToLane(const QString& block,
+                                   const QString& name,
+                                   int            row,
+                                   const QString& lane,
+                                   QString*       error = nullptr);
+    bool            canDropAt(const QMimeData* data, int row, const QString& lane, const QStringList& order = {}) const;
+    bool            dropAt(const QMimeData* data, int row, const QString& lane, const QStringList& order = {});
     QString         duplicateBlock(const QString& id, const QString& name, QString* error = nullptr);
     bool            removeBlock(const QString& id, QString* error = nullptr);
     bool            renameBlock(const QString& id, const QString& name, QString* error = nullptr);
@@ -75,6 +94,10 @@ private:
     QString                               _unavailableReason(const QString& id, QSet<QString> path = {});
     bool                                  _commit(QVariantMap draft, QString* error);
     void                                  _rebuild();
+    std::optional<QVariantMap>            _dropDraft(const QMimeData*   data,
+                                                     int                row,
+                                                     const QString&     lane,
+                                                     const QStringList& order) const;
     void _append(QStandardItem* parent, const QString& block, bool linked, QSet<QString> path, int depth);
     int  _nodeIndex(const QString& block, const QString& name) const;
 };

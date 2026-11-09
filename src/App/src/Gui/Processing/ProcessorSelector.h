@@ -15,7 +15,7 @@ class ProcessorSelector final : public QComboBox
     Q_OBJECT
 public:
     explicit ProcessorSelector(QWidget* parent = nullptr, ProcessorFavorites* favorites = nullptr);
-    void setCatalog(QList<ProcessorCatalog::Type> types, const QString& selectedId);
+    void setCatalog(QList<ProcessorCatalog::Type> types, const QString& selectedId, QStringList excludedFavorites = {});
     void showPopup() override;
     void hidePopup() override;
 
@@ -24,6 +24,7 @@ protected:
 
 private:
     QList<ProcessorCatalog::Type> _types;
+    QStringList                   _excludedFavorites;
     QFrame*                       _popup;
     ProcessorCatalogTree*         _tree;
     QLineEdit*                    _search;

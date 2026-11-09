@@ -17,7 +17,7 @@ public:
     };
     explicit ProcessorCatalogTree(QWidget* parent = nullptr);
     void          setFavorites(ProcessorFavorites* favorites);
-    void          prependFavorites(const QString& query = {});
+    void          prependFavorites(const QString& query = {}, const QStringList& excluded = {});
     Q_SIGNAL void favoritesChanged();
 
 private:

@@ -105,6 +105,41 @@ QString LineflowEditorModel::blockName(const QString& id) const
 {
     return _draft.value(id).toMap().value("name").toString();
 }
+int LineflowEditorModel::blockChannels(const QString& id) const
+{
+    return _draft.value(id).toMap().value("source").toMap().value("channels", 1).toInt();
+}
+
+QPair<int, int> LineflowEditorModel::processorShape(const QString& id) const
+{
+    if (_draft.value(id).toMap().value("kind") == "lineflow")
+    {
+        const int channels = blockChannels(id);
+        return {channels, channels};
+    }
+    const auto metadata = _registry.type(id);
+    return metadata ? QPair<int, int> {metadata->inputCount, metadata->outputCount} : QPair<int, int> {1, 1};
+}
+
+bool LineflowEditorModel::setBlockChannels(const QString& id, int channels, QString* error)
+{
+    if (!blockIds().contains(id) || (channels != 1 && channels != 2))
+    {
+        return fail(error, tr("Select a block and a supported topology."));
+    }
+    if (blockChannels(id) == channels)
+    {
+        return true;
+    }
+    auto draft      = _draft;
+    auto definition = draft.value(id).toMap();
+    auto source     = definition.value("source").toMap();
+    source.insert("channels", channels);
+    definition.insert("source", source);
+    draft.insert(id, definition);
+    return _commit(draft, error);
+}
+
 QString LineflowEditorModel::blockGroup(const QString& id) const
 {
     return _draft.value(id).toMap().value("group").toString();
@@ -201,14 +236,19 @@ void LineflowEditorModel::markApplied(QVariantMap definitions)
 }
 QString LineflowEditorModel::createBlock(const QString& name, QString* error)
 {
+    return createBlock(name, 1, error);
+}
+
+QString LineflowEditorModel::createBlock(const QString& name, int channels, QString* error)
+{
     const auto id    = QUuid::createUuid().toString(QUuid::WithoutBraces);
     auto       draft = _draft;
     draft.insert(id,
                  QVariantMap {
-                     {    "id",                                       id},
-                     {  "name",                                     name},
-                     {  "kind",                               "lineflow"},
-                     {"source", QVariantMap {{"nodes", QVariantList {}}}}
+                     {    "id",                                                               id},
+                     {  "name",                                                             name},
+                     {  "kind",                                                       "lineflow"},
+                     {"source", QVariantMap {{"channels", channels}, {"nodes", QVariantList {}}}}
     });
     if (!_commit(draft, error))
     {
@@ -270,6 +310,16 @@ bool LineflowEditorModel::renameBlock(const QString& id, const QString& name, QS
 }
 QString LineflowEditorModel::insertNode(const QString& block, int row, const QString& catalogId, QString* error)
 {
+    const auto shape = processorShape(catalogId);
+    return insertNodeAt(block, row, catalogId, shape.first == 2 && shape.second == 2 ? "duplex" : "rx", error);
+}
+
+QString LineflowEditorModel::insertNodeAt(const QString& block,
+                                          int            row,
+                                          const QString& catalogId,
+                                          const QString& lane,
+                                          QString*       error)
+{
     if (!blockIds().contains(block))
     {
         fail(error, tr("Select a Lineflow block."));
@@ -302,11 +352,185 @@ QString LineflowEditorModel::insertNode(const QString& block, int row, const QSt
     {
         entry.insert("type", catalogId);
     }
+    const auto shape  = processorShape(catalogId);
+    const bool duplex = shape.first == 2 && shape.second == 2;
+    if ((!duplex && (shape.first != 1 || shape.second != 1))
+        || (duplex && (lane != "duplex" || blockChannels(block) != 2)) || (!duplex && lane != "rx" && lane != "tx")
+        || (blockChannels(block) == 1 && lane != "rx"))
+    {
+        fail(error, tr("The processor shape does not fit this lane."));
+        return {};
+    }
+    entry.insert("lane", lane);
     list.insert(row, entry);
     auto draft = _draft;
     putNodes(draft, block, list);
     return _commit(draft, error) ? name : QString {};
 }
+bool LineflowEditorModel::moveNodeToLane(const QString& block,
+                                         const QString& name,
+                                         int            row,
+                                         const QString& lane,
+                                         QString*       error)
+{
+    auto      list = nodes(_draft, block);
+    const int from = _nodeIndex(block, name);
+    if (from < 0 || row < 0 || row > list.size())
+    {
+        return fail(error, tr("Invalid operation position."));
+    }
+    auto       entry  = list.takeAt(from).toMap();
+    const auto target = entry.value(entry.contains("reference") ? "reference" : "type").toString();
+    const auto shape  = processorShape(target);
+    const bool duplex = shape.first == 2 && shape.second == 2;
+    if ((duplex && (lane != "duplex" || blockChannels(block) != 2)) || (!duplex && lane != "rx" && lane != "tx")
+        || (blockChannels(block) == 1 && lane != "rx"))
+    {
+        return fail(error, tr("The processor shape does not fit this lane."));
+    }
+    entry.insert("lane", lane);
+    list.insert(row > from ? row - 1 : row, entry);
+    auto draft = _draft;
+    putNodes(draft, block, list);
+    return _commit(draft, error);
+}
+
+bool LineflowEditorModel::canDropAt(const QMimeData* data, int row, const QString& lane, const QStringList& order) const
+{
+    return bool(_dropDraft(data, row, lane, order));
+}
+
+std::optional<QVariantMap> LineflowEditorModel::_dropDraft(const QMimeData*   data,
+                                                           int                row,
+                                                           const QString&     lane,
+                                                           const QStringList& order) const
+{
+    if (!data || _selected.isEmpty() || row < 0 || row > rowCount())
+    {
+        return {};
+    }
+    auto draft = _draft;
+    auto list  = nodes(draft, _selected);
+    if (!order.isEmpty())
+    {
+        if (order.size() != list.size())
+        {
+            return {};
+        }
+        QMap<QString, QVariant> byName;
+        for (const auto& value : list)
+        {
+            byName.insert(value.toMap().value("name").toString(), value);
+        }
+        QVariantList reordered;
+        for (const auto& name : order)
+        {
+            if (!byName.contains(name))
+            {
+                return {};
+            }
+            reordered.append(byName.take(name));
+        }
+        // Only independent opposite-lane order may normalize. Per-lane order and
+        // every existing duplex barrier remain authoritative.
+        for (const auto& laneName : {QStringLiteral("rx"), QStringLiteral("tx")})
+        {
+            const auto projection = [&](const QVariantList& entries) {
+                QStringList result;
+                for (const auto& value : entries)
+                {
+                    const auto entry     = value.toMap();
+                    const auto entryLane = entry.value("lane", "rx").toString();
+                    if (entryLane == laneName || entryLane == "duplex")
+                    {
+                        result.append(entry.value("name").toString());
+                    }
+                }
+                return result;
+            };
+            if (projection(list) != projection(reordered))
+            {
+                return {};
+            }
+        }
+        list = std::move(reordered);
+    }
+
+    QVariantMap entry;
+    QString     target;
+    if (data->hasFormat(mimeTypes()[1]))
+    {
+        target         = QString::fromUtf8(data->data(mimeTypes()[1]));
+        QString name   = "operation";
+        int     suffix = 1;
+        while (_nodeIndex(_selected, name) >= 0)
+        {
+            name = QString("operation%1").arg(++suffix);
+        }
+        entry.insert("name", name);
+        entry.insert(draft.value(target).toMap().value("kind") == "lineflow" ? "reference" : "type", target);
+    }
+    else if (data->hasFormat(mimeTypes()[0]))
+    {
+        const auto map  = QJsonDocument::fromJson(data->data(mimeTypes()[0])).toVariant().toMap();
+        int        from = -1;
+        for (int index = 0; index < list.size(); ++index)
+        {
+            if (list[index].toMap().value("name") == map.value("name"))
+            {
+                from = index;
+                break;
+            }
+        }
+        if (map.value("token").toString().toLatin1() != _token || map.value("block") != _selected || from < 0)
+        {
+            return {};
+        }
+        entry = list.takeAt(from).toMap();
+        if (row > from)
+        {
+            --row;
+        }
+        target = entry.value(entry.contains("reference") ? "reference" : "type").toString();
+    }
+    else
+    {
+        return {};
+    }
+    const auto shape  = processorShape(target);
+    const bool duplex = shape.first == 2 && shape.second == 2;
+    if ((!duplex && (shape.first != 1 || shape.second != 1))
+        || (duplex && (lane != "duplex" || blockChannels(_selected) != 2)) || (!duplex && lane != "rx" && lane != "tx")
+        || (blockChannels(_selected) == 1 && lane != "rx"))
+    {
+        return {};
+    }
+    entry.insert("lane", lane);
+    list.insert(row, entry);
+    putNodes(draft, _selected, list);
+    const auto parsed = ProcessorRegistry::parseDefinitions(draft);
+    return parsed && _registry.validatePublication("workspace", *parsed) ?
+               std::optional<QVariantMap>(std::move(draft)) :
+               std::nullopt;
+}
+
+bool LineflowEditorModel::dropAt(const QMimeData* data, int row, const QString& lane, const QStringList& order)
+{
+    const auto draft = _dropDraft(data, row, lane, order);
+    if (!draft)
+    {
+        emit rejected(tr("This processor cannot be placed here."));
+        return false;
+    }
+    QString error;
+    if (!_commit(*draft, &error))
+    {
+        emit rejected(error);
+        return false;
+    }
+    return true;
+}
+
 bool LineflowEditorModel::removeNode(const QString& block, const QString& name, QString* error)
 {
     const int index = _nodeIndex(block, name);
@@ -481,6 +705,10 @@ void LineflowEditorModel::_append(QStandardItem* parent,
         description->setEditable(false);
         for (auto* column : {item, description})
         {
+            const auto shape = processorShape(target);
+            column->setData(node.value("lane", "rx"), LaneRole);
+            column->setData(shape.first, InputCountRole);
+            column->setData(shape.second, OutputCountRole);
             column->setData(block, BlockRole);
             column->setData(node.value("name"), NodeRole);
             column->setData(target, CatalogIdRole);
@@ -490,8 +718,13 @@ void LineflowEditorModel::_append(QStandardItem* parent,
             column->setDropEnabled(false);
             column->setDragEnabled(!linked);
         }
-        item->setToolTip(node.value("name").toString() + '\n' + (unavailable ? reason : target));
-        item->setIcon(Icons::icon(unavailable ? "triangle-exclamation-point" : localBlock ? "link" : "workflow"));
+        const auto shape = processorShape(target);
+        item->setToolTip(node.value("name").toString() + '\n' + (unavailable ? reason : target)
+                         + QString("\n%1 × %2").arg(shape.first).arg(shape.second));
+        item->setIcon(Icons::icon(unavailable                           ? "triangle-exclamation-point" :
+                                  shape.first == 2 && shape.second == 2 ? "network" :
+                                  localBlock                            ? "link" :
+                                                                          "workflow"));
         parent->appendRow({item, description});
         if (localBlock)
         {

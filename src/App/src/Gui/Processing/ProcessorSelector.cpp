@@ -53,14 +53,17 @@ ProcessorSelector::ProcessorSelector(QWidget* parent, ProcessorFavorites* favori
     });
 }
 
-void ProcessorSelector::setCatalog(QList<ProcessorCatalog::Type> types, const QString& selectedId)
+void ProcessorSelector::setCatalog(QList<ProcessorCatalog::Type> types,
+                                   const QString&                selectedId,
+                                   QStringList                   excludedFavorites)
 {
     // Store metadata only: UI catalogs must never retain executable plugin factories.
     for (auto& type : types)
     {
         type.create = {};
     }
-    _types = std::move(types);
+    _types             = std::move(types);
+    _excludedFavorites = std::move(excludedFavorites);
     std::sort(_types.begin(), _types.end(), [](const auto& left, const auto& right) {
         if ((left.id == "native.bypass") != (right.id == "native.bypass"))
         {
@@ -237,7 +240,7 @@ void ProcessorSelector::_rebuild()
         }
     }
     _tree->setCurrentItem(current);
-    _tree->prependFavorites(query);
+    _tree->prependFavorites(query, _excludedFavorites);
     if (_tree->currentItem())
     {
         _tree->scrollToItem(_tree->currentItem());
