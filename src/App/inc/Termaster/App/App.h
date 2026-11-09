@@ -90,6 +90,7 @@ private:
 
     void     _setupActions();
     void     _showPluginManager();
+    void     _showLineflowEditor();
     void     _showSettings(SettingsContext context = SettingsContext::Application);
     void     _closeSettings(SettingsContext context);
     bool     _ensureApplicationSettings(QString* error);

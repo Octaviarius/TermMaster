@@ -1,3 +1,4 @@
+#include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/FavoritesEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
@@ -2171,6 +2172,59 @@ content:
         QTRY_COMPARE(probe->output, QByteArray("fresh command\r"));
     }
 
+    Q_SLOT void workspaceLineflowEditorIntegration()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Editor.termaster")), "Editor", &error));
+        bool       removedFavorites = false;
+        const auto cleanup          = qScopeGuard([&] {
+            if (removedFavorites)
+            {
+                _app.settingsWidgets().registerWidget("commandFavorites",
+                                                      [](const SettingsSchema::Field&, QWidget* parent) {
+                                                          return new FavoritesEditor(parent);
+                                                      });
+            }
+            _app.closeWorkspace();
+        });
+        auto*      action           = _app.commands().find("Workspace.Processing")->actions().first();
+        QVERIFY(action->isEnabled());
+        QVERIFY(!action->icon().isNull());
+        action->trigger();
+        QPointer<LineflowEditorDialog> editor = _app.mainWindow().findChild<LineflowEditorDialog*>("lineflowEditor");
+        QVERIFY(editor);
+        const auto block = editor->model().createBlock("Receive", &error);
+        QVERIFY2(!block.isEmpty(), qPrintable(error));
+        const auto name = editor->model().insertNode(block, 0, "native.identity", &error);
+        QVERIFY2(!name.isEmpty(), qPrintable(error));
+        QVERIFY(editor->model().renameNode(block, name, "Pass through", &error));
+        QVERIFY(_app.workspace()->processorDefinitions().values().isEmpty());
+        QVERIFY2(editor->applyDraft(&error), qPrintable(error));
+        QVERIFY(_app.workspace()->processorDefinitions().contains(block));
+        QVERIFY(_app.plugins().processors().type(block));
+        QVERIFY(editor->model().renameBlock(block, "Discarded name", &error));
+        editor->reject();
+        QTRY_VERIFY(!editor);
+        QCOMPARE(_app.workspace()->processorDefinitions().value(block).toMap().value("name").toString(),
+                 QString("Receive"));
+
+        action->trigger();
+        editor = _app.mainWindow().findChild<LineflowEditorDialog*>("lineflowEditor");
+        QVERIFY(editor);
+        // Widget factory removal releases consumers while retaining the Lineflow draft.
+        _app.pluginHost().unregisterEditor("commandFavorites");
+        removedFavorites = true;
+        QVERIFY(editor);
+        QVERIFY(editor->model().definitions().contains(block));
+        action->trigger();
+        editor = _app.mainWindow().findChild<LineflowEditorDialog*>("lineflowEditor");
+        QVERIFY(editor);
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(!editor);
+        QVERIFY(!action->isEnabled());
+    }
+
     Q_SLOT void workspaceProcessorPublication()
     {
         QTemporaryDir temporary;
@@ -2213,9 +2267,7 @@ content:
         QCOMPARE(registry.type("workspace.pipeline")->title, QString("Updated pipeline"));
 
         // Publication preflight rejects collisions before changing the saved draft.
-        registerNativeProcessors(registry, "publication-test");
-        const auto removeNative = qScopeGuard([&] { registry.removeOwner("publication-test"); });
-        auto       collision    = definition;
+        auto collision = definition;
         collision.insert("id", "native.identity");
         const auto original = _app.workspace()->processorDefinitions().values();
         QVERIFY(!_app.workspace()->setProcessorDefinition("native.identity", collision, &error));
@@ -2248,9 +2300,8 @@ content:
         QString       error;
         QVERIFY(_app.createWorkspace(Path(temporary.filePath("Processing.termaster")), "Processing", &error));
         QVERIFY(_app.createSession("Processing", &error));
-        auto& registry = _app.plugins().processors();
-        registerNativeProcessors(registry, "routing-test");
-        auto probe                       = std::make_shared<ReconnectDevice::Probe>();
+        auto& registry                   = _app.plugins().processors();
+        auto  probe                      = std::make_shared<ReconnectDevice::Probe>();
         probe->available                 = true;
         probe->allowance                 = 1024 * 1024;
         auto&                    host    = _app.pluginHost();
@@ -2258,7 +2309,6 @@ content:
             _app.closeWorkspace();
             host.unregisterTerminalType("processingFixture");
             QTest::qWait(30);
-            registry.removeOwner("routing-test");
         });
         PluginHost::TerminalType type;
         type.id     = "processingFixture";
@@ -2278,6 +2328,8 @@ content:
         },
                                     "Processing",
                                     &error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
         QCOMPARE(probe->device->state(), SerialDevice::State::Open);
         auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
@@ -2365,8 +2417,7 @@ content:
         QTest::keyClick(draft, Qt::Key_Return);
         QTRY_COMPARE(probe->output, QByteArray("\033[0ncommand\r\n"));
         QVERIFY(_app.closeWorkspace(&error));
-        QTRY_VERIFY(registry.canRemoveOwner("routing-test"));
-        QVERIFY(registry.removeOwner("routing-test", &error));
+        QTRY_VERIFY(registry.canRemoveOwner("core.processing"));
     }
 
     Q_SLOT void bulkTerminalConnections()

@@ -106,6 +106,8 @@ if(TERMASTER_BUILD_PROCESSING_TESTS)
     enable_testing()
     add_subdirectory(tools/tests/Processing)
     add_subdirectory(tools/tests/ProcessingRouting)
+    add_subdirectory(tools/tests/LineflowPersistence)
+    add_subdirectory(tools/tests/LineflowEditor)
 endif()
 
 message("")

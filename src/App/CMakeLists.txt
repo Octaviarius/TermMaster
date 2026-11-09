@@ -7,6 +7,12 @@ find_package(Qt6 REQUIRED COMPONENTS
 qt_add_library(App STATIC
     inc/Termaster/App/App.h
     src/App.cpp
+    src/Processing/WorkspaceProcessingEdit.h
+    src/Processing/WorkspaceProcessingEdit.cpp
+    src/Gui/Processing/LineflowEditorModel.h
+    src/Gui/Processing/LineflowEditorModel.cpp
+    src/Gui/Processing/LineflowEditorDialog.h
+    src/Gui/Processing/LineflowEditorDialog.cpp
     src/Terminal/ProcessingRouter.h
     src/Terminal/ProcessingRouter.cpp
     src/Terminal/AdvancedSender.h
