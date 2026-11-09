@@ -3,7 +3,6 @@
 #include "ProcessingRouter.h"
 
 #include <QPointer>
-#include <algorithm>
 
 AdvancedSender::AdvancedSender(TerminalSendQueue& queue, SerialDevice& device, QObject* parent) :
     QObject(parent), _queue(queue), _device(device)
@@ -71,8 +70,6 @@ qsizetype AdvancedSender::_pending() const
 
 void AdvancedSender::configure(const QVariantMap& input)
 {
-    _options.byteDelayMs        = std::clamp(input.value("byteDelayMs", 0).toInt(), 0, 60000);
-    _options.lineDelayMs        = std::clamp(input.value("lineDelayMs", 0).toInt(), 0, 60000);
     _options.retainOnDisconnect = input.value("disconnectedPolicy", "reject").toString() == "retain";
     _queue.setRetainDisconnected(_options.retainOnDisconnect);
 }
@@ -96,12 +93,11 @@ bool AdvancedSender::startFile(const QString& path, bool lineByLine, const QByte
         }
         return false;
     }
-    if (_fileActive || _periodicActive || _device.state() != SerialDevice::State::Open
-        || (_device.atomicWrites() && _options.byteDelayMs > 0))
+    if (_fileActive || _periodicActive || _device.state() != SerialDevice::State::Open)
     {
         if (error)
         {
-            *error = tr("File sending requires an open terminal, no active producer and no UDP byte delay.");
+            *error = tr("File sending requires an open terminal and no active producer.");
         }
         return false;
     }
@@ -135,8 +131,7 @@ bool AdvancedSender::startPeriodic(const QByteArray& bytes, int intervalMs, QStr
         error->clear();
     }
     if (_fileActive || _periodicActive || _device.state() != SerialDevice::State::Open || intervalMs < 100
-        || intervalMs > 86400000 || bytes.size() > TerminalSendQueue::MaximumPendingBytes
-        || (_device.atomicWrites() && _options.byteDelayMs > 0))
+        || intervalMs > 86400000 || bytes.size() > TerminalSendQueue::MaximumPendingBytes)
     {
         if (error)
         {
@@ -309,7 +304,6 @@ void AdvancedSender::_pump()
         QString error;
         auto    options            = _producerOptions;
         options.retainOnDisconnect = false;
-        options.lineSubmission     = _lineByLine;
         const QPointer<AdvancedSender> self(this);
         const quint64                  generation = _generation;
         const bool                     accepted   = _enqueue(output, options, &error);

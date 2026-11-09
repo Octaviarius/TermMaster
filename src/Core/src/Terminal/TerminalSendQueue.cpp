@@ -3,7 +3,6 @@
 
 TerminalSendQueue::TerminalSendQueue(SerialDevice& device, QObject* parent) : QObject(parent), _device(device)
 {
-    _clock.start();
     _retry.setSingleShot(true);
     connect(&_retry, &QTimer::timeout, this, &TerminalSendQueue::flush);
 }
@@ -26,15 +25,6 @@ bool TerminalSendQueue::enqueue(const QByteArray& bytes, const Options& options,
         }
         return false;
     };
-    if (options.byteDelayMs < 0 || options.byteDelayMs > 60000 || options.lineDelayMs < 0
-        || options.lineDelayMs > 60000)
-    {
-        return reject(QStringLiteral("Output delays must be between 0 and 60000 ms."));
-    }
-    if (_device.atomicWrites() && options.byteDelayMs != 0)
-    {
-        return reject(QStringLiteral("Byte pacing is unavailable for datagram terminals."));
-    }
     if (_device.state() != SerialDevice::State::Open && !(_retainDisconnected && options.retainOnDisconnect))
     {
         return reject(QStringLiteral("Terminal is disconnected."));
@@ -89,7 +79,6 @@ void TerminalSendQueue::connectionChanged()
     }
     ++_generation;
     _retry.stop();
-    _readyAt = 0;
     for (qsizetype index = _pending.size(); index > 0; --index)
     {
         const auto& submission = _pending.at(index - 1);
@@ -119,52 +108,7 @@ void TerminalSendQueue::flush()
     {
         return;
     }
-    const qint64 wait = _readyAt - _clock.elapsed();
-    if (wait > 0)
-    {
-        _retry.start(static_cast<int>(wait));
-        return;
-    }
-
-    const Submission& submission = _pending.head();
-    if (_device.atomicWrites() && submission.options.byteDelayMs != 0)
-    {
-        const QPointer<TerminalSendQueue> self(this);
-        reset();
-        if (self)
-        {
-            emit failed(QStringLiteral("Byte pacing is unavailable for datagram terminals."));
-        }
-        return;
-    }
-    qsizetype count = submission.bytes.size();
-    if (!_device.atomicWrites())
-    {
-        if (submission.options.byteDelayMs > 0)
-        {
-            count = qMin<qsizetype>(count, 1);
-        }
-        else if (submission.options.lineDelayMs > 0)
-        {
-            for (qsizetype index = 0; index < count; ++index)
-            {
-                if (submission.bytes.at(index) == '\n' || submission.bytes.at(index) == '\r')
-                {
-                    count = index + 1;
-                    if (submission.bytes.at(index) == '\r' && count < submission.bytes.size()
-                        && submission.bytes.at(count) == '\n')
-                    {
-                        ++count;
-                    }
-                    break;
-                }
-            }
-        }
-    }
-    const QByteArray bytes                       = submission.bytes.first(count);
-    const Options    options                     = submission.options;
-    const bool       crBeforeLf                  = count < submission.bytes.size() && count > 0 && bytes.back() == '\r'
-                                                && submission.bytes.at(count) == '\n';
+    const QByteArray bytes                       = _pending.head().bytes;
     _flushing                                    = true;
     const quint64                     generation = _generation;
     const QPointer<TerminalSendQueue> self(this);
@@ -200,21 +144,6 @@ void TerminalSendQueue::flush()
     if (accepted > 0 || bytes.isEmpty())
     {
         _pendingBytes -= accepted;
-        int delay      = options.byteDelayMs;
-        if (accepted > 0)
-        {
-            const char last         = bytes.at(accepted - 1);
-            const bool followedByLf = accepted < bytes.size() ? bytes.at(accepted) == '\n' : crBeforeLf;
-            if (last == '\n' || (last == '\r' && !followedByLf))
-            {
-                delay += options.lineDelayMs;
-            }
-        }
-        if (options.lineSubmission && accepted == _pending.head().bytes.size())
-        {
-            delay = qMax(delay, options.byteDelayMs + options.lineDelayMs);
-        }
-        _readyAt = _clock.elapsed() + delay;
         if (accepted == _pending.head().bytes.size())
         {
             _pending.dequeue();
@@ -226,8 +155,7 @@ void TerminalSendQueue::flush()
     }
     if (!_pending.isEmpty())
     {
-        _retry.start(
-            accepted == 0 && !bytes.isEmpty() ? 10 : static_cast<int>(qMax<qint64>(0, _readyAt - _clock.elapsed())));
+        _retry.start(accepted == 0 && !bytes.isEmpty() ? 10 : 0);
     }
     emit changed();
 }
@@ -238,6 +166,5 @@ void TerminalSendQueue::reset()
     _retry.stop();
     _pending.clear();
     _pendingBytes = 0;
-    _readyAt      = 0;
     emit changed();
 }

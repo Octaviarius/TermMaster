@@ -12,6 +12,8 @@
  * buffered state, and starts the replacement only after cancellation quiescence.
  * Overlapping replacements coalesce; all ready callbacks run once the latest
  * replacement becomes active. Each supplied instance must be fresh and independent.
+ * Stream submissions are copied into at most 1024-byte invocations, with atomic ingress
+ * admission of every fragment. Packet submissions preserve their whole boundary.
  * Output sinks consume a whole chunk or return WouldBlock without consuming it.
  */
 class ProcessingRouter final : public QObject
@@ -27,7 +29,7 @@ public:
     struct Limits
     {
         qsizetype maxBytes    = 4 * 1024 * 1024;
-        qsizetype maxChunks   = 1024;
+        qsizetype maxChunks   = 4096;
         int       eventBudget = 64;
         int       retryMs     = 5;
     };

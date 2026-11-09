@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QElapsedTimer>
 #include <QObject>
 #include <QQueue>
 #include <QTimer>
@@ -16,10 +15,7 @@ class TerminalSendQueue : public QObject
 public:
     struct Options
     {
-        int  byteDelayMs        = 0;
-        int  lineDelayMs        = 0;
         bool retainOnDisconnect = false;
-        bool lineSubmission     = false;
     };
     static constexpr qsizetype MaximumPendingBytes = 4 * 1024 * 1024;
 
@@ -45,11 +41,9 @@ private:
     };
     SerialDevice&      _device;
     QTimer             _retry;
-    QElapsedTimer      _clock;
     QQueue<Submission> _pending;
     qsizetype          _pendingBytes       = 0;
     quint64            _generation         = 0;
-    qint64             _readyAt            = 0;
     bool               _flushing           = false;
     bool               _retainDisconnected = false;
 };

@@ -113,7 +113,7 @@ private slots:
         QCOMPARE(device.accepted, joined);
     }
 
-    void lineDelayWithEmptyTerminator()
+    void emptyLinesWithEmptyTerminator()
     {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
@@ -122,24 +122,9 @@ private slots:
         SenderDevice      device;
         TerminalSendQueue queue(device);
         AdvancedSender    sender(queue, device);
-        sender.configure({
-            {"lineDelayMs", 80}
-        });
-        QElapsedTimer clock;
-        clock.start();
-        QList<qint64> times;
-        connect(&queue, &TerminalSendQueue::changed, &sender, [&] {
-            if (device.writes.size() > times.size())
-            {
-                times.append(clock.elapsed());
-            }
-        });
         QVERIFY(sender.startFile(path, true, {}));
         QTRY_VERIFY_WITH_TIMEOUT(!sender.active(), 2000);
         QCOMPARE(device.writes, QList<QByteArray>({QByteArray(), QByteArray(), QByteArray("z")}));
-        QCOMPARE(times.size(), 3);
-        QVERIFY(times.at(1) - times.at(0) >= 79);
-        QVERIFY(times.at(2) - times.at(1) >= 79);
     }
 
     void emptyFileAndLineLimit()
