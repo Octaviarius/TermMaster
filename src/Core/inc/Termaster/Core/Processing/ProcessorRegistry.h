@@ -27,6 +27,15 @@ public:
         QStringList references;
         QString     group;
     };
+    struct PropertyNode
+    {
+        QString     path;
+        QString     type;
+        QString     title;
+        QByteArray  settingsSchema;
+        QVariantMap inheritedConfiguration;
+        QVariantMap configuration;
+    };
     class Prepared
     {
     public:
@@ -63,16 +72,25 @@ public:
                                                     const QVariantMap& overrides,
                                                     QString*           error = nullptr) const;
     bool validateConfiguration(const QString& id, const QVariantMap& configuration, QString* error = nullptr) const;
-    QList<Type>                     types() const;
-    std::optional<Type>             type(const QString& id) const;
-    std::shared_ptr<const Prepared> prepare(const QString&           id,
-                                            const QVariantMap&       configuration,
-                                            const Processor::Limits& limits,
-                                            QString*                 error = nullptr);
-    std::shared_ptr<Processor>      create(const QString&           id,
-                                           const QVariantMap&       configuration,
-                                           const Processor::Limits& limits,
-                                           QString*                 error = nullptr);
+    /** Metadata-only occurrence expansion, in input-to-output order. Root native/provider
+     * entries use an empty path. Inherited values omit the supplied terminal overrides.
+     * Does not invoke providers or factories, require provider availability, or acquire leases.
+     * Expansion is limited to 256 nodes, depth 16 and 4 MiB of property metadata.
+     */
+    std::optional<QList<PropertyNode>> properties(const QString&     id,
+                                                  const QVariantMap& storedConfiguration = {},
+                                                  const QVariantMap& overrides           = {},
+                                                  QString*           error               = nullptr) const;
+    QList<Type>                        types() const;
+    std::optional<Type>                type(const QString& id) const;
+    std::shared_ptr<const Prepared>    prepare(const QString&           id,
+                                               const QVariantMap&       configuration,
+                                               const Processor::Limits& limits,
+                                               QString*                 error = nullptr);
+    std::shared_ptr<Processor>         create(const QString&           id,
+                                              const QVariantMap&       configuration,
+                                              const Processor::Limits& limits,
+                                              QString*                 error = nullptr);
 
     Q_SIGNAL void changed();
 

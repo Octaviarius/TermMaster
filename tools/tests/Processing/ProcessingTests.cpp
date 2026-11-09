@@ -109,6 +109,36 @@ private:
     QVariantMap _configuration;
 };
 
+class FailingProcessor final : public Processor
+{
+public:
+    explicit FailingProcessor(bool* acknowledged) : _acknowledged(acknowledged)
+    {
+    }
+    QVariantMap configuration() const override
+    {
+        return {};
+    }
+    AcceptResult accept(Chunk, Callbacks callbacks) override
+    {
+        callbacks.completed(QString::fromLatin1("Synthetic processing failure"));
+        return AcceptResult::Accepted;
+    }
+    void cancel(std::function<void()> callback) override
+    {
+        QTimer::singleShot(0, this, [this, callback = std::move(callback)] {
+            *_acknowledged = true;
+            if (callback)
+            {
+                callback();
+            }
+        });
+    }
+
+private:
+    bool* _acknowledged;
+};
+
 class SyncCancelProcessor final : public Processor
 {
 public:
@@ -482,6 +512,78 @@ content:
         QTRY_VERIFY(registry.canRemoveOwner("fixture"));
     }
 
+    void nestedFailureNamesOccurrenceAndWaitsForQuiescence()
+    {
+        ProcessorRegistry      registry;
+        bool                   acknowledged = false;
+        ProcessorCatalog::Type type;
+        type.id    = "test.failure";
+        type.title = "Failure fixture";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Failure fixture\ncontent: {type: object, properties: {}}\n";
+        type.create = [&](const QVariantMap&, const Processor::Limits&, QString*) {
+            return std::make_unique<FailingProcessor>(&acknowledged);
+        };
+        registry.registerType("failure-owner", std::move(type));
+        const QVariantList childNodes {native("test.failure", "decode")};
+        const QVariantList parentNodes {
+            QVariantMap {{"name", "branch"}, {"reference", "inner"}}
+        };
+        ProcessorRegistry::Definition inner {"inner", "Inner", "lineflow", {{"nodes", childNodes}}, {}, {}, {}, {}};
+        ProcessorRegistry::Definition root {"outer", "Outer", "lineflow", {{"nodes", parentNodes}}, {}, {}, {}, {}};
+        QString                       error;
+        QVERIFY2(registry.publishDefinitions("workspace", {inner, root}, &error), qPrintable(error));
+        auto prepared = registry.prepare("outer", {}, {}, &error);
+        QVERIFY2(prepared, qPrintable(error));
+        auto runtime = prepared->instantiate({}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QString          failure;
+        bool             completed = false;
+        const QByteArray payload("secret-wire-content-92751");
+        QCOMPARE(runtime->accept({payload},
+                                 {{},
+                                  [&](QString message) {
+                                      QVERIFY(acknowledged);
+                                      failure   = std::move(message);
+                                      completed = true;
+                                  }}),
+                 Processor::AcceptResult::Accepted);
+        QVERIFY(!completed);
+        QTRY_VERIFY(completed);
+        QVERIFY2(failure.contains("branch/decode"), qPrintable(failure));
+        QVERIFY(failure.contains("Synthetic processing failure"));
+        QVERIFY(!failure.contains(QString::fromLatin1(payload)));
+        bool stopped = false;
+        runtime->cancel([&] { stopped = true; });
+        QVERIFY(stopped);
+        QCOMPARE(runtime->accept({payload}, {}), Processor::AcceptResult::Rejected);
+        runtime.reset();
+        prepared.reset();
+        QTRY_VERIFY(registry.canRemoveOwner("failure-owner"));
+
+        // The standalone flattened preparation retains the same complete occurrence address.
+        const QVariantMap flattened {
+            {"inner",  QVariantMap {{"id", "inner"}, {"name", "Inner"}, {"nodes", childNodes}}},
+            {"outer", QVariantMap {{"id", "outer"}, {"name", "Outer"}, {"nodes", parentNodes}}}
+        };
+        const auto plan = Lineflow::prepare(flattened, "outer", registry, {}, &error);
+        QVERIFY2(plan, qPrintable(error));
+        auto flatRuntime = plan->instantiate(registry, &error);
+        QVERIFY2(flatRuntime, qPrintable(error));
+        completed    = false;
+        acknowledged = false;
+        flatRuntime->accept({payload}, {{}, [&](QString message) {
+                                            QVERIFY(acknowledged);
+                                            failure   = std::move(message);
+                                            completed = true;
+                                        }});
+        QTRY_VERIFY(completed);
+        QVERIFY2(failure.contains("branch/decode"), qPrintable(failure));
+        QVERIFY(!failure.contains(QString::fromLatin1(payload)));
+        flatRuntime.reset();
+        QTRY_VERIFY(registry.canRemoveOwner("failure-owner"));
+    }
+
     void nativeRejectsReentrantAcceptance()
     {
         ProcessorRegistry registry;
@@ -585,6 +687,7 @@ content:
                                 }});
         QTRY_VERIFY(done);
         QVERIFY(!failure.isEmpty());
+        QVERIFY2(failure.contains("node0"), qPrintable(failure));
         runtime.reset();
         QTRY_VERIFY(registry.canRemoveOwner("fixture"));
     }

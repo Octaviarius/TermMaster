@@ -40,13 +40,15 @@ QVariant ownedValue(const QVariant& value)
 
 std::unique_ptr<Lineflow> Lineflow::compose(std::vector<std::shared_ptr<Processor>> nodes,
                                             QVariantMap                             configuration,
-                                            Limits                                  limits)
+                                            Limits                                  limits,
+                                            QStringList                             nodeNames)
 {
     Prepared prepared;
     prepared._configuration = std::move(configuration);
     prepared._limits        = limits;
     auto result             = std::unique_ptr<Lineflow>(new Lineflow(prepared));
     result->_nodes          = std::move(nodes);
+    result->_nodeNames      = std::move(nodeNames);
     return result;
 }
 
@@ -277,6 +279,10 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
 
 Lineflow::Lineflow(const Prepared& prepared) : _configuration(prepared._configuration), _limits(prepared._limits)
 {
+    for (const auto& node : prepared._nodes)
+    {
+        _nodeNames.append(node.path);
+    }
 }
 
 Lineflow::~Lineflow() = default;
@@ -354,7 +360,7 @@ void Lineflow::_pump()
         const auto         retryInput = work.chunk;
         QPointer<Lineflow> guard(this);
         Callbacks          callbacks;
-        callbacks.output = [guard, generation, invocation, next = work.stage + 1](Chunk chunk) {
+        callbacks.output = [guard, generation, invocation, stage = work.stage, next = work.stage + 1](Chunk chunk) {
             if (!guard || guard->_stopped || guard->_generation != generation || guard->_invocation != invocation
                 || !guard->_pending)
             {
@@ -370,7 +376,7 @@ void Lineflow::_pump()
                     && (guard->_outputChunks >= guard->_limits.maxChunks
                         || bytes > guard->_limits.maxBytes - guard->_outputBytes)))
             {
-                guard->_fail(QStringLiteral("Lineflow output or queue limit exceeded"));
+                guard->_fail(guard->_nodeError(stage, QStringLiteral("Lineflow output or queue limit exceeded")));
                 return;
             }
 
@@ -385,7 +391,7 @@ void Lineflow::_pump()
             chunk.bytes          = QByteArray(chunk.bytes.constData(), chunk.bytes.size());
             guard->_queue.push_back({next, std::move(chunk)});
         };
-        callbacks.completed = [guard, generation, invocation](QString error) {
+        callbacks.completed = [guard, generation, invocation, stage = work.stage](QString error) {
             if (!guard || guard->_stopped || guard->_generation != generation || guard->_invocation != invocation
                 || !guard->_pending)
             {
@@ -395,7 +401,7 @@ void Lineflow::_pump()
             guard->_pending = false;
             if (!error.isEmpty())
             {
-                guard->_fail(QString(error.constData(), error.size()));
+                guard->_fail(guard->_nodeError(stage, QString(error.constData(), error.size())));
             }
             else
             {
@@ -426,7 +432,7 @@ void Lineflow::_pump()
         if (!_stopped && status == AcceptResult::Rejected)
         {
             _pending = false;
-            _fail(QStringLiteral("Lineflow child rejected input"));
+            _fail(_nodeError(work.stage, QStringLiteral("Lineflow child rejected input")));
         }
     }
 
@@ -453,6 +459,17 @@ void Lineflow::_finish(QString error)
     {
         completed(std::move(error));
     }
+}
+
+QString Lineflow::_nodeError(size_t stage, const QString& error) const
+{
+    const auto    path   = stage < size_t(_nodeNames.size()) ? _nodeNames[qsizetype(stage)] : QString::number(stage);
+    const QString prefix = QStringLiteral("Processing node [");
+    if (error.startsWith(prefix) && error.indexOf(QStringLiteral("]: "), prefix.size()) > prefix.size())
+    {
+        return prefix + path + '/' + error.mid(prefix.size());
+    }
+    return prefix + path + QStringLiteral("]: ") + error;
 }
 
 void Lineflow::_fail(QString error)
