@@ -110,6 +110,7 @@ struct TerminalController::Runtime
     bool                          connectionRequested = false;
     QString                       lastError;
     QString                       title;
+    QString                       completion;
     QTimer                        reconnect;
     explicit Runtime(SettingsOverlay configuration) : settings(std::move(configuration))
     {
@@ -211,6 +212,10 @@ QVariantMap TerminalController::workspaceSettings() const
 {
     auto* workspace = _workspace ? _workspace() : nullptr;
     return workspace ? workspace->settings().values() : QVariantMap {};
+}
+void TerminalController::showMessage(const QString& message)
+{
+    _window.statusBar()->showMessage(owned(message));
 }
 QObject* TerminalController::context()
 {
@@ -568,7 +573,35 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             }
         }
     };
+    callbacks.exited = [self, id](int code) {
+        if (!self)
+        {
+            return;
+        }
+        auto it = self->_terminals.find(id);
+        if (it == self->_terminals.end())
+        {
+            return;
+        }
+        auto& runtime               = *it->second;
+        runtime.connectionRequested = false;
+        runtime.reconnect.stop();
+        runtime.completion = tr("Process exited with code %1").arg(code);
+        if (code == 0)
+        {
+            runtime.lastError.clear();
+        }
+        self->_changed(id);
+    };
     device->setCallbacks(std::move(callbacks));
+    connect(display, &TerminalDisplay::terminalSizeChanged, this, [this, id](int columns, int rows) {
+        const auto it = _terminals.find(id);
+        if (it != _terminals.end())
+        {
+            it->second->device->resize(columns, rows);
+        }
+    });
+    device->resize(display->terminalSize().width(), display->terminalSize().height());
     connect(display,
             &TerminalDisplay::outputBytes,
             this,
@@ -657,7 +690,8 @@ void TerminalController::_changed(const QString& id)
     {
         terminal.lastError.clear();
     }
-    if (terminal.connectionRequested && (state == SerialDevice::State::Closed || state == SerialDevice::State::Failed))
+    if (terminal.connectionRequested && terminal.device->autoReconnect()
+        && (state == SerialDevice::State::Closed || state == SerialDevice::State::Failed))
     {
         if (!terminal.reconnect.isActive())
         {
@@ -694,7 +728,8 @@ void TerminalController::_changed(const QString& id)
             status = tr("Connection failed");
             break;
     }
-    if (terminal.connectionRequested && (state == SerialDevice::State::Closed || state == SerialDevice::State::Failed))
+    if (terminal.connectionRequested && terminal.device->autoReconnect()
+        && (state == SerialDevice::State::Closed || state == SerialDevice::State::Failed))
     {
         icon = "Retry";
     }
@@ -711,6 +746,10 @@ void TerminalController::_changed(const QString& id)
     {
         tooltip += tr("\nRetrying automatically.");
     }
+    if (!terminal.completion.isEmpty())
+    {
+        tooltip += "\n" + terminal.completion;
+    }
     if (!terminal.title.isEmpty())
     {
         tooltip += "\n" + terminal.title;
@@ -726,6 +765,7 @@ void TerminalController::connectSelectedTerminal()
     {
         return;
     }
+    terminal->completion.clear();
     terminal->connectionRequested = true;
     terminal->lastError.clear();
     _attemptConnection(terminal->id);
@@ -879,6 +919,7 @@ void TerminalController::_attemptConnection(const QString& id)
     {
         return;
     }
+    terminal.device->resize(terminal.display->terminalSize().width(), terminal.display->terminalSize().height());
     QString error;
     if (!_validate(type->second, terminal.settings, &error)
         || !terminal.device->open(_effective(type->second, terminal.settings).value("transport").toMap(), &error))

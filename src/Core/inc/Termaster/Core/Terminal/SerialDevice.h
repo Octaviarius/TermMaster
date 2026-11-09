@@ -27,6 +27,8 @@ public:
         std::function<void(qint64)>            written;
         std::function<void(State)>             stateChanged;
         std::function<void(const QString&)>    error;
+        /** Natural process termination only; explicit close must not invoke this. */
+        std::function<void(int)> exited;
     };
 
     virtual ~SerialDevice()                                                       = default;
@@ -39,4 +41,13 @@ public:
     /** Returns bytes accepted into a bounded queue, not proof of delivery; -1 on failure. */
     virtual qint64 write(const QByteArray& data, QString* error = nullptr)        = 0;
     virtual qint64 pendingBytes() const                                           = 0;
+    /** Optional terminal geometry, in character cells; serial transports ignore it. */
+    virtual void resize(int, int)
+    {
+    }
+    /** Connection devices may retry; local processes are restarted only explicitly. */
+    virtual bool autoReconnect() const
+    {
+        return true;
+    }
 };

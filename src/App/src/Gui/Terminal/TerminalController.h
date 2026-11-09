@@ -45,6 +45,7 @@ public:
     void            applySettings();
 
     QVariantMap   workspaceSettings() const override;
+    void          showMessage(const QString& message) override;
     QObject*      context() override;
     void          registerTerminalType(TerminalType type) override;
     bool          unregisterTerminalType(const QString& type, QString* error = nullptr) override;
