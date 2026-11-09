@@ -1,0 +1,65 @@
+version: 1
+type: termaster.settings-schema
+description: Local console default launch configuration
+content:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Local console
+  type: object
+  additionalProperties: false
+  x-groups:
+    - id: launch
+      title: Launch
+      order: 0
+    - id: environment
+      title: Environment
+      order: 1
+  properties:
+    program:
+      title: Shell executable
+      description: Leave empty to select an available platform shell automatically.
+      type: string
+      default: ''
+      maxLength: 32767
+      x-settings-path: transport/program
+      x-widget: stringLineEdit
+      x-group: launch
+      x-order: 0
+    arguments:
+      title: Arguments
+      description: YAML array of individual arguments; no command-line splitting is performed.
+      type: array
+      default: []
+      maxItems: 256
+      items:
+        type: string
+        maxLength: 32767
+      x-settings-path: transport/arguments
+      x-widget: yaml
+      x-group: launch
+      x-order: 1
+    workingDirectory:
+      title: Working directory
+      description: Leave empty to use the application's current working directory.
+      type: string
+      default: ''
+      maxLength: 32767
+      x-settings-path: transport/workingDirectory
+      x-widget: stringLineEdit
+      x-group: launch
+      x-order: 2
+    environment:
+      title: Environment
+      description: Explicit overrides only. Null removes a variable; an empty string is a valid value.
+      type: object
+      default: {}
+      maxProperties: 1024
+      propertyNames:
+        minLength: 1
+        maxLength: 1024
+      additionalProperties:
+        type: [string, 'null']
+        maxLength: 32767
+      x-settings-path: transport/environment
+      x-widget: consoleEnvironment
+      x-group: environment
+      x-order: 0

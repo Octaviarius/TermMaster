@@ -124,8 +124,9 @@ compatibility matrix, limits, demo and verification.
 
 Full VT-family conformance and every Unix terminal extension are not claimed.
 History remains bounded in RAM; disk-backed unlimited history, graph execution,
-terminal rename GUI are separate work. No SSH, network or
-local-console backend is implied by the view's protocol support.
+terminal rename GUI are separate work. No SSH or network backend is implied by
+the view's protocol support. [Local console terminals](local-console.md) are
+implemented by the independent ConsoleTerminal plugin.
 
 ## Verification
 
@@ -194,7 +195,7 @@ built; serial plugin/device, application, schema and form suites passed. Native
 Windows application acceptance covered workspace list validation/persistence,
 manual entry, inheritance reset and plugin unload. No device was opened.
 
-![Editable baud rate selector, 1280 × 800](images/preferences/SerialBaudRates.png)
+![Editable baud rate selector, 1280 Г— 800](images/preferences/SerialBaudRates.png)
 
 ## Desired connection and recovery
 
@@ -229,7 +230,7 @@ device loss, explicit Stop, idempotent Start, module unregister/reload, workspac
 closure and hover-tooltip rendering. The capture combines the native main-window
 and tooltip widgets at their actual relative positions; no desktop pixels are read.
 
-![Connection waiting and hover details, 1280 × 800](images/preferences/ConnectionRetry.png)
+![Connection waiting and hover details, 1280 Г— 800](images/preferences/ConnectionRetry.png)
 
 The final MSVC / Qt Debug build and all 19 CTest suites passed, including the
 external SDK consumer. After correcting the native hover fixture to place the

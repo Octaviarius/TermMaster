@@ -62,3 +62,5 @@ add_subdirectory(Core)
 add_subdirectory(App)
 
 add_subdirectory(SerialTerminal)
+
+add_subdirectory(ConsoleTerminal)
