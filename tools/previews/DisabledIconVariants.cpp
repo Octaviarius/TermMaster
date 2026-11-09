@@ -15,7 +15,7 @@ int main(int argc, char** argv)
     }
 
     const QString root = QString::fromLocal8Bit(argv[1]);
-    QImage        image(1100, 650, QImage::Format_ARGB32_Premultiplied);
+    QImage        image(1100, 900, QImage::Format_ARGB32_Premultiplied);
     image.fill(QColor("#f6f7f9"));
     QPainter painter(&image);
     painter.setRenderHint(QPainter::Antialiasing);
@@ -31,14 +31,18 @@ int main(int argc, char** argv)
     const QStringList titles       = {QString::fromUtf8("Образец — без ослабления"),
                                       QString::fromUtf8("Блеклость 10% — непрозрачность 90%"),
                                       QString::fromUtf8("Блеклость 25% — непрозрачность 75%"),
-                                      QString::fromUtf8("Блеклость 50% — непрозрачность 50%")};
+                                      QString::fromUtf8("Блеклость 50% — непрозрачность 50%"),
+                                      QString::fromUtf8("Блеклость 75% — непрозрачность 25%"),
+                                      QString::fromUtf8("Блеклость 90% — непрозрачность 10%")};
     const QStringList descriptions = {QString::fromUtf8("Непрозрачность значка «Стоп»: 100%"),
                                       QString::fromUtf8("Небольшое ослабление чёрного значка"),
                                       QString::fromUtf8("Умеренное ослабление чёрного значка"),
-                                      QString::fromUtf8("Заметное ослабление чёрного значка")};
-    const double      opacity[]    = {1.0, 0.9, 0.75, 0.5};
+                                      QString::fromUtf8("Заметное ослабление чёрного значка"),
+                                      QString::fromUtf8("Сильное ослабление чёрного значка"),
+                                      QString::fromUtf8("Максимальное ослабление в сравнении")};
+    const double      opacity[]    = {1.0, 0.9, 0.75, 0.5, 0.25, 0.1};
     const QStringList names        = {"play", "square", "rotate-cw", "eraser", "sliders-horizontal"};
-    for (int row = 0; row < 4; ++row)
+    for (int row = 0; row < titles.size(); ++row)
     {
         const int y = 104 + row * 119;
         painter.setPen(QPen(QColor("#dce0e5"), 1));
@@ -71,7 +75,7 @@ int main(int argc, char** argv)
         text(908, y + 66, QString::fromUtf8("отключён"), 10, "#707783");
     }
     text(38,
-         615,
+         865,
          QString::fromUtf8(
              "Ослаблен только «Стоп». Остальные значки: чёрный, 100%. Фон и форма одинаковы во всех строках."),
          10,
