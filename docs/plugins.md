@@ -337,7 +337,7 @@ registration and scoped icon actions. See [terminal lifecycle](terminals-and-ser
 Desktop presets disable plugin fixtures by default. Explicitly enabling
 `TERMASTER_BUILD_PLUGIN_TESTS` builds the synthetic modules and provider SDKs
 under `<build>/tools/tests/Plugin/plugin`, outside the application's scanned
-`<build>/plugin` directory. The production library there is SerialTerminal, alongside
+`<build>/plugin` directory. The production libraries there are SerialTerminal and ConsoleTerminal, alongside
 the header-only PluginApi SDK. No fixture library is a production plugin.
 
 The independent SDK consumer uses `<build>/plugin/PluginApi` and
@@ -350,5 +350,8 @@ from the private output, including the independently rebuilt SDK consumer.
 Normal Desktop Debug and Release caches have fixtures disabled. Ninja's
 `-t cleandead` removed historical fixture outputs, and the normal application
 build graph contains no PluginFixture targets. Both runtime directories contain
-only SerialTerminal.dll; generated SDK metadata from older builds is harmless
+SerialTerminal.dll (and ConsoleTerminal.dll after local-console integration); generated SDK metadata from older builds is harmless
 and is not a loadable plugin. The normal Debug application target builds.
+
+Local process terminals and environment commands are provided by the independent
+[ConsoleTerminal plugin](local-console.md), using HostedPlugin ABI version 4.

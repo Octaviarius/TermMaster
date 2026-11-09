@@ -187,6 +187,10 @@ const TerminalScreen& TerminalDisplay::screen() const
 {
     return _screen;
 }
+QSize TerminalDisplay::terminalSize() const
+{
+    return _terminalSize;
+}
 
 bool TerminalDisplay::hasSelection() const
 {
@@ -610,10 +614,16 @@ void TerminalDisplay::_updateGeometry()
     const int rows    = std::clamp(static_cast<int>(viewport()->height() / _lineHeight), 1, 256);
     const int columns = std::clamp(static_cast<int>(viewport()->width() / _cellWidth), 1, 4096);
     _screen.setLimits(columns, rows, _history);
+    const bool sizeChanged = _terminalSize != QSize(columns, rows);
+    _terminalSize          = QSize(columns, rows);
     _graphics.setCellSize(QSize(std::max(1, qRound(_cellWidth)), std::max(1, qRound(_lineHeight))));
     const auto count = static_cast<int>(_screen.lines().size());
     verticalScrollBar()->setRange(0, std::max(0, count - rows));
     verticalScrollBar()->setPageStep(rows);
+    if (sizeChanged)
+    {
+        emit terminalSizeChanged(columns, rows);
+    }
 }
 
 void TerminalDisplay::_afterInput(quint64 discarded, bool alternate, bool reverse, bool atBottom, int scrollPosition)

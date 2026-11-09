@@ -836,6 +836,78 @@ private:
         picker.reject();
     }
 
+    Q_SLOT void consolePluginTerminalLifecycle()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        QString    error;
+        const auto pluginFile = QDir(_app.plugins().directory())
+                                    .filePath(QFileInfo(TERMASTER_CONSOLE_PLUGIN_FILE).fileName());
+        QVERIFY(QDir().mkpath(_app.plugins().directory()));
+        QVERIFY(QFile::copy(TERMASTER_CONSOLE_PLUGIN_FILE, pluginFile));
+        const auto cleanup = qScopeGuard([&] {
+            _app.plugins().setEnabled("ConsoleTerminal", false);
+            _app.closeWorkspace();
+            QFile::remove(pluginFile);
+            _app.plugins().rescan();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        });
+        QVERIFY2(_app.plugins().rescan(&error), qPrintable(error));
+        QVERIFY2(_app.plugins().setEnabled("ConsoleTerminal", true, &error), qPrintable(error));
+        QVERIFY2(_app.createWorkspace(Path(temporary.filePath("console.termaster")), "Console test", &error),
+                 qPrintable(error));
+        QVERIFY2(_app.createSession("Local console", &error), qPrintable(error));
+        QVariantMap transport;
+#ifdef Q_OS_WIN
+        transport.insert("program",
+                         qEnvironmentVariable("SystemRoot") + "/System32/WindowsPowerShell/v1.0/powershell.exe");
+        transport.insert("arguments",
+                         QStringList {"-NoProfile",
+                                      "-NonInteractive",
+                                      "-Command",
+                                      "Write-Output 'TERMASTER_CONSOLE_ACCEPTANCE'; exit 7"});
+#else
+        transport.insert("program", "/bin/sh");
+        transport.insert("arguments", QStringList {"-c", "printf 'TERMASTER_CONSOLE_ACCEPTANCE\\n'; exit 7"});
+#endif
+        QVERIFY2(_app.createTerminal("console",
+                                     {
+                                         {"transport", transport}
+        },
+                                     "Console acceptance",
+                                     &error),
+                 qPrintable(error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        auto* device = _app.pluginHost().selectedDevice("console");
+        QVERIFY(device);
+        QVERIFY(!device->autoReconnect());
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(display);
+        _app.pluginHost().connectSelectedTerminal();
+        QTRY_VERIFY_WITH_TIMEOUT(display->text().contains("TERMASTER_CONSOLE_ACCEPTANCE"), 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(!_app.pluginHost().connectionRequested("console"), 15000);
+        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        QVERIFY(tabs);
+        QVERIFY(QTextDocumentFragment::fromHtml(tabs->tabToolTip(tabs->currentIndex()))
+                    .toPlainText()
+                    .contains("Process exited with code 7"));
+        _app.pluginHost().showSelectedTerminalSettings();
+        QTRY_VERIFY(_app.mainWindow().findChild<SettingsDialog*>());
+        auto* settings = _app.mainWindow().findChild<SettingsDialog*>();
+        QVERIFY(settings->pageModel("terminal.connection"));
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            _app.mainWindow().resize(1280, 800);
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("ConsoleTerminal.png")));
+        }
+        QVERIFY2(_app.plugins().setEnabled("ConsoleTerminal", false, &error), qPrintable(error));
+        QVERIFY(_app.terminalIds().isEmpty());
+        QVERIFY(!_app.commands().find("Console.New"));
+    }
     Q_SLOT void serialPluginTerminalLifecycle()
     {
         auto* clipboard      = QApplication::clipboard();

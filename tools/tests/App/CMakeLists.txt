@@ -20,7 +20,8 @@ target_include_directories(AppTests PRIVATE
     "${CMAKE_SOURCE_DIR}/src/App/src"
 )
 
-add_dependencies(AppTests SerialTerminal)
+add_dependencies(AppTests SerialTerminal ConsoleTerminal)
 target_compile_definitions(AppTests PRIVATE
+    TERMASTER_CONSOLE_PLUGIN_FILE="$<TARGET_FILE:ConsoleTerminal>"
     TERMASTER_SERIAL_PLUGIN_FILE="$<TARGET_FILE:SerialTerminal>"
 )

@@ -30,6 +30,9 @@ public:
     {
         return configuration;
     }
+    void showMessage(const QString&) override
+    {
+    }
     QObject* context() override
     {
         return this;

@@ -59,6 +59,7 @@ public:
     virtual ~PluginHost()                                                                       = default;
     /** Snapshot of effective workspace settings; no borrowed storage crosses the plugin ABI. */
     virtual QVariantMap workspaceSettings() const                                               = 0;
+    virtual void        showMessage(const QString& message)                                     = 0;
     virtual QObject*    context()                                                               = 0;
     virtual void        registerTerminalType(TerminalType type)                                 = 0;
     /** Closes dependent terminals and settings views before removing their factories. */

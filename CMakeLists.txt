@@ -83,6 +83,12 @@ if(TERMASTER_BUILD_TERMINAL_TESTS)
     add_subdirectory(tools/tests/Serial)
 endif()
 
+option(TERMASTER_BUILD_CONSOLE_TESTS "Build local console tests" OFF)
+if(TERMASTER_BUILD_CONSOLE_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Console)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()

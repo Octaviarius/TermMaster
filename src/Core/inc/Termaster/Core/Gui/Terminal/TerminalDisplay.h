@@ -35,6 +35,8 @@ public:
     void                  clear();
     QString               text() const;
     const TerminalScreen& screen() const;
+    QSize                 terminalSize() const;
+    Q_SIGNAL void         terminalSizeChanged(int columns, int rows);
     Q_SIGNAL void         outputBytes(const QByteArray& bytes, OutputKind kind, const QByteArray& echo);
     Q_SIGNAL void         selectionChanged();
     Q_SIGNAL void         textChanged();
@@ -98,6 +100,7 @@ private:
     QByteArray                _pendingReplies;
     quint64                   _seenReset     = 0;
     quint64                   _graphicsReset = 0;
+    QSize                     _terminalSize {80, 24};
     void                      _updateGeometry();
     void        _afterInput(quint64 discarded, bool alternate, bool reverse, bool atBottom, int scrollPosition);
     CachedLine& _layout(int index);
