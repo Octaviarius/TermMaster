@@ -49,3 +49,14 @@ is completed, for example on Enter, instead of transmitting each typed character
 immediately. This is useful for AT commands. Keep this behavior distinct from
 local echo and configured outgoing line-ending conversion. The exact editor
 presentation remains to be specified.
+
+## Outgoing command terminator
+
+Status: requested; implementation deferred until an explicit start instruction.
+
+Provide a configurable outgoing command terminator alongside buffered command
+input. Support LF (`\n`), CRLF (`\r\n`), NUL (`\0`) and other terminators.
+Represent terminators as bytes so embedded NUL is preserved. The chosen
+terminator completes the submitted command; coordinate this with outgoing
+newline conversion to avoid appending or converting it twice. Buffered input and
+terminator selection are separate options.
