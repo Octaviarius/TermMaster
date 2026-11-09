@@ -1,10 +1,12 @@
 #include "Gui/Main/EditActions.h"
 #include "Gui/Main/MainWindow.h"
+#include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/FavoritesEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
 #include "Gui/Settings/ShortcutEditor.h"
 #include "Gui/Terminal/TerminalController.h"
+#include "Processing/WorkspaceProcessingEdit.h"
 
 #include <QCloseEvent>
 #include <QDialog>
@@ -33,6 +35,7 @@
 #include <Termaster/Core/Gui/Plugin/PluginManagerGui.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
+#include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
@@ -59,6 +62,8 @@ struct App::Data
     std::unique_ptr<TerminalController>             terminals;
     std::unique_ptr<EditActions>                    editing;
     QPointer<QDialog>                               pluginWindow;
+    QPointer<LineflowEditorDialog>                  lineflowWindow;
+    QPointer<QAction>                               lineflowAction;
     QPointer<SettingsDialog>                        settingsWindow;
     QMap<SettingsContext, QPointer<SettingsDialog>> settingsWindows;
     QPointer<QAction>                               createSessionAction;
@@ -136,6 +141,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
     setWindowIcon(QIcon(":/Termaster/App/IconOrange.png"));
 
     _data = std::make_unique<Data>(options);
+    registerNativeProcessors(_data->plugins.processors(), "core.processing");
     _data->settingsWidgets.registerWidget("commandShortcuts", [this](const SettingsSchema::Field&, QWidget* parent) {
         return new ShortcutEditor(_data->commands, _data->shortcuts, parent);
     });
@@ -152,6 +158,10 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
         settingsWidgets(),
         [this] { return _data->workspace.get(); },
         [this] {
+            if (_data->lineflowWindow)
+            {
+                _data->lineflowWindow->releaseEditors();
+            }
             const auto dialogs = _data->settingsWindows.values();
             for (const auto& dialog : dialogs)
             {
@@ -190,6 +200,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
 
 App::~App()
 {
+    delete _data->lineflowWindow.data();
     QObject::disconnect(_data->terminals.get(), nullptr, this, nullptr);
     _data->window->removeEventFilter(this);
     _data->window->statusBar()->removeEventFilter(this);
@@ -327,6 +338,10 @@ bool App::restoreLastWorkspace(QString* error)
         {
             return true;
         }
+        if (!WorkspaceProcessingEdit::recover(file, error))
+        {
+            return false;
+        }
         auto candidate = std::make_unique<Workspace>(file, _data->applicationSettings());
         if (!candidate->load(error))
         {
@@ -346,6 +361,7 @@ bool App::restoreLastWorkspace(QString* error)
         _closeSettings(SettingsContext::Terminal);
         _data->session.reset();
         _closeSettings(SettingsContext::Workspace);
+        delete _data->lineflowWindow.data();
         _data->workspace = std::move(candidate);
         _bindWorkspaceProcessors();
         _updateWorkspace();
@@ -376,6 +392,10 @@ bool App::openWorkspace(const Path& file, QString* error)
     if (_data->workspace && canonical && _data->workspace->filePath() == *canonical)
     {
         return _rememberWorkspace(*canonical, error);
+    }
+    if (!WorkspaceProcessingEdit::recover(file, error))
+    {
+        return false;
     }
     auto candidate = std::make_unique<Workspace>(file, _data->applicationSettings());
     return candidate->load(error) && _activateWorkspace(std::move(candidate), error);
@@ -433,6 +453,7 @@ bool App::closeWorkspace(QString* error)
     {
         return false;
     }
+    delete _data->lineflowWindow.data();
     _data->workspace.reset();
     _updateWorkspace();
     if (hadSession)
@@ -723,6 +744,14 @@ void App::_setupActions()
                                "management");
     plugins->setToolTip(tr("Manage plugins"));
     connect(plugins, &QAction::triggered, this, &App::_showPluginManager);
+    _data->lineflowAction = _addAction("Workspace.Processing",
+                                       tr("Lineflow editor…"),
+                                       Icons::icon("workflow"),
+                                       {},
+                                       "tools",
+                                       "management");
+    _data->lineflowAction->setToolTip(tr("Edit reusable workspace processor blocks"));
+    connect(_data->lineflowAction, &QAction::triggered, this, &App::_showLineflowEditor);
     auto* about = _addAction("Help.About", tr("&About Termaster"), windowIcon(), {}, "help", "about");
     about->setMenuRole(QAction::AboutRole);
     connect(about, &QAction::triggered, this, [this]() {
@@ -743,6 +772,51 @@ void App::_showPluginManager()
     _data->pluginWindow->show();
     _data->pluginWindow->raise();
     _data->pluginWindow->activateWindow();
+}
+
+void App::_showLineflowEditor()
+{
+    if (!_data->workspace)
+    {
+        return;
+    }
+    if (!_data->lineflowWindow)
+    {
+        QPointer<Workspace> workspace(_data->workspace.get());
+        _data->lineflowWindow = new LineflowEditorDialog(
+            workspace->processorDefinitions().values(),
+            _data->plugins.processors(),
+            _data->settingsWidgets,
+            [this, workspace](const QVariantMap&                         baseline,
+                              const QVariantMap&                         draft,
+                              const QList<ProcessorRefactoring::Rename>& renames,
+                              QString*                                   error) -> LineflowEditorDialog::ApplyResult {
+                if (!workspace || _data->workspace.get() != workspace.data())
+                {
+                    if (error)
+                    {
+                        *error = tr("The editor workspace is no longer open.");
+                    }
+                    return false;
+                }
+                if (!WorkspaceProcessingEdit::apply(*workspace,
+                                                    _data->session.get(),
+                                                    _data->plugins.processors(),
+                                                    baseline,
+                                                    draft,
+                                                    renames,
+                                                    error))
+                {
+                    return false;
+                }
+                return LineflowEditorDialog::ApplyResult(true, workspace->processorDefinitions().values());
+            },
+            _data->window.get());
+        _data->lineflowWindow->setAttribute(Qt::WA_DeleteOnClose);
+    }
+    _data->lineflowWindow->show();
+    _data->lineflowWindow->raise();
+    _data->lineflowWindow->activateWindow();
 }
 
 bool App::_ensureApplicationSettings(QString* error)
@@ -884,6 +958,7 @@ bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* erro
     _closeSettings(SettingsContext::Terminal);
     _data->session.reset();
     _closeSettings(SettingsContext::Workspace);
+    delete _data->lineflowWindow.data();
     _data->workspace = std::move(candidate);
     _bindWorkspaceProcessors();
     _updateWorkspace();
@@ -936,6 +1011,10 @@ void App::_bindWorkspaceProcessors()
 void App::_updateWorkspace()
 {
     const bool open = bool(_data->workspace);
+    if (_data->lineflowAction)
+    {
+        _data->lineflowAction->setEnabled(open);
+    }
     if (_data->workspaceSettingsAction)
     {
         _data->workspaceSettingsAction->setEnabled(open);

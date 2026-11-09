@@ -151,20 +151,22 @@ P8 remains the codec capability checklist.
 
 ## FLOW-4: Workspace Lineflow editor
 
-- [ ] Replace prototype-only tree contents with workspace block definitions and the
+- [x] Replace prototype-only tree contents with workspace block definitions and the
       registered processor catalog; provide block creation, naming, duplication and removal.
-- [ ] Preserve drag/drop ordering and nested block insertion with cycle checks.
-- [ ] Generate selected-node forms from schemas and x-widget registrations; support
+- [x] Preserve drag/drop ordering and nested block insertion with cycle checks.
+- [x] Generate selected-node forms from schemas and x-widget registrations; support
       plugin-owned editors without coupling them to runtime instances.
-- [ ] Keep edits as drafts with explicit Apply/Cancel and validate before persistence.
-- [ ] Add node rename refactoring that handles affected occurrence overrides and
+- [x] Keep edits as drafts with explicit Apply/Cancel and validate before persistence.
+- [x] Add node rename refactoring that handles affected occurrence overrides and
       references, including closed sessions; preflight failures must not leave partial changes.
-- [ ] Preserve unavailable processor definitions visibly and explain why execution
+- [x] Preserve unavailable processor definitions visibly and explain why execution
       is unavailable without silently replacing or removing those nodes.
-- [ ] Verify editor state, nested reuse, renaming, persistence failures and plugin
+- [x] Verify editor state, nested reuse, renaming, persistence failures and plugin
       removal, with native visual acceptance at supported display scales.
 
-No freely connected graph or ControlFlow nodes are part of Lineflow.
+The delivered editor and persistence acceptance are recorded in
+[Lineflow editor](lineflow-editor.md). No freely connected graph or ControlFlow
+nodes are part of Lineflow.
 
 ## FLOW-5: Terminal selection and private properties
 
@@ -196,7 +198,7 @@ Rx/Tx and different terminals must remain independent even when sharing a block.
 Codeflow can be selected on Rx/Tx or used inside Lineflow through the common
 Processor contract. It does not add ControlFlow nodes to the Lineflow editor.
 
-FLOW-2 routing and FLOW-3 registration are delivered. The remaining processing
-order is FLOW-4, FLOW-5 and FLOW-6. Editors depend on the unified catalog definition registration
+FLOW-2 routing, FLOW-3 registration and FLOW-4 workspace editing are delivered.
+The remaining processing order is FLOW-5 and FLOW-6. Editors depend on the unified catalog definition registration
 and update contracts. Python execution remains part of P7/FLOW-6.
 The earlier unrelated P5/P6 milestones do not block this processing sequence.

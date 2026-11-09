@@ -110,6 +110,47 @@ bool Session::create(const QString& id, const QString& name, QString* error)
     return true;
 }
 
+std::optional<QByteArray> Session::prepareObjects(const QVariantMap& values, QString* error) const
+{
+    const auto bytes = _settings->serializedPatch(
+        {
+            {"objects", values}
+    },
+        {},
+        error);
+    if (!bytes)
+    {
+        return std::nullopt;
+    }
+    Settings candidate(filePath(), Settings::Info {"termaster.session", "Transaction candidate"});
+    if (!candidate.replaceSerialized(*bytes, error) || !_validate(candidate, error))
+    {
+        return std::nullopt;
+    }
+    return bytes;
+}
+
+bool Session::acceptPreparedDocument(const QByteArray& bytes, QString* error, bool dirty)
+{
+    Settings candidate(filePath(), Settings::Info {"termaster.session", "Transaction candidate"});
+    if (!candidate.replaceSerialized(bytes, error) || !_validate(candidate, error)
+        || !_settings->replaceSerialized(bytes, error, dirty))
+    {
+        return false;
+    }
+    return true;
+}
+
+bool Session::diskUnchanged(QString* error) const
+{
+    return _settings->diskUnchanged(error);
+}
+
+bool Session::captureDiskBaseline(QString* error)
+{
+    return _settings->captureDiskBaseline(error);
+}
+
 bool Session::sync(QString* error)
 {
     if (error)

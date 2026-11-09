@@ -17,9 +17,17 @@ public:
     ~Workspace();
     Q_DISABLE_COPY_MOVE(Workspace)
 
-    bool            load(QString* error = nullptr);
-    bool            create(const QString& name, QString* error = nullptr);
-    bool            sync(QString* error = nullptr);
+    bool load(QString* error = nullptr);
+    bool create(const QString& name, QString* error = nullptr);
+    bool sync(QString* error = nullptr);
+    /** Validates and serializes a transaction candidate without changing files or borrowed views. */
+    std::optional<QByteArray> prepareProcessorDefinitions(const QVariantMap& values, QString* error = nullptr) const;
+    /** Adopts an already persisted candidate without I/O, retaining borrowed settings views. */
+    bool acceptPreparedDocument(const QByteArray& bytes, QString* error = nullptr, bool dirty = false);
+    /** Verifies persisted bytes before an application transaction. */
+    bool diskUnchanged(QString* error = nullptr) const;
+    /** Explicit I/O to refresh only the disk baseline after rollback. */
+    bool            captureDiskBaseline(QString* error = nullptr);
     Path            filePath() const;
     QString         name() const;
     bool            setName(const QString& name, QString* error = nullptr);

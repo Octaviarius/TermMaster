@@ -1,3 +1,4 @@
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -444,6 +445,9 @@ struct Settings::Data
     YAML::Node           root {YAML::NodeType::Map};
     std::shared_ptr<int> lifetime = std::make_shared<int>(0);
     bool                 dirty    = false;
+    QByteArray           diskDigest;
+    bool                 diskExists        = false;
+    bool                 diskBaselineKnown = false;
 };
 
 Settings::Settings(QString filePath) : Settings(std::move(filePath), Info {})
@@ -499,7 +503,9 @@ bool Settings::load(QString* error)
         validatePath(_data->path);
         YAML::Node root = envelope(_data->expectedInfo);
         QFile      file(_data->path);
-        if (file.exists())
+        QByteArray diskBytes;
+        const bool diskExists = file.exists();
+        if (diskExists)
         {
             if (!file.open(QIODevice::ReadOnly))
             {
@@ -514,6 +520,7 @@ bool Settings::load(QString* error)
             {
                 throw std::runtime_error("Settings file exceeds 4 MiB");
             }
+            diskBytes            = bytes;
             const auto documents = YAML::LoadAll(bytes.toStdString());
             if (documents.size() != 1 || !documents.front().IsMap())
             {
@@ -525,7 +532,10 @@ bool Settings::load(QString* error)
             validateEnvelope(root, _data->expectedInfo);
         }
         _data->root.reset(root);
-        _data->dirty = false;
+        _data->dirty             = false;
+        _data->diskDigest        = QCryptographicHash::hash(diskBytes, QCryptographicHash::Sha256);
+        _data->diskExists        = diskExists;
+        _data->diskBaselineKnown = true;
         return true;
     }
     catch (const std::exception& exception)
@@ -557,12 +567,150 @@ bool Settings::sync(QString* error)
         {
             throw std::runtime_error(file.errorString().toStdString());
         }
-        _data->dirty = false;
+        _data->dirty             = false;
+        _data->diskDigest        = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
+        _data->diskExists        = true;
+        _data->diskBaselineKnown = true;
         return true;
     }
     catch (const std::exception& exception)
     {
         return failure(error, "write", _data->path, exception);
+    }
+}
+
+std::optional<QByteArray> Settings::serializedPatch(QVariantMap values, QStringList removed, QString* error) const
+{
+    if (error)
+    {
+        error->clear();
+    }
+    try
+    {
+        Settings candidate(_data->path, _data->expectedInfo);
+        candidate._data->root.reset(YAML::Clone(_data->root));
+        if (!candidate.applyValues(std::move(values), std::move(removed), error))
+        {
+            return std::nullopt;
+        }
+        validateEnvelope(candidate._data->root, _data->expectedInfo);
+        return serialize(candidate._data->root);
+    }
+    catch (const std::exception& exception)
+    {
+        failure(error, "prepare", _data->path, exception);
+        return std::nullopt;
+    }
+}
+
+bool Settings::replaceSerialized(const QByteArray& bytes, QString* error, bool dirty)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    try
+    {
+        if (bytes.size() > MaxSettingsBytes)
+        {
+            throw std::runtime_error("Settings document exceeds 4 MiB");
+        }
+        const auto documents = YAML::LoadAll(bytes.toStdString());
+        if (documents.size() != 1 || !documents.front().IsMap())
+        {
+            throw std::runtime_error("Expected one YAML mapping document");
+        }
+        const auto root      = documents.front();
+        qsizetype  remaining = 100000;
+        validateTree(root, remaining);
+        validateEnvelope(root, _data->expectedInfo);
+        _data->root.reset(root);
+        _data->dirty = dirty;
+        if (!dirty)
+        {
+            _data->diskDigest        = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
+            _data->diskExists        = true;
+            _data->diskBaselineKnown = true;
+        }
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        return failure(error, "adopt", _data->path, exception);
+    }
+}
+
+bool Settings::diskUnchanged(QString* error) const
+{
+    if (error)
+    {
+        error->clear();
+    }
+    try
+    {
+        if (!_data->diskBaselineKnown)
+        {
+            throw std::runtime_error("No persisted disk baseline is available");
+        }
+        QFile      file(_data->path);
+        const bool exists = file.exists() || QFileInfo(_data->path).isSymLink();
+        QByteArray bytes;
+        if (exists)
+        {
+            if (!file.open(QIODevice::ReadOnly))
+            {
+                throw std::runtime_error(file.errorString().toStdString());
+            }
+            bytes = file.read(MaxSettingsBytes + 1);
+            if (file.error() != QFileDevice::NoError || bytes.size() > MaxSettingsBytes)
+            {
+                throw std::runtime_error("Cannot read bounded settings disk baseline");
+            }
+        }
+        if (exists != _data->diskExists
+            || QCryptographicHash::hash(bytes, QCryptographicHash::Sha256) != _data->diskDigest)
+        {
+            throw std::runtime_error("Document was externally changed since its last load or write");
+        }
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        return failure(error, "verify unchanged", _data->path, exception);
+    }
+}
+
+bool Settings::captureDiskBaseline(QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    try
+    {
+        QFile      file(_data->path);
+        const bool exists = file.exists() || QFileInfo(_data->path).isSymLink();
+        QByteArray bytes;
+        if (exists)
+        {
+            if (!file.open(QIODevice::ReadOnly))
+            {
+                throw std::runtime_error(file.errorString().toStdString());
+            }
+            bytes = file.read(MaxSettingsBytes + 1);
+            if (file.error() != QFileDevice::NoError || bytes.size() > MaxSettingsBytes)
+            {
+                throw std::runtime_error("Cannot read bounded settings disk baseline");
+            }
+        }
+        _data->diskDigest        = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
+        _data->diskExists        = exists;
+        _data->diskBaselineKnown = true;
+        return true;
+    }
+    catch (const std::exception& exception)
+    {
+        return failure(error, "capture disk baseline of", _data->path, exception);
     }
 }
 

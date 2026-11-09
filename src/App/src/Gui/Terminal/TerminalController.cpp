@@ -448,6 +448,7 @@ void TerminalController::registerEditor(const QString& id, EditorFactory factory
 }
 void TerminalController::unregisterEditor(const QString& id)
 {
+    _closeSettings();
     _editors.unregisterWidget(id);
 }
 void TerminalController::refreshTerminalActions()
