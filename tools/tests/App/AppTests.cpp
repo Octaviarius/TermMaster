@@ -2171,6 +2171,77 @@ content:
         QTRY_COMPARE(probe->output, QByteArray("fresh command\r"));
     }
 
+    Q_SLOT void workspaceProcessorPublication()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        const Path    first(temporary.filePath("Catalog.termaster"));
+        QVERIFY(_app.createWorkspace(first, "Catalog", &error));
+        const auto        cleanup  = qScopeGuard([&] { _app.closeWorkspace(); });
+        auto&             registry = _app.plugins().processors();
+        const QVariantMap definition {
+            {    "id",                     "workspace.pipeline"},
+            {  "name",                               "Pipeline"},
+            {  "kind",                               "lineflow"},
+            {"source", QVariantMap {{"nodes", QVariantList {}}}}
+        };
+        QVERIFY(_app.workspace()->setProcessorDefinition("workspace.pipeline", definition, &error));
+        QVERIFY(registry.type("workspace.pipeline").has_value());
+        QCOMPARE(registry.type("workspace.pipeline")->title, QString("Pipeline"));
+        const QVariantMap script {
+            {    "id",                                       "workspace.script"},
+            {  "name",                                                 "Script"},
+            {  "kind",                                                 "python"},
+            {"source", QVariantMap {{"code", "def process(data): return data"}}},
+            {"editor",                     QVariantMap {{"language", "python"}}}
+        };
+        QVERIFY(_app.workspace()->setProcessorDefinition("workspace.script", script, &error));
+        QVERIFY(registry.type("workspace.script"));
+        QVERIFY(!registry.type("workspace.script")->available);
+        QVERIFY(registry.type("workspace.script")->unavailableReason.contains("python"));
+        QVERIFY(_app.saveWorkspace(&error));
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(!registry.type("workspace.pipeline"));
+        QVERIFY(_app.openWorkspace(first, &error));
+        QVERIFY(registry.type("workspace.pipeline"));
+        QVERIFY(registry.type("workspace.script"));
+        QCOMPARE(_app.workspace()->processorDefinitions().value("workspace.script").toMap(), script);
+
+        auto renamed = definition;
+        renamed.insert("name", "Updated pipeline");
+        QVERIFY(_app.workspace()->setProcessorDefinition("workspace.pipeline", renamed, &error));
+        QCOMPARE(registry.type("workspace.pipeline")->title, QString("Updated pipeline"));
+
+        // Publication preflight rejects collisions before changing the saved draft.
+        registerNativeProcessors(registry, "publication-test");
+        const auto removeNative = qScopeGuard([&] { registry.removeOwner("publication-test"); });
+        auto       collision    = definition;
+        collision.insert("id", "native.identity");
+        const auto original = _app.workspace()->processorDefinitions().values();
+        QVERIFY(!_app.workspace()->setProcessorDefinition("native.identity", collision, &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(_app.workspace()->processorDefinitions().values(), original);
+        QVERIFY(_app.createSession("Publication state", &error));
+        auto*     originalSession = _app.session();
+        Settings  emptyBase(QString {});
+        Workspace conflicting(Path(temporary.filePath("Conflict.termaster")), emptyBase.node(""));
+        QVERIFY(conflicting.create("Conflict", &error));
+        QVERIFY(conflicting.setProcessorDefinition("native.identity", collision, &error));
+        QVERIFY(conflicting.sync(&error));
+        QVERIFY(!_app.openWorkspace(conflicting.filePath(), &error));
+        QCOMPARE(_app.workspace()->filePath(), first.absolute());
+        QCOMPARE(_app.session(), originalSession);
+        QCOMPARE(registry.type("workspace.pipeline")->title, QString("Updated pipeline"));
+
+        // Switching workspaces drops the previous catalog and restores it on reopening.
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Other.termaster")), "Other", &error));
+        QVERIFY(!registry.type("workspace.pipeline"));
+        QVERIFY(_app.openWorkspace(first, &error));
+        QCOMPARE(registry.type("workspace.pipeline")->title, QString("Updated pipeline"));
+        QVERIFY(_app.workspace()->removeProcessorDefinition("workspace.pipeline", &error));
+        QVERIFY(!registry.type("workspace.pipeline"));
+    }
+
     Q_SLOT void terminalProcessingRouting()
     {
         QTemporaryDir temporary;
@@ -2223,18 +2294,22 @@ content:
         QTRY_COMPARE(probe->output, QByteArray("B"));
 
         // A workspace block is selectable through the same controller boundary.
-        QVERIFY(_app.workspace()->setProcessorBlock("identity",
-                                                    {
-                                                        {   "id","identity"                                                                 },
-                                                        { "name",                                      "Identity"},
-                                                        {"nodes",
-                                                         QVariantList {QVariantMap {{"name", "pass"},
-                                                         {"type", "native.identity"}}}                           }
+        QVERIFY(_app.workspace()->setProcessorDefinition("identity",
+                                                         {
+                                                             {    "id","identity"                                                                       },
+                                                             {  "name",                                  "Identity"},
+                                                             {  "kind",                                  "lineflow"},
+                                                             {"source",
+                                                              QVariantMap {
+                                                              {"nodes",
+                                                              QVariantList {
+                                                              QVariantMap {{"name", "pass"},
+                                                              {"type", "native.identity"}}}}}                      }
         },
-                                                    &error));
+                                                         &error));
         auto&             controller = static_cast<TerminalController&>(host);
         const QVariantMap identity {
-            {"block", "identity"}
+            {"type", "identity"}
         };
         QVERIFY(controller.selectedSettings().setValue("processing",
                                                        QVariantMap {

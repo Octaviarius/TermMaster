@@ -26,7 +26,6 @@
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
-#include <Termaster/Core/Processing/Lineflow.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
@@ -1222,57 +1221,29 @@ bool TerminalController::_configureProcessing(Runtime& terminal, QString* error,
                 return fail(error, "Processing configuration must be a map: " + directions[index] + "/" + key);
             }
         }
-        for (const auto& key : {QStringLiteral("type"), QStringLiteral("block")})
+        if (selection.contains("type") && selection.value("type").metaType().id() != QMetaType::QString)
         {
-            if (selection.contains(key) && selection.value(key).metaType().id() != QMetaType::QString)
-            {
-                return fail(error, "Processing identifier must be a string: " + directions[index] + "/" + key);
-            }
+            return fail(error, "Processing identifier must be a string: " + directions[index]);
         }
-        const auto type  = selection.value("type").toString();
-        const auto block = selection.value("block").toString();
-        if (type.isEmpty() && block.isEmpty())
+        const auto type = selection.value("type").toString();
+        if (type.isEmpty())
         {
             if (!selection.isEmpty())
             {
-                return fail(error, "Processing selection requires type or block: " + directions[index]);
+                return fail(error, "Processing selection requires a type: " + directions[index]);
             }
             continue;
         }
-        if (!_processors || (!type.isEmpty() && !block.isEmpty()))
+        if (!_processors)
         {
-            return fail(error, "Processing registry is unavailable or selection is ambiguous");
+            return fail(error, "Processing registry is unavailable");
         }
-        if (!block.isEmpty())
+        const auto prepared = _processors->prepare(type, selection.value("configuration").toMap(), {}, error);
+        if (!prepared)
         {
-            auto* workspace = _workspace();
-            if (!workspace)
-            {
-                return fail(error, "Processing block requires an open workspace");
-            }
-            const auto prepared = Lineflow::prepare(workspace->processorBlocks().values(),
-                                                    block,
-                                                    *_processors,
-                                                    {},
-                                                    error);
-            if (!prepared)
-            {
-                return false;
-            }
-            instances[index] = prepared->instantiate(*_processors, selection.value("overrides").toMap(), error);
+            return false;
         }
-        else
-        {
-            const auto resolved = _processors->resolveConfiguration(type,
-                                                                    selection.value("configuration").toMap(),
-                                                                    selection.value("overrides").toMap(),
-                                                                    error);
-            if (!resolved)
-            {
-                return false;
-            }
-            instances[index] = _processors->create(type, *resolved, {}, error);
-        }
+        instances[index] = prepared->instantiate(selection.value("overrides").toMap(), error);
         if (!instances[index])
         {
             return false;

@@ -189,6 +189,55 @@ private:
         QCOMPARE(entry(manager, "processor").status, PluginManager::Status::Stopped);
     }
 
+    Q_SLOT void savedProviderSnapshotPinsActualPlugin()
+    {
+        QTemporaryDir temporary;
+        const QString directory = temporary.path() + "/plugin";
+        QVERIFY(!copy(FIXTURE_Processor, directory).isEmpty());
+        Settings settings(temporary.path() + "/plugin.yaml");
+        QVERIFY(setPreference(settings, "processor", true));
+        ProcessorTestHost host;
+        PluginManager     manager(settings, directory);
+        manager.setHost(&host);
+        ProcessorRegistry::Definition
+                definition {"saved.code", "Saved code", "fixture.code", {{"prefix", "old:"}}, {}, {}, {}, {}};
+        QString error;
+        QVERIFY(manager.processors().publishDefinitions("workspace", {definition}, &error));
+        QVERIFY(!manager.processors().type("saved.code")->available);
+        QVERIFY(manager.start());
+        QVERIFY(manager.processors().type("saved.code")->available);
+        auto prepared = manager.processors().prepare("saved.code", {}, {}, &error);
+        QVERIFY2(prepared, qPrintable(error));
+        definition.source.insert("prefix", "new:");
+        QVERIFY(manager.processors().publishDefinitions("workspace", {definition}, &error));
+        QVERIFY(manager.processors().publishDefinitions("workspace", {}, &error));
+        QVERIFY(!manager.stop(&error));
+        auto first  = prepared->instantiate({}, &error);
+        auto second = prepared->instantiate({}, &error);
+        QVERIFY2(first && second, qPrintable(error));
+        QList<QByteArray>          outputs;
+        int                        completed = 0;
+        const Processor::Callbacks callbacks {[&](Processor::Chunk output) { outputs.append(output.bytes); },
+                                              [&](QString cause) {
+                                                  QVERIFY(cause.isEmpty());
+                                                  ++completed;
+                                              }};
+        QCOMPARE(first->accept({QByteArray("one")}, callbacks), Processor::AcceptResult::Accepted);
+        QCOMPARE(second->accept({QByteArray("two")}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 2);
+        QCOMPARE(outputs, QList<QByteArray>({QByteArray("old:one"), QByteArray("old:two")}));
+        prepared.reset();
+        QVERIFY(!manager.stop(&error));
+        first.reset();
+        second.reset();
+        QTRY_VERIFY(manager.processors().canRemoveOwner("processor", &error));
+        QVERIFY2(manager.stop(&error), qPrintable(error));
+        QCOMPARE(entry(manager, "processor").status, PluginManager::Status::Stopped);
+        // The saved definition still roundtrips without its provider.
+        QVERIFY(manager.processors().publishDefinitions("workspace", {definition}, &error));
+        QVERIFY(!manager.processors().type("saved.code")->available);
+    }
+
     Q_SLOT void independentSdkConsumer()
     {
         const QByteArray external = qgetenv("TERMASTER_EXTERNAL_PLUGIN");

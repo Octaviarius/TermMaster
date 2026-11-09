@@ -97,6 +97,8 @@ private:
     bool     _activateWorkspace(std::unique_ptr<Workspace> workspace, QString* error);
     bool     _saveChanges(QString* error);
     void     _updateWorkspace();
+    bool     _prepareWorkspaceProcessors(Workspace& workspace, QString* error);
+    void     _bindWorkspaceProcessors();
     void     _applyConfiguration();
     void     _updateRecent();
     bool     _activateSession(std::unique_ptr<Session> candidate, QString* error);

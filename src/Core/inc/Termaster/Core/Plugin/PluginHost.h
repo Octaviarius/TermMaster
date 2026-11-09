@@ -84,6 +84,27 @@ public:
         _processorCatalog = catalog;
         _processorOwner   = std::move(owner);
     }
+    void registerProcessorProvider(const QString& id, ProcessorCatalog::Provider provider)
+    {
+        if (!_processorCatalog || _processorOwner.isEmpty())
+        {
+            throw std::logic_error("Processor registration is only available during plugin lifecycle callbacks");
+        }
+        _processorCatalog->registerProvider(_processorOwner, id, std::move(provider));
+    }
+    bool unregisterProcessorProvider(const QString& id, QString* error = nullptr)
+    {
+        if (!_processorCatalog || _processorOwner.isEmpty())
+        {
+            if (error)
+            {
+                *error = QStringLiteral("Processor catalog is unavailable");
+            }
+            return false;
+        }
+        return _processorCatalog->unregisterProvider(_processorOwner, id, error);
+    }
+
     void registerProcessorType(ProcessorCatalog::Type type)
     {
         if (!_processorCatalog || _processorOwner.isEmpty())

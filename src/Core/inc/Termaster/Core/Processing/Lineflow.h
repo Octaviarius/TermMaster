@@ -45,6 +45,11 @@ public:
     void         cancel(std::function<void()> quiescent) override;
 
 private:
+    friend class ProcessorRegistry;
+    static std::unique_ptr<Lineflow> compose(std::vector<std::shared_ptr<Processor>> nodes,
+                                             QVariantMap                             configuration,
+                                             Limits                                  limits);
+
     struct Work
     {
         size_t stage;

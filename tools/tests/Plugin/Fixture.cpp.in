@@ -48,6 +48,7 @@ public:
                                {
                                    return;
                                }
+                               input.bytes.prepend(_configuration.value("prefix").toString().toUtf8());
                                callbacks.output(std::move(input));
                                if (generation != _generation)
                                {
@@ -153,6 +154,35 @@ public:
         }
 
         _host->registerProcessorType(std::move(type));
+        ProcessorCatalog::Provider provider;
+        provider.validate = [](const QVariantMap& source, QString* error) {
+            if (source.value("prefix").typeId() == QMetaType::QString)
+            {
+                return true;
+            }
+            if (error)
+            {
+                *error = QStringLiteral("Fixture code source requires a prefix string");
+            }
+            return false;
+        };
+        provider.prepare = [](const QVariantMap& source,
+                              const QVariantMap&,
+                              const ProcessorCatalog::Provider::References&,
+                              const Processor::Limits&,
+                              QString*) {
+            const auto prefix = source.value("prefix").toString();
+            return ProcessorCatalog::Type::Factory(
+                [prefix](const QVariantMap& configuration, const Processor::Limits& limits, QString*) {
+                    auto effective = configuration;
+                    if (!effective.contains("prefix"))
+                    {
+                        effective.insert("prefix", prefix);
+                    }
+                    return std::make_unique<AsyncProcessor>(std::move(effective), limits);
+                });
+        };
+        _host->registerProcessorProvider(QStringLiteral("fixture.code"), std::move(provider));
 #endif
         _state = State::Running;
         return true;
