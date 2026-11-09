@@ -174,3 +174,12 @@ used. Release was not rebuilt for this feature.
 
 `TERMASTER_BUILD_SESSION_TESTS`, `TERMASTER_BUILD_WORKSPACE_TESTS` and
 `TERMASTER_BUILD_APP_TESTS` enable the affected test targets.
+
+## Reusable processor definitions
+
+Workspace `content/processorBlocks` stores reusable named processing definitions.
+Each node's unique `name` is its identity within the block. A session terminal's
+`settings/processing` map stores its private Rx/Tx block selection and occurrence
+configuration overrides; saving definitions does not require their native plugins
+to be loaded. The [processing core](processing-core.md) specifies defaults,
+occurrence paths, validation and independent runtime lifetimes.

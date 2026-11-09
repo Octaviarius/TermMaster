@@ -3,7 +3,8 @@
 This is the single milestone checklist for pending work. Priority applies to the
 requirements collected in [terminal UI requirements](terminal-ui-requirements.md)
 and [process terminal planning](process-terminal.md), not an audit of the entire
-application. Stages P1 through P4 are complete; later stages await a separate start instruction.
+application. Stages P1 through P4 and the FLOW-1 core are complete; remaining integration stages
+await a separate start instruction.
 Items within each stage are ordered; later stages depend on relevant earlier work.
 
 ## P1: Consistent terminal controls
@@ -102,3 +103,14 @@ is deferred until an explicit start instruction.
 
 Python-authored codecs depend on P7; native codec work can proceed independently.
 See [codec requirements](python-and-codecs.md#stream-codecs-and-packet-input).
+
+## FLOW-1: Processing core
+
+- [x] Deliver the shared asynchronous Processor contract and native factory registry.
+- [x] Persist reusable ProcessorBlocks in the workspace without shared runtime state.
+- [x] Prepare and execute bounded Lineflow compositions with cancellation and plugin leases.
+- [x] Verify synthetic processing and a real native plugin lifecycle.
+- [ ] Connect terminal Rx/Tx routing and production editing UI in a separate stage.
+- [ ] Implement Codeflow with the separately specified Python runtime.
+
+The delivered scope and execution contract are recorded in [processing core](processing-core.md).

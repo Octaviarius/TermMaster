@@ -1,0 +1,82 @@
+#pragma once
+
+#include <Termaster/Core/Processing/Processor.h>
+#include <deque>
+#include <memory>
+#include <vector>
+class ProcessorRegistry;
+
+/** Prepared native pipeline and one independently stateful runtime. Owning-thread API. */
+class Lineflow final : public Processor
+{
+public:
+    class Prepared
+    {
+    public:
+        QVariantMap               configuration() const;
+        std::unique_ptr<Lineflow> instantiate(ProcessorRegistry& registry, QString* error = nullptr) const;
+        std::unique_ptr<Lineflow> instantiate(ProcessorRegistry& registry,
+                                              const QVariantMap& overrides,
+                                              QString*           error = nullptr) const;
+
+    private:
+        friend class Lineflow;
+        struct Node
+        {
+            QString     path;
+            QString     type;
+            QVariantMap configuration;
+        };
+
+        QVariantMap       _configuration;
+        std::vector<Node> _nodes;
+        Limits            _limits;
+    };
+
+    static std::shared_ptr<const Prepared> prepare(const QVariantMap& blocks,
+                                                   const QString&     id,
+                                                   ProcessorRegistry& registry,
+                                                   Limits             limits,
+                                                   QString*           error = nullptr);
+    ~Lineflow() override;
+
+    QVariantMap  configuration() const override;
+    AcceptResult accept(Chunk input, Callbacks callbacks) override;
+    void         cancel(std::function<void()> quiescent) override;
+
+private:
+    struct Work
+    {
+        size_t stage;
+        Chunk  chunk;
+    };
+
+    QVariantMap                             _configuration;
+    Limits                                  _limits;
+    std::vector<std::shared_ptr<Processor>> _nodes;
+    std::deque<Work>                        _queue;
+    Callbacks                               _callbacks;
+    std::vector<std::function<void()>>      _cancelCallbacks;
+    qsizetype                               _childBytes   = 0;
+    qsizetype                               _childChunks  = 0;
+    qsizetype                               _queuedBytes  = 0;
+    qsizetype                               _outputBytes  = 0;
+    qsizetype                               _outputChunks = 0;
+    quint64                                 _generation   = 0;
+    quint64                                 _invocation   = 0;
+    size_t                                  _cancelling   = 0;
+    bool                                    _active       = false;
+    bool                                    _pending      = false;
+    bool                                    _scheduled    = false;
+    bool                                    _stopped      = false;
+    bool                                    _quiescent    = false;
+    QString                                 _failure;
+
+    explicit Lineflow(const Prepared& prepared);
+    void _schedule();
+    void _pump();
+    void _finish(QString error);
+    void _fail(QString error);
+    void _cancelNodes();
+    void _cancelled();
+};

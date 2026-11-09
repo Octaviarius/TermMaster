@@ -52,6 +52,16 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Gui/Settings/SettingsFormWidget.cpp
     inc/Termaster/Core/SettingsOverlay.h
     src/SettingsOverlay.cpp
+    inc/Termaster/Core/Processing/Processor.h
+    inc/Termaster/Core/Processing/ProcessorCatalog.h
+    inc/Termaster/Core/Processing/ProcessorRegistry.h
+    src/Processing/ProcessorRegistry.cpp
+    inc/Termaster/Core/Processing/ProcessorBlocks.h
+    src/Processing/ProcessorBlocks.cpp
+    inc/Termaster/Core/Processing/Lineflow.h
+    src/Processing/Lineflow.cpp
+    inc/Termaster/Core/Processing/NativeProcessors.h
+    src/Processing/NativeProcessors.cpp
     inc/Termaster/Core/Workspace.h
     src/Workspace.cpp
     inc/Termaster/Core/Session.h

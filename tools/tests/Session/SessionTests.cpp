@@ -2,13 +2,94 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <Termaster/Core/Processing/Lineflow.h>
+#include <Termaster/Core/Processing/NativeProcessors.h>
+#include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/Session.h>
+#include <Termaster/Core/Workspace.h>
 #include <filesystem>
 
 class SessionTests : public QObject
 {
     Q_OBJECT
 private slots:
+    void terminalProcessingOverridesRemainPrivate()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Workspace     workspace(Path(temporary.filePath("workspace.yaml")), base.node(""));
+        QVERIFY(workspace.create("Shared blocks"));
+        const QVariantMap leaf {
+            {   "id",                                        "leaf-block"                     },
+            { "name",                                                                   "Leaf"},
+            {"nodes",
+             QVariantList {QVariantMap {{"name", "leaf"},
+             {"type", "native.identity"},
+             {"configuration", QVariantMap {{"label", "shared"}}}}}                           }
+        };
+        const QVariantMap root {
+            {   "id",                                                                   "pipeline"},
+            { "name",                                                                   "Pipeline"},
+            {"nodes", QVariantList {QVariantMap {{"name", "branch"}, {"reference", "leaf-block"}}}}
+        };
+        QVERIFY(workspace.setProcessorBlock("leaf-block", leaf));
+        QVERIFY(workspace.setProcessorBlock("pipeline", root));
+        QVERIFY(workspace.sync());
+        const auto shared = workspace.processorBlocks().values();
+        Session    session(Path(temporary.filePath("session")), workspace.settings());
+        QVERIFY(session.create("private-settings", "Private processor settings"));
+        const QVariantMap firstOverrides {
+            {"branch/leaf", QVariantMap {{"label", "first"}}}
+        };
+        const QVariantMap secondOverrides {
+            {"branch/leaf", QVariantMap {{"label", "second"}}}
+        };
+        const auto terminal = [](const QVariantMap& overrides) {
+            return QVariantMap {
+                {    "type",                                              "terminal"                            },
+                {  "module",                                                             "unknown.future.module"},
+                {"settings",
+                 QVariantMap {
+                 {"processing",
+                 QVariantMap {{"rx", QVariantMap {{"block", "pipeline"}, {"overrides", overrides}}},
+                 {"tx", QVariantMap {{"block", "pipeline"}, {"overrides", QVariantMap {}}}}}}}                  }
+            };
+        };
+        // Write the whole map: occurrence paths contain '/' and are not Settings paths.
+        QVERIFY(session.objects().setValue("first", terminal(firstOverrides)));
+        QVERIFY(session.objects().setValue("second", terminal(secondOverrides)));
+        QVERIFY(session.sync());
+        Session loaded(session.directory(), workspace.settings());
+        QVERIFY(loaded.load());
+        const auto processing = [&loaded](const QString& object) {
+            return loaded.objects().value(object).toMap().value("settings").toMap().value("processing").toMap();
+        };
+        const auto firstRx  = processing("first").value("rx").toMap();
+        const auto secondRx = processing("second").value("rx").toMap();
+        QCOMPARE(firstRx.value("overrides").toMap(), firstOverrides);
+        QCOMPARE(secondRx.value("overrides").toMap(), secondOverrides);
+        QVERIFY(processing("first").value("tx").toMap().value("overrides").toMap().isEmpty());
+        QVERIFY(firstRx.value("overrides").toMap().contains("branch/leaf"));
+        QVERIFY(!firstRx.value("overrides").toMap().contains("branch"));
+
+        ProcessorRegistry registry;
+        QString           error;
+        registerNativeProcessors(registry, "native");
+        const auto prepared = Lineflow::prepare(shared, "pipeline", registry, {}, &error);
+        QVERIFY2(prepared, qPrintable(error));
+        auto first  = prepared->instantiate(registry, firstRx.value("overrides").toMap(), &error);
+        auto second = prepared->instantiate(registry, secondRx.value("overrides").toMap(), &error);
+        QVERIFY2(first, qPrintable(error));
+        QVERIFY2(second, qPrintable(error));
+        QCOMPARE(first->configuration().value("overrides").toMap(), firstOverrides);
+        QCOMPARE(second->configuration().value("overrides").toMap(), secondOverrides);
+        QCOMPARE(workspace.processorBlocks().values(), shared);
+        QCOMPARE(prepared->configuration().value("blocks").toMap(), shared);
+        first.reset();
+        second.reset();
+        QTRY_VERIFY(registry.canRemoveOwner("native"));
+    }
+
     void layeredSettings()
     {
         QTemporaryDir temporary;

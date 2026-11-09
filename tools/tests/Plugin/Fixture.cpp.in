@@ -2,7 +2,9 @@
 #include <QObject>
 #include <QThread>
 #include <QTimer>
+#include <Termaster/Core/Plugin/HostedPlugin.h>
 #include <Termaster/Core/Plugin/Plugin.h>
+#include <Termaster/Core/Plugin/PluginHost.h>
 
 #ifdef FIXTURE_PROVIDER
 extern "C" int termasterFixtureValue()
@@ -14,17 +16,81 @@ extern "C" int termasterFixtureValue()
 extern "C" int termasterFixtureValue();
 #endif
 
-class Fixture final : public QObject, public Plugin
+#ifdef FIXTURE_PROCESSOR
+class AsyncProcessor final : public Processor
+{
+public:
+    AsyncProcessor(QVariantMap configuration, Limits limits) : _configuration(std::move(configuration)), _limits(limits)
+    {
+    }
+
+    QVariantMap configuration() const override
+    {
+        return _configuration;
+    }
+
+    AcceptResult accept(Chunk input, Callbacks callbacks) override
+    {
+        if (_stopped || input.bytes.size() > _limits.maxBytes)
+        {
+            return AcceptResult::Rejected;
+        }
+        if (_busy)
+        {
+            return AcceptResult::WouldBlock;
+        }
+        _busy                 = true;
+        const auto generation = _generation;
+        QTimer::singleShot(0,
+                           this,
+                           [this, generation, input = std::move(input), callbacks = std::move(callbacks)]() mutable {
+                               if (generation != _generation)
+                               {
+                                   return;
+                               }
+                               callbacks.output(std::move(input));
+                               if (generation != _generation)
+                               {
+                                   return;
+                               }
+
+                               _busy = false;
+                               callbacks.completed({});
+                           });
+        return AcceptResult::Accepted;
+    }
+
+    void cancel(std::function<void()> quiescent) override
+    {
+        _stopped = true;
+        ++_generation;
+        QTimer::singleShot(0, this, [this, quiescent = std::move(quiescent)] {
+            _busy = false;
+            quiescent();
+        });
+    }
+
+private:
+    QVariantMap _configuration;
+    Limits      _limits;
+    bool        _busy       = false;
+    bool        _stopped    = false;
+    int         _generation = 0;
+};
+#endif
+
+class Fixture final : public QObject, public Plugin, public HostedPlugin
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "org.octaviarius.Termaster.Plugin/1.0" FILE "@fixture_json@")
-    Q_INTERFACES(Plugin)
+    Q_INTERFACES(Plugin HostedPlugin)
 
 private:
-    State    _state  = State::Stopped;
-    QThread* _worker = nullptr;
-    QTimer*  _timer  = nullptr;
-    void     _trace(const QByteArray& action) const
+    PluginHost* _host   = nullptr;
+    State       _state  = State::Stopped;
+    QThread*    _worker = nullptr;
+    QTimer*     _timer  = nullptr;
+    void        _trace(const QByteArray& action) const
     {
         if (!qEnvironmentVariableIsSet("TERMASTER_PLUGIN_TRACE"))
         {
@@ -38,6 +104,11 @@ private:
     }
 
 public:
+    void setHost(PluginHost* host) override
+    {
+        _host = host;
+    }
+
     ~Fixture() override
     {
         if (_worker || _timer)
@@ -66,6 +137,22 @@ public:
             *error = QStringLiteral("Synthetic startup failure");
         }
         return false;
+#endif
+#ifdef FIXTURE_PROCESSOR
+        ProcessorCatalog::Type type;
+        type.id             = QStringLiteral("fixture.async");
+        type.title          = QStringLiteral("Fixture asynchronous processor");
+        type.settingsSchema = QByteArrayLiteral(
+            "version: 1\ntype: termaster.settings-schema\ndescription: Fixture processor\ncontent:\n  type: object\n  properties:\n    label:\n      type: string\n");
+        type.create = [](const QVariantMap& configuration, const Processor::Limits& limits, QString*) {
+            return std::make_unique<AsyncProcessor>(configuration, limits);
+        };
+        if (!_host)
+        {
+            throw std::logic_error("Processor fixture requires its plugin host");
+        }
+
+        _host->registerProcessorType(std::move(type));
 #endif
         _state = State::Running;
         return true;

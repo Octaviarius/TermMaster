@@ -101,6 +101,12 @@ if(TERMASTER_BUILD_COMMAND_INPUT_TESTS)
     add_subdirectory(tools/tests/CommandInput)
 endif()
 
+option(TERMASTER_BUILD_PROCESSING_TESTS "Build processor and Lineflow tests" OFF)
+if(TERMASTER_BUILD_PROCESSING_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Processing)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()
