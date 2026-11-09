@@ -126,3 +126,56 @@ content:
       x-settings-path: input/confirmMultiline
       x-group: input
       x-order: 11
+    byteDelayMs:
+      type: integer
+      title: Byte delay (ms)
+      default: 0
+      minimum: 0
+      maximum: 60000
+      x-settings-path: input/byteDelayMs
+      x-group: input
+      x-order: 12
+    lineDelayMs:
+      type: integer
+      title: Line delay (ms)
+      default: 0
+      minimum: 0
+      maximum: 60000
+      x-settings-path: input/lineDelayMs
+      x-group: input
+      x-order: 13
+    disconnectedPolicy:
+      type: string
+      title: Disconnected sending
+      enum: [reject, retain]
+      default: reject
+      x-widget: enumCombo
+      x-settings-path: input/disconnectedPolicy
+      x-group: input
+      x-order: 14
+    periodMs:
+      type: integer
+      title: Periodic interval (ms)
+      default: 1000
+      minimum: 100
+      maximum: 86400000
+      x-settings-path: input/periodMs
+      x-group: input
+      x-order: 15
+    favorites:
+      type: array
+      title: Favorite commands
+      default: []
+      maxItems: 100
+      items:
+        type: object
+        required: [name, text, terminator]
+        properties:
+          name: {type: string, minLength: 1, maxLength: 128}
+          text: {type: string, maxLength: 16384}
+          terminator: {type: string, enum: [lf, crlf, cr, nul, none, custom]}
+          customTerminator: {type: string, maxLength: 1024}
+      x-widget: commandFavorites
+      x-settings-path: input/favorites
+      x-group: input
+      x-order: 16

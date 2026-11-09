@@ -366,3 +366,11 @@ owning `terminalType`. Rebuild hosted plugins against the current SDK. The host
 copies the terminal type string before plugin unload; it filters tab context
 menus independently from global Terminal menu visibility. Standard roles select
 shared toolbar positions; Close and Additional roles are menu-only.
+
+## Atomic output capability ABI
+
+HostedPlugin ABI version 6 adds `SerialDevice::atomicWrites()`. The default stream
+capability permits partial writes and byte/line pacing; UDP reports atomic writes
+so the shared output queue preserves datagram boundaries and rejects byte pacing.
+Rebuild every hosted plugin against this SDK. Interface IID
+`org.octaviarius.Termaster.HostedPlugin/6.0` rejects older hosted binary interfaces.

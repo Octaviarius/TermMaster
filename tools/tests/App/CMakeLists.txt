@@ -62,3 +62,35 @@ add_test(NAME CommandEditorTests COMMAND CommandEditorTests)
 set_tests_properties(CommandEditorTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
 )
+
+qt_add_executable(AdvancedSenderTests
+    AdvancedSenderTests.cpp
+)
+target_compile_features(AdvancedSenderTests PRIVATE cxx_std_20)
+target_link_libraries(AdvancedSenderTests PRIVATE
+    App
+    Qt6::Test
+)
+target_include_directories(AdvancedSenderTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/App/src"
+)
+add_test(NAME AdvancedSenderTests COMMAND AdvancedSenderTests)
+set_tests_properties(AdvancedSenderTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+)
+
+qt_add_executable(FavoritesEditorTests
+    FavoritesEditorTests.cpp
+)
+target_compile_features(FavoritesEditorTests PRIVATE cxx_std_20)
+target_link_libraries(FavoritesEditorTests PRIVATE
+    App
+    Qt6::Test
+)
+target_include_directories(FavoritesEditorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/App/src"
+)
+add_test(NAME FavoritesEditorTests COMMAND FavoritesEditorTests)
+set_tests_properties(FavoritesEditorTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+)

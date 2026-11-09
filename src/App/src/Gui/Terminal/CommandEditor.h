@@ -7,6 +7,9 @@
 class QComboBox;
 class QLineEdit;
 class QPlainTextEdit;
+class QSpinBox;
+class QLabel;
+class QToolButton;
 
 /** GUI-thread command draft and bounded, memory-only accepted-command history. */
 class CommandEditor final : public QWidget
@@ -21,11 +24,19 @@ public:
     void setSettings(const QVariantMap& input);
     void setSendCallback(SendCallback callback);
     bool buffered() const;
+    void setSendingState(bool active, const QString& status);
     void retainPaste(const QString& text);
     void pasteText(const QString& text);
     bool confirmPaste(const QByteArray& bytes);
 
     Q_SIGNAL void settingChanged(const QString& key, const QVariant& value);
+
+    Q_SIGNAL void fileRequested(bool lineByLine);
+    Q_SIGNAL void periodicRequested(const QString& text,
+                                    const QString& terminator,
+                                    const QString& custom,
+                                    int            intervalMs);
+    Q_SIGNAL void stopRequested();
 
 protected:
     bool eventFilter(QObject* object, QEvent* event) override;
@@ -40,6 +51,15 @@ private:
     QWidget*             _body;
     QPlainTextEdit*      _editor;
     QComboBox*           _history;
+    QWidget*             _advanced;
+    QComboBox*           _favorites;
+    QSpinBox*            _byteDelay;
+    QSpinBox*            _lineDelay;
+    QSpinBox*            _period;
+    QComboBox*           _disconnected;
+    QLabel*              _sendingStatus;
+    QToolButton*         _stop;
+    QVariantList         _favoriteEntries;
     QVariantMap          _settings;
     SendCallback         _send;
     QStringList          _entries;
@@ -47,6 +67,10 @@ private:
     int                  _historyIndex = 0;
     int                  _historyBytes = 0;
 
+    void _loadFavorite();
+    void _saveFavorite();
+    void _refreshFavorites();
+    void _startPeriodic();
     bool _submit(const QString& text, bool clearDraft);
     void _paste(const QString& text);
     void _navigateHistory(int direction);

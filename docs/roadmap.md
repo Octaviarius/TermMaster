@@ -3,7 +3,7 @@
 This is the single milestone checklist for pending work. Priority applies to the
 requirements collected in [terminal UI requirements](terminal-ui-requirements.md)
 and [process terminal planning](process-terminal.md), not an audit of the entire
-application. Stages P1 through P3 are complete; later stages await a separate start instruction.
+application. Stages P1 through P4 are complete; later stages await a separate start instruction.
 Items within each stage are ordered; later stages depend on relevant earlier work.
 
 ## P1: Consistent terminal controls
@@ -46,14 +46,15 @@ Delivered behavior and verification are recorded in [settings forms](settings-fo
 
 ## P4: Advanced sending
 
-- [ ] Add named favorite commands with per-command terminators.
-- [ ] Add bounded, cancellable sending with character/line delays.
-- [ ] Add file sending as raw bytes or line by line, using the same send pipeline.
-- [ ] Add explicit disconnected-send policy: reject or retain a bounded queue.
-- [ ] Add periodic sending with an active indicator and a stop command.
+- [x] Add named favorite commands with per-command terminators.
+- [x] Add bounded, cancellable sending with byte/line delays.
+- [x] Add file sending as raw bytes or line by line, using the same send pipeline.
+- [x] Add explicit disconnected-send policy: reject or retain a bounded queue.
+- [x] Add periodic sending with an active indicator and a stop command.
 
 Share ordering, cancellation and queue ownership with the P2 submission path.
-Design reconnect/replay behavior explicitly before combining queues and timers.
+The explicit reconnect/replay contract, byte-pacing semantics and verification are
+recorded in [command input](command-input.md#advanced-sending).
 
 ## P5: Process terminal
 

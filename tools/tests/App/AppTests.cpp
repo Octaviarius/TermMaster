@@ -1,6 +1,8 @@
 #include "Gui/Session/SessionPicker.h"
+#include "Gui/Settings/FavoritesEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
 #include "Gui/Terminal/CommandEditor.h"
+#include "Gui/Terminal/TerminalController.h"
 
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -76,6 +78,7 @@ public:
         int              attempts  = 0;
         ReconnectDevice* device    = nullptr;
         QByteArray       output;
+        QVariantMap      openConfiguration;
         qint64           allowance = 2;
     };
     explicit ReconnectDevice(std::shared_ptr<Probe> probe) : _probe(std::move(probe))
@@ -98,9 +101,10 @@ public:
     {
         _callbacks = std::move(callbacks);
     }
-    bool open(const QVariantMap&, QString* error) override
+    bool open(const QVariantMap& configuration, QString* error) override
     {
         ++_probe->attempts;
+        _probe->openConfiguration = configuration;
         _setState(State::Opening);
         if (!_probe->available)
         {
@@ -2038,13 +2042,34 @@ content:
             QTest::qWait(100);
             QCOMPARE(_app.mainWindow().size(), QSize(1100, 760));
             QVERIFY(_app.mainWindow().grab().save(capture));
+            const QFileInfo captureFile(capture);
+            auto&           controller = static_cast<TerminalController&>(host);
+            QVERIFY(controller.selectedSettings().setValue("input/favorites",
+                                                           QVariantList {
+                                                               QVariantMap {{"name", "Firmware version"},
+                                                                            {"text", "AT+GMR"},
+                                                                            {"terminator", "crlf"},
+                                                                            {"customTerminator", ""}}
+            }));
+            controller.applySettings();
+            auto* advancedToggle = editor->findChild<QToolButton*>("commandAdvancedToggle");
+            advancedToggle->setChecked(true);
+            editor->findChild<QPushButton*>("commandFavoriteLoad")->click();
+            QCOMPARE(editor->findChild<QComboBox*>("commandTerminator")->currentData().toString(), QString("crlf"));
+            editor->findChild<QPushButton*>("commandPeriodicStart")->click();
+            QTRY_VERIFY(!editor->findChild<QToolButton*>("commandStop")->isHidden());
+            QTest::qWait(100);
+            QCOMPARE(_app.mainWindow().size(), QSize(1100, 760));
+            const auto advancedName = QString(captureFile.completeBaseName()).replace("Buffered", "Advanced") + ".png";
+            QVERIFY(_app.mainWindow().grab().save(QDir(captureFile.absolutePath()).filePath(advancedName)));
+            editor->findChild<QToolButton*>("commandStop")->click();
+            advancedToggle->setChecked(false);
             auto* mode = editor->findChild<QComboBox*>("commandInputMode");
             mode->setCurrentIndex(mode->findData("interactive"));
             QVERIFY(QMetaObject::invokeMethod(mode, "activated", Q_ARG(int, mode->currentIndex())));
             QTest::qWait(30);
-            const QFileInfo captureFile(capture);
-            const auto      interactiveName = QString(captureFile.completeBaseName()).replace("Buffered", "Interactive")
-                                            + ".png";
+            const auto interactiveName = QString(captureFile.completeBaseName()).replace("Buffered", "Interactive")
+                                       + ".png";
             QVERIFY(_app.mainWindow().grab().save(QDir(captureFile.absolutePath()).filePath(interactiveName)));
             _app.commands().find("Application.Settings")->actions().first()->trigger();
             auto* settings = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
@@ -2059,10 +2084,81 @@ content:
                 }
             }
             QApplication::processEvents();
+            auto* favoritesEditor = settings->findChild<FavoritesEditor*>("commandFavoritesEditor");
+            QVERIFY(favoritesEditor);
+            favoritesEditor->setValue(controller.selectedSettings().value("input/favorites"));
+            QApplication::processEvents();
             const auto settingsName = QString(captureFile.completeBaseName()).replace("Buffered", "Settings") + ".png";
             QVERIFY(settings->grab().save(QDir(captureFile.absolutePath()).filePath(settingsName)));
+            const auto favoritesName = QString(captureFile.completeBaseName()).replace("Buffered", "Favorites")
+                                     + ".png";
+            QVERIFY(settings->grab().save(QDir(captureFile.absolutePath()).filePath(favoritesName)));
             settings->reject();
         }
+    }
+
+    Q_SLOT void retainedCommandCancelledWhenTargetChanges()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Retained.termaster")), "Retention fixture", &error));
+        QVERIFY(_app.createSession("Retention fixture", &error));
+        auto probe                       = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                 = true;
+        auto&                    host    = _app.pluginHost();
+        const auto               cleanup = qScopeGuard([&] {
+            _app.closeWorkspace();
+            host.unregisterTerminalType("retentionFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id             = "retentionFixture";
+        type.title          = "Retention fixture";
+        type.plugin         = "Synthetic";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Synthetic retention fixture
+content:
+  type: object
+  properties:
+    target:
+      type: string
+      default: old-target
+      x-settings-path: transport/target
+)";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        QVERIFY(_app.createTerminal("retentionFixture",
+                                    {
+                                        {"input",
+                                         QVariantMap {{"mode", "buffered"},
+                                                      {"disconnectedPolicy", "retain"},
+                                                      {"terminator", "cr"}}}
+        },
+                                    "Retention",
+                                    &error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        auto* editor = _app.mainWindow().findChild<CommandEditor*>("commandEditor");
+        QVERIFY(editor);
+        auto* draft = editor->findChild<QPlainTextEdit*>("commandDraft");
+        draft->setPlainText("offline for old target");
+        QTest::keyClick(draft, Qt::Key_Return);
+        QVERIFY(draft->toPlainText().isEmpty());
+        QCOMPARE(editor->findChild<QComboBox*>("commandHistory")->count(), 1);
+        QCOMPARE(probe->output, QByteArray());
+        QTRY_VERIFY(!editor->findChild<QToolButton*>("commandStop")->isHidden());
+        auto& controller = static_cast<TerminalController&>(host);
+        QVERIFY(controller.selectedSettings().setValue("transport/target", "new-target"));
+        controller.applySettings();
+        QTRY_VERIFY(editor->findChild<QToolButton*>("commandStop")->isHidden());
+        host.connectSelectedTerminal();
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QCOMPARE(probe->openConfiguration.value("target").toString(), QString("new-target"));
+        QTest::qWait(60);
+        QCOMPARE(probe->output, QByteArray());
+        draft->setPlainText("fresh command");
+        QTest::keyClick(draft, Qt::Key_Return);
+        QTRY_COMPARE(probe->output, QByteArray("fresh command\r"));
     }
 
     Q_SLOT void bulkTerminalConnections()

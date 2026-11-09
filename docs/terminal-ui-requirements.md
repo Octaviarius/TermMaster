@@ -74,7 +74,7 @@ shared settings editor layout.
 
 Status: history, editor, terminators and paste policy implemented in
 stage P2; favorites, file/delayed/periodic sending and retained disconnected queues
-remain planned in P4. See [command input](command-input.md).
+are implemented in P4. See [command input](command-input.md).
 
 - Command history with Up/Down navigation and search.
 - Editing before submission through a dedicated single-line or multiline editor.
