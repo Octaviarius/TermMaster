@@ -202,8 +202,8 @@ the host registry, verifies unload refusal during a live/cancelling instance and
 verifies automatic factory removal before unload. Workspace tests verify unknown
 metadata and unavailable-type roundtrips and atomic failure preservation.
 
-Terminal routing, production editing UI, Python execution and Codeflow runtime
-remain separate work. Verification uses synthetic bytes without serial hardware,
+Production editing UI, Python execution and Codeflow runtime remain separate work.
+Terminal routing is described below. Verification uses synthetic bytes without serial hardware,
 external network acceptance or elevation.
 
 Verified on 2026-11-09 with Qt 6.12.0, MSVC x64 and the existing Debug tree:
@@ -214,6 +214,78 @@ suite leaves opt-in visual capture disabled; host symlink privileges were not
 available for the existing confinement fixtures. No processing test was skipped.
 All changed C++ files were clang-formatted; local documentation file links and
 `git diff --check` passed.
+
+## Terminal routing
+
+The App-owned ProcessingRouter connects each terminal's independent Rx and Tx
+instances to the existing display and transport output queue. Settings under
+`processing/rx` and `processing/tx` select either `block: <workspace block id>` or
+`type: <registered type id>`. Elementary selections accept `configuration` and
+`overrides` maps; block overrides retain the occurrence-path format above. An
+absent or empty selection uses direct pass-through. Selection editors remain a
+later milestone; selections can currently be stored in terminal settings.
+
+Rx consumes transport chunks before display decoding. UDP receives carry packet
+boundaries, including empty datagrams. On orderly transport closure, already
+received Rx work may finish and display final output. Reconnection recreates both
+processor instances and discards unfinished state from the previous connection.
+Explicit terminal destruction cancels both directions. Definitions and unavailable
+references remain saved even when preparation fails; connection fails with a
+concrete error instead of silently bypassing processing.
+
+Tx accepts prepared command bytes, immediate keyboard/paste bytes, mouse/focus
+reports and protocol replies. Only command preparation adds the selected
+terminator. Replies never receive a command terminator. Local echo remains a
+display-only operation on the original input and is never fed into Rx or Tx again.
+File and periodic producers wait for both processing and transport queues, so
+asynchronous processing cannot create overlapping periodic submissions. Transport
+pacing options follow each invocation and apply to every emitted output chunk.
+Each output is a separate atomic datagram for UDP; stream output uses the existing
+partial-write queue. UDP payload limits and unsupported byte pacing are rejected.
+
+Each direction bounds queued plus active input to 4 MiB / 1024 chunks, and bounds
+pending output separately to the same limits. Processing uses a per-turn event
+budget and retries temporary backpressure. Receive overflow is reported and closes
+the connection because the byte-device interface currently has no read-pause API.
+Processor/output errors also stop the connection; payloads are not logged. Native
+processor internal buffering remains subject to its own Processor limits.
+
+Replacement cancels and waits for the old processor before starting the new one.
+Fresh ingress is bounded while cancellation completes; late callbacks from the old
+generation are ignored. Repeated replacement requests keep the latest prepared
+instance. Stop discards pending Tx work before resetting the transport queue;
+changing a valid processing selection prepares both instances before replacement.
+Native registry leases remain held through cancellation and prevent premature
+plugin unloading. A provider that never acknowledges cancellation remains pinned.
+
+Offline retention retains its existing behavior in pass-through mode. With a Tx
+processor selected, new submissions require an open terminal and explicitly report
+this requirement; arbitrary processor state is not replayed across connections.
+Previously accepted transport submissions still follow the output queue's existing
+retention policy. This is a deliberate current limitation of processed sending.
+
+```mermaid
+flowchart LR
+    Device[Transport bytes] --> Rx[Independent Rx processor]
+    Rx --> Display[Terminal display]
+    Input[Commands / files / keyboard / replies] --> Tx[Independent Tx processor]
+    Tx --> Queue[Bounded transport queue]
+    Queue --> Device
+    Input -. display-only local echo .-> Display
+```
+
+Routing verification on 2026-11-09 used Qt 6.12.0 / MSVC x64 Debug: the full
+application build and all 35 configured CTest executables passed (59.09 s).
+New synthetic router checks cover asynchronous multiple/zero output, binary and
+empty packets, backpressure, bounds, deferred cancellation, superseded replacement,
+stale callback suppression and lifetime retention after coordinator destruction.
+Controller acceptance covers independent Rx/Tx decoder state, workspace block
+selection, replies without command terminators, final output after close, immediate
+reconnect, Stop against a full transport queue and pass-through producer ordering.
+Existing real-plugin lease/unload tests also passed. No serial hardware, external
+network endpoint or elevation was used for the new acceptance. No visual layout
+was changed. Changed C++ files were clang-formatted; local documentation links
+and `git diff --check` passed.
 
 ## Planned unified catalog
 

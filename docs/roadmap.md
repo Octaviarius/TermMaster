@@ -115,17 +115,17 @@ The delivered scope and execution contract are recorded in [processing core](pro
 
 ## FLOW-2: Terminal processing lifecycle and routing
 
-- [ ] Define routing of byte chunks versus packets, outgoing input kinds and local
+- [x] Define routing of byte chunks versus packets, outgoing input kinds and local
       echo. Command terminators must not be appended to protocol replies.
-- [ ] Define bounded receive ingress and transport backpressure behavior before
+- [x] Define bounded receive ingress and transport backpressure behavior before
       connecting asynchronous processors to live input; report overflow explicitly.
-- [ ] Add an App-owned coordinator with independent Rx and Tx instances, supporting
+- [x] Add an App-owned coordinator with independent Rx and Tx instances, supporting
       either a workspace Lineflow block or one registered Processor per direction.
-- [ ] Route device input through Rx to the display and outgoing data through Tx to
+- [x] Route device input through Rx to the display and outgoing data through Tx to
       the existing bounded transport queue, preserving ordering and datagram boundaries.
-- [ ] Add pass-through selection and safe replacement: cancel/quiesce the old runtime,
+- [x] Add pass-through selection and safe replacement: cancel/quiesce the old runtime,
       handle buffered state explicitly and prevent old output reaching the replacement.
-- [ ] Verify chunk splits, delayed output, multiple results, reconnect, replacement,
+- [x] Verify chunk splits, delayed output, multiple results, reconnect, replacement,
       queue saturation and plugin unload using synthetic transports.
 
 This stage makes processing usable without requiring the full editor. It must not
@@ -196,7 +196,7 @@ Rx/Tx and different terminals must remain independent even when sharing a block.
 Codeflow can be selected on Rx/Tx or used inside Lineflow through the common
 Processor contract. It does not add ControlFlow nodes to the Lineflow editor.
 
-Recommended processing order is FLOW-3, FLOW-2, FLOW-4, FLOW-5 and FLOW-6.
-FLOW-2 can proceed alongside the catalog work; editors depend on its definition
-registration and update contracts. Python execution remains part of P7/FLOW-6.
+FLOW-2 routing is delivered. The remaining processing order is FLOW-3, FLOW-4,
+FLOW-5 and FLOW-6. Editors depend on the unified catalog definition registration
+and update contracts. Python execution remains part of P7/FLOW-6.
 The earlier unrelated P5/P6 milestones do not block this processing sequence.

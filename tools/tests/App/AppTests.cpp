@@ -61,6 +61,8 @@
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 #include <Termaster/Core/Plugin/PluginHost.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
+#include <Termaster/Core/Processing/NativeProcessors.h>
+#include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
@@ -136,6 +138,14 @@ public:
     qint64 pendingBytes() const override
     {
         return 0;
+    }
+    void injectReceive(const QByteArray& bytes)
+    {
+        const auto callback = _callbacks.received;
+        if (callback)
+        {
+            callback(bytes);
+        }
     }
     void drop(const QString& error)
     {
@@ -2159,6 +2169,129 @@ content:
         draft->setPlainText("fresh command");
         QTest::keyClick(draft, Qt::Key_Return);
         QTRY_COMPARE(probe->output, QByteArray("fresh command\r"));
+    }
+
+    Q_SLOT void terminalProcessingRouting()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Processing.termaster")), "Processing", &error));
+        QVERIFY(_app.createSession("Processing", &error));
+        auto& registry = _app.plugins().processors();
+        registerNativeProcessors(registry, "routing-test");
+        auto probe                       = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                 = true;
+        probe->allowance                 = 1024 * 1024;
+        auto&                    host    = _app.pluginHost();
+        const auto               cleanup = qScopeGuard([&] {
+            _app.closeWorkspace();
+            host.unregisterTerminalType("processingFixture");
+            QTest::qWait(30);
+            registry.removeOwner("routing-test");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "processingFixture";
+        type.title  = "Processing fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Routing fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        const QVariantMap decoder {
+            {"type", "native.hex-decoder"}
+        };
+        QVERIFY(_app.createTerminal("processingFixture",
+                                    {
+                                        {"processing",             QVariantMap {{"rx", decoder}, {"tx", decoder}}},
+                                        {     "input", QVariantMap {{"mode", "buffered"}, {"terminator", "crlf"}}}
+        },
+                                    "Processing",
+                                    &error));
+        host.connectSelectedTerminal();
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(display);
+        // Split nibbles in opposite directions must not share decoder state.
+        probe->device->injectReceive("4");
+        display->outputBytes("4", TerminalDisplay::OutputKind::Reply, {});
+        QTest::qWait(30);
+        QVERIFY(probe->output.isEmpty());
+        QVERIFY(!display->text().contains('A'));
+        probe->device->injectReceive("1");
+        display->outputBytes("2", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_VERIFY(display->text().contains('A'));
+        QTRY_COMPARE(probe->output, QByteArray("B"));
+
+        // A workspace block is selectable through the same controller boundary.
+        QVERIFY(_app.workspace()->setProcessorBlock("identity",
+                                                    {
+                                                        {   "id","identity"                                                                 },
+                                                        { "name",                                      "Identity"},
+                                                        {"nodes",
+                                                         QVariantList {QVariantMap {{"name", "pass"},
+                                                         {"type", "native.identity"}}}                           }
+        },
+                                                    &error));
+        auto&             controller = static_cast<TerminalController&>(host);
+        const QVariantMap identity {
+            {"block", "identity"}
+        };
+        QVERIFY(controller.selectedSettings().setValue("processing",
+                                                       QVariantMap {
+                                                           {"rx", identity},
+                                                           {"tx", identity}
+        }));
+        controller.applySettings();
+        QTest::qWait(30);
+        probe->output.clear();
+        // Protocol replies bypass command terminators and display-only echo.
+        probe->device->injectReceive("\033[5n");
+        QTRY_COMPARE(probe->output, QByteArray("\033[0n"));
+        QVERIFY(!display->text().contains("[0n"));
+        probe->device->injectReceive("FINAL");
+        host.disconnectSelectedTerminal();
+        QTRY_VERIFY(display->text().contains("FINAL"));
+        host.connectSelectedTerminal();
+        probe->device->injectReceive("REOPEN");
+        QTRY_VERIFY(display->text().contains("REOPEN"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+
+        // Stop must discard both router output and the full downstream transport queue.
+        probe->output.clear();
+        probe->allowance = 0;
+        for (int index = 0; index < 8; ++index)
+        {
+            display->outputBytes(QByteArray(512 * 1024, 'x'), TerminalDisplay::OutputKind::Reply, {});
+            QTest::qWait(25);
+        }
+        display->outputBytes("stale", TerminalDisplay::OutputKind::Reply, {});
+        QTest::qWait(40);
+        auto* sendingEditor = _app.mainWindow().findChild<CommandEditor*>("commandEditor");
+        QVERIFY(sendingEditor);
+        auto* stop = sendingEditor->findChild<QToolButton*>("commandStop");
+        QVERIFY(stop);
+        QTRY_VERIFY(!stop->isHidden());
+        stop->click();
+        probe->allowance = 1024 * 1024;
+        QTest::qWait(60);
+        QVERIFY(probe->output.isEmpty());
+
+        // With no processing selected, replies cannot be overtaken by editor sends.
+        QVERIFY(controller.selectedSettings().setValue("processing", QVariantMap {}));
+        controller.applySettings();
+        QTest::qWait(30);
+        probe->output.clear();
+        auto* editor = _app.mainWindow().findChild<CommandEditor*>("commandEditor");
+        QVERIFY(editor);
+        auto* draft = editor->findChild<QPlainTextEdit*>("commandDraft");
+        QVERIFY(draft);
+        probe->device->injectReceive("\033[5n");
+        draft->setPlainText("command");
+        QTest::keyClick(draft, Qt::Key_Return);
+        QTRY_COMPARE(probe->output, QByteArray("\033[0ncommand\r\n"));
+        QVERIFY(_app.closeWorkspace(&error));
+        QTRY_VERIFY(registry.canRemoveOwner("routing-test"));
+        QVERIFY(registry.removeOwner("routing-test", &error));
     }
 
     Q_SLOT void bulkTerminalConnections()
