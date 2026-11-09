@@ -77,3 +77,25 @@ platform limitations and verification boundaries are in the process planning doc
 See [dropdown mode requirements](quake-console.md). Monitor, focus and normal-window
 behavior must be defined before implementation. This is a future presentation
 mode, not a new terminal backend.
+
+## P7: Python integration
+
+- [ ] Integrate Python for application scripting and Python-authored stream codecs.
+- [ ] Define interpreter ownership, script/module lifetime, error reporting and
+      execution limits without blocking the GUI.
+
+See [Python integration and stream codecs](python-and-codecs.md). Implementation
+is deferred until an explicit start instruction.
+
+## P8: Stream codecs and packet input
+
+- [ ] Add configurable encoding/decoding of incoming and outgoing byte streams.
+- [ ] Support codec implementations in C++ and Python through a shared contract;
+      native codecs must not require the Python runtime.
+- [ ] Apply codecs to buffered packet submissions through the shared send pipeline.
+- [ ] Provide SLIP packet encoding/decoding and HEX conversion as initial examples.
+- [ ] Verify split frames, malformed input, bounded buffering, backpressure and
+      cancellation with synthetic streams.
+
+Python-authored codecs depend on P7; native codec work can proceed independently.
+See [codec requirements](python-and-codecs.md#stream-codecs-and-packet-input).
