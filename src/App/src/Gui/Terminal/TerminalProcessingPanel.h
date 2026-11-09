@@ -12,6 +12,8 @@ class ProcessorRegistry;
 class SettingsWidgetRegistry;
 class ProcessingRouter;
 class QComboBox;
+class ProcessorSelector;
+class ProcessorFavorites;
 class QTableWidget;
 class QLabel;
 class QPushButton;
@@ -28,7 +30,8 @@ public:
                             ProcessingRouter&       router,
                             QVariantMap             configuration,
                             Apply                   apply,
-                            QWidget*                parent = nullptr);
+                            QWidget*                parent    = nullptr,
+                            ProcessorFavorites*     favorites = nullptr);
     ~TerminalProcessingPanel() override;
     QWidget* propertiesWidget() const;
     void     setConfiguration(const QVariantMap& configuration);
@@ -48,7 +51,7 @@ private:
     QVariantMap                             _latest;
     QVariantMap                             _draft;
     Apply                                   _apply;
-    QComboBox*                              _selectors[2];
+    ProcessorSelector*                      _selectors[2];
     QComboBox*                              _direction;
     QPointer<QWidget>                       _properties;
     QTableWidget*                           _table;

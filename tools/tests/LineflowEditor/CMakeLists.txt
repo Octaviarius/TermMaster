@@ -34,3 +34,15 @@ add_test(NAME TerminalProcessingTests COMMAND TerminalProcessingTests)
 set_tests_properties(TerminalProcessingTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
 )
+
+qt_add_executable(ProcessorFavoritesTests
+    ProcessorFavoritesTests.cpp
+)
+target_include_directories(ProcessorFavoritesTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/App/src"
+)
+target_link_libraries(ProcessorFavoritesTests PRIVATE
+    App
+    Qt6::Test
+)
+add_test(NAME ProcessorFavoritesTests COMMAND ProcessorFavoritesTests)

@@ -1,5 +1,7 @@
 #include "LineflowEditorDialog.h"
 
+#include "ProcessorCatalogTree.h"
+
 #include <QAction>
 #include <QComboBox>
 #include <QCryptographicHash>
@@ -33,10 +35,10 @@
 
 namespace
 {
-class CatalogList final : public QTreeWidget
+class CatalogList final : public ProcessorCatalogTree
 {
 public:
-    using QTreeWidget::QTreeWidget;
+    using ProcessorCatalogTree::ProcessorCatalogTree;
 
 protected:
     void startDrag(Qt::DropActions) override
@@ -64,7 +66,8 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
                                            ProcessorRegistry&      registry,
                                            SettingsWidgetRegistry& widgets,
                                            Apply                   apply,
-                                           QWidget*                parent) :
+                                           QWidget*                parent,
+                                           ProcessorFavorites*     favorites) :
     QDialog(parent), _registry(registry), _widgets(widgets), _apply(std::move(apply))
 {
     setObjectName("lineflowEditor");
@@ -154,7 +157,8 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     leftLayout->addWidget(_search);
     _catalog = new CatalogList(left);
     _catalog->setObjectName("processorCatalog");
-    _catalog->setItemDelegate(new SelectionIconDelegate(_catalog));
+    _catalog->setFavorites(favorites);
+    connect(_catalog, &ProcessorCatalogTree::favoritesChanged, this, &LineflowEditorDialog::_refreshCatalog);
     _catalog->setDragEnabled(true);
     _catalog->setHeaderHidden(true);
     _catalog->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -481,6 +485,7 @@ void LineflowEditorDialog::_refreshCatalog()
             root->child(index)->sortChildren(0, Qt::AscendingOrder);
         }
     }
+    _catalog->prependFavorites(_search->text());
 }
 void LineflowEditorDialog::_clearProperties()
 {

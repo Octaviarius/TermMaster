@@ -10,7 +10,8 @@
 class QComboBox;
 class QLabel;
 class QLineEdit;
-class QTreeWidget;
+class ProcessorCatalogTree;
+class ProcessorFavorites;
 class QPushButton;
 class QTreeView;
 class QVBoxLayout;
@@ -40,7 +41,8 @@ public:
                          ProcessorRegistry&      registry,
                          SettingsWidgetRegistry& widgets,
                          Apply                   apply,
-                         QWidget*                parent = nullptr);
+                         QWidget*                parent    = nullptr,
+                         ProcessorFavorites*     favorites = nullptr);
     ~LineflowEditorDialog() override;
     LineflowEditorModel& model();
     bool                 applyDraft(QString* error = nullptr);
@@ -72,7 +74,7 @@ private:
     QComboBox*                                _blocks;
     QComboBox*                                _groups;
     QTreeView*                                _tree;
-    QTreeWidget*                              _catalog;
+    ProcessorCatalogTree*                     _catalog;
     QLineEdit*                                _search;
     QLineEdit*                                _name;
     QLabel*                                   _error;

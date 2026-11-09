@@ -1,4 +1,5 @@
 #include "Gui/Processing/LineflowEditorDialog.h"
+#include "Gui/Processing/ProcessorCatalogTree.h"
 
 #include <QAction>
 #include <QComboBox>
@@ -601,9 +602,11 @@ private slots:
                                     [](const auto&, const auto&, const auto&, QString*) { return true; });
         auto*                catalog = dialog.findChild<QTreeWidget*>("processorCatalog");
         QVERIFY(catalog);
-        QCOMPARE(catalog->topLevelItemCount(), 2);
-        QCOMPARE(catalog->topLevelItem(0)->text(0), QString("Native"));
-        QCOMPARE(catalog->topLevelItem(1)->text(0), QString("Workspace"));
+        QCOMPARE(catalog->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("native.bypass"));
+        QVERIFY(catalog->topLevelItem(1)->data(0, ProcessorCatalogTree::SeparatorRole).toBool());
+        QCOMPARE(catalog->topLevelItemCount(), 4);
+        QCOMPARE(catalog->topLevelItem(2)->text(0), QString("Native"));
+        QCOMPARE(catalog->topLevelItem(3)->text(0), QString("Workspace"));
         const auto findGroup = [](QTreeWidgetItem* origin, const QString& name) {
             for (int row = 0; row < origin->childCount(); ++row)
             {
@@ -614,15 +617,15 @@ private slots:
             }
             return static_cast<QTreeWidgetItem*>(nullptr);
         };
-        auto* codecs = findGroup(catalog->topLevelItem(0), "Codecs");
+        auto* codecs = findGroup(catalog->topLevelItem(2), "Codecs");
         QVERIFY(codecs);
         QCOMPARE(codecs->childCount(), 4);
         QVERIFY(!codecs->isExpanded());
         QVERIFY(!(codecs->flags() & Qt::ItemIsDragEnabled));
-        QVERIFY(!(catalog->topLevelItem(0)->flags() & Qt::ItemIsSelectable));
-        QVERIFY(findGroup(catalog->topLevelItem(1), "Protocols"));
+        QVERIFY(!(catalog->topLevelItem(2)->flags() & Qt::ItemIsSelectable));
+        QVERIFY(findGroup(catalog->topLevelItem(3), "Protocols"));
         QVERIFY(dialog.model().setBlockGroup("root", "Devices"));
-        QVERIFY(findGroup(catalog->topLevelItem(1), "Devices"));
+        QVERIFY(findGroup(catalog->topLevelItem(3), "Devices"));
         QCOMPARE(dialog.findChild<QComboBox*>("blockGroup")->currentText(), QString("Devices"));
         auto* search = dialog.findChild<QLineEdit*>("catalogSearch");
         search->setText("base64");
