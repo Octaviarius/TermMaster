@@ -5,6 +5,19 @@ can reference a native processor, a workspace composition or bypass. Saved defin
 remain shared; private values are stored under the session terminal object's
 `settings/processing` map. Unavailable selections stay visible with their identifier.
 
+Selectors open searchable catalog trees matching Lineflow's origin/subgroup
+presentation and icon contrast. An unnamed favorites section comes first, separated
+from Native and Workspace by a dashed line. Bypass and Stub remain ordinary Native
+Control nodes. New workspaces persist Bypass as their initial favorite under
+`content/state/processing/favorites`; each workspace keeps its own list. Context
+menus add/remove entries and move them up/down. Changes refresh Lineflow and both
+terminal selectors without changing processor selections or runtime configuration.
+Unavailable favorite IDs remain saved. Empty favorites hide the leading section.
+Headings and the divider cannot be selected. Mouse or Enter chooses a leaf; Escape
+or outside click cancels. The closed control displays only the chosen title.
+Empty saved selection still means the direct bypass path; explicitly selecting
+Bypass chooses `native.bypass`.
+
 The properties button opens a side table. Receive and transmit drafts are independent.
 Leaf headings follow expanded Lineflow traversal, including the complete occurrence
 path for repeated nested blocks. Controls come from descriptor `x-widget` factories.
@@ -78,3 +91,21 @@ independent child-process saves before making additional parent edits.
 Checks use synthetic streams, local fixtures and existing loopback transports;
 no real serial device, external network or elevation acceptance was performed.
 Changed C++ files were clang-formatted; documentation links and diff checks passed.
+
+## Catalog and favorites acceptance
+
+The grouped popup and Lineflow use the same ProcessorCatalogTree, selection contrast
+and separator delegate. Context-menu favorites edits are persisted through the
+workspace owner and update all connected catalog views. Creation persists the Bypass
+favorite; explicit empty lists, missing IDs and unknown surrounding preferences
+survive round trips. A two-workspace App fixture verifies isolation and on-disk
+persistence, with no global application preference written.
+
+The Qt 6.12.0 MSVC2022 Debug application and bundled plugins built. All 45 configured
+CTest executables passed in 91.76 seconds. Native Windows popup keyboard, mouse,
+context-menu/shared-model and capture acceptance passed at device scales 1 and 2
+(five QtTest passes per run, no skips). Node checks cover binary NUL, empty packets,
+zero-output Stub completion and cancellation. No real serial device or external
+network was used; Release and the separate SDK consumer were not rebuilt.
+
+![Processor tree and workspace favorites](images/processor-selector/ProcessorSelector.png)

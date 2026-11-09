@@ -199,6 +199,10 @@ changing behavior. These rules apply repository-wide.
   stable filenames from catalog IDs; display names and groups remain metadata.
   Preserve the shared bounded transaction and recovery contract for create/edit/delete
   and session occurrence refactoring.
+- Keep processor favorites in workspace `state/processing/favorites`, shared by
+  Lineflow and terminal selectors. New workspaces persist Bypass as the initial
+  favorite; explicit empty lists and unavailable IDs remain valid. Do not store
+  workspace favorites in application-wide or terminal/session settings.
 - Use the existing settings owner rather than reading and writing settings
   independently from every widget.
 - Configuration overlays are live borrowed application/workspace/session layers.
