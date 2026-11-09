@@ -231,21 +231,23 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
         painter.drawRoundedRect(item.rect.adjusted(0, 0, -1, -1), 4, 4);
         const auto foreground = selected ? palette().color(QPalette::HighlightedText) : palette().color(QPalette::Text);
         painter.setPen(foreground);
-        const int  titleHeight = fontMetrics().height() + 4;
-        const int  contentTop  = item.rect.top() + (linked ? 8 : fontMetrics().height() + 16);
-        const auto icon        = qvariant_cast<QIcon>(item.index.data(Qt::DecorationRole));
+        const int  titleHeight   = fontMetrics().height() + 4;
+        const int  contentHeight = linked ? titleHeight : titleHeight * 2 + 4;
+        const int  bodyHeight    = linked ? item.rect.height() : qMax(104, fontMetrics().height() * 4 + 44);
+        const int  contentTop    = item.rect.top() + (bodyHeight - contentHeight) / 2;
+        const auto icon          = qvariant_cast<QIcon>(item.index.data(Qt::DecorationRole));
         icon.paint(&painter,
                    QRect(item.rect.left() + 10, contentTop + (titleHeight - 18) / 2, 18, 18),
                    Qt::AlignCenter,
                    selected ? QIcon::Selected : QIcon::Normal);
         const bool flipped    = item.index.data(LineflowEditorModel::FlippedRole).toBool();
-        const int  titleWidth = qMax(20, item.rect.width() - (flipped && !linked ? 70 : 48));
+        const int  titleWidth = qMax(20, item.rect.width() - 72);
         auto       font       = painter.font();
         font.setBold(!linked);
         painter.setFont(font);
         const auto titleRect = QRect(item.rect.left() + 36, contentTop, titleWidth, titleHeight);
         painter.drawText(titleRect,
-                         Qt::AlignVCenter,
+                         Qt::AlignCenter,
                          QFontMetrics(font).elidedText(item.index.data().toString(), Qt::ElideMiddle, titleWidth));
         if (!linked)
         {
@@ -255,7 +257,7 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
                                    contentTop + 4 + titleHeight,
                                    item.rect.width() - 24,
                                    fontMetrics().height() + 4),
-                             Qt::AlignVCenter,
+                             Qt::AlignCenter,
                              fontMetrics().elidedText(item.index.siblingAtColumn(1).data().toString(),
                                                       Qt::ElideRight,
                                                       item.rect.width() - 24));

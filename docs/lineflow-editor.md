@@ -202,3 +202,12 @@ recorded in [local console acceptance](local-console.md#intermittent-acceptance-
 
 - [Flipped shared node](images/duplex-lineflow/Flipped.png)
 - [Flipped shared node at scale 2](images/duplex-lineflow/Flipped2x.png)
+
+Node names and processor classes are centered in the block body. Symmetric title
+margins reserve space for the type icon and optional flip badge, keeping the text
+center fixed when orientation changes. Linked previews center their names in their
+own compact rows.
+
+The centered-label refinement passed the affected LineflowEditorTests suite and
+native Windows captures at scales 1 and 2 (three QtTest passes per capture run,
+no skips). The Debug application and affected targets built successfully.
