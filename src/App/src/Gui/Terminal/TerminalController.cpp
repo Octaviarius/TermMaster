@@ -1,6 +1,7 @@
 #include "TerminalController.h"
 
 #include "../../Terminal/AdvancedSender.h"
+#include "../../Terminal/ProcessingRouter.h"
 #include "../Main/MainWindow.h"
 #include "../Settings/SettingsDialog.h"
 #include "CommandEditor.h"
@@ -25,6 +26,8 @@
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
+#include <Termaster/Core/Processing/Lineflow.h>
+#include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/SettingsSchema.h>
@@ -116,6 +119,9 @@ struct TerminalController::Runtime
     std::unique_ptr<SerialDevice>      device;
     std::unique_ptr<TerminalSendQueue> sender;
     std::unique_ptr<AdvancedSender>    advanced;
+    std::unique_ptr<ProcessingRouter>  processing;
+    QVariantMap                        processingConfiguration;
+    bool                               processingOpen = false;
     QVariantMap                        targetConfiguration;
     QPointer<CommandEditor>            editor;
     QPointer<TerminalDisplay>          display;
@@ -133,6 +139,7 @@ struct TerminalController::Runtime
         connectionRequested = false;
         reconnect.stop();
         advanced.reset();
+        processing.reset();
         sender.reset();
         if (device)
         {
@@ -592,9 +599,10 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         }
         terminal->display->setFocusProxy(terminal->editor->buffered() ? terminal->editor.data() : nullptr);
         layout->addWidget(terminal->editor);
-        terminal->panel    = container;
-        terminal->sender   = std::make_unique<TerminalSendQueue>(*terminal->device);
-        terminal->advanced = std::make_unique<AdvancedSender>(*terminal->sender, *terminal->device);
+        terminal->panel      = container;
+        terminal->sender     = std::make_unique<TerminalSendQueue>(*terminal->device);
+        terminal->processing = std::make_unique<ProcessingRouter>();
+        terminal->advanced   = std::make_unique<AdvancedSender>(*terminal->sender, *terminal->device);
         terminal->advanced->configure(terminal->settings.value("input").toMap());
         terminal->targetConfiguration = _effective(type, terminal->settings).value("transport").toMap();
     }
@@ -620,7 +628,23 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         auto it = self->_terminals.find(id);
         if (it != self->_terminals.end() && it->second->display)
         {
-            it->second->display->receive(bytes);
+            auto& runtime = *it->second;
+            if (runtime.processingConfiguration.value("rx").toMap().isEmpty())
+            {
+                runtime.display->receive(bytes);
+                return;
+            }
+            QString    error;
+            const auto boundary = runtime.device->atomicWrites() ? Processor::Boundary::Packet :
+                                                                   Processor::Boundary::StreamChunk;
+            if (runtime.processing->submit(ProcessingRouter::Direction::Rx, {bytes, boundary}, {}, &error)
+                != Processor::AcceptResult::Accepted)
+            {
+                runtime.lastError           = tr("Receive processing overflow: %1").arg(error);
+                runtime.connectionRequested = false;
+                runtime.device->close();
+                self->showMessage(runtime.lastError);
+            }
         }
     };
     callbacks.stateChanged = [self, id](SerialDevice::State) {
@@ -636,6 +660,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             if (it != self->_terminals.end())
             {
                 it->second->sender->flush();
+                it->second->processing->wake(ProcessingRouter::Direction::Tx);
             }
         }
     };
@@ -711,7 +736,77 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             }
         }
     });
+    auto* router = _terminals.at(id)->processing.get();
+    router->setOutput(ProcessingRouter::Direction::Rx,
+                      [self, id](const Processor::Chunk& chunk, const TerminalSendQueue::Options&, QString*) {
+                          if (!self || !self->_terminals.contains(id))
+                          {
+                              return Processor::AcceptResult::Rejected;
+                          }
+                          self->_terminals.at(id)->display->receive(chunk.bytes);
+                          return Processor::AcceptResult::Accepted;
+                      });
+    router->setOutput(
+        ProcessingRouter::Direction::Tx,
+        [self, id](const Processor::Chunk& chunk, const TerminalSendQueue::Options& options, QString* error) {
+            if (!self || !self->_terminals.contains(id))
+            {
+                return Processor::AcceptResult::Rejected;
+            }
+            auto& runtime = *self->_terminals.at(id);
+            if (runtime.device->state() != SerialDevice::State::Open
+                || chunk.bytes.size() > TerminalSendQueue::MaximumPendingBytes
+                || (runtime.device->atomicWrites() && (chunk.bytes.size() > 65507 || options.byteDelayMs > 0)))
+            {
+                if (error)
+                {
+                    *error = tr("Processed output cannot be sent with the current transport state or packet limits.");
+                }
+                return Processor::AcceptResult::Rejected;
+            }
+            if (runtime.sender->pendingBytes() > TerminalSendQueue::MaximumPendingBytes - chunk.bytes.size())
+            {
+                return Processor::AcceptResult::WouldBlock;
+            }
+            return runtime.sender->enqueue(chunk.bytes, options, error) ? Processor::AcceptResult::Accepted :
+                                                                          Processor::AcceptResult::Rejected;
+        });
+    connect(
+        router,
+        &ProcessingRouter::error,
+        this,
+        [this, id](ProcessingRouter::Direction direction, const QString& error) {
+            const auto it = _terminals.find(id);
+            if (it == _terminals.end())
+            {
+                return;
+            }
+            it->second->lastError = error;
+            it->second->advanced->stop();
+            it->second->connectionRequested = false;
+            it->second->device->close();
+            showMessage((direction == ProcessingRouter::Direction::Rx ? tr("Rx processing: ") : tr("Tx processing: "))
+                        + error);
+        },
+        Qt::QueuedConnection);
+    connect(_terminals.at(id)->sender.get(), &TerminalSendQueue::changed, router, [router] {
+        router->wake(ProcessingRouter::Direction::Tx);
+    });
     auto* advanced = _terminals.at(id)->advanced.get();
+    connect(advanced, &AdvancedSender::stopped, this, [this, id] {
+        const auto it = _terminals.find(id);
+        if (it != _terminals.end())
+        {
+            QString error;
+            if (!_configureProcessing(*it->second,
+                                      &error,
+                                      it->second->processingConfiguration
+                                          == it->second->settings.value("processing").toMap()))
+            {
+                showMessage(error);
+            }
+        }
+    });
     connect(advanced, &AdvancedSender::stateChanged, editor, &CommandEditor::setSendingState);
     connect(advanced, &AdvancedSender::failed, this, [this](const QString& error) { showMessage(error); });
     connect(editor, &CommandEditor::stopRequested, advanced, &AdvancedSender::stop);
@@ -836,8 +931,18 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                         return;
                     }
                 }
-                QString error;
-                if (!it->second->sender->enqueue(data, &error))
+                QString    error;
+                const bool accepted = it->second->processingConfiguration.value("tx").toMap().isEmpty() ?
+                                          it->second->sender->enqueue(data, &error) :
+                                          it->second->processing->submit(ProcessingRouter::Direction::Tx,
+                                                                         {data,
+                                                                          it->second->device->atomicWrites() ?
+                                                                              Processor::Boundary::Packet :
+                                                                              Processor::Boundary::StreamChunk},
+                                                                         {},
+                                                                         &error)
+                                              == Processor::AcceptResult::Accepted;
+                if (!accepted)
                 {
                     showMessage(error);
                 }
@@ -934,6 +1039,28 @@ void TerminalController::_changed(const QString& id)
     }
     const auto state    = it->second->device->state();
     auto&      terminal = *it->second;
+    const bool open     = state == SerialDevice::State::Open;
+    if (open != terminal.processingOpen)
+    {
+        terminal.processingOpen = open;
+        if (open)
+        {
+            QString error;
+            if (!_configureProcessing(terminal, &error))
+            {
+                terminal.connectionRequested = false;
+                terminal.lastError           = error;
+                terminal.device->close();
+                showMessage(error);
+                return;
+            }
+        }
+        else
+        {
+            // Drain already received output after peer closure; recreate Rx on reconnect.
+            terminal.processing->cancel(ProcessingRouter::Direction::Tx);
+        }
+    }
     terminal.advanced->connectionChanged();
     if (state == SerialDevice::State::Open)
     {
@@ -1070,6 +1197,99 @@ std::shared_ptr<SettingsSchema> TerminalController::_appearanceSchema()
     }
     return std::make_shared<SettingsSchema>(file.readAll());
 }
+void TerminalController::setProcessorRegistry(ProcessorRegistry& registry)
+{
+    _processors = &registry;
+}
+
+bool TerminalController::_configureProcessing(Runtime& terminal, QString* error, bool txOnly)
+{
+    const auto                 configuration = terminal.settings.value("processing").toMap();
+    std::shared_ptr<Processor> instances[2];
+    const QString              directions[] = {"rx", "tx"};
+    for (int index = txOnly ? 1 : 0; index < 2; ++index)
+    {
+        const auto value = configuration.value(directions[index]);
+        if (value.isValid() && value.metaType().id() != QMetaType::QVariantMap)
+        {
+            return fail(error, "Processing selection must be a map: " + directions[index]);
+        }
+        const auto selection = value.toMap();
+        for (const auto& key : {QStringLiteral("configuration"), QStringLiteral("overrides")})
+        {
+            if (selection.contains(key) && selection.value(key).metaType().id() != QMetaType::QVariantMap)
+            {
+                return fail(error, "Processing configuration must be a map: " + directions[index] + "/" + key);
+            }
+        }
+        for (const auto& key : {QStringLiteral("type"), QStringLiteral("block")})
+        {
+            if (selection.contains(key) && selection.value(key).metaType().id() != QMetaType::QString)
+            {
+                return fail(error, "Processing identifier must be a string: " + directions[index] + "/" + key);
+            }
+        }
+        const auto type  = selection.value("type").toString();
+        const auto block = selection.value("block").toString();
+        if (type.isEmpty() && block.isEmpty())
+        {
+            if (!selection.isEmpty())
+            {
+                return fail(error, "Processing selection requires type or block: " + directions[index]);
+            }
+            continue;
+        }
+        if (!_processors || (!type.isEmpty() && !block.isEmpty()))
+        {
+            return fail(error, "Processing registry is unavailable or selection is ambiguous");
+        }
+        if (!block.isEmpty())
+        {
+            auto* workspace = _workspace();
+            if (!workspace)
+            {
+                return fail(error, "Processing block requires an open workspace");
+            }
+            const auto prepared = Lineflow::prepare(workspace->processorBlocks().values(),
+                                                    block,
+                                                    *_processors,
+                                                    {},
+                                                    error);
+            if (!prepared)
+            {
+                return false;
+            }
+            instances[index] = prepared->instantiate(*_processors, selection.value("overrides").toMap(), error);
+        }
+        else
+        {
+            const auto resolved = _processors->resolveConfiguration(type,
+                                                                    selection.value("configuration").toMap(),
+                                                                    selection.value("overrides").toMap(),
+                                                                    error);
+            if (!resolved)
+            {
+                return false;
+            }
+            instances[index] = _processors->create(type, *resolved, {}, error);
+        }
+        if (!instances[index])
+        {
+            return false;
+        }
+    }
+
+    if (!txOnly)
+    {
+        terminal.processing->replace(ProcessingRouter::Direction::Rx, std::move(instances[0]));
+    }
+    terminal.processing->replace(ProcessingRouter::Direction::Tx, std::move(instances[1]));
+    terminal.processingConfiguration = configuration;
+    terminal.advanced->setProcessingRouter(configuration.value("tx").toMap().isEmpty() ? nullptr :
+                                                                                         terminal.processing.get());
+    return true;
+}
+
 void TerminalController::addDefaultSettingsPages(SettingsDialog& dialog, const QString& scope, SettingsOverlay settings)
 {
     for (const auto& [id, type] : _types)
@@ -1131,6 +1351,10 @@ void TerminalController::applySettings()
             {
                 showMessage(tr("Pending output cancelled because the terminal connection settings changed."));
             }
+        }
+        if (terminal->processingConfiguration != terminal->settings.value("processing").toMap())
+        {
+            terminal->advanced->stop();
         }
         terminal->name = _session->objects().value(id).toMap().value("name", id).toString();
         _changed(id);

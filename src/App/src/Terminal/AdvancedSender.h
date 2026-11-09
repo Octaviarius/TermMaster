@@ -5,12 +5,15 @@
 #include <QTimer>
 #include <Termaster/Core/Terminal/TerminalSendQueue.h>
 
+class ProcessingRouter;
+
 /** GUI-thread producer borrowing the runtime queue and device. No file or periodic state is restored. */
 class AdvancedSender final : public QObject
 {
     Q_OBJECT
 public:
     AdvancedSender(TerminalSendQueue& queue, SerialDevice& device, QObject* parent = nullptr);
+    void setProcessingRouter(ProcessingRouter* router);
     void configure(const QVariantMap& input);
     bool submit(const QByteArray& bytes, QString* error = nullptr);
     bool startFile(const QString& path, bool lineByLine, const QByteArray& terminator, QString* error = nullptr);
@@ -19,9 +22,11 @@ public:
     void stop();
     bool active() const;
     Q_SIGNAL void stateChanged(bool active, const QString& status);
+    Q_SIGNAL void stopped();
     Q_SIGNAL void failed(const QString& error);
 
 private:
+    ProcessingRouter*          _router = nullptr;
     TerminalSendQueue&         _queue;
     SerialDevice&              _device;
     QTimer                     _work;
@@ -41,8 +46,10 @@ private:
     TerminalSendQueue::Options _producerOptions;
     quint64                    _generation = 0;
 
-    void _pump();
-    void _publish();
-    void _cancelProducers();
-    void _fileFailure(const QString& message);
+    bool      _enqueue(const QByteArray& bytes, const TerminalSendQueue::Options& options, QString* error);
+    qsizetype _pending() const;
+    void      _pump();
+    void      _publish();
+    void      _cancelProducers();
+    void      _fileFailure(const QString& message);
 };

@@ -7,6 +7,8 @@ find_package(Qt6 REQUIRED COMPONENTS
 qt_add_library(App STATIC
     inc/Termaster/App/App.h
     src/App.cpp
+    src/Terminal/ProcessingRouter.h
+    src/Terminal/ProcessingRouter.cpp
     src/Terminal/AdvancedSender.h
     src/Terminal/AdvancedSender.cpp
     src/Gui/Main/MainWindow.h

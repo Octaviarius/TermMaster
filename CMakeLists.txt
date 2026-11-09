@@ -105,6 +105,7 @@ option(TERMASTER_BUILD_PROCESSING_TESTS "Build processor and Lineflow tests" OFF
 if(TERMASTER_BUILD_PROCESSING_TESTS)
     enable_testing()
     add_subdirectory(tools/tests/Processing)
+    add_subdirectory(tools/tests/ProcessingRouting)
 endif()
 
 message("")

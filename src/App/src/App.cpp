@@ -165,6 +165,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
             }
         },
         this);
+    _data->terminals->setProcessorRegistry(_data->plugins.processors());
     _data->plugins.setHost(_data->terminals.get());
     connect(_data->terminals.get(), &TerminalController::selectionChanged, this, [this] {
         const auto dialog = _data->settingsWindows.value(SettingsContext::Terminal);

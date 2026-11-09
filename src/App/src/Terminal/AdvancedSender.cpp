@@ -1,5 +1,7 @@
 #include "AdvancedSender.h"
 
+#include "ProcessingRouter.h"
+
 #include <QPointer>
 #include <algorithm>
 
@@ -20,6 +22,53 @@ AdvancedSender::AdvancedSender(TerminalSendQueue& queue, SerialDevice& device, Q
     });
 }
 
+void AdvancedSender::setProcessingRouter(ProcessingRouter* router)
+{
+    if (_router == router)
+    {
+        return;
+    }
+    if (_router)
+    {
+        disconnect(_router, nullptr, this, nullptr);
+    }
+    _router = router;
+    if (_router)
+    {
+        connect(_router, &ProcessingRouter::capacityAvailable, this, [this](ProcessingRouter::Direction direction) {
+            if (direction == ProcessingRouter::Direction::Tx)
+            {
+                _work.start(0);
+                _publish();
+            }
+        });
+    }
+}
+
+bool AdvancedSender::_enqueue(const QByteArray& bytes, const TerminalSendQueue::Options& options, QString* error)
+{
+    if (!_router)
+    {
+        return _queue.enqueue(bytes, options, error);
+    }
+    if (_device.state() != SerialDevice::State::Open)
+    {
+        if (error)
+        {
+            *error = tr("Processing requires an open terminal.");
+        }
+        return false;
+    }
+    const auto boundary = _device.atomicWrites() ? Processor::Boundary::Packet : Processor::Boundary::StreamChunk;
+    return _router->submit(ProcessingRouter::Direction::Tx, {bytes, boundary}, options, error)
+        == Processor::AcceptResult::Accepted;
+}
+
+qsizetype AdvancedSender::_pending() const
+{
+    return _queue.pendingSubmissions() + (_router ? _router->pendingSubmissions(ProcessingRouter::Direction::Tx) : 0);
+}
+
 void AdvancedSender::configure(const QVariantMap& input)
 {
     _options.byteDelayMs        = std::clamp(input.value("byteDelayMs", 0).toInt(), 0, 60000);
@@ -30,7 +79,7 @@ void AdvancedSender::configure(const QVariantMap& input)
 
 bool AdvancedSender::submit(const QByteArray& bytes, QString* error)
 {
-    return _queue.enqueue(bytes, _options, error);
+    return _enqueue(bytes, _options, error);
 }
 
 bool AdvancedSender::startFile(const QString& path, bool lineByLine, const QByteArray& terminator, QString* error)
@@ -138,6 +187,11 @@ void AdvancedSender::stop()
 {
     _cancelProducers();
     const QPointer<AdvancedSender> self(this);
+    emit                           stopped();
+    if (!self)
+    {
+        return;
+    }
     _queue.reset();
     if (self)
     {
@@ -147,12 +201,12 @@ void AdvancedSender::stop()
 
 bool AdvancedSender::active() const
 {
-    return _fileActive || _periodicActive || _queue.pendingSubmissions() > 0;
+    return _fileActive || _periodicActive || _pending() > 0;
 }
 
 void AdvancedSender::_pump()
 {
-    if (_device.state() != SerialDevice::State::Open || _queue.pendingSubmissions() != 0)
+    if (_device.state() != SerialDevice::State::Open || _pending() != 0)
     {
         _publish();
         return;
@@ -166,7 +220,7 @@ void AdvancedSender::_pump()
             options.retainOnDisconnect = false;
             const QPointer<AdvancedSender> self(this);
             const quint64                  generation = _generation;
-            const bool                     accepted   = _queue.enqueue(_periodic, options, &error);
+            const bool                     accepted   = _enqueue(_periodic, options, &error);
             if (!self || _generation != generation)
             {
                 return;
@@ -258,7 +312,7 @@ void AdvancedSender::_pump()
         options.lineSubmission     = _lineByLine;
         const QPointer<AdvancedSender> self(this);
         const quint64                  generation = _generation;
-        const bool                     accepted   = _queue.enqueue(output, options, &error);
+        const bool                     accepted   = _enqueue(output, options, &error);
         if (!self || _generation != generation)
         {
             return;
