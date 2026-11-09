@@ -39,3 +39,13 @@ Color editors must show both the editable color code and a visible sample of the
 actual color at the same time. Keep the sample synchronized with valid manual
 code edits and color-dialog selection. Apply this to foreground/background and
 other settings using the shared color editor selected through x-widget.
+
+## Send after completing input
+
+Status: requested; implementation deferred until an explicit start instruction.
+
+Add an input option to buffer typed command text locally and send it after input
+is completed, for example on Enter, instead of transmitting each typed character
+immediately. This is useful for AT commands. Keep this behavior distinct from
+local echo and configured outgoing line-ending conversion. The exact editor
+presentation remains to be specified.
