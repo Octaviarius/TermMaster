@@ -1,0 +1,19 @@
+version: 1
+type: termaster.settings-schema
+description: Global command shortcuts
+content:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Keyboard shortcuts
+  type: object
+  required: [assignments]
+  properties:
+    assignments:
+      type: object
+      title: Commands
+      default: {}
+      additionalProperties:
+        type: string
+      x-settings-path: shortcuts
+      x-widget: commandShortcuts
+      x-widget-options:
+        fullWidth: true

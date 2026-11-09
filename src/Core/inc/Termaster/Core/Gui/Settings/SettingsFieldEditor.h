@@ -24,4 +24,6 @@ public:
         return {};
     }
     Q_SIGNAL void valueChanged();
+    /** Input diagnostics changed without editing the field value. */
+    Q_SIGNAL void validationChanged();
 };

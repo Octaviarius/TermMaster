@@ -3,7 +3,7 @@
 This is the single milestone checklist for pending work. Priority applies to the
 requirements collected in [terminal UI requirements](terminal-ui-requirements.md)
 and [process terminal planning](process-terminal.md), not an audit of the entire
-application. Stages P1 and P2 are complete; later stages await a separate start instruction.
+application. Stages P1 through P3 are complete; later stages await a separate start instruction.
 Items within each stage are ordered; later stages depend on relevant earlier work.
 
 ## P1: Consistent terminal controls
@@ -33,15 +33,17 @@ Implemented contracts, limits and verification are recorded in [command input](c
 
 ## P3: Settings presentation
 
-- [ ] Match reset button height to its adjacent control.
-- [ ] Show synchronized color codes and color samples in shared x-widget editors.
-- [ ] Style the settings window after the supplied Qt Creator reference, add
+- [x] Match reset button height to its adjacent control.
+- [x] Show synchronized color codes and color samples in shared x-widget editors.
+- [x] Style the settings window after the supplied Qt Creator reference, add
       navigation icons and retain the hierarchical tree and search.
-- [ ] Add an application-wide keyboard shortcut editor with command search and
+- [x] Add an application-wide keyboard shortcut editor with command search and
       persistent shortcut assignments.
 
 These changes can be implemented independently of command submission. Verify
 alignment and rendering at supported display scales before marking them complete.
+
+Delivered behavior and verification are recorded in [settings forms](settings-forms.md#settings-presentation-and-global-shortcuts).
 
 ## P4: Advanced sending
 
@@ -77,3 +79,25 @@ platform limitations and verification boundaries are in the process planning doc
 See [dropdown mode requirements](quake-console.md). Monitor, focus and normal-window
 behavior must be defined before implementation. This is a future presentation
 mode, not a new terminal backend.
+
+## P7: Python integration
+
+- [ ] Integrate Python for application scripting and Python-authored stream codecs.
+- [ ] Define interpreter ownership, script/module lifetime, error reporting and
+      execution limits without blocking the GUI.
+
+See [Python integration and stream codecs](python-and-codecs.md). Implementation
+is deferred until an explicit start instruction.
+
+## P8: Stream codecs and packet input
+
+- [ ] Add configurable encoding/decoding of incoming and outgoing byte streams.
+- [ ] Support codec implementations in C++ and Python through a shared contract;
+      native codecs must not require the Python runtime.
+- [ ] Apply codecs to buffered packet submissions through the shared send pipeline.
+- [ ] Provide SLIP packet encoding/decoding and HEX conversion as initial examples.
+- [ ] Verify split frames, malformed input, bounded buffering, backpressure and
+      cancellation with synthetic streams.
+
+Python-authored codecs depend on P7; native codec work can proceed independently.
+See [codec requirements](python-and-codecs.md#stream-codecs-and-packet-input).

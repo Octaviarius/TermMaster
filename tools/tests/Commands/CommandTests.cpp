@@ -1,13 +1,156 @@
 #include <QPointer>
 #include <QSignalSpy>
 #include <QTest>
+#include <QWidget>
 #include <Termaster/Core/CommandRegistry.h>
+#include <Termaster/Core/CommandShortcuts.h>
 #include <stdexcept>
 
 class CommandTests final : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void persistentAssignmentsAndRegistration()
+    {
+        auto*            registry = new CommandRegistry;
+        CommandShortcuts shortcuts(registry);
+        QSignalSpy       added(registry, &CommandRegistry::commandAdded);
+        QSignalSpy       removed(registry, &CommandRegistry::commandRemoved);
+        QVariantMap      values {
+            {   "edit.copy", "Ctrl+Shift+C"},
+            {"plugin.later",             ""}
+        };
+        QVERIFY(shortcuts.setAssignments(values));
+        auto* command = registry->create("edit.copy", {}, {}, QKeySequence("Ctrl+C"));
+        auto* action  = command->newAction();
+        QCOMPARE(action->shortcut(), QKeySequence("Ctrl+Shift+C"));
+        QCOMPARE(command->defaultShortcut(), QKeySequence("Ctrl+C"));
+        auto* late = registry->create("plugin.later", {}, {}, QKeySequence("Ctrl+L"));
+        QVERIFY(late->shortcut().isEmpty());
+        delete late;
+        QCOMPARE(removed.size(), 1);
+        QVERIFY(registry->create("plugin.later", {}, {}, QKeySequence("Ctrl+L"))->shortcut().isEmpty());
+        QVERIFY(registry->remove("edit.copy"));
+        command = registry->create("edit.copy", {}, {}, QKeySequence("Ctrl+C"));
+        QCOMPARE(command->shortcut(), QKeySequence("Ctrl+Shift+C"));
+        QCOMPARE(shortcuts.assignments(), values);
+        QVERIFY(shortcuts.setAssignments({}));
+        QCOMPARE(command->shortcut(), QKeySequence("Ctrl+C"));
+        QCOMPARE(added.size(), 4);
+        delete registry;
+        QVERIFY(shortcuts.setAssignments(values));
+    }
+
+    Q_SLOT void rejectsShortcutConflictsAtomically()
+    {
+        CommandRegistry registry;
+        auto*           first = registry.create("first", {}, {}, QKeySequence("Ctrl+A"));
+        registry.create("second", {}, {}, QKeySequence("Ctrl+B"));
+        CommandShortcuts shortcuts(&registry);
+        QString          error;
+        QVERIFY(!shortcuts.setAssignments(
+            {
+                {"first", "Ctrl+B"}
+        },
+            &error));
+        QVERIFY(error.contains("first") && error.contains("second"));
+        QCOMPARE(first->shortcut(), QKeySequence("Ctrl+A"));
+        QVERIFY(shortcuts.assignments().isEmpty());
+        QVERIFY(!shortcuts.setAssignments(
+            {
+                { "first",         "Ctrl+K"},
+                {"second", "Ctrl+K, Ctrl+C"}
+        },
+            &error));
+        QVERIFY(!shortcuts.setAssignments(
+            {
+                {"first", 1}
+        },
+            &error));
+        QVERIFY(!shortcuts.setAssignments(
+            {
+                {"first", "not a key"}
+        },
+            &error));
+        QVERIFY(shortcuts.setAssignments(
+            {
+                { "first",       ""},
+                {"second", "Ctrl+A"}
+        },
+            &error));
+        QVERIFY(error.isEmpty());
+        QVERIFY(first->shortcut().isEmpty());
+    }
+
+    Q_SLOT void shortcutDispatchUsesUpdatedActions()
+    {
+        CommandRegistry  registry;
+        auto*            command = registry.create("dispatch", {}, {}, QKeySequence("Ctrl+J"));
+        CommandShortcuts shortcuts(&registry);
+        QWidget          window;
+        auto*            action = command->newAction(&window);
+        window.addAction(action);
+        QSignalSpy triggered(action, &QAction::triggered);
+        window.show();
+        window.activateWindow();
+        window.setFocus();
+        QTRY_VERIFY(window.isActiveWindow());
+        QTest::keyClick(&window, Qt::Key_J, Qt::ControlModifier);
+        QCOMPARE(triggered.size(), 1);
+        QVERIFY(shortcuts.setAssignments({
+            {"dispatch", "Ctrl+K"}
+        }));
+        QTest::keyClick(&window, Qt::Key_J, Qt::ControlModifier);
+        QCOMPARE(triggered.size(), 1);
+        QTest::keyClick(&window, Qt::Key_K, Qt::ControlModifier);
+        QCOMPARE(triggered.size(), 2);
+        QVERIFY(shortcuts.setAssignments({
+            {"dispatch", ""}
+        }));
+        QTest::keyClick(&window, Qt::Key_K, Qt::ControlModifier);
+        QCOMPARE(triggered.size(), 2);
+    }
+
+    Q_SLOT void lateConflictsAreSuppressedAndRestored()
+    {
+        CommandRegistry  registry;
+        CommandShortcuts shortcuts(&registry);
+        QSignalSpy       diagnostics(&shortcuts, &CommandShortcuts::diagnostic);
+        QVERIFY(shortcuts.setAssignments({
+            {"late.override", "Ctrl+K, Ctrl+C"}
+        }));
+        registry.create("active", {}, {}, QKeySequence("Ctrl+K"));
+        auto* defaultConflict  = registry.create("late.default", {}, {}, QKeySequence("Ctrl+K"));
+        auto* overrideConflict = registry.create("late.override", {}, {}, QKeySequence("Ctrl+O"));
+        QVERIFY(defaultConflict->newAction()->shortcut().isEmpty());
+        QVERIFY(overrideConflict->newAction()->shortcut().isEmpty());
+        QCOMPARE(defaultConflict->defaultShortcut(), QKeySequence("Ctrl+K"));
+        QCOMPARE(shortcuts.assignments().value("late.override").toString(), QString("Ctrl+K, Ctrl+C"));
+        QCOMPARE(diagnostics.size(), 2);
+        QVERIFY(registry.remove("active"));
+        QCOMPARE(defaultConflict->shortcut(), QKeySequence("Ctrl+K"));
+        QVERIFY(overrideConflict->shortcut().isEmpty());
+        QVERIFY(registry.remove("late.default"));
+        QCOMPARE(overrideConflict->shortcut(), QKeySequence("Ctrl+K, Ctrl+C"));
+        QCOMPARE(diagnostics.size(), 2);
+    }
+
+    Q_SLOT void assignmentSwapsDoNotSuppressCommands()
+    {
+        CommandRegistry  registry;
+        CommandShortcuts shortcuts(&registry);
+        auto*            first  = registry.create("first", {}, {}, QKeySequence("Ctrl+A"));
+        auto*            second = registry.create("second", {}, {}, QKeySequence("Ctrl+B"));
+        QSignalSpy       diagnostics(&shortcuts, &CommandShortcuts::diagnostic);
+        QVERIFY(shortcuts.setAssignments({
+            { "first", "Ctrl+B"},
+            {"second", "Ctrl+A"}
+        }));
+        QCOMPARE(first->shortcut(), QKeySequence("Ctrl+B"));
+        QCOMPARE(second->shortcut(), QKeySequence("Ctrl+A"));
+        QVERIFY(diagnostics.isEmpty());
+    }
+
     Q_SLOT void unicodeAndShortcuts()
     {
         Command command("edit.copy", {}, {}, QKeySequence("Ctrl+C"));

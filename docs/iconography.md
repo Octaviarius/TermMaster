@@ -77,3 +77,15 @@ parameters, IPv6, inherited/local settings, restoration, selection/palette
 changes, type icons, first-line close alignment and reordering. Fixtures use
 temporary data and disconnected synthetic devices; no real serial-device or
 external-network acceptance was performed.
+
+## Settings navigation
+
+The two-level preferences tree uses distinct Lucide symbols: `app-window` for the
+application category, `keyboard` for shortcuts, `panels-top-left` for interface,
+`square-terminal` for terminals, `text-cursor` for text and screen, `cable` for
+serial, `network` for sockets and `terminal` for local consoles. The selected row
+uses the palette highlight and highlighted-text pair, so selected icon strokes
+remain readable. The five additional SVGs are unchanged files from the existing
+pinned revision in [source metadata](../components/lucide/SOURCE.md).
+Native scale-1 and scale-2 acceptance is recorded in
+[settings forms](settings-forms.md#p3-verification).

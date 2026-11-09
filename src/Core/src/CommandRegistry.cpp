@@ -53,9 +53,11 @@ Command* CommandRegistry::create(const QString&      id,
         if (_commands.value(id).isNull())
         {
             _commands.remove(id);
+            emit commandRemoved(id);
         }
     });
-    return command;
+    emit commandAdded(id);
+    return find(id);
 }
 
 Command* CommandRegistry::find(const QString& id) const
@@ -86,5 +88,6 @@ bool CommandRegistry::remove(const QString& id)
 
     disconnect(command, nullptr, this, nullptr);
     delete command.data();
+    emit commandRemoved(id);
     return true;
 }
