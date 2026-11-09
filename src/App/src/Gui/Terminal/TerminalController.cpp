@@ -3,6 +3,7 @@
 #include "../../Terminal/AdvancedSender.h"
 #include "../../Terminal/ProcessingRouter.h"
 #include "../Main/MainWindow.h"
+#include "../Processing/ProcessorFavorites.h"
 #include "../Settings/SettingsDialog.h"
 #include "CommandEditor.h"
 #include "TerminalProcessingPanel.h"
@@ -632,7 +633,8 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                 [this, id](const QVariantMap& baseline, const QVariantMap& candidate, QString* error) {
                     return _applyProcessing(id, baseline, candidate, error);
                 },
-                container);
+                container,
+                _processorFavorites);
             split->addWidget(terminal->processingPanel->propertiesWidget());
             split->setStretchFactor(0, 1);
             split->setStretchFactor(1, 0);
@@ -1292,6 +1294,11 @@ std::optional<std::array<std::shared_ptr<Processor>, 2>> TerminalController::_pr
     }
 
     return instances;
+}
+
+void TerminalController::setProcessorFavorites(ProcessorFavorites& favorites)
+{
+    _processorFavorites = &favorites;
 }
 
 bool TerminalController::_configureProcessing(Runtime& terminal, QString* error, bool txOnly)

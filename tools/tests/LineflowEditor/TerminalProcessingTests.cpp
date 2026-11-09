@@ -1,3 +1,6 @@
+#include "Gui/Processing/ProcessorCatalogTree.h"
+#include "Gui/Processing/ProcessorFavorites.h"
+#include "Gui/Processing/ProcessorSelector.h"
 #include "Gui/Terminal/TerminalProcessingPanel.h"
 #include "Terminal/ProcessingRouter.h"
 
@@ -6,11 +9,16 @@
 #include <QDir>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
+#include <QMenu>
 #include <QPushButton>
+#include <QSignalSpy>
 #include <QSplitter>
 #include <QTableWidget>
 #include <QTest>
+#include <QTimer>
 #include <QToolButton>
+#include <QTreeWidget>
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
@@ -84,7 +92,7 @@ private:
         auto*                   rx = panel.findChild<QComboBox*>("rxProcessor");
         auto*                   tx = panel.findChild<QComboBox*>("txProcessor");
         QVERIFY(rx && tx);
-        QCOMPARE(rx->currentData().toString(), QString {});
+        QCOMPARE(rx->currentData().toString(), QString("native.bypass"));
         select(rx, "test.protocol");
         auto* table = panel.propertiesWidget()->findChild<QTableWidget*>("processingPropertyTable");
         QVERIFY(table);
@@ -103,7 +111,7 @@ private:
                  QVariant(false));
         QVERIFY(!applied.contains("tx"));
         QCOMPARE(registry.type("native.gate")->defaults.value("enabled"), QVariant(true));
-        QCOMPARE(tx->currentData().toString(), QString {});
+        QCOMPARE(tx->currentData().toString(), QString("native.bypass"));
     }
     Q_SLOT void resetAndDirectionDrafts()
     {
@@ -265,6 +273,144 @@ private:
         QString error;
         QVERIFY(!panel->applyDraft(&error));
         QVERIFY(!panel);
+    }
+
+    Q_SLOT void processorPopupTree()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QString error;
+        auto    definitions = ProcessorRegistry::parseDefinitions(
+            {
+                {"test.protocol", block()}
+        },
+            &error);
+        QVERIFY(registry.publishDefinitions("workspace", *definitions, &error));
+        ProcessorSelector selector;
+        selector.resize(440, 28);
+        selector.setCatalog(registry.types(), "native.hex-encoder");
+        selector.show();
+        selector.showPopup();
+        auto* tree = selector.findChild<QTreeWidget*>("processorSelectorTree");
+        QVERIFY(tree && tree->isVisible());
+        QCOMPARE(tree->topLevelItem(0)->text(0), QString("Bypass"));
+        QVERIFY(tree->topLevelItem(1)->data(0, ProcessorCatalogTree::SeparatorRole).toBool());
+        QCOMPARE(tree->currentItem()->data(0, Qt::UserRole).toString(), QString("native.hex-encoder"));
+        QCOMPARE(tree->currentItem()->parent()->text(0), QString("Codecs"));
+        QCOMPARE(tree->currentItem()->parent()->parent()->text(0), QString("Native"));
+        auto* workspace = tree->topLevelItem(3);
+        QCOMPARE(workspace->text(0), QString("Workspace"));
+        QVERIFY(!(workspace->flags() & Qt::ItemIsSelectable));
+        QSignalSpy activated(&selector, &QComboBox::activated);
+        tree->setCurrentItem(workspace);
+        QTest::keyClick(tree, Qt::Key_Return);
+        QCOMPARE(activated.count(), 0);
+        QVERIFY(tree->isVisible());
+        auto* search = selector.findChild<QLineEdit*>("processorSelectorSearch");
+        search->setText("Device protocol");
+        auto* leaf = tree->findItems("Workspace", Qt::MatchExactly).first();
+        QVERIFY(!leaf->isHidden());
+        leaf = leaf->child(0)->child(0);
+        tree->setCurrentItem(leaf);
+        QTest::keyClick(tree, Qt::Key_Return);
+        QCOMPARE(selector.currentData().toString(), QString("test.protocol"));
+        QCOMPARE(selector.currentText(), QString("Device protocol"));
+        QCOMPARE(activated.count(), 1);
+        QVERIFY(!tree->isVisible());
+        selector.showPopup();
+        auto* bypass = tree->topLevelItem(0);
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualItemRect(bypass).center());
+        QCOMPARE(selector.currentData().toString(), QString("native.bypass"));
+        QCOMPARE(activated.count(), 2);
+        selector.showPopup();
+        QTest::keyClick(tree, Qt::Key_Escape);
+        QCOMPARE(activated.count(), 2);
+        QVERIFY(!tree->isVisible());
+        selector.setCatalog({}, "missing");
+        selector.showPopup();
+        QCOMPARE(tree->currentItem()->data(0, Qt::UserRole).toString(), QString("missing"));
+        selector.hidePopup();
+    }
+
+    Q_SLOT void sharedFavoritesRefreshAllCatalogs()
+    {
+        Settings           settings(QString {});
+        ProcessorFavorites favorites(settings.node("processing"));
+        ProcessorRegistry  registry;
+        registerNativeProcessors(registry, "native");
+        ProcessorSelector receive(nullptr, &favorites);
+        ProcessorSelector transmit(nullptr, &favorites);
+        receive.setCatalog(registry.types(), "native.gate");
+        transmit.setCatalog(registry.types(), "native.stub");
+        auto* rxTree = receive.findChild<ProcessorCatalogTree*>();
+        auto* txTree = transmit.findChild<ProcessorCatalogTree*>();
+        QVERIFY(rxTree && txTree);
+        QCOMPARE(rxTree->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("native.bypass"));
+        QVERIFY(favorites.setFavorite("native.stub", true));
+        QCOMPARE(rxTree->topLevelItem(1)->data(0, Qt::UserRole).toString(), QString("native.stub"));
+        QCOMPARE(txTree->topLevelItem(1)->data(0, Qt::UserRole).toString(), QString("native.stub"));
+        QCOMPARE(receive.currentData().toString(), QString("native.gate"));
+        QCOMPARE(transmit.currentData().toString(), QString("native.stub"));
+        QVERIFY(favorites.move("native.stub", -1));
+        QCOMPARE(rxTree->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("native.stub"));
+        QVERIFY(favorites.setIds({}));
+        QCOMPARE(rxTree->topLevelItem(0)->text(0), QString("Native"));
+        QCOMPARE(settings.value("processing/favorites").toList().size(), 0);
+        receive.showPopup();
+        auto* gate = rxTree->findItems("Gate", Qt::MatchExactly | Qt::MatchRecursive).first();
+        rxTree->scrollToItem(gate);
+        QTimer::singleShot(0, [&] {
+            auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+            QVERIFY(menu);
+            QTest::mouseClick(menu,
+                              Qt::LeftButton,
+                              Qt::NoModifier,
+                              menu->actionGeometry(menu->actions().first()).center());
+        });
+        emit rxTree->customContextMenuRequested(rxTree->visualItemRect(gate).center());
+        QVERIFY(favorites.contains("native.gate"));
+        QCOMPARE(txTree->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("native.gate"));
+        receive.hidePopup();
+        QVERIFY(favorites.setIds({"native.bypass", "missing.processor"}));
+        receive.showPopup();
+        rxTree->setCurrentItem(rxTree->topLevelItem(1));
+        QTest::keyClick(rxTree, Qt::Key_Return);
+        QCOMPARE(receive.currentData().toString(), QString("missing.processor"));
+    }
+
+    Q_SLOT void popupVisualCapture()
+    {
+        const auto destination = qEnvironmentVariable("TERMASTER_SELECTOR_CAPTURE");
+        if (destination.isEmpty())
+        {
+            QSKIP("Opt-in native capture");
+        }
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QString error;
+        auto    definitions = ProcessorRegistry::parseDefinitions(
+            {
+                {"test.protocol", block()}
+        },
+            &error);
+        QVERIFY(registry.publishDefinitions("workspace", *definitions, &error));
+        QWidget window;
+        window.setFixedSize(620, 460);
+        auto* layout   = new QVBoxLayout(&window);
+        auto* selector = new ProcessorSelector(&window);
+        selector->setCatalog(registry.types(), "test.protocol");
+        layout->addWidget(selector);
+        layout->addStretch();
+        window.show();
+        selector->showPopup();
+        auto* tree = selector->findChild<QTreeWidget*>("processorSelectorTree");
+        tree->expandAll();
+        QTest::qWait(80);
+        QVERIFY(QDir().mkpath(destination));
+        auto* popup = selector->findChild<QFrame*>("processorSelectorPopup");
+        QVERIFY(popup);
+        QVERIFY(popup->grab().save(QDir(destination).filePath("ProcessorSelector.png")));
+        selector->hidePopup();
     }
 
     Q_SLOT void visualCapture()

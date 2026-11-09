@@ -1,4 +1,5 @@
 #include "Gui/Processing/LineflowEditorDialog.h"
+#include "Gui/Processing/ProcessorCatalogTree.h"
 #include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/FavoritesEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
@@ -2175,6 +2176,47 @@ content:
         draft->setPlainText("fresh command");
         QTest::keyClick(draft, Qt::Key_Return);
         QTRY_COMPARE(probe->output, QByteArray("fresh command\r"));
+    }
+
+    Q_SLOT void workspaceScopedProcessorFavorites()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        const Path    first(temporary.filePath("FavoriteOne.termaster"));
+        const Path    second(temporary.filePath("FavoriteTwo.termaster"));
+        QVERIFY2(_app.createWorkspace(first, "One", &error), qPrintable(error));
+        _app.commands().find("Workspace.Processing")->actions().first()->trigger();
+        auto* dialog = _app.mainWindow().findChild<LineflowEditorDialog*>("lineflowEditor");
+        QVERIFY(dialog);
+        auto* catalog = dialog->findChild<ProcessorCatalogTree*>("processorCatalog");
+        QVERIFY(catalog);
+        auto* stub = catalog->findItems("Stub", Qt::MatchExactly | Qt::MatchRecursive).first();
+        catalog->expandAll();
+        catalog->scrollToItem(stub);
+        QTimer::singleShot(0, [] {
+            auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+            QVERIFY(menu);
+            QTest::mouseClick(menu,
+                              Qt::LeftButton,
+                              Qt::NoModifier,
+                              menu->actionGeometry(menu->actions().first()).center());
+        });
+        emit catalog->customContextMenuRequested(catalog->visualItemRect(stub).center());
+        QCOMPARE(_app.workspace()->state().value("processing/favorites").toStringList(),
+                 QStringList({"native.bypass", "native.stub"}));
+        Settings  base(QString {});
+        Workspace persisted(first, base.node(""));
+        QVERIFY2(persisted.load(&error), qPrintable(error));
+        QCOMPARE(persisted.state().value("processing/favorites").toStringList(),
+                 QStringList({"native.bypass", "native.stub"}));
+        QVERIFY(!_app.settings().contains("settings/processing/favorites"));
+        QVERIFY2(_app.createWorkspace(second, "Two", &error), qPrintable(error));
+        QCOMPARE(_app.workspace()->state().value("processing/favorites").toStringList(),
+                 QStringList({"native.bypass"}));
+        QVERIFY2(_app.openWorkspace(first, &error), qPrintable(error));
+        QCOMPARE(_app.workspace()->state().value("processing/favorites").toStringList(),
+                 QStringList({"native.bypass", "native.stub"}));
+        QVERIFY(_app.closeWorkspace(&error));
     }
 
     Q_SLOT void workspaceLineflowEditorIntegration()

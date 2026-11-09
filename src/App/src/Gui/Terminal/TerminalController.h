@@ -11,6 +11,7 @@
 
 class MainWindow;
 class ProcessorRegistry;
+class ProcessorFavorites;
 class CommandRegistry;
 class SettingsWidgetRegistry;
 class SettingsSchema;
@@ -36,6 +37,7 @@ public:
     Q_DISABLE_COPY_MOVE(TerminalController)
 
     void            setProcessorRegistry(ProcessorRegistry& registry);
+    void            setProcessorFavorites(ProcessorFavorites& favorites);
     void            setSession(Session* session);
     void            closeAll();
     bool            createTerminal(const QString&     type,
@@ -93,7 +95,8 @@ private:
     std::function<void()>                       _closeSettings;
     std::function<void()>                       _showSettings;
     ProcessorRegistry*                          _processors = nullptr;
-    Session*                                    _session    = nullptr;
+    QPointer<ProcessorFavorites>                _processorFavorites;
+    Session*                                    _session = nullptr;
     std::map<QString, Type>                     _types;
     std::map<QString, std::unique_ptr<Runtime>> _terminals;
     std::map<QString, RegisteredAction>         _actions;

@@ -36,7 +36,8 @@ public:
             _reset();
         }
         QPointer<SyncProcessorNode> guard(this);
-        if (error.isEmpty() && (!output.isEmpty() || input.boundary == Boundary::Packet) && callbacks.output)
+        if (error.isEmpty() && (!output.isEmpty() || (input.boundary == Boundary::Packet && _emitEmptyPacket()))
+            && callbacks.output)
         {
             callbacks.output({std::move(output), input.boundary});
             if (!guard || guard->_stopped)
@@ -66,6 +67,10 @@ protected:
     SyncProcessorNode(QVariantMap configuration, Limits limits) :
         _configuration(std::move(configuration)), _limits(limits)
     {
+    }
+    virtual bool _emitEmptyPacket() const
+    {
+        return true;
     }
     qsizetype _maximumBytes() const
     {

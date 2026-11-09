@@ -1,6 +1,7 @@
 #include "Gui/Main/EditActions.h"
 #include "Gui/Main/MainWindow.h"
 #include "Gui/Processing/LineflowEditorDialog.h"
+#include "Gui/Processing/ProcessorFavorites.h"
 #include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/FavoritesEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
@@ -58,6 +59,7 @@ struct App::Data
     CommandRegistry                                 commands;
     CommandShortcuts                                shortcuts {&commands};
     SettingsWidgetRegistry                          settingsWidgets;
+    std::unique_ptr<ProcessorFavorites>             processorFavorites;
     std::unique_ptr<MainWindow>                     window;
     std::unique_ptr<TerminalController>             terminals;
     std::unique_ptr<EditActions>                    editing;
@@ -454,6 +456,7 @@ bool App::closeWorkspace(QString* error)
         return false;
     }
     delete _data->lineflowWindow.data();
+    _data->processorFavorites.reset();
     _data->workspace.reset();
     _updateWorkspace();
     if (hadSession)
@@ -811,7 +814,8 @@ void App::_showLineflowEditor()
                 }
                 return LineflowEditorDialog::ApplyResult(true, workspace->processorDefinitions().values());
             },
-            _data->window.get());
+            _data->window.get(),
+            _data->processorFavorites.get());
         _data->lineflowWindow->setAttribute(Qt::WA_DeleteOnClose);
     }
     _data->lineflowWindow->show();
@@ -995,6 +999,21 @@ bool App::_prepareWorkspaceProcessors(Workspace& workspace, QString* error)
 
 void App::_bindWorkspaceProcessors()
 {
+    const QPointer<Workspace> workspace(_data->workspace.get());
+    _data->processorFavorites = std::make_unique<
+        ProcessorFavorites>(workspace->state().node("processing"), [this, workspace](QString* error) {
+        if (!workspace || _data->workspace.get() != workspace)
+        {
+            if (error)
+            {
+                *error = tr("The favorites workspace is no longer open.");
+            }
+            return false;
+        }
+        return workspace->sync(error);
+    });
+    _data->terminals->setProcessorFavorites(*_data->processorFavorites);
+
     const auto publish = [this] {
         QString    error;
         const auto definitions = ProcessorRegistry::parseDefinitions(_data->workspace->processorDefinitions().values(),

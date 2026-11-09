@@ -1,9 +1,11 @@
 #include "Nodes/Base64Decoder.h"
 #include "Nodes/Base64Encoder.h"
+#include "Nodes/Bypass.h"
 #include "Nodes/Framer.h"
 #include "Nodes/Gate.h"
 #include "Nodes/HexDecoder.h"
 #include "Nodes/HexEncoder.h"
+#include "Nodes/Stub.h"
 
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorCatalog.h>
@@ -19,6 +21,8 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
         ProcessorCatalog::Type::Factory create;
     };
     const QList<Definition> definitions {
+        {        "native.bypass",         "Bypass", "Control",        Bypass::schema(),        Bypass::create},
+        {          "native.stub",           "Stub", "Control",          Stub::schema(),          Stub::create},
         {          "native.gate",           "Gate", "Control",          Gate::schema(),          Gate::create},
         {        "native.framer",         "Framer", "Framing",        Framer::schema(),        Framer::create},
         {   "native.hex-encoder",    "HEX Encoder",  "Codecs",    HexEncoder::schema(),    HexEncoder::create},

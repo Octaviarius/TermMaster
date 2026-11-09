@@ -234,3 +234,17 @@ Empty directories can remain after a failed creation attempt; unrelated files ar
 never removed. Journals are claimed with an atomic exclusive reservation before
 file replacement. A crash leaving an incomplete reservation blocks automatic
 recovery without changing documents.
+
+## Processor favorites
+
+The workspace file owns `content/state/processing/favorites`, an ordered list of
+processor catalog IDs. Creation writes `[native.bypass]`. An explicitly empty list
+remains empty; missing plugin/provider IDs are retained. Up to 128 unique, trimmed
+IDs of 1 to 256 characters without NUL are supported. Invalid persisted or pending
+values fail complete load/save without replacing the active owner.
+
+The shared catalog view presents these favorites without a heading, above a dashed
+separator and the usual Native/Workspace branches. Context-menu edits save through
+the active workspace owner; persistence failures restore the previous preference
+and display the concrete cause. No application-global or session-specific copy is
+written. Workspace replacement binds a new shared model after previous views close.

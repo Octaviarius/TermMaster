@@ -1,9 +1,9 @@
 # Configurable processing nodes
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
-Each node owns its algorithm, state, schema and factory: Gate, Framer, HexEncoder,
+Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
 HexDecoder, Base64Encoder and Base64Decoder. NativeProcessors only registers the
-catalog entries. Codec nodes share bounded synchronous invocation plumbing, not
+catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
 Descriptors expose `group` as a trimmed optional string of at most 128 characters,
@@ -12,6 +12,20 @@ presented as General. The catalog groups by origin (Native / Workspace), then
 by this subgroup. Group headings are expandable and cannot be selected as
 operations or dragged. Searching matches origin, subgroup, name and ID. Workspace
 block groups can be edited beside the block selector and remain drafts until Apply.
+
+## Bypass and Stub
+
+`native.bypass` and `native.stub` are built-in Control processors with no editable
+parameters. Both remain in Native. Bypass forwards binary bytes unchanged and
+preserves packet boundaries, including empty packets. Stub completes every accepted
+input with no output at all, including empty packets. It does not buffer input for
+later release. Both enforce input limits and stop acceptance after cancellation.
+
+An unnamed favorites section appears above the named origin branches, separated
+by a dashed line. Its ordered IDs belong to the workspace document under
+`content/state/processing/favorites`. A newly created workspace contains Bypass.
+Context menus add/remove favorites and change their order. The same model is used
+by Lineflow and terminal Rx/Tx selectors; unavailable favorite IDs remain saved.
 
 ## Gate
 

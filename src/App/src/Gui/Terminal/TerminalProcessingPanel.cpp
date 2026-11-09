@@ -1,6 +1,7 @@
 #include "TerminalProcessingPanel.h"
 
 #include "../../Terminal/ProcessingRouter.h"
+#include "../Processing/ProcessorSelector.h"
 
 #include <QComboBox>
 #include <QEvent>
@@ -59,7 +60,8 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
                                                  ProcessingRouter&       router,
                                                  QVariantMap             configuration,
                                                  Apply                   apply,
-                                                 QWidget*                parent) :
+                                                 QWidget*                parent,
+                                                 ProcessorFavorites*     favorites) :
     QWidget(parent), _registry(registry), _editors(editors), _router(router), _baseline(configuration),
     _latest(configuration), _draft(std::move(configuration)), _apply(std::move(apply))
 {
@@ -69,7 +71,7 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
     for (int index = 0; index < 2; ++index)
     {
         bar->addWidget(new QLabel(index == 0 ? tr("Rx") : tr("Tx"), this));
-        _selectors[index] = new QComboBox(this);
+        _selectors[index] = new ProcessorSelector(this, favorites);
         _selectors[index]->setObjectName(index == 0 ? "rxProcessor" : "txProcessor");
         _selectors[index]->setMinimumContentsLength(12);
         _selectors[index]->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
@@ -336,24 +338,7 @@ void TerminalProcessingPanel::_catalog()
     const auto types = _registry.types();
     for (int index = 0; index < 2; ++index)
     {
-        auto* combo = _selectors[index];
-        combo->clear();
-        combo->addItem(tr("Bypass"), QString {});
-        for (const auto& type : types)
-        {
-            const auto origin = type.origin == "workspace" ? tr("Workspace") : tr("Native");
-            combo->addItem(origin + " / " + (type.group.isEmpty() ? tr("General") : type.group) + " / " + type.title,
-                           type.id);
-            combo->setItemData(combo->count() - 1, type.available ? type.id : type.unavailableReason, Qt::ToolTipRole);
-        }
-        const auto id  = _draft.value(directionKey(index)).toMap().value("type").toString();
-        auto       row = combo->findData(id);
-        if (row < 0)
-        {
-            combo->addItem(tr("Unavailable: %1").arg(id), id);
-            row = combo->count() - 1;
-        }
-        combo->setCurrentIndex(row);
+        _selectors[index]->setCatalog(types, _draft.value(directionKey(index)).toMap().value("type").toString());
     }
 }
 

@@ -31,6 +31,46 @@ class GateProcessorTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void bypassAndStubAreNativeControlEntries()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QString error;
+        QCOMPARE(registry.type("native.bypass")->origin, QString("native"));
+        QCOMPARE(registry.type("native.stub")->group, QString("Control"));
+        QCOMPARE(registry.type("native.gate")->origin, QString("native"));
+        for (const auto& id : {QString("native.bypass"), QString("native.stub")})
+        {
+            auto processor = registry.create(id, {}, {}, &error);
+            QVERIFY2(processor, qPrintable(error));
+            for (const auto boundary : {Processor::Boundary::StreamChunk, Processor::Boundary::Packet})
+            {
+                for (const auto& bytes : {QByteArray("A\0B", 3), QByteArray {}})
+                {
+                    const auto result = invoke(*processor, {bytes, boundary});
+                    QCOMPARE(result.accepted, Processor::AcceptResult::Accepted);
+                    QCOMPARE(result.completed, 1);
+                    QVERIFY(result.error.isEmpty());
+                    if (id == "native.stub")
+                    {
+                        QVERIFY(result.output.isEmpty());
+                    }
+                    else if (!bytes.isEmpty() || boundary == Processor::Boundary::Packet)
+                    {
+                        QCOMPARE(result.output.size(), 1);
+                        QCOMPARE(result.output.first().bytes, bytes);
+                        QCOMPARE(result.output.first().boundary, boundary);
+                    }
+                }
+            }
+            bool stopped = false;
+            processor->cancel([&] { stopped = true; });
+            QTRY_VERIFY(stopped);
+            QCOMPARE(invoke(*processor, {"late", Processor::Boundary::Packet}).accepted,
+                     Processor::AcceptResult::Rejected);
+        }
+    }
+
     void enabledDefaultsOwnBinaryAndPreserveBoundaries()
     {
         auto gate = Gate::create({}, {});
