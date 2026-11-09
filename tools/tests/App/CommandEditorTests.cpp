@@ -1,7 +1,6 @@
 #include "Gui/Terminal/CommandEditor.h"
 
 #include <QApplication>
-#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QCompleter>
@@ -31,9 +30,9 @@ private:
         bool accepted         = false;
         bool argumentsCorrect = true;
         int  sends            = 0;
-        widget.setSendCallback([&](const QString& text, bool hex, const QString& terminator, const QString&) {
+        widget.setSendCallback([&](const QString& text, const QString& terminator, const QString&) {
             ++sends;
-            argumentsCorrect = argumentsCorrect && text == "AT" && !hex && terminator == "cr";
+            argumentsCorrect = argumentsCorrect && text == "AT" && terminator == "cr";
             return accepted;
         });
         draft->setPlainText("AT");
@@ -55,7 +54,7 @@ private:
         QCOMPARE(history->completer()->filterMode(), Qt::MatchContains);
     }
 
-    Q_SLOT void settingsAndHex()
+    Q_SLOT void settingsAndTerminator()
     {
         CommandEditor widget;
         QVERIFY(!widget.buffered());
@@ -68,13 +67,12 @@ private:
         QCOMPARE(changes.at(0).at(1).toString(), QString("buffered"));
         widget.setSettings({
             {      "mode", "buffered"},
-            {       "hex",       true},
             {"terminator",     "none"}
         });
         QVERIFY(widget.buffered());
         bool sent = false;
-        widget.setSendCallback([&](const QString& text, bool hex, const QString& terminator, const QString&) {
-            sent = text == "41 54" && hex && terminator == "none";
+        widget.setSendCallback([&](const QString& text, const QString& terminator, const QString&) {
+            sent = text == "41 54" && terminator == "none";
             return true;
         });
         auto* draft = widget.findChild<QPlainTextEdit*>("commandDraft");
@@ -91,7 +89,7 @@ private:
         });
         auto* draft = widget.findChild<QPlainTextEdit*>("commandDraft");
         int   sends = 0;
-        widget.setSendCallback([&](const QString&, bool, const QString&, const QString&) {
+        widget.setSendCallback([&](const QString&, const QString&, const QString&) {
             ++sends;
             return true;
         });

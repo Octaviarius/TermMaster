@@ -72,14 +72,15 @@ shared settings editor layout.
 
 ## Additional command input features
 
-Status: history, editor, terminators, validated HEX and paste policy implemented in
+Status: history, editor, terminators and paste policy implemented in
 stage P2; favorites, file/delayed/periodic sending and retained disconnected queues
 remain planned in P4. See [command input](command-input.md).
 
 - Command history with Up/Down navigation and search.
 - Editing before submission through a dedicated single-line or multiline editor.
 - Extend terminator choices with CR (`\r`), no terminator and a custom sequence.
-- HEX input mode for sending explicit bytes, for example `41 54 0D`.
+- Selectable stream codecs, including HEX conversion, are planned; see
+  [Python integration and codecs](python-and-codecs.md).
 - Named favorite commands, each with its own terminator.
 - File sending as raw bytes or line by line, with cancellation.
 - Configurable delays between characters and between lines for slow receivers.

@@ -9,11 +9,10 @@ class CommandInput
 public:
     static constexpr qsizetype MaximumBytes = 4 * 1024 * 1024;
 
-    /** Hex accepts hexadecimal byte pairs separated by whitespace.
+    /** Commands are encoded as UTF-8.
      * Custom terminators accept UTF-8 literals and \\r, \\n, \\0, \\\\, \\xHH escapes.
      */
     static std::optional<QByteArray> prepare(const QString& text,
-                                             bool           hex,
                                              const QString& terminator,
                                              const QString& custom,
                                              QString*       error = nullptr);

@@ -9,9 +9,8 @@ Shift+Enter inserts a newline. A failed validation or disconnected submission
 retains the draft. Local echo is a separate setting and displays accepted input
 locally; acceptance into an output queue does not prove device delivery.
 
-Text commands are encoded as UTF-8. HEX mode accepts adjacent hexadecimal byte
-pairs with optional whitespace between pairs; invalid digits and incomplete pairs
-reject the whole command before enqueueing. The selected terminator is appended
+Text commands are encoded as UTF-8. Selectable codecs are planned in
+[Python integration and codecs](python-and-codecs.md). The selected terminator is appended
 once after encoding: LF, CRLF, CR (default), NUL, none or custom. Custom sequences
 allow literal UTF-8 and `\r`, `\n`, `\0`, `\\` and `\xHH` escapes. Unknown or
 incomplete escapes reject the submission. NUL bytes remain bytes throughout.
@@ -34,7 +33,7 @@ the terminal discards its history. Drafts are limited to 16,384 UTF-16 units;
 history is limited to 100 entries and 1 MiB of UTF-8. Oversized paste is rejected.
 
 Input settings use the existing `input` YAML overlay and generated descriptor:
-`mode`, `hex`, `terminator`, `customTerminator`, `pastePolicy`,
+`mode`, `terminator`, `customTerminator`, `pastePolicy`,
 `confirmMultiline` and the existing `localEcho`. Controls update only the active
 terminal override; application/workspace/session generated forms provide inherited
 values. Normal existing session saves persist those overrides. Settings and custom
@@ -67,11 +66,11 @@ replacement and deletion while a backend write is running.
 
 ## Verification
 
-Synthetic tests cover exact terminator/HEX/custom bytes including embedded NUL,
-invalid encodings, output bounds, partial and zero acceptance, asynchronous
+Synthetic tests cover exact UTF-8/terminator/custom bytes including embedded NUL,
+invalid custom escapes, output bounds, partial and zero acceptance, asynchronous
 failure, disconnect/reopen cancellation, separate submission boundaries and
 callback reset/deletion. Widget tests cover accepted/rejected submissions,
-history navigation/search, HEX selection, paste policy through the standard
+history navigation/search, terminator selection, paste policy through the standard
 paste slot, multiline cancellation and oversized paste. The App fixture verifies
 buffered focus/first-key behavior, byte-exact partial sends, reconnect cancellation
 and terminal replies through the shared queue without display echo.
@@ -84,11 +83,14 @@ The 100% and 200% native captures show [buffered input](images/command-input/Buf
 [buffered input at 200%](images/command-input/BufferedScale2.png),
 [interactive input](images/command-input/Interactive.png) and
 [interactive input at 200%](images/command-input/InteractiveScale2.png).
+Updated [input settings](images/command-input/Settings.png) and
+[input settings at 200%](images/command-input/SettingsScale2.png) show the
+terminator and paste controls after removal of the HEX toggle.
 
 Acceptance on 2026-11-09 used the existing Debug build directory
 `build/Desktop_Qt_6_12_0_MSVC2022_64bit-Debug` after sourcing
 `. ./.vscode/ExportEnvironment.ps1`. The complete application build passed and
-all 28 configured CTest suites passed (53.17 seconds), including command input,
+all 28 configured CTest suites passed (47.68 seconds), including command input,
 editor, App lifecycle and saturated empty-UDP queue checks. Changed C++ files were
 formatted with the repository clang-format configuration. Local documentation
 links and `git diff --check` passed. Native Windows fixture runs passed at both

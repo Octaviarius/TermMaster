@@ -700,26 +700,25 @@ bool TerminalController::_materialize(const QString& id, QString* error)
     connect(_terminals.at(id)->sender.get(), &TerminalSendQueue::failed, this, [this](const QString& error) {
         showMessage(error);
     });
-    editor->setSendCallback(
-        [this, id](const QString& text, bool hex, const QString& terminator, const QString& custom) {
-            const auto it = _terminals.find(id);
-            if (it == _terminals.end())
-            {
-                return false;
-            }
-            QString    error;
-            const auto bytes = CommandInput::prepare(text, hex, terminator, custom, &error);
-            if (!bytes || !it->second->sender->enqueue(*bytes, &error))
-            {
-                showMessage(error);
-                return false;
-            }
-            if (it->second->settings.value("input/localEcho", false).toBool())
-            {
-                it->second->display->localEcho(*bytes);
-            }
-            return true;
-        });
+    editor->setSendCallback([this, id](const QString& text, const QString& terminator, const QString& custom) {
+        const auto it = _terminals.find(id);
+        if (it == _terminals.end())
+        {
+            return false;
+        }
+        QString    error;
+        const auto bytes = CommandInput::prepare(text, terminator, custom, &error);
+        if (!bytes || !it->second->sender->enqueue(*bytes, &error))
+        {
+            showMessage(error);
+            return false;
+        }
+        if (it->second->settings.value("input/localEcho", false).toBool())
+        {
+            it->second->display->localEcho(*bytes);
+        }
+        return true;
+    });
     connect(display,
             &TerminalDisplay::outputBytes,
             this,

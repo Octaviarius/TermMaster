@@ -21,7 +21,9 @@ Apply codecs to buffered packet input as well as transport streams. A submitted
 payload must be encoded into its intended packet before transmission. Initial
 examples are wrapping outgoing payloads in SLIP frames, decoding incoming SLIP
 frames, and converting between raw bytes and hexadecimal text. HEX encoding and
-HEX decoding are distinct operations; preserve the existing HEX input behavior.
+HEX decoding are distinct operations. Codec selection will replace the removed
+HEX command input toggle; command text currently uses UTF-8 without a selectable
+codec.
 
 Define codec ordering, direction, parameters and explicit packet/stream modes.
 Specify whether terminators belong to the payload before framing, so framing and
