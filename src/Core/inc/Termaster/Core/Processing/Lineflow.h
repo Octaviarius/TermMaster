@@ -7,7 +7,11 @@
 #include <vector>
 class ProcessorRegistry;
 
-/** Prepared native pipeline and one independently stateful runtime. Owning-thread API. */
+/** Prepared native pipeline and one independently stateful runtime. Owning-thread API.
+ * Each stage has at most one accepted invocation; its output may advance while it is pending.
+ * maxChunks bounds resident queued work. Total output bytes per child/root invocation remain
+ * bounded by maxBytes; max(maxBytes,maxChunks) bounds emissions, including empty chunks.
+ */
 class Lineflow final : public Processor
 {
 public:
@@ -57,24 +61,29 @@ private:
         size_t stage;
         Chunk  chunk;
     };
+    struct Stage
+    {
+        qsizetype bytes      = 0;
+        qsizetype chunks     = 0;
+        quint64   invocation = 0;
+        bool      pending    = false;
+    };
 
     QVariantMap                             _configuration;
     Limits                                  _limits;
     std::vector<std::shared_ptr<Processor>> _nodes;
     QStringList                             _nodeNames;
     std::deque<Work>                        _queue;
+    std::vector<Stage>                      _stages;
     Callbacks                               _callbacks;
     std::vector<std::function<void()>>      _cancelCallbacks;
-    qsizetype                               _childBytes   = 0;
-    qsizetype                               _childChunks  = 0;
     qsizetype                               _queuedBytes  = 0;
     qsizetype                               _outputBytes  = 0;
     qsizetype                               _outputChunks = 0;
     quint64                                 _generation   = 0;
-    quint64                                 _invocation   = 0;
     size_t                                  _cancelling   = 0;
     bool                                    _active       = false;
-    bool                                    _pending      = false;
+    bool                                    _pumping      = false;
     bool                                    _scheduled    = false;
     bool                                    _stopped      = false;
     bool                                    _quiescent    = false;

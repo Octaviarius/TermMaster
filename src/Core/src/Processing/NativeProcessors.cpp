@@ -5,6 +5,7 @@
 #include "Nodes/Gate.h"
 #include "Nodes/HexDecoder.h"
 #include "Nodes/HexEncoder.h"
+#include "Nodes/Pacer.h"
 #include "Nodes/Stub.h"
 
 #include <Termaster/Core/Processing/NativeProcessors.h>
@@ -24,6 +25,7 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
         {        "native.bypass",         "Bypass", "Control",        Bypass::schema(),        Bypass::create},
         {          "native.stub",           "Stub", "Control",          Stub::schema(),          Stub::create},
         {          "native.gate",           "Gate", "Control",          Gate::schema(),          Gate::create},
+        {         "native.pacer",          "Pacer",  "Timing",         Pacer::schema(),         Pacer::create},
         {        "native.framer",         "Framer", "Framing",        Framer::schema(),        Framer::create},
         {   "native.hex-encoder",    "HEX Encoder",  "Codecs",    HexEncoder::schema(),    HexEncoder::create},
         {   "native.hex-decoder",    "HEX Decoder",  "Codecs",    HexDecoder::schema(),    HexDecoder::create},

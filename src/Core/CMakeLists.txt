@@ -70,6 +70,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/Bypass.cpp
     src/Processing/Nodes/Stub.h
     src/Processing/Nodes/Stub.cpp
+    src/Processing/Nodes/Pacer.h
+    src/Processing/Nodes/Pacer.cpp
     src/Processing/Nodes/Gate.h
     src/Processing/Nodes/Gate.cpp
     src/Processing/Nodes/Framer.h

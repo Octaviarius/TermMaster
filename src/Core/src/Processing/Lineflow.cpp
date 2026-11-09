@@ -5,6 +5,7 @@
 #include <Termaster/Core/Processing/Lineflow.h>
 #include <Termaster/Core/Processing/ProcessorBlocks.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
+#include <algorithm>
 
 namespace
 {
@@ -301,6 +302,7 @@ Processor::AcceptResult Lineflow::accept(Chunk input, Callbacks callbacks)
     {
         return AcceptResult::WouldBlock;
     }
+    _stages.resize(_nodes.size());
     _active       = true;
     _callbacks    = std::move(callbacks);
     _queuedBytes  = input.bytes.size();
@@ -326,21 +328,33 @@ void Lineflow::_schedule()
 
 void Lineflow::_pump()
 {
-    if (!_active || _pending || _stopped)
+    if (!_active || _pumping || _stopped)
     {
         return;
     }
 
-    int budget = _limits.eventBudget;
-    while (!_queue.empty() && !_pending && !_stopped && budget-- > 0)
+    _pumping = true;
+    QPointer<Lineflow> guard(this);
+    std::vector<bool>  blocked(_nodes.size(), false);
+    bool               retry  = false;
+    int                budget = _limits.eventBudget;
+    while (!_stopped && budget-- > 0)
     {
-        auto work = std::move(_queue.front());
-        _queue.pop_front();
+        // A busy stage preserves its FIFO while other stages may consume streamed output.
+        auto position = std::find_if(_queue.begin(), _queue.end(), [&](const Work& work) {
+            return work.stage == _nodes.size() || (!_stages[work.stage].pending && !blocked[work.stage]);
+        });
+        if (position == _queue.end())
+        {
+            break;
+        }
+        const auto index = std::distance(_queue.begin(), position);
+        auto       work  = std::move(*position);
+        _queue.erase(position);
         _queuedBytes -= work.chunk.bytes.size();
         if (work.stage == _nodes.size())
         {
-            QPointer<Lineflow> guard(this);
-            auto               output = _callbacks.output;
+            auto output = _callbacks.output;
             if (output)
             {
                 output(std::move(work.chunk));
@@ -352,36 +366,42 @@ void Lineflow::_pump()
             continue;
         }
 
-        _pending                      = true;
-        _childBytes                   = 0;
-        _childChunks                  = 0;
-        const auto         generation = _generation;
-        const auto         invocation = ++_invocation;
-        const auto         retryInput = work.chunk;
-        QPointer<Lineflow> guard(this);
-        Callbacks          callbacks;
-        callbacks.output = [guard, generation, invocation, stage = work.stage, next = work.stage + 1](Chunk chunk) {
-            if (!guard || guard->_stopped || guard->_generation != generation || guard->_invocation != invocation
-                || !guard->_pending)
+        auto& stage           = _stages[work.stage];
+        stage.pending         = true;
+        stage.bytes           = 0;
+        stage.chunks          = 0;
+        const auto generation = _generation;
+        const auto invocation = ++stage.invocation;
+        const auto retryInput = work.chunk;
+        Callbacks  callbacks;
+        callbacks.output = [guard, generation, invocation, stageIndex = work.stage](Chunk chunk) {
+            if (!guard || guard->_stopped || guard->_generation != generation)
+            {
+                return;
+            }
+            auto& stage = guard->_stages[stageIndex];
+            if (!stage.pending || stage.invocation != invocation)
             {
                 return;
             }
 
-            const bool final = next == guard->_nodes.size();
-            const auto bytes = chunk.bytes.size();
-            if (guard->_childChunks >= guard->_limits.maxChunks || bytes > guard->_limits.maxBytes - guard->_childBytes
+            const auto next          = stageIndex + 1;
+            const bool final         = next == guard->_nodes.size();
+            const auto bytes         = chunk.bytes.size();
+            const auto emissionLimit = std::max(guard->_limits.maxBytes, guard->_limits.maxChunks);
+            if (stage.chunks >= emissionLimit || bytes > guard->_limits.maxBytes - stage.bytes
                 || bytes > guard->_limits.maxBytes - guard->_queuedBytes
                 || guard->_queue.size() >= size_t(guard->_limits.maxChunks)
                 || (final
-                    && (guard->_outputChunks >= guard->_limits.maxChunks
+                    && (guard->_outputChunks >= emissionLimit
                         || bytes > guard->_limits.maxBytes - guard->_outputBytes)))
             {
-                guard->_fail(guard->_nodeError(stage, QStringLiteral("Lineflow output or queue limit exceeded")));
+                guard->_fail(guard->_nodeError(stageIndex, QStringLiteral("Lineflow output or queue limit exceeded")));
                 return;
             }
 
-            ++guard->_childChunks;
-            guard->_childBytes += bytes;
+            ++stage.chunks;
+            stage.bytes += bytes;
             if (final)
             {
                 ++guard->_outputChunks;
@@ -390,18 +410,23 @@ void Lineflow::_pump()
             guard->_queuedBytes += bytes;
             chunk.bytes          = QByteArray(chunk.bytes.constData(), chunk.bytes.size());
             guard->_queue.push_back({next, std::move(chunk)});
+            guard->_schedule();
         };
-        callbacks.completed = [guard, generation, invocation, stage = work.stage](QString error) {
-            if (!guard || guard->_stopped || guard->_generation != generation || guard->_invocation != invocation
-                || !guard->_pending)
+        callbacks.completed = [guard, generation, invocation, stageIndex = work.stage](QString error) {
+            if (!guard || guard->_stopped || guard->_generation != generation)
+            {
+                return;
+            }
+            auto& stage = guard->_stages[stageIndex];
+            if (!stage.pending || stage.invocation != invocation)
             {
                 return;
             }
 
-            guard->_pending = false;
+            stage.pending = false;
             if (!error.isEmpty())
             {
-                guard->_fail(guard->_nodeError(stage, QString(error.constData(), error.size())));
+                guard->_fail(guard->_nodeError(stageIndex, QString(error.constData(), error.size())));
             }
             else
             {
@@ -414,37 +439,49 @@ void Lineflow::_pump()
         {
             return;
         }
-        if (!_stopped && status == AcceptResult::WouldBlock)
+        if (_stopped || _generation != generation)
         {
-            _pending      = false;
-            _queuedBytes += retryInput.bytes.size();
-            _queue.push_front({work.stage, retryInput});
-            if (!_scheduled)
-            {
-                _scheduled = true;
-                QTimer::singleShot(1, this, [this] {
-                    _scheduled = false;
-                    _pump();
-                });
-            }
-            return;
+            break;
         }
-        if (!_stopped && status == AcceptResult::Rejected)
+        if (status == AcceptResult::WouldBlock)
         {
-            _pending = false;
+            stage.pending  = false;
+            _queuedBytes  += retryInput.bytes.size();
+            _queue.insert(_queue.begin() + index, {work.stage, retryInput});
+            blocked[work.stage] = true;
+            retry               = true;
+        }
+        else if (status == AcceptResult::Rejected)
+        {
+            stage.pending = false;
             _fail(_nodeError(work.stage, QStringLiteral("Lineflow child rejected input")));
+            if (!guard)
+            {
+                return;
+            }
         }
     }
-
-    if (_stopped || _pending)
+    _pumping = false;
+    if (_stopped)
     {
         return;
     }
-    if (_queue.empty())
+    const bool pending = std::any_of(_stages.begin(), _stages.end(), [](const Stage& stage) { return stage.pending; });
+    if (_queue.empty() && !pending)
     {
         _finish({});
     }
-    else
+    else if (retry && !_scheduled)
+    {
+        _scheduled = true;
+        QTimer::singleShot(1, this, [this] {
+            _scheduled = false;
+            _pump();
+        });
+    }
+    else if (std::any_of(_queue.begin(), _queue.end(), [&](const Work& work) {
+                 return work.stage == _nodes.size() || !_stages[work.stage].pending;
+             }))
     {
         _schedule();
     }
@@ -537,8 +574,11 @@ void Lineflow::_cancelNodes()
 
 void Lineflow::_cancelled()
 {
-    _quiescent     = true;
-    _pending       = false;
+    _quiescent = true;
+    for (auto& stage : _stages)
+    {
+        stage.pending = false;
+    }
     _active        = false;
     auto completed = std::move(_callbacks.completed);
     _callbacks     = {};
