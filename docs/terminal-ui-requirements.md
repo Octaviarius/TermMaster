@@ -101,3 +101,13 @@ Qt Creator reference for a searchable command list showing command identity,
 human-readable label and assigned shortcut. Allow editing command shortcuts and
 persist the assignments in the global application configuration. Further reset,
 conflict handling and import/export behavior remains to be designed.
+
+## Bulk terminal connection commands
+
+Status: implemented as a stage P1 follow-up.
+
+The Terminal menu exposes Start all and Stop all for open terminals of the
+current session. Keep these commands out of the toolbar and per-tab menus.
+Stopping clears requested connection state and cancels automatic retries while
+retaining the tabs. The tab menu always offers Close, including for a backend
+that registers no presentation actions.

@@ -11,6 +11,7 @@ Items within each stage are ordered; later stages depend on relevant earlier wor
 - [x] Unify terminal toolbar control layout/order across backends and remove Close.
 - [x] Add terminal tab context menus; connection/output/settings commands and separated Close.
 - [x] Remove the redundant information strip above the terminal display.
+- [x] Add Start all / Stop all to the Terminal menu and guarantee tab-menu Close.
 
 These small changes address accidental closure and visual clutter first.
 Preserve backend capability/state checks and verify the affected GUI.

@@ -27,12 +27,23 @@ state or command eligibility. Empty groups add no buttons.
 
 Right-clicking a terminal tab selects it and opens its applicable connection,
 output, settings and additional commands, followed by a separated Close action.
-Creation commands and actions for other terminal types are excluded. The
+Creation commands, bulk commands and actions for other terminal types are excluded. The
 registered terminalType filters tab commands independently of global menu visibility. Empty tab-bar space has no menu. Commands follow
 the terminal UUID rather than a tab index and revalidate the original registered
 QAction before execution. Changing selection dismisses the popup; removed plugin
 actions disable their popup counterparts. Close remains available in the Terminal
-menu, the tab context menu and existing tab close buttons.
+menu, the tab context menu and existing tab close buttons. If a backend does not
+register its own Close action, the controller supplies a tab-menu fallback.
+
+The Terminal menu has an allConnections group after creation, containing
+Start all and Stop all. These application-owned commands apply to every open
+terminal runtime in the current session, independently of selected tab/type.
+Start all skips active/opening/closing or already requested connections; a failure
+on one terminal does not stop attempts on the others. Stop all clears connection
+intent, cancels retry timers and closes transports without closing tabs. Commands
+are disabled when no target needs the operation and never appear in the toolbar
+or tab menus. Batch operations snapshot runtime identities to avoid affecting
+new/replaced instances if a backend processes nested GUI events.
 
 File retains workspace commands and Session retains session commands. Tools / Plugins
 opens plugin management. These actions are absent from the terminal toolbar;
@@ -118,3 +129,13 @@ visually checked at both scales:
 
 The hosted-plugin SDK ABI is version 5. Rebuild third-party hosted plugins before
 loading them; the normal application build already rebuilds the bundled plugins.
+
+Bulk-control follow-up verification on 2026-11-09: the Debug application built
+and all 26 CTest suites passed. Synthetic multi-type tests cover mixed success
+and failure, repeated start, preserved tab selection, stop/reopen, retry timer
+cancellation, workspace closure and guaranteed Close without backend actions.
+The real plugin tab fixture also executes its Close action. Native Windows checks
+passed at scale factors 1 and 2; menu references show the new bulk group at
+[100%](images/terminal-controls/1x/TerminalMenu.png) and
+[200%](images/terminal-controls/2x/TerminalMenu.png). No hardware or external
+network connection is needed for these added checks.

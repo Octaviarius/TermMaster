@@ -163,6 +163,17 @@ TerminalController::TerminalController(MainWindow&                 window,
     connect(bar, &QWidget::customContextMenuRequested, this, &TerminalController::_showTabMenu);
     connect(qApp, &QApplication::focusChanged, this, [this] { refreshTerminalActions(); });
     connect(qApp, &QGuiApplication::focusWindowChanged, this, [this] { refreshTerminalActions(); });
+    for (const bool requested : {true, false})
+    {
+        Action action;
+        action.id       = requested ? "Terminal.StartAll" : "Terminal.StopAll";
+        action.title    = requested ? tr("Start all") : tr("Stop all");
+        action.iconName = requested ? "play" : "square";
+        action.group    = "allConnections";
+        action.enabled  = [this, requested] { return _canSetAllConnections(requested); };
+        action.trigger  = [this, requested] { _setAllConnections(requested); };
+        registerAction(std::move(action));
+    }
 }
 TerminalController::~TerminalController()
 {
@@ -830,25 +841,16 @@ void TerminalController::_changed(const QString& id)
 }
 void TerminalController::connectSelectedTerminal()
 {
-    auto* terminal = _current();
-    if (!terminal || !_activeWindow() || terminal->connectionRequested)
+    if (const auto* terminal = _current(); terminal && _activeWindow())
     {
-        return;
+        _setConnectionRequested(terminal->id, true);
     }
-    terminal->completion.clear();
-    terminal->connectionRequested = true;
-    terminal->lastError.clear();
-    _attemptConnection(terminal->id);
 }
 void TerminalController::disconnectSelectedTerminal()
 {
-    if (auto* terminal = _current(); terminal && _activeWindow())
+    if (const auto* terminal = _current(); terminal && _activeWindow())
     {
-        terminal->connectionRequested = false;
-        terminal->reconnect.stop();
-        terminal->lastError.clear();
-        terminal->device->close();
-        _changed(terminal->id);
+        _setConnectionRequested(terminal->id, false);
     }
 }
 void TerminalController::closeSelectedTerminal()
@@ -968,6 +970,80 @@ void TerminalController::showCreateTerminal(const QString& type)
     dialog->show();
 }
 
+bool TerminalController::_canSetAllConnections(bool requested) const
+{
+    for (const auto& [id, terminal] : _terminals)
+    {
+        const auto state = terminal->device->state();
+        if (requested ? (!terminal->connectionRequested
+                         && (state == SerialDevice::State::Closed || state == SerialDevice::State::Failed)) :
+                        (terminal->connectionRequested || state == SerialDevice::State::Open
+                         || state == SerialDevice::State::Opening))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void TerminalController::_setAllConnections(bool requested)
+{
+    // Snapshot runtime identity as opening a backend may process nested GUI events.
+    QList<std::pair<QString, QPointer<QWidget>>> targets;
+    for (const auto& [id, terminal] : _terminals)
+    {
+        targets.append({id, terminal->panel});
+    }
+    const QPointer<TerminalController> self(this);
+    for (const auto& [id, panel] : targets)
+    {
+        if (!self)
+        {
+            return;
+        }
+        const auto it = _terminals.find(id);
+        if (!panel || it == _terminals.end() || it->second->panel != panel)
+        {
+            continue;
+        }
+        const auto state = it->second->device->state();
+        if (requested
+            && (state == SerialDevice::State::Opening || state == SerialDevice::State::Open
+                || state == SerialDevice::State::Closing))
+        {
+            continue;
+        }
+        _setConnectionRequested(id, requested);
+    }
+}
+
+void TerminalController::_setConnectionRequested(QString id, bool requested)
+{
+    const auto it = _terminals.find(id);
+    if (it == _terminals.end())
+    {
+        return;
+    }
+    auto& terminal = *it->second;
+    if (requested)
+    {
+        if (terminal.connectionRequested)
+        {
+            return;
+        }
+        terminal.completion.clear();
+        terminal.connectionRequested = true;
+        terminal.lastError.clear();
+        _attemptConnection(id);
+        return;
+    }
+    terminal.connectionRequested = false;
+    terminal.reconnect.stop();
+    terminal.lastError.clear();
+    terminal.device->close();
+    _changed(id);
+}
+
 void TerminalController::_showTabMenu(const QPoint& position)
 {
     auto&      tabs  = _window.terminalTabs();
@@ -1003,10 +1079,12 @@ void TerminalController::_showTabMenu(const QPoint& position)
     std::sort(ids.begin(), ids.end(), [&](const QString& left, const QString& right) {
         return rank(left) == rank(right) ? left < right : rank(left) < rank(right);
     });
+    bool    hasClose = false;
     QString previousGroup;
     for (const auto& id : ids)
     {
         const auto& item = _actions.at(id);
+        hasClose         = hasClose || item.registration.role == Action::Role::Close;
         if (!previousGroup.isEmpty() && previousGroup != item.registration.group)
         {
             menu->addSeparator();
@@ -1038,6 +1116,21 @@ void TerminalController::_showTabMenu(const QPoint& position)
             if (source->isVisible() && source->isEnabled())
             {
                 source->trigger();
+            }
+        });
+    }
+    if (!hasClose)
+    {
+        if (!menu->actions().isEmpty())
+        {
+            menu->addSeparator();
+        }
+        auto* close = menu->addAction(Icons::icon("x"), tr("Close"));
+        close->setObjectName("Terminal.Close");
+        connect(close, &QAction::triggered, this, [this, terminalId] {
+            if (_activeWindow())
+            {
+                _close(terminalId);
             }
         });
     }
