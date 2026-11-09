@@ -2,7 +2,7 @@
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
 Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder and Base64Decoder. NativeProcessors only registers the
+HexDecoder, Base64Encoder, Base64Decoder and Pacer. NativeProcessors only registers the
 catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
@@ -65,6 +65,39 @@ Discard clears the residual and partial delimiter match; error rejects a nonempt
 residual. Stream chunks do not apply tail policy. Cancellation discards residual
 state; the Processor contract has no implicit end-of-stream flush.
 
+## Pacer
+
+`native.pacer`, group Timing, schedules bytes asynchronously on its QObject thread.
+Select it directly for Rx/Tx or include it in a Lineflow. It preserves byte order
+and values, including NUL; byte spacing may split a UTF-8 character.
+
+| Parameter | Default | Behavior |
+|---|---|---|
+| byteDelayMs | 0 | Minimum delay between stream-byte emissions, 0 to 60,000 ms |
+| lineDelayMs | 0 | Pause after a matched ending, 0 to 60,000 ms |
+| ending | `\n` | Escaped byte pattern, decoded length 1 to 256 bytes |
+| bytesPerSecond | 0 | Byte-rate limit, 0 disables it; maximum 1,000,000,000 |
+| burstBytes | 64 | Rate burst allowance, 1 to 65,536 bytes, clamped to runtime maxBytes |
+
+Ending escapes are `\r`, `\n`, `\0`, `\xHH` and `\\`; literal text uses UTF-8.
+Matching survives stream input boundaries. Pauses follow this byte pattern only;
+file-line metadata does not supply a separate boundary. Timing fences survive
+invocation completion. Concurrent byte, ending and rate constraints use the latest
+required emission time, rather than adding independent sleeps. A bounded rate
+burst does not accumulate unlimited credit while idle.
+
+Packets remain whole, including empty packets. A nonzero byte delay on packet
+input completes with an error before emitting anything. Rate limiting can delay
+an entire packet larger than the burst allowance before emitting it atomically;
+matched ending pauses apply after the packet. Packet boundaries reset partial
+ending matching. Cancel stops timers and suppresses pending output immediately.
+
+These times govern Processor output emission into the next stage. They do not
+establish physical transport timing or receiver delivery: downstream processors,
+router queues and backend buffers can delay or accumulate bytes. Lineflow forwards
+Pacer output before completion, so delays remain observable through a composition.
+Its resident queue limits and bounded cumulative emission counters also apply.
+
 ## HEX
 
 - `native.hex-encoder`: letterCase is upper (default) or lower; separator defaults
@@ -101,9 +134,10 @@ message boundaries. Cancellation is not a request to flush or encode a tail.
 
 Each implementation receives independent state and resolved schema defaults.
 Factories reject malformed options and guard input, output and persistent state
-against runtime bounds. A processing error stops that instance and suppresses all
-outputs from the failing invocation. Previously completed invocations are not
-rolled back. Output and error data own their storage. Reentrant input during an
+against runtime bounds. A processing error stops that instance and suppresses
+future output. Synchronous nodes validate before emission where applicable, but
+asynchronous compositions can already have emitted a prefix before a later error.
+Previously emitted bytes and completed invocations cannot be rolled back. Output and error data own their storage. Reentrant input during an
 output callback returns WouldBlock; completion releases the invocation slot.
 
 Schemas are consumed by the existing generated settings forms and `x-widget`

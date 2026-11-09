@@ -2,7 +2,10 @@
 
 #include <QComboBox>
 #include <QCompleter>
+#include <QFontMetrics>
 #include <QFormLayout>
+#include <QFrame>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QJsonDocument>
@@ -14,6 +17,7 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QPushButton>
+#include <QScreen>
 #include <QSignalBlocker>
 #include <QSpinBox>
 #include <QToolButton>
@@ -44,189 +48,230 @@ protected:
 
 CommandEditor::CommandEditor(QWidget* parent) : QWidget(parent)
 {
-    setObjectName(QStringLiteral("commandEditor"));
+    setObjectName("commandEditor");
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(4, 4, 4, 4);
+    layout->setContentsMargins(4, 3, 4, 3);
+    layout->setSpacing(4);
     auto* options = new QHBoxLayout;
-    _mode         = new QComboBox(this);
-    _mode->setObjectName(QStringLiteral("commandInputMode"));
-    _mode->addItem(tr("Interactive"), QStringLiteral("interactive"));
-    _mode->addItem(tr("Buffered"), QStringLiteral("buffered"));
-    _mode->setToolTip(tr("Send keys immediately or edit commands before sending"));
+    options->setSpacing(6);
+    _mode = new QComboBox(this);
+    _mode->setObjectName("commandInputMode");
+    _mode->addItem(tr("Interactive"), "interactive");
+    _mode->addItem(tr("Buffered"), "buffered");
+    _mode->setToolTip(tr("Send keys immediately, or edit a command before sending"));
+    _mode->setMaximumWidth(130);
     options->addWidget(_mode);
     _terminator = new QComboBox(this);
-    _terminator->setObjectName(QStringLiteral("commandTerminator"));
+    _terminator->setObjectName("commandTerminator");
     for (const auto& value : {"LF", "CRLF", "CR", "NUL", "None", "Custom"})
     {
         _terminator->addItem(QString::fromLatin1(value), QString::fromLatin1(value).toLower());
     }
-    _terminator->setToolTip(tr("Bytes appended once to each submitted command"));
+    _terminator->setToolTip(tr("Append these bytes once after each command"));
+    _terminator->setMaximumWidth(95);
     options->addWidget(_terminator);
     _custom = new QLineEdit(this);
-    _custom->setObjectName(QStringLiteral("commandCustomTerminator"));
+    _custom->setObjectName("commandCustomTerminator");
     _custom->setMaxLength(1024);
-    _custom->setPlaceholderText(tr("Custom escaped bytes"));
+    _custom->setMaximumWidth(170);
+    _custom->setPlaceholderText(tr("Escaped bytes"));
     _custom->setToolTip(tr("Escapes: \\r, \\n, \\0, \\\\, \\xHH"));
     options->addWidget(_custom);
-    _pastePolicy = new QComboBox(this);
-    _pastePolicy->setObjectName(QStringLiteral("commandPastePolicy"));
-    _pastePolicy->addItem(tr("Paste for editing"), QStringLiteral("edit"));
-    _pastePolicy->addItem(tr("Paste immediately"), QStringLiteral("immediate"));
-    options->addWidget(_pastePolicy);
-    options->addStretch();
-    auto* advancedToggle = new QToolButton(this);
-    advancedToggle->setObjectName(QStringLiteral("commandAdvancedToggle"));
-    advancedToggle->setIcon(Icons::icon("sliders-horizontal"));
-    advancedToggle->setToolTip(tr("Show advanced command sending controls"));
-    advancedToggle->setCheckable(true);
-    options->addWidget(advancedToggle);
-    _sendingStatus = new QLabel(this);
-    _sendingStatus->setObjectName(QStringLiteral("commandSendingStatus"));
+    auto tool = [this, options](const QString& name, const QString& icon, const QString& text) {
+        auto* button = new QToolButton(this);
+        button->setObjectName(name);
+        button->setIcon(Icons::icon(icon));
+        button->setToolTip(text);
+        button->setAccessibleName(text);
+        button->setCheckable(true);
+        options->addWidget(button);
+        return button;
+    };
+    _historyToggle  = tool("commandHistoryToggle", "chevron-up", tr("Recent commands"));
+    _advancedToggle = tool("commandAdvancedToggle",
+                           "folder-open",
+                           tr("Sending tools: saved commands, files and repeat"));
+    _sendingStatus  = new QLabel(this);
+    _sendingStatus->setObjectName("commandSendingStatus");
+    _sendingStatus->setMaximumWidth(200);
+    _sendingStatus->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     options->addWidget(_sendingStatus);
-    _stop = new QToolButton(this);
-    _stop->setObjectName(QStringLiteral("commandStop"));
-    _stop->setIcon(Icons::icon("square"));
-    _stop->setToolTip(tr("Stop pending and periodic sending"));
-    options->addWidget(_stop);
-    connect(_stop, &QToolButton::clicked, this, &CommandEditor::stopRequested);
-    setSendingState(false, {});
+    _stop = tool("commandStop", "square", tr("Stop queued, file and periodic sending"));
+    _stop->setCheckable(false);
+    options->addStretch();
     layout->addLayout(options);
+
     _body            = new QWidget(this);
-    auto* bodyLayout = new QVBoxLayout(_body);
+    auto* bodyLayout = new QHBoxLayout(_body);
     bodyLayout->setContentsMargins(0, 0, 0, 0);
     auto* editor      = new PasteEditor(_body);
     _editor           = editor;
     editor->pasteText = [this](const QString& text) { _paste(text); };
-    _editor->setObjectName(QStringLiteral("commandDraft"));
-    _editor->setPlaceholderText(tr("Enter sends; Shift+Enter inserts a new line"));
-    _editor->setMaximumHeight(120);
+    _editor->setObjectName("commandDraft");
+    _editor->setPlaceholderText(tr("Enter sends · Shift+Enter inserts a line break"));
+    _editor->setFixedHeight(qMax(52, fontMetrics().lineSpacing() * 3 + 12));
     _editor->setTabChangesFocus(true);
     _editor->installEventFilter(this);
     setFocusProxy(_editor);
-    bodyLayout->addWidget(_editor);
-    auto* sendRow = new QHBoxLayout;
-    _history      = new QComboBox(_body);
-    _history->setObjectName(QStringLiteral("commandHistory"));
+    bodyLayout->addWidget(_editor, 1);
+    auto* send = new QPushButton(Icons::icon("arrow-right"), tr("Send"), _body);
+    send->setObjectName("commandSend");
+    send->setToolTip(tr("Send the current draft (Enter)"));
+    bodyLayout->addWidget(send, 0, Qt::AlignBottom);
+    layout->addWidget(_body);
+
+    auto popup = [this](const QString& name) {
+        auto* frame = new QFrame(this, Qt::Popup);
+        frame->setObjectName(name);
+        frame->setFrameShape(QFrame::StyledPanel);
+        frame->installEventFilter(this);
+        return frame;
+    };
+    _historyPopup       = popup("commandHistoryPopup");
+    auto* historyLayout = new QVBoxLayout(_historyPopup);
+    historyLayout->addWidget(new QLabel(tr("Recent commands"), _historyPopup));
+    _history = new QComboBox(_historyPopup);
+    _history->setObjectName("commandHistory");
+    _history->setMinimumWidth(300);
+    _history->setMaximumWidth(360);
+    _history->setMinimumContentsLength(28);
+    _history->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     _history->setEditable(true);
     _history->setInsertPolicy(QComboBox::NoInsert);
     _history->lineEdit()->setPlaceholderText(tr("Search command history"));
     _history->completer()->setFilterMode(Qt::MatchContains);
     _history->completer()->setCaseSensitivity(Qt::CaseInsensitive);
-    sendRow->addWidget(_history, 1);
-    auto* send = new QPushButton(tr("Send"), _body);
-    send->setObjectName(QStringLiteral("commandSend"));
-    send->setToolTip(tr("Submit the command draft"));
-    sendRow->addWidget(send);
-    bodyLayout->addLayout(sendRow);
-    layout->addWidget(_body);
-    _advanced = new QWidget(this);
-    _advanced->setObjectName(QStringLiteral("commandAdvancedPanel"));
+    historyLayout->addWidget(_history);
+
+    _advanced            = popup("commandAdvancedPanel");
     auto* advancedLayout = new QVBoxLayout(_advanced);
-    advancedLayout->setContentsMargins(0, 0, 0, 0);
+    advancedLayout->setSpacing(8);
+    advancedLayout->addWidget(new QLabel(tr("Saved commands"), _advanced));
     auto* favoriteRow = new QHBoxLayout;
     _favorites        = new QComboBox(_advanced);
-    _favorites->setObjectName(QStringLiteral("commandFavorites"));
-    _favorites->setToolTip(tr("Named commands with their own terminator"));
+    _favorites->setObjectName("commandFavorites");
+    _favorites->setMinimumWidth(180);
+    _favorites->setMinimumContentsLength(20);
+    _favorites->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    _favorites->setToolTip(tr("Saved command and its terminator"));
     favoriteRow->addWidget(_favorites, 1);
-    auto addButton = [this](QHBoxLayout*   row,
-                            const QString& name,
-                            const QString& text,
-                            const QString& icon,
-                            const QString& tooltip) {
-        auto* button = new QPushButton(Icons::icon(icon), text, _advanced);
-        button->setObjectName(name);
-        button->setToolTip(tooltip);
-        row->addWidget(button);
-        return button;
+    auto button = [this](QHBoxLayout*   row,
+                         const QString& name,
+                         const QString& text,
+                         const QString& icon,
+                         const QString& tooltip) {
+        auto* result = new QPushButton(Icons::icon(icon), text, _advanced);
+        result->setObjectName(name);
+        result->setToolTip(tooltip);
+        result->setAccessibleName(tooltip);
+        row->addWidget(result);
+        return result;
     };
-    auto* load   = addButton(favoriteRow,
-                             "commandFavoriteLoad",
-                             tr("Load"),
-                             "folder-open",
-                             tr("Load the selected favorite into the draft"));
-    auto* save   = addButton(favoriteRow,
-                             "commandFavoriteSave",
-                             tr("Save"),
-                             "save",
-                             tr("Save the draft as a named favorite"));
-    auto* remove = addButton(favoriteRow,
-                             "commandFavoriteDelete",
-                             tr("Delete"),
-                             "x",
-                             tr("Delete the selected favorite"));
+    auto* load = button(favoriteRow, "commandFavoriteLoad", {}, "folder-open", tr("Load saved command into the draft"));
+    auto* save = button(favoriteRow, "commandFavoriteSave", {}, "save", tr("Save draft as a named command"));
+    auto* remove = button(favoriteRow, "commandFavoriteDelete", {}, "trash", tr("Delete selected saved command"));
+    for (auto* control : {load, save, remove})
+    {
+        control->setFixedWidth(30);
+    }
     advancedLayout->addLayout(favoriteRow);
-    auto* pacing  = new QHBoxLayout;
-    auto  addSpin = [this, pacing](const QString& name, const QString& label, int minimum, int maximum) {
-        pacing->addWidget(new QLabel(label, _advanced));
-        auto* spin = new QSpinBox(_advanced);
-        spin->setObjectName(name);
-        spin->setRange(minimum, maximum);
-        spin->setSuffix(tr(" ms"));
-        pacing->addWidget(spin);
-        return spin;
-    };
-    _byteDelay = addSpin("commandByteDelay", tr("Byte delay"), 0, 60000);
-    _byteDelay->setToolTip(
-        tr("Delay between bytes; UTF-8 multibyte characters may be split. Unavailable for datagrams."));
-    _lineDelay = addSpin("commandLineDelay", tr("Line delay"), 0, 60000);
-    _lineDelay->setToolTip(tr("Delay after line boundaries; also applies to line files with custom terminators"));
-    _disconnected = new QComboBox(_advanced);
-    _disconnected->setObjectName(QStringLiteral("commandDisconnectedPolicy"));
-    _disconnected->addItem(tr("Reject while disconnected"), "reject");
-    _disconnected->addItem(tr("Retain while disconnected"), "retain");
-    pacing->addWidget(_disconnected);
-    advancedLayout->addLayout(pacing);
-    auto* sending = new QHBoxLayout;
-    auto* raw     = addButton(sending,
-                              "commandRawFile",
-                              tr("Raw file"),
-                              "file-plus",
-                              tr("Choose a file to send as raw bytes"));
-    auto* lines   = addButton(sending,
-                              "commandLineFile",
-                              tr("Line file"),
-                              "panel-bottom",
-                              tr("Choose a file to send as byte-preserving lines"));
-    _period       = new QSpinBox(_advanced);
-    _period->setObjectName(QStringLiteral("commandPeriod"));
+    auto* fileRow = new QHBoxLayout;
+    auto* raw = button(fileRow, "commandRawFile", tr("Send file…"), "file-plus", tr("Choose a file to send unchanged"));
+    auto* lines = button(fileRow,
+                         "commandLineFile",
+                         tr("Send lines…"),
+                         "panel-bottom",
+                         tr("Send file lines with the selected terminator"));
+    fileRow->addStretch();
+    advancedLayout->addLayout(fileRow);
+    auto* repeat = new QHBoxLayout;
+    repeat->addWidget(new QLabel(tr("Repeat every"), _advanced));
+    _period = new QSpinBox(_advanced);
+    _period->setObjectName("commandPeriod");
     _period->setRange(100, 86400000);
     _period->setSuffix(tr(" ms"));
-    _period->setToolTip(tr("Periodic command interval; sending starts only when Start is pressed"));
-    sending->addWidget(_period);
-    auto* start = addButton(sending,
+    _period->setMaximumWidth(135);
+    repeat->addWidget(_period);
+    _periodicStart = button(repeat,
                             "commandPeriodicStart",
-                            tr("Start periodic"),
-                            "play",
-                            tr("Start repeating the current draft with its terminator"));
-    advancedLayout->addLayout(sending);
-    layout->addWidget(_advanced);
+                            tr("Start"),
+                            "rotate-cw",
+                            tr("Repeat the current command until stopped"));
+    repeat->addStretch();
+    advancedLayout->addLayout(repeat);
+    auto* form = new QFormLayout;
+    form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    _pastePolicy = new QComboBox(_advanced);
+    _pastePolicy->setObjectName("commandPastePolicy");
+    _pastePolicy->addItem(tr("Edit before sending"), "edit");
+    _pastePolicy->addItem(tr("Send immediately"), "immediate");
+    form->addRow(tr("Paste:"), _pastePolicy);
+    _disconnected = new QComboBox(_advanced);
+    _disconnected->setObjectName("commandDisconnectedPolicy");
+    _disconnected->addItem(tr("Reject sending"), "reject");
+    _disconnected->addItem(tr("Retain unsent data"), "retain");
+    _disconnected->setToolTip(
+        tr("Connection policy. Processing and file/repeat producers require an open connection."));
+    form->addRow(tr("When disconnected:"), _disconnected);
+    advancedLayout->addLayout(form);
     _advanced->hide();
-    connect(advancedToggle, &QToolButton::toggled, _advanced, &QWidget::setVisible);
-    connect(load, &QPushButton::clicked, this, &CommandEditor::_loadFavorite);
-    connect(save, &QPushButton::clicked, this, &CommandEditor::_saveFavorite);
+    _historyPopup->hide();
+
+    connect(_advancedToggle, &QToolButton::toggled, this, [this](bool visible) {
+        if (visible)
+        {
+            _showPopup(_advanced, _advancedToggle);
+        }
+        else
+        {
+            _advanced->hide();
+        }
+    });
+    connect(_historyToggle, &QToolButton::toggled, this, [this](bool visible) {
+        if (visible)
+        {
+            _showPopup(_historyPopup, _historyToggle);
+            _history->setFocus();
+        }
+        else
+        {
+            _historyPopup->hide();
+        }
+    });
+    connect(load, &QPushButton::clicked, this, [this] {
+        _advanced->hide();
+        _loadFavorite();
+    });
+    connect(save, &QPushButton::clicked, this, [this] {
+        _advanced->hide();
+        _saveFavorite();
+    });
     connect(remove, &QPushButton::clicked, this, [this] {
-        const int index = _favorites->currentIndex();
+        const auto index = _favorites->currentIndex();
         if (index < 0 || index >= _favoriteEntries.size())
         {
             return;
         }
         _favoriteEntries.removeAt(index);
         _refreshFavorites();
-        emit settingChanged(QStringLiteral("favorites"), _favoriteEntries);
+        emit settingChanged("favorites", _favoriteEntries);
     });
-    connect(raw, &QPushButton::clicked, this, [this] { emit fileRequested(false); });
-    connect(lines, &QPushButton::clicked, this, [this] { emit fileRequested(true); });
-    connect(start, &QPushButton::clicked, this, &CommandEditor::_startPeriodic);
-    for (auto pair : {qMakePair(_byteDelay, QStringLiteral("byteDelayMs")),
-                      qMakePair(_lineDelay, QStringLiteral("lineDelayMs")),
-                      qMakePair(_period, QStringLiteral("periodMs"))})
-    {
-        connect(pair.first, &QSpinBox::valueChanged, this, [this, key = pair.second](int value) {
-            emit settingChanged(key, value);
-        });
-    }
+    connect(raw, &QPushButton::clicked, this, [this] {
+        _advanced->hide();
+        emit fileRequested(false);
+    });
+    connect(lines, &QPushButton::clicked, this, [this] {
+        _advanced->hide();
+        emit fileRequested(true);
+    });
+    connect(_periodicStart, &QPushButton::clicked, this, [this] {
+        _advanced->hide();
+        _startPeriodic();
+    });
+    connect(_stop, &QToolButton::clicked, this, &CommandEditor::stopRequested);
+    connect(_period, &QSpinBox::valueChanged, this, [this](int value) { emit settingChanged("periodMs", value); });
     connect(_disconnected, &QComboBox::activated, this, [this] {
-        emit settingChanged(QStringLiteral("disconnectedPolicy"), _disconnected->currentData());
+        emit settingChanged("disconnectedPolicy", _disconnected->currentData());
     });
     connect(send, &QPushButton::clicked, this, [this] { _submit(_editor->toPlainText(), true); });
     connect(_editor, &QPlainTextEdit::textChanged, this, [this] {
@@ -239,37 +284,34 @@ CommandEditor::CommandEditor(QWidget* parent) : QWidget(parent)
         }
     });
     connect(_history, &QComboBox::activated, this, [this](int index) {
-        if (index >= 0 && index < _entries.size())
+        if (index < 0 || index >= _entries.size())
         {
-            _editor->setPlainText(_entries.at(index));
-            _editor->setFocus();
+            return;
         }
+        const auto text = _entries.at(index);
+        _historyPopup->hide();
+        _editor->setPlainText(text);
+        _editor->setFocus();
     });
-    connect(_mode, &QComboBox::activated, this, [this] {
-        emit settingChanged(QStringLiteral("mode"), _mode->currentData());
-    });
+    connect(_mode, &QComboBox::activated, this, [this] { emit settingChanged("mode", _mode->currentData()); });
     connect(_terminator, &QComboBox::activated, this, [this] {
-        emit settingChanged(QStringLiteral("terminator"), _terminator->currentData());
+        emit settingChanged("terminator", _terminator->currentData());
     });
     connect(_custom, &QLineEdit::editingFinished, this, [this] {
-        emit settingChanged(QStringLiteral("customTerminator"), _custom->text());
+        emit settingChanged("customTerminator", _custom->text());
     });
     connect(_pastePolicy, &QComboBox::activated, this, [this] {
-        emit settingChanged(QStringLiteral("pastePolicy"), _pastePolicy->currentData());
+        emit settingChanged("pastePolicy", _pastePolicy->currentData());
     });
+    setSendingState(false, {});
     setSettings({});
 }
 
 void CommandEditor::setSettings(const QVariantMap& input)
 {
     _settings = input;
-    for (auto pair : {qMakePair(_byteDelay, QStringLiteral("byteDelayMs")),
-                      qMakePair(_lineDelay, QStringLiteral("lineDelayMs")),
-                      qMakePair(_period, QStringLiteral("periodMs"))})
-    {
-        const QSignalBlocker blocker(pair.first);
-        pair.first->setValue(input.value(pair.second, pair.first == _period ? 1000 : 0).toInt());
-    }
+    const QSignalBlocker periodBlock(_period);
+    _period->setValue(input.value("periodMs", 1000).toInt());
     const QSignalBlocker disconnectedBlock(_disconnected);
     _disconnected->setCurrentIndex(input.value("disconnectedPolicy").toString() == "retain" ? 1 : 0);
     _favoriteEntries.clear();
@@ -304,7 +346,9 @@ void CommandEditor::setSettings(const QVariantMap& input)
     select(_pastePolicy, input.value(QStringLiteral("pastePolicy"), QStringLiteral("edit")));
     _body->setVisible(buffered());
     _terminator->setEnabled(buffered());
-    _custom->setVisible(_terminator->currentData().toString() == QStringLiteral("custom"));
+    _terminator->setVisible(buffered());
+    _historyToggle->setVisible(buffered());
+    _custom->setVisible(buffered() && _terminator->currentData().toString() == QStringLiteral("custom"));
     _custom->setEnabled(buffered());
 }
 
@@ -356,6 +400,12 @@ bool CommandEditor::confirmPaste(const QByteArray& bytes)
 
 bool CommandEditor::eventFilter(QObject* object, QEvent* event)
 {
+    if ((object == _advanced || object == _historyPopup) && event->type() == QEvent::Hide)
+    {
+        auto*                toggle = object == _advanced ? _advancedToggle : _historyToggle;
+        const QSignalBlocker blocker(toggle);
+        toggle->setChecked(false);
+    }
     if (object == _editor && event->type() == QEvent::KeyPress)
     {
         auto* key = static_cast<QKeyEvent*>(event);
@@ -459,7 +509,8 @@ void CommandEditor::_remember(const QString& text)
 
 void CommandEditor::setSendingState(bool active, const QString& status)
 {
-    _sendingStatus->setText(status);
+    _sendingStatus->setText(active ? tr("Sending…") : status);
+    _sendingStatus->setToolTip(active && status.isEmpty() ? tr("Output is being processed or queued.") : status);
     _sendingStatus->setVisible(active || !status.isEmpty());
     _stop->setVisible(active);
     _stop->setEnabled(active);
@@ -479,6 +530,27 @@ void CommandEditor::_refreshFavorites()
     {
         _favorites->setCurrentIndex(index);
     }
+}
+
+void CommandEditor::_showPopup(QWidget* popup, QWidget* anchor)
+{
+    popup->adjustSize();
+    const auto position = anchor->mapToGlobal(QPoint(0, anchor->height()));
+    auto*      screen   = QGuiApplication::screenAt(position);
+    if (!screen)
+    {
+        screen = anchor->screen();
+    }
+    const auto available = screen->availableGeometry().adjusted(4, 4, -4, -4);
+    const int  width     = qMin(qMax(350, popup->sizeHint().width()), available.width());
+    const int  height    = qMin(popup->sizeHint().height(), available.height());
+    const int  top       = position.y() + height > available.bottom() ? anchor->mapToGlobal(QPoint()).y() - height :
+                                                                        position.y();
+    popup->setGeometry(qBound(available.left(), position.x(), available.right() - width + 1),
+                       qBound(available.top(), top, available.bottom() - height + 1),
+                       width,
+                       height);
+    popup->show();
 }
 
 void CommandEditor::_loadFavorite()

@@ -33,12 +33,21 @@ a device.
 
 All calls and callbacks run on the processor QObject thread. Workers post through
 context-bound queued connections. A consumer allows only one active invocation;
-Lineflow serializes child invocations and preserves emitted output order. Its
-queued pump has a finite event budget and retries a temporarily blocked child in
-a later event-loop turn. Output callbacks have no per-output credit: the host
-bounds its queue, each child invocation's expansion and the final output of an
-accepted input, then fails and cancels on overflow. Pass-through stages do not divide
-the maximum payload size by pipeline depth.
+Lineflow permits one accepted invocation per stage and preserves each stage's FIFO.
+An asynchronous child's output can advance through later stages and reach the
+consumer before that child completes. The root completes only after all stages
+and queued work drain. A later error or cancellation suppresses future callbacks;
+already emitted prefixes cannot be rolled back.
+
+The queued pump has a finite event budget and retries a temporarily blocked child
+in a later event-loop turn. Output callbacks have no per-output credit.
+`maxChunks` bounds resident queued work, rather than the cumulative number of
+fragments in a streamed invocation. Queued bytes remain bounded by `maxBytes`;
+each child invocation and the final root output also have cumulative `maxBytes`
+limits. Their emission counters are bounded by `max(maxBytes, maxChunks)`, including
+empty chunks, so draining the queue cannot permit unlimited zero-byte emissions.
+Overflow fails and cancels the composition. Pass-through stages do not divide the
+maximum payload size by pipeline depth.
 Native plugin code is trusted to bound its own buffers according to factory limits;
 these bounds do not sandbox arbitrary plugin memory or CPU usage.
 
@@ -187,7 +196,7 @@ settings path API. Terminal A and terminal B keep separate maps, as do Rx and Tx
 Saving these opaque settings does not load a plugin, resolve defaults, start a
 processor, or connect terminal routing.
 
-The built-in catalog contains Gate, Framer and separate HEX/Base64 encoders and
+The built-in catalog contains Gate, Framer, Pacer and separate HEX/Base64 encoders and
 decoders, with independent parameter schemas and descriptor groups. See
 [processing nodes](processing-nodes.md) for configuration and byte-boundary rules.
 
@@ -230,8 +239,8 @@ instances to the existing display and transport output queue. Settings under
 `processing/rx` and `processing/tx` select `type: <catalog ID>` for any
 registered native, Lineflow or provider-defined processor. Elementary selections accept `configuration` and
 `overrides` maps; block overrides retain the occurrence-path format above. An
-absent or empty selection uses direct pass-through. Selection editors remain a
-later milestone; selections can currently be stored in terminal settings.
+absent or empty selection uses direct pass-through. The terminal selectors and
+private property drafts are described in [terminal processing](terminal-processing.md).
 
 Rx consumes transport chunks before display decoding. UDP receives carry packet
 boundaries, including empty datagrams. On orderly transport closure, already
@@ -246,13 +255,20 @@ reports and protocol replies. Only command preparation adds the selected
 terminator. Replies never receive a command terminator. Local echo remains a
 display-only operation on the original input and is never fed into Rx or Tx again.
 File and periodic producers wait for both processing and transport queues, so
-asynchronous processing cannot create overlapping periodic submissions. Transport
-pacing options follow each invocation and apply to every emitted output chunk.
-Each output is a separate atomic datagram for UDP; stream output uses the existing
-partial-write queue. UDP payload limits and unsupported byte pacing are rejected.
+asynchronous processing cannot create overlapping periodic submissions. Only the
+disconnected retention policy accompanies transport submissions; timing is owned
+by a selected Pacer processor. Each output is a separate atomic datagram for UDP;
+stream output uses the existing partial-write queue. UDP payload limits are
+validated independently; Pacer rejects byte spacing on packet input.
 
-Each direction bounds queued plus active input to 4 MiB / 1024 chunks, and bounds
-pending output separately to the same limits. Processing uses a per-turn event
+Each direction bounds queued plus active input to 4 MiB / 4096 resident chunks,
+and bounds pending output separately to the same limits. A stream submission is
+copied into invocations of at most 1024 bytes; packet submissions remain whole,
+including empty packets. The router preflights every fragment and its byte budget
+before accepting any of a submission. A request exceeding the total byte or chunk
+limit is rejected; temporary remaining-capacity shortages return WouldBlock without
+consuming bytes. Counters count the original accepted bytes once, while pending
+submission counts include fragments. Processing uses a per-turn event
 budget and retries temporary backpressure. Receive overflow is reported and closes
 the connection because the byte-device interface currently has no read-pause API.
 Processor/output errors also stop the connection; payloads are not logged. Native

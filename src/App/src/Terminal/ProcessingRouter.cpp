@@ -77,7 +77,19 @@ Processor::AcceptResult ProcessingRouter::submit(Direction                      
         }
         return Processor::AcceptResult::Rejected;
     }
-    if (lane.inputs.size() + (lane.active ? 1 : 0) >= _limits.maxChunks
+    constexpr qsizetype maximumStreamChunkBytes = 1024;
+    const qsizetype     pieces = chunk.boundary == Processor::Boundary::StreamChunk && !chunk.bytes.isEmpty() ?
+                                     1 + (chunk.bytes.size() - 1) / maximumStreamChunkBytes :
+                                     1;
+    if (pieces > _limits.maxChunks)
+    {
+        if (error)
+        {
+            *error = QStringLiteral("Processing input exceeds chunk limit");
+        }
+        return Processor::AcceptResult::Rejected;
+    }
+    if (pieces > _limits.maxChunks - lane.inputs.size() - (lane.active ? 1 : 0)
         || chunk.bytes.size() > _limits.maxBytes - lane.inputBytes - lane.activeBytes)
     {
         if (error)
@@ -88,7 +100,24 @@ Processor::AcceptResult ProcessingRouter::submit(Direction                      
     }
     count(lane.acceptedBytes, quint64(chunk.bytes.size()));
     lane.inputBytes += chunk.bytes.size();
-    lane.inputs.enqueue({std::move(chunk), options});
+    if (chunk.boundary == Processor::Boundary::Packet || chunk.bytes.isEmpty())
+    {
+        lane.inputs.enqueue({
+            {QByteArray(chunk.bytes.constData(), chunk.bytes.size()), chunk.boundary},
+            options
+        });
+    }
+    else
+    {
+        for (qsizetype offset = 0; offset < chunk.bytes.size(); offset += maximumStreamChunkBytes)
+        {
+            const qsizetype length = qMin(maximumStreamChunkBytes, chunk.bytes.size() - offset);
+            lane.inputs.enqueue({
+                {QByteArray(chunk.bytes.constData() + offset, length), chunk.boundary},
+                options
+            });
+        }
+    }
     _schedule();
     return Processor::AcceptResult::Accepted;
 }

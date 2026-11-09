@@ -584,6 +584,208 @@ content:
         QTRY_VERIFY(registry.canRemoveOwner("failure-owner"));
     }
 
+    void savedPacerStreamsThroughBusyStagesBeforeCompletion()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        auto first = native("native.pacer", "first");
+        first.insert("configuration",
+                     QVariantMap {
+                         {"byteDelayMs", 90}
+        });
+        auto second = native("native.pacer", "second");
+        second.insert("configuration",
+                      QVariantMap {
+                          {"byteDelayMs", 130}
+        });
+        ProcessorRegistry::Definition definition {"paced-chain",
+                                                  "Paced chain",
+                                                  "lineflow",
+                                                  {{"nodes",
+                                                    QVariantList {first, second, native("native.bypass", "output")}}},
+                                                  {},
+                                                  {},
+                                                  {},
+                                                  {}};
+        QString                       error;
+        QVERIFY2(registry.publishDefinitions("workspace", {definition}, &error), qPrintable(error));
+        auto prepared = registry.prepare("paced-chain", {}, {}, &error);
+        QVERIFY2(prepared, qPrintable(error));
+        auto runtime = prepared->instantiate({}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QByteArray    output;
+        QList<qint64> times;
+        QElapsedTimer clock;
+        clock.start();
+        int completed = 0;
+        QCOMPARE(runtime->accept({QByteArray("A\0B", 3)},
+                                 {[&](Processor::Chunk chunk) {
+                                      QCOMPARE(chunk.boundary, Processor::Boundary::StreamChunk);
+                                      output.append(chunk.bytes);
+                                      times.append(clock.elapsed());
+                                      QCOMPARE(runtime->accept({"reentry"}, {}), Processor::AcceptResult::WouldBlock);
+                                  },
+                                  [&](QString message) {
+                                      QVERIFY2(message.isEmpty(), qPrintable(message));
+                                      ++completed;
+                                  }}),
+                 Processor::AcceptResult::Accepted);
+        QTRY_VERIFY_WITH_TIMEOUT(!output.isEmpty(), 1500);
+        QCOMPARE(output, QByteArray("A"));
+        QCOMPARE(completed, 0);
+        QTRY_COMPARE_WITH_TIMEOUT(completed, 1, 3000);
+        QCOMPARE(output, QByteArray("A\0B", 3));
+        QCOMPARE(times.size(), 3);
+        QVERIFY(times[1] - times[0] >= 95);
+        QVERIFY(times[2] - times[1] >= 95);
+        runtime->cancel({});
+    }
+
+    void savedHexPacerExceedsTotalChunkCountWithBoundedResidentQueue()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        auto encoder = native("native.hex-encoder", "encode");
+        encoder.insert("configuration",
+                       QVariantMap {
+                           {"separator", ""}
+        });
+        auto pacer = native("native.pacer", "pace");
+        pacer.insert("configuration",
+                     QVariantMap {
+                         {"bytesPerSecond", 1000000000},
+                         {    "burstBytes",          1}
+        });
+        ProcessorRegistry::Definition definition {"hex-paced",
+                                                  "HEX paced",
+                                                  "lineflow",
+                                                  {{"nodes", QVariantList {encoder, pacer}}},
+                                                  {},
+                                                  {},
+                                                  {},
+                                                  {}};
+        QString                       error;
+        QVERIFY2(registry.publishDefinitions("workspace", {definition}, &error), qPrintable(error));
+        Processor::Limits limits;
+        limits.maxBytes    = 4096;
+        limits.maxChunks   = 4;
+        // Two final fragments per event turn keep the resident queue bounded without
+        // requiring 1200 timer-resolution-dependent millisecond delays.
+        limits.eventBudget = 2;
+        auto prepared      = registry.prepare("hex-paced", {}, limits, &error);
+        QVERIFY2(prepared, qPrintable(error));
+        auto runtime = prepared->instantiate({}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QByteArray input(600, char(0xab));
+        QByteArray output;
+        int        emissions = 0;
+        int        completed = 0;
+        QString    failure;
+        runtime->accept({input},
+                        {[&](Processor::Chunk chunk) {
+                             QCOMPARE(completed, 0);
+                             QCOMPARE(chunk.bytes.size(), 1);
+                             output.append(chunk.bytes);
+                             ++emissions;
+                         },
+                         [&](QString message) {
+                             failure = std::move(message);
+                             ++completed;
+                         }});
+        QTRY_COMPARE_WITH_TIMEOUT(completed, 1, 5000);
+        QVERIFY2(failure.isEmpty(), qPrintable(failure));
+        QCOMPARE(output, input.toHex().toUpper());
+        QCOMPARE(emissions, 1200);
+
+        output.clear();
+        bool acknowledged = false;
+        runtime->accept({input},
+                        {[&](Processor::Chunk chunk) {
+                             output.append(chunk.bytes);
+                             runtime->cancel([&] { acknowledged = true; });
+                         },
+                         [&](QString) { ++completed; }});
+        QTRY_VERIFY_WITH_TIMEOUT(acknowledged, 1500);
+        QCOMPARE(output.size(), 1);
+        const auto prefix = output;
+        QTest::qWait(100);
+        QCOMPARE(output, prefix);
+        QCOMPARE(completed, 1);
+        QCOMPARE(runtime->accept({input}, {}), Processor::AcceptResult::Rejected);
+    }
+
+    void savedPacerPreservesPacketErrorsAndLineFence()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        auto pacer = native("native.pacer", "pace");
+        pacer.insert("configuration",
+                     QVariantMap {
+                         {"lineDelayMs", 100}
+        });
+        ProcessorRegistry::Definition definition {"packet-paced",
+                                                  "Packet paced",
+                                                  "lineflow",
+                                                  {{"nodes", QVariantList {pacer, native("native.bypass", "output")}}},
+                                                  {},
+                                                  {},
+                                                  {},
+                                                  {}};
+        QString                       error;
+        QVERIFY2(registry.publishDefinitions("workspace", {definition}, &error), qPrintable(error));
+        auto runtime = registry.create("packet-paced", {}, {}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QList<Processor::Chunk> output;
+        QList<qint64>           packetTimes;
+        QElapsedTimer           packetClock;
+        packetClock.start();
+        int                  completed = 0;
+        Processor::Callbacks callbacks {[&](Processor::Chunk chunk) {
+                                            output.append(std::move(chunk));
+                                            packetTimes.append(packetClock.elapsed());
+                                        },
+                                        [&](QString message) {
+                                            QVERIFY2(message.isEmpty(), qPrintable(message));
+                                            ++completed;
+                                        }};
+        runtime->accept({"A\nB\n", Processor::Boundary::Packet}, callbacks);
+        QTRY_COMPARE(completed, 1);
+        QCOMPARE(output.size(), 1);
+        QCOMPARE(output.first().bytes, QByteArray("A\nB\n"));
+        QCOMPARE(output.first().boundary, Processor::Boundary::Packet);
+        runtime->accept({{}, Processor::Boundary::Packet}, callbacks);
+        QTest::qWait(80);
+        QCOMPARE(completed, 1);
+        QTRY_COMPARE_WITH_TIMEOUT(completed, 2, 2000);
+        QVERIFY(packetTimes[1] - packetTimes[0] >= 170);
+        QCOMPARE(output.size(), 2);
+        QVERIFY(output.last().bytes.isEmpty());
+        runtime->cancel({});
+
+        auto node = native("native.pacer", "pace");
+        node.insert("configuration",
+                    QVariantMap {
+                        {"byteDelayMs", 10}
+        });
+        definition.source = {
+            {"nodes", QVariantList {node}}
+        };
+        QVERIFY2(registry.publishDefinitions("workspace", {definition}, &error), qPrintable(error));
+        runtime = registry.create("packet-paced", {}, {}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        output.clear();
+        bool failed = false;
+        runtime->accept({"packet", Processor::Boundary::Packet},
+                        {[&](Processor::Chunk chunk) { output.append(std::move(chunk)); },
+                         [&](QString message) {
+                             QVERIFY(message.contains("pace"));
+                             QVERIFY(message.contains("atomic packet"));
+                             failed = true;
+                         }});
+        QTRY_VERIFY(failed);
+        QVERIFY(output.isEmpty());
+    }
+
     void nativeRejectsReentrantAcceptance()
     {
         ProcessorRegistry registry;

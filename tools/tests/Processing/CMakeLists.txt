@@ -87,3 +87,12 @@ target_link_libraries(ProcessorPropertiesTests PRIVATE
     Qt6::Test
 )
 add_test(NAME ProcessorPropertiesTests COMMAND ProcessorPropertiesTests)
+
+qt_add_executable(PacerProcessorTests
+    PacerProcessorTests.cpp
+)
+target_link_libraries(PacerProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME PacerProcessorTests COMMAND PacerProcessorTests)

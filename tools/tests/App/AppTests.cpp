@@ -2052,6 +2052,7 @@ content:
         {
             _app.mainWindow().setMinimumSize(1100, 760);
             _app.mainWindow().resize(1100, 760);
+            _app.mainWindow().move(QPoint(20, 40));
             display->clear();
             display->receive("Synthetic command fixture: exact byte output and bounded queued send.\r\n");
             draft->setPlainText("AT+GMR");
@@ -2078,7 +2079,16 @@ content:
             QTest::qWait(100);
             QCOMPARE(_app.mainWindow().size(), QSize(1100, 760));
             const auto advancedName = QString(captureFile.completeBaseName()).replace("Buffered", "Advanced") + ".png";
-            QVERIFY(_app.mainWindow().grab().save(QDir(captureFile.absolutePath()).filePath(advancedName)));
+            advancedToggle->setChecked(true);
+            QTest::qWait(30);
+            auto  toolsCapture = _app.mainWindow().grab();
+            auto* tools        = editor->findChild<QWidget*>("commandAdvancedPanel");
+            QVERIFY(tools && tools->isVisible());
+            {
+                QPainter painter(&toolsCapture);
+                tools->render(&painter, tools->mapToGlobal(QPoint()) - _app.mainWindow().mapToGlobal(QPoint()));
+            }
+            QVERIFY(toolsCapture.save(QDir(captureFile.absolutePath()).filePath(advancedName)));
             editor->findChild<QToolButton*>("commandStop")->click();
             advancedToggle->setChecked(false);
             auto* mode = editor->findChild<QComboBox*>("commandInputMode");
@@ -2381,6 +2391,11 @@ content:
         QCOMPARE(probe->device->state(), SerialDevice::State::Open);
         auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
         QVERIFY(display);
+        auto* interactionArea = _app.mainWindow().findChild<QWidget*>("terminalInteractionArea");
+        QVERIFY(interactionArea);
+        QVERIFY(interactionArea->isAncestorOf(_app.mainWindow().findChild<CommandEditor*>("commandEditor")));
+        QVERIFY(
+            interactionArea->isAncestorOf(_app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing")));
         // Split nibbles in opposite directions must not share decoder state.
         probe->device->injectReceive("4");
         display->outputBytes("4", TerminalDisplay::OutputKind::Reply, {});

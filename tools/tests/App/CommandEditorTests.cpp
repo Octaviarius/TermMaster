@@ -35,16 +35,12 @@ private:
         widget.setSettings({
             {              "mode", "buffered"},
             {  "confirmMultiline",      false},
-            {       "byteDelayMs",         12},
-            {       "lineDelayMs",         34},
             {          "periodMs",        200},
             {"disconnectedPolicy",   "retain"}
         });
         QCOMPARE(changes.count(), 0);
-        auto* bytes = widget.findChild<QSpinBox*>("commandByteDelay");
-        QCOMPARE(bytes->value(), 12);
-        bytes->setValue(13);
-        QCOMPARE(changes.last().at(0).toString(), QString("byteDelayMs"));
+        QVERIFY(!widget.findChild<QSpinBox*>("commandByteDelay"));
+        QVERIFY(!widget.findChild<QSpinBox*>("commandLineDelay"));
         QCOMPARE(widget.findChild<QComboBox*>("commandDisconnectedPolicy")->currentData().toString(),
                  QString("retain"));
         auto* draft = widget.findChild<QPlainTextEdit*>("commandDraft");
@@ -71,6 +67,45 @@ private:
         QVERIFY(widget.findChild<QPushButton*>("commandSend")->isEnabled());
         widget.setSendingState(false, {});
         QVERIFY(stopButton->isHidden());
+    }
+
+    Q_SLOT void compactLayoutPopupsAndNarrowWidth()
+    {
+        CommandEditor widget;
+        widget.resize(640, 200);
+        widget.setSettings({
+            {            "mode", "buffered"},
+            {"confirmMultiline",      false}
+        });
+        widget.show();
+        auto*      draft   = widget.findChild<QPlainTextEdit*>("commandDraft");
+        auto*      tools   = widget.findChild<QToolButton*>("commandAdvancedToggle");
+        auto*      history = widget.findChild<QToolButton*>("commandHistoryToggle");
+        auto*      panel   = widget.findChild<QWidget*>("commandAdvancedPanel");
+        const auto size    = widget.sizeHint();
+        QVERIFY(size.height() < 140);
+        QVERIFY(widget.minimumSizeHint().width() <= 640);
+        draft->setPlainText("AT+GMR");
+        tools->setChecked(true);
+        QTRY_VERIFY(panel->isVisible());
+        QCOMPARE(widget.sizeHint(), size);
+        QVERIFY(panel->width() < 600);
+        QTest::keyClick(panel, Qt::Key_Escape);
+        QTRY_VERIFY(!panel->isVisible());
+        QVERIFY(!tools->isChecked());
+        QCOMPARE(draft->toPlainText(), QString("AT+GMR"));
+        history->setChecked(true);
+        auto* historyPopup = widget.findChild<QWidget*>("commandHistoryPopup");
+        QTRY_VERIFY(historyPopup->isVisible());
+        QTest::keyClick(historyPopup, Qt::Key_Escape);
+        QTRY_VERIFY(!historyPopup->isVisible());
+        QVERIFY(!history->isChecked());
+        widget.setSettings({
+            {"mode", "interactive"}
+        });
+        QVERIFY(!draft->isVisible());
+        QVERIFY(widget.findChild<QComboBox*>("commandTerminator")->isHidden());
+        QVERIFY(widget.sizeHint().height() < 55);
     }
 
     Q_SLOT void periodicConfirmationPreservesDraft()

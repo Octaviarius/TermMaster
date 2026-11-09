@@ -73,8 +73,9 @@ shared settings editor layout.
 ## Additional command input features
 
 Status: history, editor, terminators and paste policy implemented in
-stage P2; favorites, file/delayed/periodic sending and retained disconnected queues
-are implemented in P4. See [command input](command-input.md).
+stage P2; favorites, file/periodic sending and retained disconnected queues
+are implemented in P4. FLOW-7 moves timing to native Pacer and uses a compact
+command bar with popup history/tools and a separate processor-properties side pane. See [command input](command-input.md).
 
 - Command history with Up/Down navigation and search.
 - Editing before submission through a dedicated single-line or multiline editor.
@@ -83,7 +84,8 @@ are implemented in P4. See [command input](command-input.md).
   [Python integration and codecs](python-and-codecs.md).
 - Named favorite commands, each with its own terminator.
 - File sending as raw bytes or line by line, with cancellation.
-- Configurable delays between characters and between lines for slow receivers.
+- Configurable raw-byte spacing, ending-pattern pauses and byte-rate limiting
+  through native Pacer; no transport-queue delay settings.
 - Periodic command sending with a visible active indicator and a stop button.
 - Paste policy: send immediately or retain for editing; confirm multiline sending.
 - Explicit disconnected-send policy: reject sending or retain a bounded queue
@@ -92,7 +94,7 @@ are implemented in P4. See [command input](command-input.md).
 These features extend the buffered input and terminator requirements above.
 Keep queued data and file transfer bounded, respect transport backpressure and
 cancel timers/pending sends when their owner shuts down. Keep command history
-and favorites out of routine logs; persistence details remain to be designed.
+and favorites out of routine logs; favorites use the scoped settings owner.
 
 ## Global keyboard shortcut editor
 

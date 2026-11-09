@@ -144,6 +144,11 @@ struct TerminalController::Runtime
         connectionRequested = false;
         reconnect.stop();
         processingUpdate = true;
+        if (device)
+        {
+            device->setCallbacks({});
+        }
+
         advanced.reset();
         delete processingPanel.data();
         delete panel.data();
@@ -151,11 +156,9 @@ struct TerminalController::Runtime
         sender.reset();
         if (device)
         {
-            device->setCallbacks({});
             device->close();
             device.reset();
         }
-        delete panel.data();
     }
 };
 
@@ -606,17 +609,23 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         auto* layout    = new QVBoxLayout(container);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
-        auto* split = new QSplitter(Qt::Horizontal, container);
-        split->addWidget(content);
+        auto* split        = new QSplitter(Qt::Horizontal, container);
+        auto* terminalArea = new QWidget(split);
+        terminalArea->setObjectName("terminalInteractionArea");
+        auto* terminalLayout = new QVBoxLayout(terminalArea);
+        terminalLayout->setContentsMargins(0, 0, 0, 0);
+        terminalLayout->setSpacing(0);
+        terminalLayout->addWidget(content, 1);
+        split->addWidget(terminalArea);
         layout->addWidget(split, 1);
-        terminal->editor = new CommandEditor(container);
+        terminal->editor = new CommandEditor(terminalArea);
         terminal->editor->setSettings(terminal->settings.value("input").toMap());
         if (terminal->advanced)
         {
             terminal->advanced->configure(terminal->settings.value("input").toMap());
         }
         terminal->display->setFocusProxy(terminal->editor->buffered() ? terminal->editor.data() : nullptr);
-        layout->addWidget(terminal->editor);
+        terminalLayout->addWidget(terminal->editor);
         terminal->panel      = container;
         terminal->sender     = std::make_unique<TerminalSendQueue>(*terminal->device);
         terminal->processing = std::make_unique<ProcessingRouter>();
@@ -633,12 +642,12 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                 [this, id](const QVariantMap& baseline, const QVariantMap& candidate, QString* error) {
                     return _applyProcessing(id, baseline, candidate, error);
                 },
-                container,
+                terminalArea,
                 _processorFavorites);
             split->addWidget(terminal->processingPanel->propertiesWidget());
             split->setStretchFactor(0, 1);
             split->setStretchFactor(1, 0);
-            layout->addWidget(terminal->processingPanel);
+            terminalLayout->addWidget(terminal->processingPanel);
         }
     }
     catch (const std::exception& exception)
@@ -791,7 +800,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             auto& runtime = *self->_terminals.at(id);
             if (runtime.device->state() != SerialDevice::State::Open
                 || chunk.bytes.size() > TerminalSendQueue::MaximumPendingBytes
-                || (runtime.device->atomicWrites() && (chunk.bytes.size() > 65507 || options.byteDelayMs > 0)))
+                || (runtime.device->atomicWrites() && chunk.bytes.size() > 65507))
             {
                 if (error)
                 {

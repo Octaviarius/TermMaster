@@ -68,7 +68,7 @@ class CommandInputTests : public QObject
 {
     Q_OBJECT
 private slots:
-    void reconnectRevalidatesAtomicCapability()
+    void retainedSubmissionPreservesDatagramAfterReopen()
     {
         FakeDevice device;
         device.currentState = SerialDevice::State::Closed;
@@ -76,17 +76,16 @@ private slots:
         queue.setRetainDisconnected(true);
         TerminalSendQueue::Options options;
         options.retainOnDisconnect = true;
-        options.byteDelayMs        = 1;
         QVERIFY(queue.enqueue("offline", options));
         device.atomic       = true;
         device.allowance    = 100;
         device.currentState = SerialDevice::State::Open;
         QSignalSpy failures(&queue, &TerminalSendQueue::failed);
         queue.connectionChanged();
-        QTRY_COMPARE(failures.count(), 1);
-        QVERIFY(failures.first().first().toString().contains("datagram"));
-        QCOMPARE(queue.pendingSubmissions(), 0);
-        QVERIFY(device.submissions.isEmpty());
+        QTRY_COMPARE(queue.pendingSubmissions(), 0);
+        QCOMPARE(failures.count(), 0);
+        QCOMPARE(device.submissions, QList<QByteArray>({"offline"}));
+        QCOMPARE(device.accepted, QByteArray("offline"));
     }
 
     void preparation()
@@ -191,60 +190,41 @@ private slots:
         deletedQueue->flush();
         QVERIFY(!deletedQueue);
     }
-    void pacingAndRawBytes()
+    void rawStreamsAndDatagramAtomicity()
     {
         FakeDevice device;
         device.allowance = 100;
-        TerminalSendQueue          queue(device);
-        TerminalSendQueue::Options options;
-        options.byteDelayMs    = 30;
-        options.lineDelayMs    = 100;
-        const QByteArray bytes = QByteArray::fromHex("e282ac0d0a5a");
-        QElapsedTimer    clock;
-        clock.start();
-        QList<qint64> writeTimes;
-        device.duringWrite = [&] { writeTimes.append(clock.elapsed()); };
-        QVERIFY(queue.enqueue(bytes, options));
+        TerminalSendQueue queue(device);
+        const QByteArray  bytes = QByteArray::fromHex("e282ac000d0a5a");
+        QVERIFY(queue.enqueue(bytes));
         queue.flush();
-        QCOMPARE(device.accepted, bytes.first(1));
-        queue.flush();
-        QCOMPARE(device.accepted.size(), 1);
-        QTRY_COMPARE_WITH_TIMEOUT(queue.pendingSubmissions(), 0, 2000);
-        QCOMPARE(writeTimes.size(), 6);
-        for (qsizetype index = 1; index < writeTimes.size(); ++index)
-        {
-            const qint64 minimum = index == 5 ? 130 : 30;
-            QVERIFY(writeTimes.at(index) - writeTimes.at(index - 1) >= minimum);
-        }
         QCOMPARE(device.accepted, bytes);
-        for (const QByteArray& chunk : device.submissions)
-        {
-            QCOMPARE(chunk.size(), 1);
-        }
-    }
-    void linePacingAndDatagrams()
-    {
-        FakeDevice device;
-        device.allowance = 100;
-        TerminalSendQueue          queue(device);
-        TerminalSendQueue::Options options;
-        options.lineDelayMs = 80;
-        QVERIFY(queue.enqueue("A\r\nB\rC\nD", options));
-        queue.flush();
-        QCOMPARE(device.accepted, QByteArray("A\r\n"));
-        queue.flush();
-        QCOMPARE(device.submissions.size(), 1);
-        QTRY_COMPARE(queue.pendingSubmissions(), 0);
-        QCOMPARE(device.submissions, QList<QByteArray>({"A\r\n", "B\r", "C\n", "D"}));
+        QCOMPARE(device.submissions, QList<QByteArray>({bytes}));
+
         device.atomic = true;
         device.submissions.clear();
-        QVERIFY(queue.enqueue("one\ntwo", options));
+        QVERIFY(queue.enqueue("one\ntwo"));
         queue.flush();
         QCOMPARE(device.submissions, QList<QByteArray>({"one\ntwo"}));
-        options.byteDelayMs = 1;
-        QString error;
-        QVERIFY(!queue.enqueue("bad", options, &error));
-        QVERIFY(!error.isEmpty());
+
+        device.allowance = 0;
+        device.submissions.clear();
+        QVERIFY(queue.enqueue("packet"));
+        queue.flush();
+        QCOMPARE(queue.pendingBytes(), 6);
+        device.allowance = 100;
+        queue.flush();
+        QCOMPARE(device.submissions, QList<QByteArray>({"packet", "packet"}));
+        QCOMPARE(queue.pendingBytes(), 0);
+
+        device.allowance = 2;
+        QSignalSpy failures(&queue, &TerminalSendQueue::failed);
+        QVERIFY(queue.enqueue("partial"));
+        QVERIFY(queue.enqueue("discard"));
+        queue.flush();
+        QCOMPARE(failures.count(), 1);
+        QCOMPARE(queue.pendingSubmissions(), 0);
+        QCOMPARE(queue.pendingBytes(), 0);
     }
     void retainedUntouchedOnlyAndStop()
     {
@@ -283,22 +263,11 @@ private slots:
         QCOMPARE(queue.pendingSubmissions(), 0);
         QVERIFY(!queue.enqueue("closed", options));
     }
-    void pacingBoundsAndReentrantDisconnect()
+    void reentrantDisconnectPreservesUntouchedSubmission()
     {
         FakeDevice                 device;
         TerminalSendQueue          queue(device);
         TerminalSendQueue::Options options;
-        QString                    error;
-        options.byteDelayMs = -1;
-        QVERIFY(!queue.enqueue("x", options, &error));
-        options.byteDelayMs = 60001;
-        QVERIFY(!queue.enqueue("x", options));
-        options.byteDelayMs = 0;
-        options.lineDelayMs = -1;
-        QVERIFY(!queue.enqueue("x", options));
-        options.lineDelayMs = 60001;
-        QVERIFY(!queue.enqueue("x", options));
-        options.lineDelayMs        = 60000;
         options.retainOnDisconnect = true;
         queue.setRetainDisconnected(true);
         QVERIFY(queue.enqueue("inflight", options));
