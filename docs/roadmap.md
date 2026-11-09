@@ -131,17 +131,23 @@ The delivered scope and execution contract are recorded in [processing core](pro
 This stage makes processing usable without requiring the full editor. It must not
 silently change protocol reply, paste, keyboard, packet or local-echo semantics.
 
-## FLOW-3: Production native processor plugin
+## FLOW-3: Unified processor registration
 
-- [ ] Package the initial native processors in a production plugin through the
-      delivered registration SDK; preserve existing native core fixtures as references.
-- [ ] Supply valid defaults, configuration schemas, icons and descriptions for each type.
-- [ ] Add the useful initial native codecs/framing operations tracked in P8, including
-      explicit encoding/decoding directions and malformed-input behavior.
-- [ ] Verify independent state, bounded frame accumulation and incremental decoding,
-      plus real plugin registration, cancellation and unload through terminal routing.
+- [ ] Extend the common catalog to include native processors, saved workspace
+      Lineflow blocks and saved code processors through the same registration contract.
+- [ ] Register a validated definition when an editor saves it and repopulate workspace
+      entries when opening a workspace; expose catalog changes to selectors and editors.
+- [ ] Provide a stable identifier, display name, defaults, configuration schema,
+      editor metadata and an instance factory for each entry, independently of origin.
+- [ ] Create independent Processor instances on demand; registration must not execute
+      user code or create a running processing chain.
+- [ ] Resolve nested entries through the catalog and reject cyclic compositions.
+- [ ] Define update/removal and provider shutdown: preserve unavailable references,
+      keep active instances safe and apply definition changes through explicit replacement.
 
-P8 remains the codec capability checklist. Native processing does not depend on Python.
+No dedicated processor plugin is required. Any plugin may register processors;
+workspace and code editors publish their definitions into the same catalog.
+P8 remains the codec capability checklist.
 
 ## FLOW-4: Workspace Lineflow editor
 
@@ -190,6 +196,7 @@ Rx/Tx and different terminals must remain independent even when sharing a block.
 Codeflow can be selected on Rx/Tx or used inside Lineflow through the common
 Processor contract. It does not add ControlFlow nodes to the Lineflow editor.
 
-Recommended processing order is FLOW-2 through FLOW-6. FLOW-3 can proceed alongside
-FLOW-2; FLOW-4 can begin once the catalog and workspace editing contracts are stable.
+Recommended processing order is FLOW-3, FLOW-2, FLOW-4, FLOW-5 and FLOW-6.
+FLOW-2 can proceed alongside the catalog work; editors depend on its definition
+registration and update contracts. Python execution remains part of P7/FLOW-6.
 The earlier unrelated P5/P6 milestones do not block this processing sequence.

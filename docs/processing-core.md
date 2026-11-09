@@ -215,22 +215,48 @@ available for the existing confinement fixtures. No processing test was skipped.
 All changed C++ files were clang-formatted; local documentation file links and
 `git diff --check` passed.
 
+## Planned unified catalog
+
+The registration contract covers elementary native processors and reusable
+composite definitions alike. Saving a validated Python processor or Lineflow block
+publishes an entry into the same catalog used by Rx/Tx selectors and composition
+editors. Opening a workspace restores its saved entries. A dedicated processor
+plugin is not required: any plugin can provide types, while workspace and code
+editors provide saved definitions.
+
+Each entry exposes a stable identifier, display name, defaults, configuration
+schema, editor metadata and an instance factory. Origin and composition kind are
+metadata; callers instantiate the common Processor contract without switching on
+native, Lineflow or Codeflow kinds. Registration publishes a definition and does
+not execute user code or start a processor. Each use creates independent runtime
+state with its own resolved configuration and lifecycle.
+
+Nested compositions resolve catalog references with cycle checks. Definition
+updates notify consumers but do not mutate running instances; application uses
+explicit preparation and safe runtime replacement. Removing a definition or
+closing its provider preserves references as unavailable and respects active
+instance leases and cancellation. Invalid editor drafts are not published.
+
+This unified publication and notification contract is planned work. The delivered
+native type registry and workspace block storage are still separate APIs.
+
 ## Follow-up delivery order
 
-The single implementation checklist is in [the roadmap](roadmap.md#flow-2-terminal-processing-lifecycle-and-routing).
-The next steps are terminal lifecycle/routing, a production native processor plugin,
-workspace editing, compact terminal selectors/private properties and Codeflow.
+The single implementation checklist is in [the roadmap](roadmap.md#flow-3-unified-processor-registration).
+The next steps are unified registration, terminal lifecycle/routing, workspace
+editing, compact terminal selectors/private properties and Codeflow.
 Routing requires an explicit receive backpressure and outgoing-kind contract;
 the current core alone does not establish transport integration.
 
 ```mermaid
 flowchart LR
-    Core[Delivered Processor core] --> Routing[FLOW-2: Rx/Tx lifecycle and routing]
-    Core --> Native[FLOW-3: Native processor plugin]
-    Core --> Editor[FLOW-4: Workspace Lineflow editor]
-    Routing --> Binding[FLOW-5: Terminal selectors and properties]
-    Native --> Binding
+    Core[Delivered Processor core] --> Catalog[FLOW-3: Unified registration]
+    Core --> Routing[FLOW-2: Rx/Tx lifecycle and routing]
+    Catalog --> Editor[FLOW-4: Workspace Lineflow editor]
+    Catalog --> Binding[FLOW-5: Terminal selectors and properties]
+    Routing --> Binding
     Editor --> Binding
     Binding --> Codeflow[FLOW-6: Codeflow]
     Python[P7: Python runtime] --> Codeflow
+    Catalog --> Codeflow
 ```
