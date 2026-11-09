@@ -229,9 +229,9 @@ No serial hardware was enumerated or opened. Release was not rebuilt.
 Overlay-backed fields are immediately editable, including inherited required values.
 Editing establishes a local override. A small reset button to the right removes
 only that override and displays the inherited value or descriptor default; its
-tooltip shows the fallback. The reset button uses an original curved return-arrow
-SVG on an orange vertical rectangle with rounded corners,
-visible only for a local override; its space remains reserved to keep fields
+tooltip shows the fallback. The reset button uses a palette-aware return arrow
+on a compact orange button with a dark arrow, slightly shorter than the value control and vertically
+centered beside it. It is visible only for a local override; its space remains reserved to keep fields
 aligned when editing or resetting. Inherited and local values use the same text
 color. Required values without any fallback cannot be reset.
 An explicit equal value remains an override. Validation checks the effective
@@ -246,8 +246,9 @@ application checks passed at scale factors 1 and 2. Tests cover reset visibility
 through edit/apply/reset and equal inherited/local text colors; the updated
 1280 by 800 reference is [Serial terminal settings](images/preferences/SerialTerminal.png).
 
-The curved reset symbol is a project-owned SVG bundled by Core. Its rendering is
-checked through the static resource link in SettingsFormTests. The updated symbol
+The previous orange reset-button presentation used a project-owned SVG. It has
+been replaced by the shared palette-aware icon family described in
+[command iconography](iconography.md). The earlier symbol
 passed the affected Debug tests and native application checks at scales 1 and 2;
 the reference capture above reflects the rounded-button variant.
 
@@ -331,3 +332,21 @@ placed on the same canvas. No real serial port was opened. Release was not rebui
 ![Adjacent reset buttons](images/preferences/CompactReset.png)
 
 ![Terminal-only settings](images/preferences/ScopedTerminalSettings.png)
+
+## Numeric controls
+
+Numeric fields use spinboxes unless an enum dropdown or a custom editor is
+selected. Integer ranges fitting int use QSpinBox; wider exact integers use a
+zero-decimal QDoubleSpinBox. Number fields use a precision-preserving
+QDoubleSpinBox with C-locale numeric/scientific text. Inclusive and exclusive
+schema bounds constrain stepping; schema validation remains authoritative.
+Loaded values retain their original QVariant and text until edited, including
+invalid inherited values. Focus changes and confirmation alone must not clamp
+such a value or create an override. Arrow stepping and explicit edits create
+drafts; Apply remains atomic and rejects invalid values.
+
+The 2026-11-09 Qt 6.12.0 / MSVC Debug verification passed all 26 configured CTest
+suites, including numeric stepping, scientific notation, wide exact integers,
+untouched invalid-value focus/confirmation, direct and accessibility setters,
+enum precedence and reset alignment. Native reset/spinbox captures at scales
+1 and 2 were visually checked; see [command iconography](iconography.md#verification).

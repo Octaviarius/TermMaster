@@ -6,6 +6,8 @@ Application toolbars use icons, not text-only buttons. Every toolbar action must
 provide a meaningful icon and a tooltip. Icon-only presentation uses native Qt
 metrics for high-DPI scaling; the same QAction may also appear in a menu with its
 text. Workspace, session and plugin management remain accessible through menus.
+The shared [command iconography](iconography.md) defines bundled palette-aware
+icons and a 24-logical-pixel terminal toolbar.
 
 The toolbar exposes exactly two ordered extension groups:
 
