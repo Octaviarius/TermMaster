@@ -30,3 +30,12 @@ Use the supplied Qt Creator Preferences screenshot as the visual reference for
 the settings window. Add meaningful icons to the navigation tree while retaining
 the existing hierarchical category/page structure rather than a flat category
 list. Preserve settings search/filtering and the page area on the right.
+
+## Visible color samples in settings
+
+Status: requested; implementation deferred until an explicit start instruction.
+
+Color editors must show both the editable color code and a visible sample of the
+actual color at the same time. Keep the sample synchronized with valid manual
+code edits and color-dialog selection. Apply this to foreground/background and
+other settings using the shared color editor selected through x-widget.
