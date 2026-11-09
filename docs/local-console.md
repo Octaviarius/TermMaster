@@ -155,3 +155,15 @@ out before capture; the preview edits only a draft and never starts a shell or U
 Future process-pipe terminals and existing-process attachment options are recorded
 in [process terminal planning](process-terminal.md). Implementation remains planned
 and requires a separate start instruction.
+
+## Intermittent acceptance observation (2026-11-09)
+
+During the FLOW-8 names/flip full Debug suite, ConsoleElevationTests terminated
+with Windows heap-corruption status 0xc0000374 after reporting the received row of
+ownerReleaseInCallback as passed. The earlier full suite passed. One immediate
+isolated rerun and three subsequent isolated runs passed all ten cases without
+skips. The cause is not confirmed. The target does not link Core and its console
+implementation and test sources were unchanged in FLOW-8. Review identified a
+possible existing socket/event-dispatch lifetime hazard when a received callback
+releases the device owner, but no crash dump establishes that as the cause.
+No console source change is included with the processing/editor feature.
