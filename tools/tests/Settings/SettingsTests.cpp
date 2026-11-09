@@ -3,6 +3,8 @@
 #include <QtTest>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
+#include <cmath>
+#include <limits>
 #include <memory>
 #include <yaml-cpp/yaml.h>
 
@@ -96,6 +98,63 @@ private:
         QVERIFY(reloaded.remove("nested/integer", &error));
         QVERIFY(!reloaded.contains("nested/integer"));
         QVERIFY(reloaded.isDirty());
+    }
+
+    Q_SLOT void readableTypedYaml()
+    {
+        QTemporaryDir directory;
+        const auto    path = directory.filePath("readable.yaml");
+        QVERIFY(writeDocument(path,
+                              "settings: {ui: {toolbarVisible: true}}\n"
+                              "loaded: ['true', !!str 0012, !!float 1, 18446744073709551616]\n"));
+        Settings settings(path);
+        QString  error;
+        QVERIFY2(settings.load(&error), qPrintable(error));
+        const QString      escaped = QString::fromUtf8("Unicode: Привет ") + '\n' + '\"' + '\\' + QChar::Null;
+        const QVariantList values {QString("true"),
+                                   QString("false"),
+                                   QString("null"),
+                                   QString("0012"),
+                                   QString("1.0"),
+                                   QString("1e3"),
+                                   QString(""),
+                                   escaped,
+                                   true,
+                                   false,
+                                   QVariant::fromValue(std::numeric_limits<qlonglong>::min()),
+                                   QVariant::fromValue(std::numeric_limits<qulonglong>::max()),
+                                   1.0,
+                                   -0.0,
+                                   std::numeric_limits<double>::max(),
+                                   std::numeric_limits<double>::denorm_min(),
+                                   QVariantMap {},
+                                   QVariantList {},
+                                   QVariant {}};
+        QVERIFY2(settings.setValue("values", values, &error), qPrintable(error));
+        QVERIFY2(settings.sync(&error), qPrintable(error));
+        const auto bytes = readFile(path);
+        QVERIFY(!bytes.contains("tag:yaml.org,2002:str"));
+        QVERIFY(!bytes.contains("tag:yaml.org,2002:float"));
+        QVERIFY(bytes.contains("settings:\n    ui:\n      toolbarVisible: true"));
+        QVERIFY(bytes.contains("- 1.0"));
+        QVERIFY(bytes.contains("- -0.0"));
+        QVERIFY(bytes.contains("- 18446744073709551615"));
+        QVERIFY2(settings.load(&error), qPrintable(error));
+        const auto actual = settings.value("values").toList();
+        QCOMPARE(actual.size(), values.size());
+        for (qsizetype index = 0; index < values.size(); ++index)
+        {
+            QCOMPARE(actual[index].metaType(), values[index].metaType());
+            QCOMPARE(actual[index], values[index]);
+        }
+        QVERIFY(std::signbit(actual[13].toDouble()));
+        const auto loaded = settings.value("loaded").toList();
+        QCOMPARE(loaded[0].metaType(), QMetaType::fromType<QString>());
+        QCOMPARE(loaded[1].toString(), QString("0012"));
+        QCOMPARE(loaded[2].metaType(), QMetaType::fromType<double>());
+        QCOMPARE(loaded[2].toDouble(), 1.0);
+        QCOMPARE(loaded[3].toString(), QString("18446744073709551616"));
+        QVERIFY(settings.value("settings/ui/toolbarVisible").toBool());
     }
 
     Q_SLOT void documentMetadata()
