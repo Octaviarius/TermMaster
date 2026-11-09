@@ -156,6 +156,29 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     auto* remove = tool(operations, "trash", tr("Remove selected operation"), "removeOperation");
     auto* up     = tool(operations, "chevron-up", tr("Move operation up"), "moveUp");
     auto* down   = tool(operations, "chevron-down", tr("Move operation down"), "moveDown");
+    auto* flip   = tool(operations, "rotate-cw", tr("Flip selected duplex operation"), "flipOperation");
+    flip->setCheckable(true);
+    connect(flip, &QAction::triggered, this, [this](bool checked) {
+        const auto index = _tree->currentIndex();
+        if (!index.isValid() || index.data(LineflowEditorModel::LinkedRole).toBool()
+            || index.data(LineflowEditorModel::InputCountRole).toInt() != 2
+            || index.data(LineflowEditorModel::OutputCountRole).toInt() != 2)
+        {
+            return;
+        }
+        _select();
+        const int row = index.row();
+        QString   error;
+        if (_model->setNodeFlipped(index.data(LineflowEditorModel::BlockRole).toString(),
+                                   index.data(LineflowEditorModel::NodeRole).toString(),
+                                   checked,
+                                   &error))
+        {
+            _tree->setCurrentIndex(_model->index(row, 0));
+        }
+        _message(error);
+        _refreshActions();
+    });
     centerLayout->addWidget(operations);
     _tree = new LineflowCanvas(*_model, center);
     centerLayout->addWidget(_tree, 1);
@@ -858,6 +881,14 @@ void LineflowEditorDialog::_refreshActions()
     enable("addOperation",
            block && _catalog->currentItem() && !_catalog->currentItem()->data(0, Qt::UserRole).toString().isEmpty());
     enable("removeOperation", editable);
+    const bool duplex = editable && index.data(LineflowEditorModel::InputCountRole).toInt() == 2
+                     && index.data(LineflowEditorModel::OutputCountRole).toInt() == 2;
+    enable("flipOperation", duplex);
+    if (auto* flip = findChild<QAction*>("flipOperation"))
+    {
+        const QSignalBlocker blocker(flip);
+        flip->setChecked(duplex && index.data(LineflowEditorModel::FlippedRole).toBool());
+    }
     enable("moveUp", editable && index.row() > 0);
     enable("moveDown", editable && index.row() + 1 < _model->rowCount());
 }

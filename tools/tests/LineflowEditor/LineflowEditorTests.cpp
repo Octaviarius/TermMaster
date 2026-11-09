@@ -101,8 +101,10 @@ void registerDuplex(ProcessorRegistry& registry)
     duplex.title          = "Shared protocol";
     duplex.inputCount     = 2;
     duplex.outputCount    = 2;
+    duplex.inputNames     = {"Device RX", "Terminal TX"};
+    duplex.outputNames    = {"Terminal RX", "Device TX"};
     duplex.settingsSchema = QByteArray(
-        "version: 1\ntype: termaster.settings-schema\ndescription: Duplex fixture\ncontent:\n  type: object\n  properties: {}\n");
+        "version: 1\ntype: termaster.settings-schema\ndescription: Duplex fixture\ncontent:\n  type: object\n  properties:\n    prefix:\n      type: string\n      title: Prefix\n      default: empty\n      x-widget: stringLineEdit\n");
     duplex.create = [](const auto&, const auto&, QString*) -> std::unique_ptr<Processor> {
         qFatal("Editor must not instantiate duplex processors");
         return {};
@@ -874,6 +876,210 @@ private slots:
         QVERIFY(!canvas->dropIndicatorVisible());
     }
 
+    void namedPortsDirectionsFlipAndNestedMetadata()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        registerDuplex(registry);
+        LineflowEditorDialog dialog({}, registry, widgets, LineflowEditorDialog::Apply {});
+        const auto           block  = dialog.model().createBlock("Paired", 2);
+        const auto           rx     = dialog.model().insertNodeAt(block, 0, "native.gate", "rx");
+        const auto           duplex = dialog.model().insertNodeAt(block, 1, "fixture.duplex", "duplex");
+        const auto           tx     = dialog.model().insertNodeAt(block, 2, "native.gate", "tx");
+        QVERIFY(!rx.isEmpty() && !duplex.isEmpty() && !tx.isEmpty());
+        dialog.setFixedSize(1100, 760);
+        dialog.show();
+        auto*      canvas  = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        const auto rxPorts = canvas->ports(dialog.model().index(0, 0));
+        QCOMPARE(rxPorts.size(), 2);
+        QVERIFY(rxPorts[0].top && rxPorts[0].input);
+        QVERIFY(!rxPorts[1].top && !rxPorts[1].input);
+        const auto txPorts = canvas->ports(dialog.model().index(2, 0));
+        QCOMPARE(txPorts.size(), 2);
+        for (int row = 0; row < dialog.model().rowCount(); ++row)
+        {
+            const auto card         = canvas->visualRect(dialog.model().index(row, 0));
+            const auto portGeometry = canvas->ports(dialog.model().index(row, 0));
+            for (const auto& port : portGeometry)
+            {
+                QVERIFY(card.contains(port.label));
+                QVERIFY(!card.intersects(port.marker));
+                QVERIFY(port.marker.left() <= port.point.x() && port.marker.right() >= port.point.x());
+                if (port.top)
+                {
+                    QCOMPARE(port.marker.bottom(), card.top() - 3);
+                }
+                else
+                {
+                    QCOMPARE(port.marker.top(), card.bottom() + 3);
+                }
+                QCOMPARE(port.point.y(), port.top ? card.top() : card.bottom());
+                QVERIFY(!port.label.contains(port.point));
+            }
+            for (int left = 0; left < portGeometry.size(); ++left)
+            {
+                for (int right = left + 1; right < portGeometry.size(); ++right)
+                {
+                    QVERIFY(!portGeometry[left].label.intersects(portGeometry[right].label));
+                }
+            }
+        }
+        QVERIFY(txPorts[0].top && !txPorts[0].input);
+        QVERIFY(!txPorts[1].top && txPorts[1].input);
+        const auto original = canvas->ports(dialog.model().index(1, 0));
+        QCOMPARE(original.size(), 4);
+        QCOMPARE(original[0].name, QString("Device RX"));
+        QCOMPARE(original[1].name, QString("Device TX"));
+        QCOMPARE(original[2].name, QString("Terminal RX"));
+        QCOMPARE(original[3].name, QString("Terminal TX"));
+        QVERIFY(original[0].input && original[0].top);
+        QVERIFY(!original[1].input && original[1].top);
+        QVERIFY(!original[2].input && !original[2].top);
+        QVERIFY(original[3].input && !original[3].top);
+        for (const auto& left : rxPorts)
+        {
+            for (const auto& right : original)
+            {
+                QVERIFY(!left.label.intersects(right.label));
+            }
+        }
+        const auto configuration = dialog.model().node(block, duplex).value("configuration");
+        QString    error;
+        QVERIFY2(dialog.model().setNodeFlipped(block, duplex, true, &error), qPrintable(error));
+        const auto flipped = canvas->ports(dialog.model().index(1, 0));
+        QCOMPARE(flipped[0].name, QString("Terminal TX"));
+        QCOMPARE(flipped[1].name, QString("Terminal RX"));
+        QCOMPARE(flipped[2].name, QString("Device TX"));
+        QCOMPARE(flipped[3].name, QString("Device RX"));
+        for (int port = 0; port < 4; ++port)
+        {
+            QCOMPARE(flipped[port].index, original[port].index ^ 1);
+            QCOMPARE(flipped[port].point, original[port].point);
+            QCOMPARE(flipped[port].input, original[port].input);
+        }
+        QCOMPARE(dialog.model().node(block, duplex).value("configuration"), configuration);
+        QCOMPARE(dialog.model().node(block, duplex).value("lane").toString(), QString("duplex"));
+        QVERIFY(dialog.model().index(1, 0).data(LineflowEditorModel::FlippedRole).toBool());
+        QVERIFY(!dialog.model().setNodeFlipped(block, rx, true, &error));
+        QVERIFY(!dialog.model().node(block, rx).contains("flipped"));
+        const auto nested = dialog.model().createBlock("Nested", 2);
+        QVERIFY(!dialog.model().insertNodeAt(nested, 0, block, "duplex").isEmpty());
+        QCOMPARE(dialog.model().index(0, 0).data(LineflowEditorModel::InputNamesRole).toStringList(),
+                 QStringList({"Device Rx", "Terminal Tx"}));
+        QCOMPARE(dialog.model().index(0, 0).data(LineflowEditorModel::OutputNamesRole).toStringList(),
+                 QStringList({"Terminal Rx", "Device Tx"}));
+        const auto preview = dialog.model().index(0, 0, dialog.model().index(0, 0));
+        QVERIFY(preview.data(LineflowEditorModel::LinkedRole).toBool());
+        QVERIFY(canvas->ports(preview).isEmpty());
+        auto customNames = dialog.model().definitions();
+        auto namedBlock  = customNames.value(block).toMap();
+        namedBlock.insert("inputNames", QStringList {"Wire", "User"});
+        namedBlock.insert("outputNames", QStringList {"Screen", "Cable"});
+        customNames.insert(block, namedBlock);
+        LineflowEditorModel customModel(customNames, registry);
+        customModel.setSelectedBlock(nested);
+        QCOMPARE(customModel.index(0, 0).data(LineflowEditorModel::InputNamesRole).toStringList(),
+                 QStringList({"Wire", "User"}));
+        QCOMPARE(customModel.index(0, 0).data(LineflowEditorModel::OutputNamesRole).toStringList(),
+                 QStringList({"Screen", "Cable"}));
+        QVERIFY2(customModel.validate(&error), qPrintable(error));
+        auto invalid = dialog.model().definitions();
+        auto root    = invalid.value(block).toMap();
+        auto source  = root.value("source").toMap();
+        auto nodes   = source.value("nodes").toList();
+        auto entry   = nodes[0].toMap();
+        entry.insert("flipped", true);
+        nodes[0] = entry;
+        source.insert("nodes", nodes);
+        root.insert("source", source);
+        invalid.insert(block, root);
+        LineflowEditorModel invalidModel(invalid, registry);
+        QVERIFY(!invalidModel.validate(&error));
+    }
+
+    void duplexPortLabelsStayInsideNarrowBlocksAtLargeFonts()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        registerDuplex(registry);
+        LineflowEditorDialog dialog({}, registry, widgets, LineflowEditorDialog::Apply {});
+        const auto           block = dialog.model().createBlock("Narrow paired flow", 2);
+        QVERIFY(!dialog.model().insertNodeAt(block, 0, "fixture.duplex", "duplex").isEmpty());
+        dialog.show();
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        canvas->setFixedWidth(300);
+        QTRY_VERIFY(canvas->viewport()->width() <= 300);
+        for (int scale = 1; scale <= 2; ++scale)
+        {
+            const auto index = dialog.model().index(0, 0);
+            const auto card  = canvas->visualRect(index);
+            const auto ports = canvas->ports(index);
+            QCOMPARE(ports.size(), 4);
+            for (const auto& port : ports)
+            {
+                QVERIFY(card.adjusted(6, 6, -6, -6).contains(port.label));
+                QVERIFY(!card.intersects(port.marker));
+                QVERIFY(!port.name.isEmpty());
+            }
+            if (scale == 1)
+            {
+                auto font = canvas->font();
+                font.setPointSizeF(font.pointSizeF() * 2);
+                canvas->setFont(font);
+            }
+        }
+    }
+
+    void flipActionKeepsOrientationAndSchemaDraftAfterApplyFailure()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        registerDuplex(registry);
+        LineflowEditorDialog dialog({}, registry, widgets, [](const auto&, const auto&, const auto&, QString* error) {
+            if (error)
+            {
+                *error = "Synthetic persistence failure";
+            }
+            return false;
+        });
+        const auto           block = dialog.model().createBlock("Paired", 2);
+        const auto           name  = dialog.model().insertNodeAt(block, 0, "fixture.duplex", "duplex");
+        const auto           unary = dialog.model().insertNodeAt(block, 1, "native.gate", "rx");
+        QVERIFY(!name.isEmpty() && !unary.isEmpty());
+        dialog.show();
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        canvas->setCurrentIndex(dialog.model().index(0, 0));
+        auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(form && form->editor("prefix"));
+        auto* edit = form->editor("prefix")->findChild<QLineEdit*>();
+        QVERIFY(edit);
+        edit->setText("pending-prefix");
+        auto* flip = dialog.findChild<QAction*>("flipOperation");
+        QVERIFY(flip && flip->isEnabled());
+        flip->trigger();
+        QVERIFY(flip->isChecked());
+        QVERIFY(dialog.model().node(block, name).value("flipped").toBool());
+        form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(form);
+        QCOMPARE(form->editor("prefix")->value().toString(), QString("pending-prefix"));
+        QString error;
+        QVERIFY(!dialog.applyDraft(&error));
+        QCOMPARE(error, QString("Synthetic persistence failure"));
+        QVERIFY(flip->isChecked());
+        QCOMPARE(dialog.model().node(block, name).value("configuration").toMap().value("prefix").toString(),
+                 QString("pending-prefix"));
+        canvas->setCurrentIndex(dialog.model().index(1, 0));
+        QVERIFY(!flip->isEnabled());
+        canvas->setCurrentIndex(dialog.model().index(0, 0));
+        QVERIFY(flip->isChecked());
+        flip->trigger();
+        QVERIFY(!flip->isChecked());
+        QVERIFY(!dialog.model().node(block, name).value("flipped").toBool());
+    }
+
     void unselectedCanvasCardsMaskWiresWithTransparentStyleColors()
     {
         const auto   previous = QApplication::palette();
@@ -900,7 +1106,7 @@ private slots:
         const auto   pixmap = canvas->viewport()->grab();
         const auto   image  = pixmap.toImage();
         const qreal  scale  = pixmap.devicePixelRatioF();
-        const QPoint sample(qRound(rect.center().x() * scale), qRound((rect.bottom() - 8) * scale));
+        const QPoint sample(qRound(rect.center().x() * scale), qRound(rect.center().y() * scale));
         QCOMPARE(image.pixelColor(sample), cardColor);
     }
 
@@ -939,7 +1145,9 @@ private slots:
             const auto  image  = pixmap.toImage();
             const qreal scale  = pixmap.devicePixelRatioF();
             const QRect iconRect(qRound((rect.left() + 10) * scale),
-                                 qRound((rect.top() + 12) * scale),
+                                 qRound((rect.top() + canvas->fontMetrics().height() + 16
+                                         + (canvas->fontMetrics().height() + 4 - 18) / 2)
+                                        * scale),
                                  qRound(18 * scale),
                                  qRound(18 * scale));
             int         lightPixels = 0;
@@ -960,7 +1168,7 @@ private slots:
         auto       font  = canvas->font();
         font.setPointSizeF(font.pointSizeF() * 2);
         canvas->setFont(font);
-        QTRY_VERIFY(canvas->visualRect(index).height() >= 2 * canvas->fontMetrics().height() + 24);
+        QTRY_VERIFY(canvas->visualRect(index).height() >= 4 * canvas->fontMetrics().height() + 44);
         QVERIFY(canvas->visualRect(index).height() > initialHeight);
     }
 
@@ -1054,9 +1262,28 @@ private slots:
         tree->setCurrentIndex(dialog.model().index(2, 0));
         QTest::qWait(100);
         QVERIFY(!tree->dropIndicatorVisible());
+        for (int row = 0; row < dialog.model().rowCount(); ++row)
+        {
+            const auto index = dialog.model().index(row, 0);
+            const auto card  = tree->visualRect(index);
+            for (const auto& port : tree->ports(index))
+            {
+                QVERIFY(card.adjusted(6, 6, -6, -6).contains(port.label));
+                QVERIFY(!card.intersects(port.marker));
+            }
+        }
         const auto pairedPath = QDir(destination)
                                     .filePath(dialog.devicePixelRatioF() > 1.5 ? "Paired2x.png" : "Paired.png");
         QVERIFY(dialog.grab().save(pairedPath));
+        const auto duplexName = dialog.model().index(1, 0).data(LineflowEditorModel::NodeRole).toString();
+        QVERIFY(dialog.model().setNodeFlipped(paired, duplexName, true));
+        tree->setCurrentIndex(dialog.model().index(1, 0));
+        QTest::qWait(100);
+        auto* flip = dialog.findChild<QAction*>("flipOperation");
+        QVERIFY(flip && flip->isChecked());
+        const auto flippedPath = QDir(destination)
+                                     .filePath(dialog.devicePixelRatioF() > 1.5 ? "Flipped2x.png" : "Flipped.png");
+        QVERIFY(dialog.grab().save(flippedPath));
         QMimeData drag;
         drag.setData("application/x-termaster-processor", "native.gate");
         const QPoint position(tree->viewport()->width() / 4, tree->visualRect(dialog.model().index(1, 0)).top() - 12);

@@ -20,6 +20,9 @@ public:
         LaneRole,
         InputCountRole,
         OutputCountRole,
+        InputNamesRole,
+        OutputNamesRole,
+        FlippedRole,
         UnavailableRole
     };
     LineflowEditorModel(QVariantMap definitions, ProcessorRegistry& registry, QObject* parent = nullptr);
@@ -55,6 +58,7 @@ public:
     bool            removeBlock(const QString& id, QString* error = nullptr);
     bool            renameBlock(const QString& id, const QString& name, QString* error = nullptr);
     QString         insertNode(const QString& block, int row, const QString& catalogId, QString* error = nullptr);
+    bool            setNodeFlipped(const QString& block, const QString& name, bool flipped, QString* error = nullptr);
     bool            removeNode(const QString& block, const QString& name, QString* error = nullptr);
     bool            renameNode(const QString& block, const QString& from, const QString& to, QString* error = nullptr);
     bool            moveNode(const QString& block, int from, int to, QString* error = nullptr);
@@ -98,6 +102,7 @@ private:
                                                      int                row,
                                                      const QString&     lane,
                                                      const QStringList& order) const;
-    void _append(QStandardItem* parent, const QString& block, bool linked, QSet<QString> path, int depth);
-    int  _nodeIndex(const QString& block, const QString& name) const;
+    void        _append(QStandardItem* parent, const QString& block, bool linked, QSet<QString> path, int depth);
+    QStringList _portNames(const QString& id, bool input) const;
+    int         _nodeIndex(const QString& block, const QString& name) const;
 };

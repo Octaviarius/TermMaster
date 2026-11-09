@@ -121,6 +121,34 @@ QPair<int, int> LineflowEditorModel::processorShape(const QString& id) const
     return metadata ? QPair<int, int> {metadata->inputCount, metadata->outputCount} : QPair<int, int> {1, 1};
 }
 
+QStringList LineflowEditorModel::_portNames(const QString& id, bool input) const
+{
+    const auto definition = _draft.value(id).toMap();
+    const bool local      = definition.value("kind") == "lineflow";
+    const auto metadata   = _registry.type(id);
+    const auto shape      = processorShape(id);
+    const int  count      = input ? shape.first : shape.second;
+    auto       names      = local    ? definition.value(input ? "inputNames" : "outputNames").toStringList() :
+                            metadata ? (input ? metadata->inputNames : metadata->outputNames) :
+                                       QStringList {};
+    if (names.size() == count)
+    {
+        return names;
+    }
+    if (local)
+    {
+        return count == 2 ?
+                   (input ? QStringList {"Device Rx", "Terminal Tx"} : QStringList {"Terminal Rx", "Device Tx"}) :
+                   QStringList {input ? "Input" : "Output"};
+    }
+    names.clear();
+    for (int port = 0; port < count; ++port)
+    {
+        names.append(QString(input ? "Input%1" : "Output%1").arg(port + 1));
+    }
+    return names;
+}
+
 bool LineflowEditorModel::setBlockChannels(const QString& id, int channels, QString* error)
 {
     if (!blockIds().contains(id) || (channels != 1 && channels != 2))
@@ -531,6 +559,32 @@ bool LineflowEditorModel::dropAt(const QMimeData* data, int row, const QString& 
     return true;
 }
 
+bool LineflowEditorModel::setNodeFlipped(const QString& block, const QString& name, bool flipped, QString* error)
+{
+    const int index = _nodeIndex(block, name);
+    if (index < 0)
+    {
+        return fail(error, tr("Operation no longer exists."));
+    }
+    auto       list   = nodes(_draft, block);
+    auto       entry  = list[index].toMap();
+    const auto target = entry.value(entry.contains("reference") ? "reference" : "type").toString();
+    const auto shape  = processorShape(target);
+    if (shape.first != 2 || shape.second != 2 || entry.value("lane", "rx") != "duplex")
+    {
+        return fail(error, tr("Only a duplex operation can be flipped."));
+    }
+    if (entry.value("flipped", false).toBool() == flipped)
+    {
+        return true;
+    }
+    entry.insert("flipped", flipped);
+    list[index] = entry;
+    auto draft  = _draft;
+    putNodes(draft, block, list);
+    return _commit(draft, error);
+}
+
 bool LineflowEditorModel::removeNode(const QString& block, const QString& name, QString* error)
 {
     const int index = _nodeIndex(block, name);
@@ -709,6 +763,9 @@ void LineflowEditorModel::_append(QStandardItem* parent,
             column->setData(node.value("lane", "rx"), LaneRole);
             column->setData(shape.first, InputCountRole);
             column->setData(shape.second, OutputCountRole);
+            column->setData(_portNames(target, true), InputNamesRole);
+            column->setData(_portNames(target, false), OutputNamesRole);
+            column->setData(node.value("flipped", false), FlippedRole);
             column->setData(block, BlockRole);
             column->setData(node.value("name"), NodeRole);
             column->setData(target, CatalogIdRole);

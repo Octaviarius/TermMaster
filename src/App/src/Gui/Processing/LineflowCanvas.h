@@ -9,10 +9,21 @@ class LineflowCanvas final : public QAbstractItemView
 {
     Q_OBJECT
 public:
+    struct Port
+    {
+        QString name;
+        int     index = 0;
+        bool    input = false;
+        bool    top   = false;
+        QPoint  point;
+        QRect   marker;
+        QRect   label;
+    };
     explicit LineflowCanvas(LineflowEditorModel& model, QWidget* parent = nullptr);
     QRect       visualRect(const QModelIndex& index) const override;
     void        scrollTo(const QModelIndex& index, ScrollHint hint = EnsureVisible) override;
     QModelIndex indexAt(const QPoint& point) const override;
+    QList<Port> ports(const QModelIndex& index) const;
     bool        dropIndicatorVisible() const;
     void        expandAll();
 
@@ -46,6 +57,8 @@ private:
     QString              _dropLane;
     QStringList          _dropOrder;
     int                  _dropY = 0;
+    QList<Port>          _ports(const QModelIndex& index, const QRect& rect) const;
+    int                  _stageGap() const;
     int                  _contentWidth() const;
     QList<Item>          _items() const;
     void                 _appendLinked(QList<Item>& items, const QModelIndex& parent, const QRect& card, int& y) const;

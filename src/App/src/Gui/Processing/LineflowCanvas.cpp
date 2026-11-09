@@ -84,6 +84,11 @@ QModelIndex LineflowCanvas::indexAt(const QPoint& point) const
     return {};
 }
 
+QList<LineflowCanvas::Port> LineflowCanvas::ports(const QModelIndex& index) const
+{
+    return _ports(index, visualRect(index));
+}
+
 bool LineflowCanvas::dropIndicatorVisible() const
 {
     return _dropRow >= 0;
@@ -175,7 +180,7 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
     int        bottom = 100;
     for (const auto& item : items)
     {
-        bottom = qMax(bottom, item.rect.bottom() + 44);
+        bottom = qMax(bottom, item.rect.bottom() + qMax(44, fontMetrics().height() + 32));
     }
     const int  left  = paired ? _contentWidth() / 4 : _contentWidth() / 2;
     const int  right = _contentWidth() * 3 / 4;
@@ -208,7 +213,8 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
     }
     for (const auto& item : items)
     {
-        if (!item.rect.intersects(QRect(0, verticalOffset(), viewport()->width(), viewport()->height())))
+        if (!item.rect.adjusted(0, -_stageGap(), 0, _stageGap())
+                 .intersects(QRect(0, verticalOffset(), viewport()->width(), viewport()->height())))
         {
             continue;
         }
@@ -225,17 +231,19 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
         painter.drawRoundedRect(item.rect.adjusted(0, 0, -1, -1), 4, 4);
         const auto foreground = selected ? palette().color(QPalette::HighlightedText) : palette().color(QPalette::Text);
         painter.setPen(foreground);
-        const auto icon = qvariant_cast<QIcon>(item.index.data(Qt::DecorationRole));
+        const int  titleHeight = fontMetrics().height() + 4;
+        const int  contentTop  = item.rect.top() + (linked ? 8 : fontMetrics().height() + 16);
+        const auto icon        = qvariant_cast<QIcon>(item.index.data(Qt::DecorationRole));
         icon.paint(&painter,
-                   QRect(item.rect.left() + 10, item.rect.top() + 12, 18, 18),
+                   QRect(item.rect.left() + 10, contentTop + (titleHeight - 18) / 2, 18, 18),
                    Qt::AlignCenter,
                    selected ? QIcon::Selected : QIcon::Normal);
-        const int titleWidth = qMax(20, item.rect.width() - 48);
-        auto      font       = painter.font();
+        const bool flipped    = item.index.data(LineflowEditorModel::FlippedRole).toBool();
+        const int  titleWidth = qMax(20, item.rect.width() - (flipped && !linked ? 70 : 48));
+        auto       font       = painter.font();
         font.setBold(!linked);
         painter.setFont(font);
-        const int  titleHeight = fontMetrics().height() + 4;
-        const auto titleRect   = QRect(item.rect.left() + 36, item.rect.top() + 8, titleWidth, titleHeight);
+        const auto titleRect = QRect(item.rect.left() + 36, contentTop, titleWidth, titleHeight);
         painter.drawText(titleRect,
                          Qt::AlignVCenter,
                          QFontMetrics(font).elidedText(item.index.data().toString(), Qt::ElideMiddle, titleWidth));
@@ -244,22 +252,33 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
             font.setBold(false);
             painter.setFont(font);
             painter.drawText(QRect(item.rect.left() + 12,
-                                   item.rect.top() + 12 + titleHeight,
+                                   contentTop + 4 + titleHeight,
                                    item.rect.width() - 24,
                                    fontMetrics().height() + 4),
                              Qt::AlignVCenter,
                              fontMetrics().elidedText(item.index.siblingAtColumn(1).data().toString(),
                                                       Qt::ElideRight,
                                                       item.rect.width() - 24));
-            const auto lane  = item.index.data(LineflowEditorModel::LaneRole).toString();
-            const int  ports = lane == "duplex" ? 2 : 1;
-            painter.setBrush(background);
-            painter.setPen(QPen(foreground, 1));
-            for (int port = 0; port < ports; ++port)
+            if (flipped)
             {
-                const int x = ports == 2 ? (port == 0 ? left : right) : item.rect.center().x();
-                painter.drawEllipse(QPoint(x, item.rect.top()), 3, 3);
-                painter.drawEllipse(QPoint(x, item.rect.bottom()), 3, 3);
+                Icons::icon("rotate-cw")
+                    .paint(&painter,
+                           QRect(item.rect.right() - 25, contentTop + (titleHeight - 16) / 2, 16, 16),
+                           Qt::AlignCenter,
+                           selected ? QIcon::Selected : QIcon::Normal);
+            }
+            for (const auto& port : _ports(item.index, item.rect))
+            {
+                const int direction = (port.top ? port.input : !port.input) ? 1 : -1;
+                const int markerY   = port.marker.center().y();
+                painter.setPen(QPen(palette().color(QPalette::Text), 1.5));
+                painter.drawLine(port.point.x() - 4, markerY - direction * 3, port.point.x(), markerY + direction * 3);
+                painter.drawLine(port.point.x(), markerY + direction * 3, port.point.x() + 4, markerY - direction * 3);
+                painter.setPen(foreground);
+                painter.setFont(this->font());
+                painter.drawText(port.label,
+                                 Qt::AlignCenter,
+                                 fontMetrics().elidedText(port.name, Qt::ElideMiddle, port.label.width()));
             }
         }
     }
@@ -402,16 +421,101 @@ bool LineflowCanvas::viewportEvent(QEvent* event)
     }
     if (event->type() == QEvent::ToolTip)
     {
-        auto*         help  = static_cast<QHelpEvent*>(event);
-        const auto    index = indexAt(help->pos());
-        const QString text
+        auto* help = static_cast<QHelpEvent*>(event);
+        for (const auto& item : _items())
+        {
+            for (const auto& port : _ports(item.index, item.rect.translated(0, -verticalOffset())))
+            {
+                if (port.label.contains(help->pos())
+                    || QRect(port.point - QPoint(9, 9), QSize(19, 19)).contains(help->pos()))
+                {
+                    QToolTip::showText(help->globalPos(),
+                                       tr("%1 %2: %3")
+                                           .arg(port.input ? tr("Input") : tr("Output"))
+                                           .arg(port.index + 1)
+                                           .arg(port.name),
+                                       this);
+                    return true;
+                }
+            }
+        }
+        const auto index = indexAt(help->pos());
+        QString    text
             = index.isValid() ?
                   index.data(Qt::ToolTipRole).toString() :
                   tr("Device at top; terminal at bottom. Rx flows down the left lane; Tx flows up the right lane.");
+        if (index.isValid())
+        {
+            const auto inputs  = index.data(LineflowEditorModel::InputNamesRole).toStringList();
+            const auto outputs = index.data(LineflowEditorModel::OutputNamesRole).toStringList();
+            for (int port = 0; port < inputs.size(); ++port)
+            {
+                text += tr("\nInput %1: %2").arg(port + 1).arg(inputs[port]);
+            }
+            for (int port = 0; port < outputs.size(); ++port)
+            {
+                text += tr("\nOutput %1: %2").arg(port + 1).arg(outputs[port]);
+            }
+            if (index.data(LineflowEditorModel::FlippedRole).toBool())
+            {
+                text += tr("\nDuplex port orientation is flipped.");
+            }
+        }
         QToolTip::showText(help->globalPos(), text, this);
         return true;
     }
     return QAbstractItemView::viewportEvent(event);
+}
+
+QList<LineflowCanvas::Port> LineflowCanvas::_ports(const QModelIndex& index, const QRect& rect) const
+{
+    if (!index.isValid() || !rect.isValid() || index.data(LineflowEditorModel::LinkedRole).toBool())
+    {
+        return {};
+    }
+    const auto  inputs  = index.data(LineflowEditorModel::InputNamesRole).toStringList();
+    const auto  outputs = index.data(LineflowEditorModel::OutputNamesRole).toStringList();
+    const auto  lane    = index.data(LineflowEditorModel::LaneRole).toString();
+    const bool  duplex  = index.data(LineflowEditorModel::InputCountRole).toInt() == 2
+                       && index.data(LineflowEditorModel::OutputCountRole).toInt() == 2;
+    const bool  flipped = duplex && index.data(LineflowEditorModel::FlippedRole).toBool();
+    QList<Port> result;
+    const auto  add = [&](bool input, bool top, int logical, int x, int width) {
+        const int     physical = flipped ? logical ^ 1 : logical;
+        const auto    names    = input ? inputs : outputs;
+        const QString name     = names.value(physical, QString(input ? "Input%1" : "Output%1").arg(physical + 1));
+        const QPoint  point(x, top ? rect.top() : rect.bottom());
+        const int     height     = fontMetrics().height() + 2;
+        const int     halfWidth  = qMin(x - rect.left() - 6, rect.right() - 6 - x);
+        const int     labelWidth = qMax(1, qMin(width, 2 * halfWidth));
+        const QRect   label(x - labelWidth / 2, top ? rect.top() + 6 : rect.bottom() - height - 6, labelWidth, height);
+        const int     markerY = point.y() + (top ? -6 : 6);
+        const QRect   marker(point.x() - 4, markerY - 3, 9, 7);
+        result.append({name, physical, input, top, point, marker, label});
+    };
+    if (duplex)
+    {
+        const int left  = _contentWidth() / 4;
+        const int right = _contentWidth() * 3 / 4;
+        const int width = qMax(24, rect.width() / 2 - 20);
+        add(true, true, 0, left, width);
+        add(false, true, 1, right, width);
+        add(false, false, 0, left, width);
+        add(true, false, 1, right, width);
+    }
+    else
+    {
+        const bool tx    = lane == "tx";
+        const int  width = qMax(24, rect.width() - 12);
+        add(!tx, true, 0, rect.center().x(), width);
+        add(tx, false, 0, rect.center().x(), width);
+    }
+    return result;
+}
+
+int LineflowCanvas::_stageGap() const
+{
+    return qMax(28, fontMetrics().height() + 10);
 }
 
 int LineflowCanvas::_contentWidth() const
@@ -446,7 +550,7 @@ QList<LineflowCanvas::Item> LineflowCanvas::_items() const
     QList<Item> result;
     const bool  paired = _draft.blockChannels(_draft.selectedBlock()) == 2;
     int         yRx    = 74;
-    int         yTx    = 74;
+    int         yTx    = yRx;
     for (int row = 0; row < _draft.rowCount(); ++row)
     {
         const auto index        = _draft.index(row, 0);
@@ -454,20 +558,20 @@ QList<LineflowCanvas::Item> LineflowCanvas::_items() const
         const bool duplex       = paired && lane == "duplex";
         const bool tx           = paired && lane == "tx";
         const int  y            = duplex ? qMax(yRx, yTx) : tx ? yTx : yRx;
-        const int  cardHeight   = qMax(64, fontMetrics().height() * 2 + 24);
+        const int  cardHeight   = qMax(104, fontMetrics().height() * 4 + 44);
         const int  linkedHeight = qMax(38, fontMetrics().height() + 16);
         const int  height       = cardHeight + _linkedCount(index) * (linkedHeight + 4);
         const auto rect         = _laneRect(lane, y, height);
         result.append({index, rect});
-        int childY = y + cardHeight;
+        int childY = y + cardHeight - fontMetrics().height() - 14;
         _appendLinked(result, index, rect, childY);
         if (duplex || !tx)
         {
-            yRx = y + height + 30;
+            yRx = y + height + _stageGap();
         }
         if (duplex || tx)
         {
-            yTx = y + height + 30;
+            yTx = y + height + _stageGap();
         }
     }
     return result;
@@ -532,14 +636,14 @@ int LineflowCanvas::_insertionY(int row, const QString& lane, const QStringList&
             items.insert(item.index.data(LineflowEditorModel::NodeRole).toString(), item);
         }
     }
-    int y = 60;
+    int y = 74 - _stageGap() / 2;
     for (int index = 0; index < row; ++index)
     {
         const auto item     = items.value(order[index]);
         const auto itemLane = item.index.data(LineflowEditorModel::LaneRole).toString();
         if (lane == "duplex" || itemLane == lane || itemLane == "duplex")
         {
-            y = qMax(y, item.rect.bottom() + 15);
+            y = qMax(y, item.rect.bottom() + _stageGap() / 2);
         }
     }
     return y;
