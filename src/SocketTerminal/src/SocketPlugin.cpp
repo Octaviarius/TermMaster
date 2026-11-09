@@ -120,30 +120,35 @@ Plugin::State SocketPlugin::state() const
 }
 void SocketPlugin::_registerActions()
 {
-    _actionsRegistered.reserve(6);
+    using Role = PluginHost::Action::Role;
+    _actionsRegistered.reserve(7);
     struct Description
     {
         QString id;
         QString title;
         QString group;
         QString icon;
+        Role    role;
     };
     const QList<Description> descriptions {
-        {       "Socket.New",   "New socket",     "create",            "network"},
-        {   "Socket.Connect",      "Connect", "connection",               "plug"},
-        {"Socket.Disconnect",   "Disconnect", "connection",             "unplug"},
-        {     "Socket.Close",        "Close", "management",                  "x"},
-        {     "Socket.Clear", "Clear screen",     "output",             "eraser"},
-        {  "Socket.Settings",  "Settings...",   "settings", "sliders-horizontal"}
+        {       "Socket.New",   "New socket",     "create",            "network",     Role::Create},
+        {   "Socket.Connect",      "Connect", "connection",               "play",    Role::Connect},
+        {"Socket.Disconnect",   "Disconnect", "connection",             "square", Role::Disconnect},
+        { "Socket.Reconnect",    "Reconnect", "connection",          "rotate-cw",    Role::Restart},
+        {     "Socket.Close",        "Close", "management",                  "x",      Role::Close},
+        {     "Socket.Clear", "Clear screen",     "output",             "eraser",      Role::Clear},
+        {  "Socket.Settings",  "Settings...",   "settings", "sliders-horizontal",   Role::Settings}
     };
     for (const auto& item : descriptions)
     {
         PluginHost::Action action;
-        action.id       = item.id;
-        action.title    = item.title;
-        action.group    = item.group;
-        action.iconName = item.icon;
-        action.visible  = [this, id = item.id] {
+        action.terminalType = "socket";
+        action.role         = item.role;
+        action.id           = item.id;
+        action.title        = item.title;
+        action.group        = item.group;
+        action.iconName     = item.icon;
+        action.visible      = [this, id = item.id] {
             return _host && (id == "Socket.New" ? true : _host->hasSelectedTerminal("socket"));
         };
         action.enabled = [this, id = item.id] {
@@ -165,6 +170,12 @@ void SocketPlugin::_registerActions()
                 return device && !_host->connectionRequested("socket")
                     && (device->state() == SerialDevice::State::Closed
                         || device->state() == SerialDevice::State::Failed);
+            }
+            if (id == "Socket.Reconnect")
+            {
+                return device && device->state() != SerialDevice::State::Closing
+                    && (_host->connectionRequested("socket") || device->state() == SerialDevice::State::Open
+                        || device->state() == SerialDevice::State::Opening);
             }
             if (id == "Socket.Disconnect")
             {
@@ -202,6 +213,13 @@ void SocketPlugin::_registerActions()
                          || device->state() == SerialDevice::State::Opening))
             {
                 _host->disconnectSelectedTerminal();
+            }
+            else if (id == "Socket.Reconnect" && device && device->state() != SerialDevice::State::Closing
+                     && (_host->connectionRequested("socket") || device->state() == SerialDevice::State::Open
+                         || device->state() == SerialDevice::State::Opening))
+            {
+                _host->disconnectSelectedTerminal();
+                _host->connectSelectedTerminal();
             }
             else if (id == "Socket.Close")
             {

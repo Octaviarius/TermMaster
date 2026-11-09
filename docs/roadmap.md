@@ -3,14 +3,14 @@
 This is the single milestone checklist for pending work. Priority applies to the
 requirements collected in [terminal UI requirements](terminal-ui-requirements.md)
 and [process terminal planning](process-terminal.md), not an audit of the entire
-application. Implementation remains deferred until an explicit start instruction.
+application. Stage P1 is complete; later stages await a separate start instruction.
 Items within each stage are ordered; later stages depend on relevant earlier work.
 
 ## P1: Consistent terminal controls
 
-- [ ] Unify terminal toolbar control layout/order across backends and remove Close.
-- [ ] Add terminal tab context menus; settle their action list during design.
-- [ ] Remove the redundant information strip above the terminal display.
+- [x] Unify terminal toolbar control layout/order across backends and remove Close.
+- [x] Add terminal tab context menus; connection/output/settings commands and separated Close.
+- [x] Remove the redundant information strip above the terminal display.
 
 These small changes address accidental closure and visual clutter first.
 Preserve backend capability/state checks and verify the affected GUI.
@@ -34,6 +34,8 @@ available for shells.
 - [ ] Show synchronized color codes and color samples in shared x-widget editors.
 - [ ] Style the settings window after the supplied Qt Creator reference, add
       navigation icons and retain the hierarchical tree and search.
+- [ ] Add an application-wide keyboard shortcut editor with command search and
+      persistent shortcut assignments.
 
 These changes can be implemented independently of command submission. Verify
 alignment and rendering at supported display scales before marking them complete.

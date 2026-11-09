@@ -4,8 +4,6 @@
 #include "Gui/Serial/PortSelector.h"
 
 #include <QFile>
-#include <QLabel>
-#include <QVBoxLayout>
 #include <Termaster/SerialTerminal/SerialTerminal.h>
 #include <exception>
 
@@ -74,20 +72,6 @@ bool SerialPlugin::startup(QString* error)
         type.defaultSettingsSchema   = defaultSchema.readAll();
         type.workspaceSettingsSchema = workspaceSchema.readAll();
         type.createDevice            = createSerialDevice;
-        type.createPanel             = [](QWidget* display, const QVariantMap& configuration, QWidget* parent) {
-            auto*      panel     = new QWidget(parent);
-            auto*      layout    = new QVBoxLayout(panel);
-            const auto transport = configuration.value("transport").toMap();
-            auto*      header    = new QLabel(QString("%1 / %2 baud")
-                                                  .arg(transport.value("portName").toString())
-                                                  .arg(transport.value("baudRate", 115200).toInt()),
-                                              panel);
-            header->setTextFormat(Qt::PlainText);
-            layout->addWidget(header);
-            display->setParent(panel);
-            layout->addWidget(display, 1);
-            return panel;
-        };
         _host->registerTerminalType(std::move(type));
         _typeRegistered = true;
         _registerActions();
@@ -158,30 +142,35 @@ Plugin::State SerialPlugin::state() const
 }
 void SerialPlugin::_registerActions()
 {
-    _actionsRegistered.reserve(6);
+    using Role = PluginHost::Action::Role;
+    _actionsRegistered.reserve(7);
     struct Description
     {
         QString id;
         QString title;
         QString group;
         QString icon;
+        Role    role;
     };
     const QList<Description> descriptions {
-        {       "Serial.New",   "New serial",     "create",              "cable"},
-        {   "Serial.Connect",      "Connect", "connection",               "plug"},
-        {"Serial.Disconnect",   "Disconnect", "connection",             "unplug"},
-        {     "Serial.Close",        "Close", "management",                  "x"},
-        {     "Serial.Clear", "Clear screen",     "output",             "eraser"},
-        {  "Serial.Settings",  "Settings...",   "settings", "sliders-horizontal"}
+        {       "Serial.New",   "New serial",     "create",              "cable",     Role::Create},
+        {   "Serial.Connect",      "Connect", "connection",               "play",    Role::Connect},
+        {"Serial.Disconnect",   "Disconnect", "connection",             "square", Role::Disconnect},
+        { "Serial.Reconnect",    "Reconnect", "connection",          "rotate-cw",    Role::Restart},
+        {     "Serial.Close",        "Close", "management",                  "x",      Role::Close},
+        {     "Serial.Clear", "Clear screen",     "output",             "eraser",      Role::Clear},
+        {  "Serial.Settings",  "Settings...",   "settings", "sliders-horizontal",   Role::Settings}
     };
     for (const auto& item : descriptions)
     {
         PluginHost::Action action;
-        action.id       = item.id;
-        action.title    = item.title;
-        action.group    = item.group;
-        action.iconName = item.icon;
-        action.visible  = [this, id = item.id] {
+        action.terminalType = "serial";
+        action.role         = item.role;
+        action.id           = item.id;
+        action.title        = item.title;
+        action.group        = item.group;
+        action.iconName     = item.icon;
+        action.visible      = [this, id = item.id] {
             return _host && (id == "Serial.New" ? true : _host->hasSelectedTerminal("serial"));
         };
         action.enabled = [this, id = item.id] {
@@ -203,6 +192,12 @@ void SerialPlugin::_registerActions()
                 return device && !_host->connectionRequested("serial")
                     && (device->state() == SerialDevice::State::Closed
                         || device->state() == SerialDevice::State::Failed);
+            }
+            if (id == "Serial.Reconnect")
+            {
+                return device && device->state() != SerialDevice::State::Closing
+                    && (_host->connectionRequested("serial") || device->state() == SerialDevice::State::Open
+                        || device->state() == SerialDevice::State::Opening);
             }
             if (id == "Serial.Disconnect")
             {
@@ -240,6 +235,13 @@ void SerialPlugin::_registerActions()
                          || device->state() == SerialDevice::State::Opening))
             {
                 _host->disconnectSelectedTerminal();
+            }
+            else if (id == "Serial.Reconnect" && device && device->state() != SerialDevice::State::Closing
+                     && (_host->connectionRequested("serial") || device->state() == SerialDevice::State::Open
+                         || device->state() == SerialDevice::State::Opening))
+            {
+                _host->disconnectSelectedTerminal();
+                _host->connectSelectedTerminal();
             }
             else if (id == "Serial.Close")
             {

@@ -46,6 +46,22 @@ public:
     };
     struct Action
     {
+        /** Semantic placement shared by terminal menus and toolbars. */
+        enum class Role
+        {
+            Additional,
+            Create,
+            Connect,
+            Disconnect,
+            Restart,
+            Close,
+            Clear,
+            Settings
+        };
+
+        Role role = Role::Additional;
+        /** Owning terminal type; filters tab menus without hiding global menu commands. */
+        QString terminalType;
         QString id;
         QString title;
         QIcon   icon;

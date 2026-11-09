@@ -16,10 +16,23 @@ The toolbar exposes exactly two ordered extension groups:
 | terminalCreation | New console, serial and socket connections | Requires a workspace/session capable of creating a terminal |
 | terminal | Operations on the selected terminal | Requires a matching target, capability and state |
 
-Plugin actions registered in the Terminal menu's create group use terminalCreation.
-Other terminal actions use terminal. This ordering keeps all creation buttons at
-the beginning regardless of plugin load order. Groups are placement slots, not
-owners of domain state or command eligibility. Empty groups add no buttons.
+Plugin action roles explicitly define toolbar eligibility and ordering:
+Create actions use terminalCreation, ordered by stable action ID; Connect,
+Disconnect, Restart, Clear and Settings use terminal in that order. Close and
+Additional actions remain menu-only. Matching operations share play, square,
+rotate-cw, eraser and sliders icons across terminal backends. Backend-specific
+verbs remain Start/Stop/Restart for consoles and Connect/Disconnect/Reconnect
+for serial/socket connections. Groups are placement slots, not owners of domain
+state or command eligibility. Empty groups add no buttons.
+
+Right-clicking a terminal tab selects it and opens its applicable connection,
+output, settings and additional commands, followed by a separated Close action.
+Creation commands and actions for other terminal types are excluded. The
+registered terminalType filters tab commands independently of global menu visibility. Empty tab-bar space has no menu. Commands follow
+the terminal UUID rather than a tab index and revalidate the original registered
+QAction before execution. Changing selection dismisses the popup; removed plugin
+actions disable their popup counterparts. Close remains available in the Terminal
+menu, the tab context menu and existing tab close buttons.
 
 File retains workspace commands and Session retains session commands. Tools / Plugins
 opens plugin management. These actions are absent from the terminal toolbar;
@@ -55,8 +68,7 @@ execution checks are required even when the button was enabled.
 Different window contexts require independent command presentation state and
 shortcut scope; sharing one application's global QAction between windows must
 not accidentally bind all windows to one terminal. The existing shell has one
-main window and shares its Plugins QAction only between that window's menu and
-toolbar. A plugin-context injection API and a multi-window command dispatch model
+main window; plugin management is menu-only. A plugin-context injection API and a multi-window command dispatch model
 remain separate design stages.
 
 ## Implementation status
@@ -80,3 +92,29 @@ standard-editor command changes; they do not verify those additions.
 
 Session actions passed Debug integration tests and native GUI checks at scales
 1 and 2; see [session verification](workspaces-and-sessions.md#verification-status).
+
+## Stage P1 verification
+
+Verified on 2026-11-09 with Qt 6.12.0 / MSVC 19.44 Debug. The application and
+all three production plugins built; all 26 configured CTest suites passed.
+Synthetic plugin tests cover reconnect eligibility across states and requested
+connection intent, ordered disconnect/connect dispatch and stale selection.
+Application tests load plugins out of order, compare the common toolbar for all
+three terminal types, verify direct display tabs without the serial header, and
+exercise inactive-tab menus, tab moves, closure and plugin unload with a stale
+popup action. No serial device was opened for these checks.
+
+Native Windows checks passed at scale factors 1 and 2. Reference captures use
+disconnected real plugin instances and synthetic display text, without launching
+shells or opening sockets/devices. The 100% captures are 1280 by 800; at 200% the
+available display constrains the window height. Toolbar and popup alignment were
+visually checked at both scales:
+
+- [Serial](images/terminal-controls/1x/serial.png)
+- [Socket](images/terminal-controls/1x/socket.png)
+- [Console](images/terminal-controls/1x/console.png)
+- [Tab menu at 100%](images/terminal-controls/1x/TabContextMenu.png)
+- [Tab menu at 200%](images/terminal-controls/2x/TabContextMenu.png)
+
+The hosted-plugin SDK ABI is version 5. Rebuild third-party hosted plugins before
+loading them; the normal application build already rebuilds the bundled plugins.

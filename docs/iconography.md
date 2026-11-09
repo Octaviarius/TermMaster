@@ -23,9 +23,9 @@ their separate state presentation. The application logo remains unchanged.
 | New console | square-terminal |
 | New serial | cable |
 | New socket | network |
-| Connect / disconnect | plug / unplug |
+| Connect / disconnect | play / square |
 | Start / stop console | play / square |
-| Restart | rotate-cw |
+| Restart / reconnect | rotate-cw |
 | Refresh environment | refresh-cw |
 | Clear screen | eraser |
 | Settings | sliders-horizontal |

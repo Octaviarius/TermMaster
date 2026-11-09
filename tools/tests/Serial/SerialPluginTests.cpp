@@ -2,7 +2,6 @@
 #include "SerialPlugin.h"
 
 #include <QComboBox>
-#include <QLabel>
 #include <QLineEdit>
 #include <QSerialPortInfo>
 #include <QTest>
@@ -22,6 +21,7 @@ public:
     SerialDevice*                device         = nullptr;
     bool                         wanted         = false;
     int                          stopped        = 0;
+    int                          started        = 0;
     bool                         canCreate      = false;
     int                          created        = 0;
     int                          cleared        = 0;
@@ -107,10 +107,13 @@ public:
     }
     void connectSelectedTerminal() override
     {
+        ++started;
+        events.append("connect");
     }
     void disconnectSelectedTerminal() override
     {
         ++stopped;
+        events.append("disconnect");
     }
     void closeSelectedTerminal() override
     {
@@ -126,10 +129,91 @@ public:
     {
     }
 };
+class StateDevice final : public SerialDevice
+{
+public:
+    State    current = State::Closed;
+    QObject* object() override
+    {
+        return nullptr;
+    }
+    State state() const override
+    {
+        return current;
+    }
+    void setCallbacks(Callbacks) override
+    {
+    }
+    bool open(const QVariantMap&, QString*) override
+    {
+        return false;
+    }
+    void close() override
+    {
+    }
+    qint64 write(const QByteArray&, QString*) override
+    {
+        return -1;
+    }
+    qint64 pendingBytes() const override
+    {
+        return 0;
+    }
+};
+
 class SerialPluginTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void reconnectRevalidatesStateAndDispatchesInOrder()
+    {
+        FakeHost     host;
+        SerialPlugin plugin;
+        plugin.setHost(&host);
+        QVERIFY(plugin.startup());
+        StateDevice device;
+        host.device          = &device;
+        host.selected        = true;
+        const auto reconnect = host.actions.value("Serial.Reconnect");
+        QCOMPARE(reconnect.role, PluginHost::Action::Role::Restart);
+        for (const bool wanted : {false, true})
+        {
+            host.wanted = wanted;
+            for (const auto state : {SerialDevice::State::Closed,
+                                     SerialDevice::State::Opening,
+                                     SerialDevice::State::Open,
+                                     SerialDevice::State::Closing,
+                                     SerialDevice::State::Failed})
+            {
+                device.current     = state;
+                const bool allowed = state != SerialDevice::State::Closing
+                                  && (wanted || state == SerialDevice::State::Open
+                                      || state == SerialDevice::State::Opening);
+                QCOMPARE(reconnect.enabled(), allowed);
+                host.events.clear();
+                reconnect.trigger();
+                QCOMPARE(host.events, allowed ? QStringList({"disconnect", "connect"}) : QStringList());
+            }
+        }
+        device.current = SerialDevice::State::Open;
+        QVERIFY(reconnect.enabled());
+        host.selected = false;
+        QVERIFY(!reconnect.enabled());
+        host.events.clear();
+        reconnect.trigger();
+        QVERIFY(host.events.isEmpty());
+        host.selected = true;
+        host.device   = nullptr;
+        QVERIFY(!reconnect.enabled());
+        reconnect.trigger();
+        QVERIFY(host.events.isEmpty());
+        QVERIFY(plugin.shutdown());
+        host.device = &device;
+        host.events.clear();
+        QVERIFY(!reconnect.enabled());
+        reconnect.trigger();
+        QVERIFY(host.events.isEmpty());
+    }
     void lifecycleAndRetainedRegistrations()
     {
         FakeHost     host;
@@ -140,27 +224,18 @@ private slots:
         QCOMPARE(host.type.id, "serial");
         QCOMPARE(host.type.plugin, "SerialTerminal");
         QVERIFY(host.type.settingsSchema.contains("x-widget: serialPortSelector"));
-        QCOMPARE(host.actions.size(), 6);
+        QCOMPARE(host.actions.size(), 7);
         QCOMPARE(host.editors.size(), 2);
         auto device = host.type.createDevice();
         QCOMPARE(device->state(), SerialDevice::State::Closed);
         device.reset();
-        auto*                    display = new QWidget;
-        std::unique_ptr<QWidget> panel(
-            host.type.createPanel(display,
-                                  {
-                                      {"transport", QVariantMap {{"portName", "fixture-port"}, {"baudRate", 9600}}}
-        },
-                                  nullptr));
-        QCOMPARE(display->parentWidget(), panel.get());
-        QCOMPARE(panel->findChild<QLabel*>()->text(), "fixture-port / 9600 baud");
-        panel.reset();
+        QVERIFY(!host.type.createPanel);
         host.removalAllowed = false;
         QString error;
         QVERIFY(!plugin.shutdown(&error));
         QCOMPARE(plugin.state(), Plugin::State::Failed);
         QCOMPARE(error, "Synthetic persistence failure");
-        QCOMPARE(host.actions.size(), 6);
+        QCOMPARE(host.actions.size(), 7);
         QCOMPARE(host.editors.size(), 2);
         QVERIFY(!plugin.startup());
         host.removalAllowed = true;
