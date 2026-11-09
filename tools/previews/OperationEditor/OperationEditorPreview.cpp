@@ -2,13 +2,20 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
+#include <QDrag>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
+#include <QMimeData>
+#include <QPainter>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -17,7 +24,234 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QTreeWidget>
+#include <QUuid>
 #include <QVBoxLayout>
+#include <cstdio>
+
+/** Owns only in-memory tree ordering. A random per-tree token excludes other chains. */
+class OperationTree final : public QTreeWidget
+{
+public:
+    OperationTree();
+    bool simulateDrop(QTreeWidgetItem* item, const QPoint& point, OperationTree* source = nullptr);
+
+protected:
+    void startDrag(Qt::DropActions actions) override;
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dragLeaveEvent(QDragLeaveEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+
+private:
+    struct Destination
+    {
+        QTreeWidgetItem* parent = nullptr;
+        QTreeWidgetItem* target = nullptr;
+        int              index  = -1;
+        int              edge   = 0;
+    };
+
+    QByteArray       _token   = QUuid::createUuid().toByteArray();
+    QTreeWidgetItem* _dragged = nullptr;
+    Destination      _indicator;
+
+    Destination _destination(const QPoint& point) const;
+    bool        _valid(const QMimeData* mime, const Destination& destination) const;
+    QMimeData*  _mime() const;
+};
+
+OperationTree::OperationTree()
+{
+    setSelectionMode(QAbstractItemView::SingleSelection);
+    setDragEnabled(true);
+    setAcceptDrops(true);
+    setDragDropMode(QAbstractItemView::DragDrop);
+    setDefaultDropAction(Qt::MoveAction);
+    setDropIndicatorShown(false);
+}
+
+OperationTree::Destination OperationTree::_destination(const QPoint& point) const
+{
+    Destination result;
+    result.target = itemAt(point);
+    if (!result.target)
+    {
+        result.parent = topLevelItem(0);
+        result.index  = result.parent ? result.parent->childCount() : -1;
+        return result;
+    }
+    const QRect rect = visualItemRect(result.target);
+    result.edge      = point.y() < rect.top() + 8 ? -1 : point.y() > rect.bottom() - 8 ? 1 : 0;
+    if (result.edge)
+    {
+        result.parent = result.target->parent();
+        result.index  = result.parent ? result.parent->indexOfChild(result.target) + (result.edge > 0) : -1;
+    }
+    else
+    {
+        result.parent = result.target;
+        result.index  = result.parent->childCount();
+    }
+    return result;
+}
+
+bool OperationTree::_valid(const QMimeData* mime, const Destination& destination) const
+{
+    if (!_dragged || _dragged->treeWidget() != this || !_dragged->parent()
+        || mime->data("application/x-termaster-preview-chain") != _token || !destination.parent
+        || destination.index < 0)
+    {
+        return false;
+    }
+    const QString type = destination.parent->data(0, Qt::UserRole + 1).toString();
+    if (type != "sequence" && type != "loop")
+    {
+        return false;
+    }
+    for (auto* ancestor = destination.parent; ancestor; ancestor = ancestor->parent())
+    {
+        if (ancestor == _dragged)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+QMimeData* OperationTree::_mime() const
+{
+    auto* mime = new QMimeData;
+    mime->setData("application/x-termaster-preview-chain", _token);
+    return mime;
+}
+
+void OperationTree::startDrag(Qt::DropActions)
+{
+    _dragged = currentItem();
+    if (!_dragged || !_dragged->parent())
+    {
+        return;
+    }
+    QDrag drag(this);
+    drag.setMimeData(_mime());
+    drag.setPixmap(_dragged->icon(0).pixmap(20, 20));
+    drag.exec(Qt::MoveAction, Qt::MoveAction);
+    _dragged   = nullptr;
+    _indicator = {};
+    viewport()->update();
+}
+
+void OperationTree::dragEnterEvent(QDragEnterEvent* event)
+{
+    // Enter is source validation only: a drag commonly starts over its own row.
+    // The move and drop handlers validate the actual destination independently.
+    if (_valid(event->mimeData(), {topLevelItem(0), nullptr, 0, 0}))
+    {
+        event->setDropAction(Qt::MoveAction);
+        event->accept();
+    }
+    else
+    {
+        event->ignore();
+    }
+}
+
+void OperationTree::dragMoveEvent(QDragMoveEvent* event)
+{
+    _indicator = _destination(event->position().toPoint());
+    if (_valid(event->mimeData(), _indicator))
+    {
+        event->setDropAction(Qt::MoveAction);
+        event->accept();
+    }
+    else
+    {
+        _indicator = {};
+        event->ignore();
+    }
+    viewport()->update();
+}
+
+void OperationTree::dragLeaveEvent(QDragLeaveEvent* event)
+{
+    _indicator = {};
+    viewport()->update();
+    event->accept();
+}
+
+void OperationTree::dropEvent(QDropEvent* event)
+{
+    const Destination destination = _destination(event->position().toPoint());
+    _indicator                    = {};
+    viewport()->update();
+    if (!_valid(event->mimeData(), destination))
+    {
+        event->ignore();
+        return;
+    }
+    auto*     oldParent = _dragged->parent();
+    const int oldIndex  = oldParent->indexOfChild(_dragged);
+    int       index     = destination.index;
+    if (oldParent == destination.parent && oldIndex < index)
+    {
+        --index;
+    }
+    {
+        const QSignalBlocker blocker(this);
+        oldParent->takeChild(oldIndex);
+        destination.parent->insertChild(index, _dragged);
+        destination.parent->setExpanded(true);
+        setCurrentItem(_dragged);
+    }
+    event->setDropAction(Qt::MoveAction);
+    event->accept();
+}
+
+void OperationTree::paintEvent(QPaintEvent* event)
+{
+    QTreeWidget::paintEvent(event);
+    if (!_indicator.parent)
+    {
+        return;
+    }
+    QPainter painter(viewport());
+    painter.setPen(QPen(QColor("#2563eb"), 2));
+    const QRect rect = visualItemRect(_indicator.target ? _indicator.target : _indicator.parent);
+    if (_indicator.edge)
+    {
+        const int y = _indicator.edge < 0 ? rect.top() : rect.bottom();
+        painter.drawLine(rect.left(), y, rect.right(), y);
+    }
+    else
+    {
+        painter.drawRect(rect.adjusted(1, 1, -2, -2));
+    }
+}
+
+bool OperationTree::simulateDrop(QTreeWidgetItem* item, const QPoint& point, OperationTree* source)
+{
+    if (!source)
+    {
+        source = this;
+    }
+    source->_dragged = item;
+    if (source == this)
+    {
+        setCurrentItem(item);
+    }
+    auto*           mime = source->_mime();
+    QDragEnterEvent enter(point, Qt::MoveAction, mime, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(viewport(), &enter);
+    QDragMoveEvent move(point, Qt::MoveAction, mime, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(viewport(), &move);
+    QDropEvent drop(point, Qt::MoveAction, mime, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(viewport(), &drop);
+    const bool accepted = enter.isAccepted() && move.isAccepted() && drop.isAccepted();
+    delete mime;
+    source->_dragged = nullptr;
+    return accepted;
+}
 
 /** Visual interaction sketch. All draft values are memory-only; no operations execute. */
 class OperationEditorPreview final : public QMainWindow
@@ -25,6 +259,7 @@ class OperationEditorPreview final : public QMainWindow
 public:
     OperationEditorPreview();
     bool saveSnapshots(const QString& directory);
+    bool smokeTest();
 
 private:
     QTabWidget*      _directions = nullptr;
@@ -216,7 +451,7 @@ QTreeWidget* OperationEditorPreview::_createTree(const QString& description)
     hint->setWordWrap(true);
     hint->setStyleSheet("color: #64748b; padding-bottom: 8px;");
     layout->addWidget(hint);
-    auto* tree = new QTreeWidget;
+    auto* tree = new OperationTree;
     tree->setHeaderHidden(true);
     tree->setIndentation(22);
     tree->setIconSize(QSize(18, 18));
@@ -244,6 +479,14 @@ QTreeWidgetItem* OperationEditorPreview::_add(QTreeWidget*     tree,
 {
     auto* item = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(tree);
     item->setText(0, name);
+    if (!parent)
+    {
+        item->setFlags(item->flags() & ~Qt::ItemIsDragEnabled);
+    }
+    if (type != "sequence" && type != "loop")
+    {
+        item->setFlags(item->flags() & ~Qt::ItemIsDropEnabled);
+    }
     item->setIcon(0, QIcon(":/icons/" + icon + ".svg"));
     item->setToolTip(0, description);
     item->setData(0, Qt::UserRole, _pages->count());
@@ -315,7 +558,66 @@ bool OperationEditorPreview::saveSnapshots(const QString& directory)
     saved = grab().save(directory + "/Transmit.png") && saved;
     _transmit->setCurrentItem(_loop);
     QApplication::processEvents();
-    return grab().save(directory + "/Loop.png") && saved;
+    saved            = grab().save(directory + "/Loop.png") && saved;
+    auto*      tree  = static_cast<OperationTree*>(_transmit);
+    const bool moved = tree->simulateDrop(_command, tree->visualItemRect(_loop).center());
+    QApplication::processEvents();
+    return moved && grab().save(directory + "/Reordered.png") && saved;
+}
+
+bool OperationEditorPreview::smokeTest()
+{
+    auto check = [](bool condition, const char* name) {
+        std::fprintf(condition ? stdout : stderr, "%s: %s\n", condition ? "PASS" : "FAIL", name);
+        return condition;
+    };
+    bool passed = true;
+    _directions->setCurrentIndex(1);
+    auto* tree  = static_cast<OperationTree*>(_transmit);
+    auto* root  = tree->topLevelItem(0);
+    auto* wait  = root->child(1);
+    auto* query = _loop->child(0);
+    _transmit->setCurrentItem(_command);
+    auto* page  = _pages->currentWidget();
+    auto* draft = page->findChild<QPlainTextEdit*>();
+    draft->setPlainText("edited draft");
+    QApplication::processEvents();
+    passed       &= check(tree->simulateDrop(_command, tree->visualItemRect(_loop).center()), "container drop event");
+    passed       &= check(_command->parent() == _loop && _loop->child(2) == _command, "nested order");
+    passed       &= check(tree->currentItem() == _command && _pages->currentWidget() == page
+                              && draft->toPlainText() == "edited draft",
+                          "selection page and draft retained");
+    passed       &= check(tree->simulateDrop(_command, tree->visualItemRect(query).topLeft() + QPoint(40, 2)),
+                          "above sibling event");
+    passed       &= check(_loop->child(0) == _command, "sibling index corrected");
+    passed       &= check(tree->simulateDrop(_command, tree->visualItemRect(wait).bottomLeft() + QPoint(40, -2)),
+                          "below sibling event");
+    passed       &= check(root->child(1) == _command && _command->parent() == root, "move out of container");
+    passed       &= check(!tree->simulateDrop(_command, tree->visualItemRect(query).center()), "leaf target rejected");
+    passed       &= check(!tree->simulateDrop(_loop, tree->visualItemRect(query).center()), "descendant rejected");
+    passed       &= check(!tree->simulateDrop(_loop, tree->visualItemRect(_loop).center()), "self target rejected");
+    auto* nested  = _add(tree, _loop, "Nested sequence", "sequence", "folder-open", "Smoke fixture");
+    tree->expandAll();
+    QApplication::processEvents();
+    passed &= check(!tree->simulateDrop(_loop, tree->visualItemRect(nested).center()),
+                    "container descendant cycle rejected");
+    passed &= check(!tree->simulateDrop(_command, tree->visualItemRect(root).topLeft() + QPoint(40, 2)),
+                    "above root rejected");
+    passed &= check(!tree->simulateDrop(root, tree->visualItemRect(_loop).center()), "root drag rejected");
+    passed &= check(!tree->simulateDrop(_packet,
+                                        tree->visualItemRect(_loop).center(),
+                                        static_cast<OperationTree*>(_receive)),
+                    "cross chain rejected");
+    passed &= check(tree->simulateDrop(_command, QPoint(50, tree->viewport()->height() - 10)),
+                    "viewport appends within root");
+    passed &= check(root->child(root->childCount() - 1) == _command && tree->topLevelItemCount() == 1,
+                    "single root retained");
+    _receive->setCurrentItem(_packet);
+    _directions->setCurrentIndex(0);
+    _directions->setCurrentIndex(1);
+    passed &= check(_pages->currentWidget() == page && draft->toPlainText() == "edited draft",
+                    "draft retained across directions");
+    return passed;
 }
 
 int main(int argc, char** argv)
@@ -326,7 +628,11 @@ int main(int argc, char** argv)
     window.show();
     const QStringList arguments = app.arguments();
     const int         snapshot  = arguments.indexOf("--snapshot-dir");
-    if (snapshot >= 0)
+    if (arguments.contains("--smoke-test"))
+    {
+        QTimer::singleShot(200, &window, [&] { app.exit(window.smokeTest() ? 0 : 4); });
+    }
+    else if (snapshot >= 0)
     {
         if (snapshot + 1 >= arguments.size())
         {
