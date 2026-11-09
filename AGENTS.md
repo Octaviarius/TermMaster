@@ -21,6 +21,7 @@ changing behavior. These rules apply repository-wide.
   Describe purpose, verification and material limitations in the merge body.
 - Preparatory documentation uses ordinary commits without feature IDs or
   feature merge commits. Do not push unless explicitly requested.
+- Use Mermaid for architecture diagrams and other technical diagrams.
 - Record requirements, architecture and implementation status in English topical
   documentation. Keep docs/roadmap.md as the single milestone checklist when
   roadmap documentation is introduced. Do not create an ADR hierarchy.
