@@ -3,15 +3,18 @@
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFontDialog>
+#include <QFontMetricsF>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QRegularExpression>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
@@ -41,7 +44,8 @@ public:
         _display->viewport()->setAttribute(Qt::WA_TransparentForMouseEvents);
         _display->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         _display->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        _display->setFixedHeight(132);
+        _display->setFixedHeight(220);
+        connect(_display, &TerminalDisplay::terminalSizeChanged, this, [this] { _scheduleSample(); });
         contents->addWidget(_display);
         layout->addWidget(box);
     }
@@ -63,12 +67,51 @@ public:
             appearance.insert(key, context.value("appearance/" + key));
         }
         _display->setAppearance(appearance);
-        _display->clear();
-        _display->receive("Aa Bb 0123456789  \x1b[1mBold\x1b[0m\x1b[?25l");
+        const auto lineHeight = std::ceil(QFontMetricsF(_display->font(), _display->viewport()).height());
+        _display->setFixedHeight(std::max(220, static_cast<int>(7 * lineHeight) + 2 * _display->frameWidth()));
+        _renderSample();
+        _scheduleSample();
     }
 
 private:
-    TerminalDisplay* _display = nullptr;
+    TerminalDisplay* _display       = nullptr;
+    bool             _samplePending = false;
+
+    void _scheduleSample()
+    {
+        if (_samplePending)
+        {
+            return;
+        }
+        _samplePending = true;
+        QTimer::singleShot(0, this, [this] {
+            _samplePending = false;
+            _renderSample();
+        });
+    }
+    void _renderSample()
+    {
+        // Recreate after geometry changes: resizing a previously wrapped screen cannot restore clipped text.
+        QByteArray sample  = "\x1b[?7lABCDEFGHIJKLMNOPQRSTUVWXYZ\r\n"
+                             "abcdefghijklmnopqrstuvwxyz 0123456789\r\n"
+                             "!@#$%^&*() []{} <> /\\ | ~` +=:;,.?\r\n";
+        sample            += QStringLiteral("Кириллица: Привет мир! ┌─┬─┐ │ └─┴─┘\r\n").toUtf8();
+        sample            += "\x1b[1mBold\x1b[0m \x1b[3mItalic\x1b[0m \x1b[4mUnderline\x1b[0m "
+                             "\x1b[9mStrike\x1b[0m \x1b[7mReverse\x1b[0m\r\nFG ";
+        for (int index = 0; index < 16; ++index)
+        {
+            sample += "\x1b[" + QByteArray::number(index < 8 ? 30 + index : 90 + index - 8) + "m"
+                    + QByteArray::number(index, 16).toUpper() + " ";
+        }
+        sample += "\x1b[0m\r\nBG ";
+        for (int index = 0; index < 16; ++index)
+        {
+            sample += "\x1b[" + QByteArray::number(index < 8 ? 40 + index : 100 + index - 8) + "m  ";
+        }
+        sample += "\x1b[0m\x1b[?25l";
+        _display->clear();
+        _display->receive(sample);
+    }
 };
 template <class Base>
 class NumericSpinBox : public Base
@@ -298,6 +341,17 @@ public:
             }
             layout->addWidget(_line);
             connect(_line, &QLineEdit::textChanged, this, [this] { _changed(); });
+            if (hint == "color")
+            {
+                _swatch = new QLabel(this);
+                _swatch->setObjectName("settingsColorSwatch");
+                _swatch->setAccessibleName(tr("Color preview"));
+                _swatch->setFixedWidth(24);
+                _swatch->setFrameStyle(QFrame::Box | QFrame::Plain);
+                _swatch->setAlignment(Qt::AlignCenter);
+                _swatch->setAutoFillBackground(true);
+                layout->addWidget(_swatch);
+            }
             if (hint == "fontFamily" || hint == "color")
             {
                 auto* picker = new QToolButton(this);
@@ -458,6 +512,7 @@ public:
             _line->setText(value.typeId() == QMetaType::Double ? QString::number(value.toDouble(), 'g', 17) :
                                                                  value.toString());
         }
+        _refreshSwatch();
         if (_text)
         {
             const QSignalBlocker blocker(_text);
@@ -524,6 +579,7 @@ private:
     QPlainTextEdit*           _text    = nullptr;
     QComboBox*                _combo   = nullptr;
     QCheckBox*                _check   = nullptr;
+    QLabel*                   _swatch  = nullptr;
     QVariant                  _value;
     bool                      _untouched = true;
     bool                      _yaml() const
@@ -531,8 +587,23 @@ private:
         return _field.widget == "yaml" || _field.type == "object" || _field.type == "array"
             || (_field.widget.isEmpty() && (_field.type.isEmpty() || _field.type == "null"));
     }
+    void _refreshSwatch()
+    {
+        if (!_swatch)
+        {
+            return;
+        }
+        const QColor color(_line->text());
+        auto         palette = _swatch->palette();
+        palette.setColor(QPalette::Window, color.isValid() ? color : this->palette().color(QPalette::Base));
+        palette.setColor(QPalette::WindowText, this->palette().color(QPalette::Text));
+        _swatch->setPalette(palette);
+        _swatch->setText(color.isValid() ? QString() : QStringLiteral("?"));
+        _swatch->setToolTip(color.isValid() ? color.name(QColor::HexRgb) : tr("Invalid color"));
+    }
     void _changed()
     {
+        _refreshSwatch();
         _untouched = false;
         emit valueChanged();
     }

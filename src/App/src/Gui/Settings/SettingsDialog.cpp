@@ -14,6 +14,7 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 #include <QWindow>
+#include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormModel.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
@@ -41,6 +42,11 @@ SettingsDialog::SettingsDialog(SettingsWidgetRegistry&       registry,
     _tree = new QTreeView(navigation);
     _tree->setObjectName("settingsTree");
     _tree->setHeaderHidden(true);
+    _tree->setIconSize(QSize(20, 20));
+    _tree->setUniformRowHeights(true);
+    _tree->setIndentation(18);
+    _tree->setStyleSheet(
+        "QTreeView::item { padding: 5px 3px; } QTreeView::item:selected { background: palette(highlight); color: palette(highlighted-text); }");
     _tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     _treeModel = new QStandardItemModel(this);
     _filter    = new QSortFilterProxyModel(this);
@@ -227,11 +233,21 @@ void SettingsDialog::_addPage(const QString&     id,
     }
     if (!parent)
     {
-        parent = new QStandardItem(category);
+        parent = new QStandardItem(Icons::icon(category == "Terminals" || category == "Terminal" ? "square-terminal" :
+                                                                                                   "app-window"),
+                                   category);
         parent->setData(category, SearchRole);
         _treeModel->appendRow(parent);
     }
-    auto* item = new QStandardItem(title);
+    const auto pageIcon = id.endsWith("shortcuts")                          ? "keyboard" :
+                          id.endsWith("appearance")                         ? "panels-top-left" :
+                          id.endsWith("terminal") || id.endsWith("display") ? "text-cursor" :
+                          id.endsWith("serial")                             ? "cable" :
+                          id.endsWith("socket")                             ? "network" :
+                          id.endsWith("console")                            ? "terminal" :
+                          id.endsWith("suggestions")                        ? "pencil" :
+                                                                              "plug";
+    auto*      item     = new QStandardItem(Icons::icon(pageIcon), title);
     item->setData(id, PageIdRole);
     QStringList search {category, title, description};
     for (const auto& field : model->schema().fields())
@@ -257,7 +273,7 @@ void SettingsDialog::_fitToScreen()
         const auto  available = currentScreen->availableGeometry();
         const auto  borders   = windowHandle()->frameMargins();
         const QSize decorations(borders.left() + borders.right(), borders.top() + borders.bottom());
-        resize(QSize(1020, 720).boundedTo(available.size() - decorations));
+        resize(QSize(1100, 760).boundedTo(available.size() - decorations));
         const QSize frameSize = size() + decorations;
         move(available.topLeft()
              + QPoint((available.width() - frameSize.width()) / 2, (available.height() - frameSize.height()) / 2));

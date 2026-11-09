@@ -12,6 +12,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHelpEvent>
+#include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
@@ -263,7 +264,7 @@ private:
 
         QProcess child;
         auto     environment = QProcessEnvironment::systemEnvironment();
-        environment.insert("TERMASTER_APP_RESTART_DATA", _app.paths().dataDirectory().toString());
+        environment.insert("TERMASTER_APP_RESTART_DATA", QFileInfo(_app.settings().filePath()).dir().absolutePath());
         environment.insert("TERMASTER_APP_RESTART_WORKSPACE", _app.workspace()->filePath().toString());
         child.setProcessEnvironment(environment);
         child.start(QCoreApplication::applicationFilePath(), QStringList());
@@ -577,7 +578,7 @@ private:
         QVERIFY(_app.settings().sync(&error));
         QProcess child;
         auto     environment = QProcessEnvironment::systemEnvironment();
-        environment.insert("TERMASTER_APP_RESTART_DATA", _app.paths().dataDirectory().toString());
+        environment.insert("TERMASTER_APP_RESTART_DATA", QFileInfo(_app.settings().filePath()).dir().absolutePath());
         environment.insert("TERMASTER_APP_RESTART_SESSION", id);
         child.setProcessEnvironment(environment);
         child.start(QCoreApplication::applicationFilePath(), QStringList());
@@ -671,6 +672,115 @@ private:
         QVERIFY(QDir().rmdir(file));
         QVERIFY(QFile::rename(backup, file));
         QVERIFY(_app.closeWorkspace(&error));
+    }
+
+    Q_SLOT void globalShortcutDraftPersistence()
+    {
+        const auto original = _app.settings().value("settings/shortcuts", QVariantMap {});
+        const auto cleanup  = qScopeGuard([&] {
+            for (auto* dialog : _app.mainWindow().findChildren<SettingsDialog*>())
+            {
+                delete dialog;
+            }
+            _app.commands().remove("Fixture.Shortcut");
+            _app.commands().remove("Fixture.Late");
+            _app.settings().setValue("settings/shortcuts", original);
+        });
+        auto* command = _app.commands().create("Fixture.Shortcut", "Fixture command", {}, QKeySequence("Ctrl+Alt+F8"));
+        auto* action  = command->newAction(&_app.mainWindow());
+        _app.mainWindow().addAction(action);
+        const auto open = [&]() {
+            _app.commands().find("Application.Settings")->actions().first()->trigger();
+            auto* dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+            if (dialog)
+            {
+                dialog->selectPage("application.shortcuts");
+            }
+            return dialog;
+        };
+        QPointer<SettingsDialog> dialog(open());
+        QVERIFY(dialog);
+        auto* model = dialog->pageModel("application.shortcuts");
+        QVERIFY(model);
+        auto* search   = dialog->findChild<QLineEdit*>("shortcutSearch");
+        auto* table    = dialog->findChild<QTableView*>("shortcutTable");
+        auto* sequence = dialog->findChild<QKeySequenceEdit*>("shortcutSequence");
+        QVERIFY(search && table && sequence);
+        search->setText("Fixture.Shortcut");
+        QCOMPARE(table->model()->rowCount(), 1);
+        table->selectRow(0);
+        sequence->setKeySequence(QKeySequence("Ctrl+Alt+F9"));
+        QVERIFY(model->isDirty());
+        search->setText("Fixture command");
+        QCOMPARE(table->model()->rowCount(), 1);
+        search->setText("Ctrl+Alt+F9");
+        QCOMPARE(table->model()->rowCount(), 1);
+        search->setText("Fixture.Shortcut");
+        table->selectRow(0);
+        sequence->setKeySequence(_app.commands().find("Workspace.New")->defaultShortcut());
+        QVERIFY(!model->isValid());
+        QVERIFY(model->errors().first().message.contains("conflict", Qt::CaseInsensitive));
+        dialog->findChild<QPushButton*>("shortcutReset")->click();
+        QVERIFY(model->isValid());
+        QCOMPARE(sequence->keySequence(), QKeySequence("Ctrl+Alt+F8"));
+        dialog->findChild<QPushButton*>("shortcutClear")->click();
+        QVERIFY(sequence->keySequence().isEmpty());
+        QVERIFY(model->value("assignments").toMap().contains("Fixture.Shortcut"));
+        dialog->findChild<QPushButton*>("shortcutResetAll")->click();
+        QVERIFY(!model->value("assignments").toMap().contains("Fixture.Shortcut"));
+        QCOMPARE(command->shortcut(), QKeySequence("Ctrl+Alt+F8"));
+        dialog->reject();
+        QTRY_VERIFY(dialog.isNull());
+        QCOMPARE(command->shortcut(), QKeySequence("Ctrl+Alt+F8"));
+        dialog                  = open();
+        model                   = dialog->pageModel("application.shortcuts");
+        QVariantMap assignments = original.toMap();
+        assignments.insert("Fixture.Shortcut", "Ctrl+Alt+F9");
+        assignments.insert("Fixture.Late", "Ctrl+Alt+F10");
+        model->setValue("assignments", assignments);
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(command->shortcut(), QKeySequence("Ctrl+Alt+F9"));
+        QCOMPARE(action->shortcut(), QKeySequence("Ctrl+Alt+F9"));
+        Settings persisted(_app.settings().filePath(), {"termaster.application", "Termaster application settings"});
+        QString  error;
+        QVERIFY2(persisted.load(&error), qPrintable(error));
+        QCOMPARE(persisted.value("settings/shortcuts").toMap(), assignments);
+        auto* late = _app.commands().create("Fixture.Late", "Late plugin", {}, QKeySequence("Ctrl+Alt+F11"));
+        QCOMPARE(late->shortcut(), QKeySequence("Ctrl+Alt+F10"));
+        _app.commands().remove("Fixture.Late");
+        late = _app.commands().create("Fixture.Late", "Reloaded plugin");
+        QCOMPARE(late->shortcut(), QKeySequence("Ctrl+Alt+F10"));
+        assignments.insert("Fixture.Shortcut", "");
+        model->setValue("assignments", assignments);
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        QVERIFY(action->shortcut().isEmpty());
+        auto capture = qEnvironmentVariable("TERMASTER_PREFERENCES_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            dialog->setFixedSize(1100, 760);
+            auto* filter = dialog->findChild<QLineEdit*>("shortcutSearch");
+            filter->setText("Workspace");
+            QApplication::processEvents();
+            QVERIFY(dialog->grab().save(QDir(capture).filePath("Shortcuts.png")));
+            dialog->selectPage("application.terminal");
+            QApplication::processEvents();
+            QVERIFY(dialog->grab().save(QDir(capture).filePath("Appearance.png")));
+            dialog->selectPage("application.appearance");
+            dialog->pageModel("application.appearance")->setValue("toolbar", false);
+            QApplication::processEvents();
+            QVERIFY(dialog->grab().save(QDir(capture).filePath("Reset.png")));
+        }
+        dialog->reject();
+        QTRY_VERIFY(dialog.isNull());
+        QProcess child;
+        auto     environment = QProcessEnvironment::systemEnvironment();
+        environment.insert("TERMASTER_APP_RESTART_DATA", QFileInfo(_app.settings().filePath()).dir().absolutePath());
+        environment.insert("TERMASTER_SHORTCUT_RESTART", "1");
+        child.setProcessEnvironment(environment);
+        child.start(QCoreApplication::applicationFilePath(), {});
+        QVERIFY(child.waitForFinished(30000));
+        QCOMPARE(child.exitCode(), 0);
     }
 
     Q_SLOT void generatedSettingsDialog()
@@ -2156,7 +2266,16 @@ int main(int argc, char* argv[])
         App app(argc, argv, options);
         int result = 1;
         QTimer::singleShot(0, &app, [&]() {
-            if (qEnvironmentVariableIsSet("TERMASTER_APP_RESTART_SESSION"))
+            if (qEnvironmentVariableIsSet("TERMASTER_SHORTCUT_RESTART"))
+            {
+                auto* command = app.commands().create("Fixture.Shortcut",
+                                                      "Restart fixture",
+                                                      {},
+                                                      QKeySequence("Ctrl+Alt+F8"));
+                auto* late    = app.commands().create("Fixture.Late", "Restart plugin");
+                result = command->shortcut().isEmpty() && late->shortcut() == QKeySequence("Ctrl+Alt+F10") ? 0 : 1;
+            }
+            else if (qEnvironmentVariableIsSet("TERMASTER_APP_RESTART_SESSION"))
             {
                 QString error;
                 result = app.workspace()

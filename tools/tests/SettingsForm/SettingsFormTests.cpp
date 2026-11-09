@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QFontDialog>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QSpinBox>
@@ -69,6 +70,36 @@ class SettingsFormTests : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void colorSwatchTracksDraftAndReset()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      local(directory.filePath("local.yaml"));
+        QVERIFY(base.setValue("fg", "#112233"));
+        SettingsFormModel      model(schema("fg: {type: string, x-widget: color}"),
+                                     SettingsOverlay(base.node(""), local.node("")));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        auto*                  editor = form.editor("fg");
+        auto*                  input  = editor->findChild<QLineEdit*>();
+        auto*                  swatch = editor->findChild<QLabel*>("settingsColorSwatch");
+        QVERIFY(input);
+        QVERIFY(swatch);
+        QCOMPARE(swatch->palette().color(QPalette::Window), QColor("#112233"));
+        QVERIFY(!model.isDirty());
+        input->setText("#abcdef");
+        QCOMPARE(swatch->palette().color(QPalette::Window), QColor("#abcdef"));
+        QCOMPARE(model.value("fg").toString(), QString("#abcdef"));
+        input->setText("invalid");
+        QCOMPARE(swatch->text(), QString("?"));
+        QCOMPARE(model.value("fg").toString(), QString("invalid"));
+        form.findChild<QToolButton*>("reset_fg")->click();
+        QCOMPARE(input->text(), QString("#112233"));
+        QCOMPARE(swatch->palette().color(QPalette::Window), QColor("#112233"));
+        QVERIFY(swatch->text().isEmpty());
+        QVERIFY(!local.contains("fg"));
+    }
+
     Q_SLOT void acceptingInheritedColorCreatesExplicitOverride()
     {
         QTemporaryDir directory;
@@ -118,6 +149,52 @@ private:
             QVERIFY(!model.isDirty());
             QVERIFY(!owner.contains("value"));
         }
+    }
+
+    Q_SLOT void terminalPreviewRetainsRichSampleAfterResize()
+    {
+        QTemporaryDir     directory;
+        Settings          owner(directory.filePath("settings.yaml"));
+        auto              descriptor = schema("size: {type: number, default: 12, x-settings-path: appearance/fontSize}",
+                                              "  x-widget: terminalPreview\n");
+        SettingsFormModel model(descriptor, owner.node(""));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        auto*                  preview = form.findChild<TerminalDisplay*>("settingsAppearancePreview");
+        QVERIFY(preview);
+        QSignalSpy output(preview, &TerminalDisplay::outputBytes);
+        form.resize(300, 650);
+        form.show();
+        QTest::qWait(20);
+        form.resize(1000, 700);
+        QTRY_VERIFY(preview->text().contains("abcdefghijklmnopqrstuvwxyz 0123456789"));
+        QVERIFY(preview->text().contains("ABCDEFGHIJKLMNOPQRSTUVWXYZ"));
+        QVERIFY(preview->text().contains(QStringLiteral("Кириллица: Привет мир!")));
+        QVERIFY(preview->text().contains(QStringLiteral("┌─┬─┐")));
+        const auto& lines = preview->screen().lines();
+        QVERIFY(lines.size() >= 7);
+        const auto& styles = lines.at(4).cells;
+        QVERIFY(styles.at(0).attributes & TerminalScreen::Bold);
+        QVERIFY(styles.at(5).attributes & TerminalScreen::Italic);
+        QVERIFY(styles.at(12).attributes & TerminalScreen::Underline);
+        QVERIFY(styles.at(22).attributes & TerminalScreen::Strike);
+        QVERIFY(styles.at(29).attributes & TerminalScreen::Inverse);
+        QVERIFY(lines.at(0).cells.at(0).defaultForeground);
+        QVERIFY(lines.at(0).cells.at(0).defaultBackground);
+        for (int index = 0; index < 16; ++index)
+        {
+            QCOMPARE(lines.at(5).cells.at(3 + index * 2).foregroundIndex, index);
+            QCOMPARE(lines.at(6).cells.at(3 + index * 2).backgroundIndex, index);
+        }
+        QVERIFY(!preview->screen().cursorVisible());
+        QVERIFY(!model.isDirty());
+        model.setValue("size", 20);
+        form.resize(1200, 800);
+        QTRY_VERIFY(preview->text().contains("abcdefghijklmnopqrstuvwxyz 0123456789"));
+        QVERIFY(preview->terminalSize().height() >= 7);
+        QVERIFY(preview->text().contains("Bold Italic Underline Strike Reverse"));
+        QCOMPARE(output.count(), 0);
+        QVERIFY(!owner.contains("appearance/fontSize"));
     }
 
     Q_SLOT void appearancePickersAndDraftPreview()
@@ -545,9 +622,20 @@ private:
         QTest::qWait(30);
         auto* valueControl = form.editor("fontSize")->findChild<QAbstractSpinBox*>();
         QVERIFY(valueControl);
-        QVERIFY(reset->height() < valueControl->height());
+        QCOMPARE(reset->height(), valueControl->height());
         QVERIFY(reset->styleSheet().contains("#f0a13b"));
-        QVERIFY(reset->height() <= 24);
+        const int originalHeight = reset->height();
+        QFont     largerFont     = form.font();
+        largerFont.setPointSize(largerFont.pointSize() + 6);
+        form.setFont(largerFont);
+        QTest::qWait(30);
+        QCOMPARE(reset->height(), valueControl->height());
+        QVERIFY(reset->height() > originalHeight);
+        const auto controlGeometry = valueControl->geometry();
+        reset->hide();
+        QTest::qWait(10);
+        QCOMPARE(valueControl->geometry(), controlGeometry);
+        reset->show();
         const auto resetCenter = reset->mapTo(&form, reset->rect().center());
         const auto inputCenter = valueControl->mapTo(&form, valueControl->rect().center());
         QVERIFY(std::abs(resetCenter.y() - inputCenter.y()) <= 1);

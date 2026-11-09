@@ -230,8 +230,8 @@ Overlay-backed fields are immediately editable, including inherited required val
 Editing establishes a local override. A small reset button to the right removes
 only that override and displays the inherited value or descriptor default; its
 tooltip shows the fallback. The reset button uses a palette-aware return arrow
-on a compact orange button with a dark arrow, slightly shorter than the value control and vertically
-centered beside it. It is visible only for a local override; its space remains reserved to keep fields
+on a compact orange button with a dark arrow, matching the actual adjacent control height.
+The height follows layout and font changes. It is visible only for a local override; its space remains reserved to keep fields
 aligned when editing or resetting. Inherited and local values use the same text
 color. Required values without any fallback cannot be reset.
 An explicit equal value remains an override. Validation checks the effective
@@ -350,3 +350,89 @@ suites, including numeric stepping, scientific notation, wide exact integers,
 untouched invalid-value focus/confirmation, direct and accessibility setters,
 enum precedence and reset alignment. Native reset/spinbox captures at scales
 1 and 2 were visually checked; see [command iconography](iconography.md#verification).
+
+## Settings presentation and global shortcuts
+
+Navigation keeps two category/page levels and shared settings search. Category and
+page icons use distinct, palette-aware semantic symbols. Selected rows use a
+matched palette highlight/text pair, including their icons. Navigation extends the
+pinned Lucide subset with application-window, keyboard, interface-layout, text-cursor
+and console-prompt symbols.
+
+Color editors display the editable code beside a synchronized color sample.
+Loaded, typed, picked and reset values update the sample; invalid codes show a
+question mark and remain subject to schema validation. Reset buttons follow the
+actual primary control's height after resizing and font changes. Their reserved
+space and six-pixel gap remain stable when the override disappears.
+
+`x-widget-options: {fullWidth: true}` makes an editor span the form row, with its
+field title provided as its accessible name. The application-only shortcut map
+uses this option with `x-widget: commandShortcuts`. Other scopes do not expose the
+map and cannot override effective application command shortcuts.
+
+The native shortcut table searches stable command IDs, labels and shortcuts.
+QKeySequenceEdit records sequences; Clear explicitly disables a binding, Reset
+restores the selected command's default, and Reset all restores defaults for
+currently registered commands while retaining assignments for unavailable plugins.
+The table is a presentation model over borrowed registry IDs and a local draft;
+it does not retain plugin command pointers or write files.
+
+Application settings persist the map at `content/settings/shortcuts`, using
+PortableText strings keyed by stable command ID. An absent key selects the default;
+an empty string disables it. Core's CommandShortcuts owner applies the map to
+current commands and later registrations, including plugin unload/reload. Unknown
+command assignments remain available. Duplicate and sequence-prefix conflicts
+identify both command IDs and sequences and block Apply. A newly registered command
+that conflicts with an active binding is temporarily disabled, with a concrete
+status message; its configured assignment/default is retained and retried when the
+conflicting command unloads. Persisted defaults and assignments are not rewritten
+by this suppression.
+
+Editing, filtering, clearing and resetting remain drafts. Cancel discards unapplied
+changes. App persists through the existing Settings owner before applying shortcut
+side effects to Commands and their QActions. Persistence failures retain the dialog
+for retry, following the existing settings workflow. Registry changes refresh
+validation without establishing an override or dirtying an untouched draft.
+
+The real TerminalDisplay preview now renders seven bounded lines: uppercase and
+lowercase text, digits, punctuation, Cyrillic, box drawing, bold, italic, underline,
+strikeout and reverse text, plus sixteen ANSI foreground and background samples.
+The default text uses draft foreground/background colors. Queued regeneration after
+terminal-size changes restores content clipped by an earlier narrow layout. The
+preview has no transport and emits no outgoing bytes.
+
+### P3 verification
+
+Verified on 2026-11-09 with Windows x64, MSVC 19.44, Qt 6.12.0 and Ninja Debug.
+The complete Debug build passed. A final serial CTest run passed all 28 configured
+suites in one run. AppTests passed 22 results, CommandTests passed 13 and
+SettingsFormTests passed 22. The optional action capture and three existing
+symbolic-link cases retain their documented skips. An earlier parallel run hit an
+unrelated ConsoleElevationTests crash; both its isolated retry and the final
+complete serial run passed.
+
+Coverage includes actual QAction key dispatch after reassignment and clearing,
+conflict/prefix rejection, assignment swaps, late registration and unload/reload,
+late-conflict suppression and recovery, unknown IDs, draft cancellation, command
+ID/label/shortcut search, Reset/Clear, persistent map reload in a fresh process,
+and registry changes without dirtying untouched drafts. Form checks cover color
+samples, reset geometry after font/layout changes, rich preview screen attributes,
+resize recovery and absence of output or persistence during preview edits.
+
+Native Windows SettingsFormTests passed all 22 results at scale factors 1 and 2.
+The native application shortcut fixture passed at both scales and exported the
+same logical 1100 by 760 settings window at each scale. Both sets were visually
+inspected for navigation contrast, table layout, color samples, adjacent reset
+height and rich Unicode/style/color preview rendering:
+
+- Scale 1: [Shortcuts](images/preferences/P3Scale1/Shortcuts.png),
+  [Appearance](images/preferences/P3Scale1/Appearance.png),
+  [Reset](images/preferences/P3Scale1/Reset.png).
+- Scale 2: [Shortcuts](images/preferences/P3Scale2/Shortcuts.png),
+  [Appearance](images/preferences/P3Scale2/Appearance.png),
+  [Reset](images/preferences/P3Scale2/Reset.png).
+
+Only five pinned upstream icon files were downloaded, through the physical
+Ethernet adapter with destination routes verified. No serial hardware was opened,
+no external endpoint acceptance was performed, and no elevation was requested.
+Release was not rebuilt.

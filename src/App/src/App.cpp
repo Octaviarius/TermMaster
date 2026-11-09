@@ -2,6 +2,7 @@
 #include "Gui/Main/MainWindow.h"
 #include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/SettingsDialog.h"
+#include "Gui/Settings/ShortcutEditor.h"
 #include "Gui/Terminal/TerminalController.h"
 
 #include <QCloseEvent>
@@ -25,6 +26,7 @@
 #include <Termaster/App/App.h>
 #include <Termaster/Core/ApplicationPaths.h>
 #include <Termaster/Core/CommandRegistry.h>
+#include <Termaster/Core/CommandShortcuts.h>
 #include <Termaster/Core/Gui/Action/MenuActionContainer.h>
 #include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Plugin/PluginManagerGui.h>
@@ -49,6 +51,7 @@ struct App::Data
     std::unique_ptr<Workspace>                      workspace;
     std::unique_ptr<Session>                        session;
     CommandRegistry                                 commands;
+    CommandShortcuts                                shortcuts {&commands};
     SettingsWidgetRegistry                          settingsWidgets;
     std::unique_ptr<MainWindow>                     window;
     std::unique_ptr<TerminalController>             terminals;
@@ -131,6 +134,12 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
     setWindowIcon(QIcon(":/Termaster/App/IconOrange.png"));
 
     _data = std::make_unique<Data>(options);
+    _data->settingsWidgets.registerWidget("commandShortcuts", [this](const SettingsSchema::Field&, QWidget* parent) {
+        return new ShortcutEditor(_data->commands, _data->shortcuts, parent);
+    });
+    connect(&_data->shortcuts, &CommandShortcuts::diagnostic, _data->window.get(), [this](const QString& error) {
+        _data->window->statusBar()->showMessage(error);
+    });
     _setupActions();
     _data->terminals = std::make_unique<TerminalController>(
         *_data->window,
@@ -773,6 +782,19 @@ bool App::_ensureApplicationSettings(QString* error)
             seen.insert(path);
         }
     }
+    const auto assignments = _data->settings.value("settings/shortcuts", QVariantMap {});
+    if (assignments.typeId() != QMetaType::QVariantMap)
+    {
+        if (error)
+        {
+            *error = tr("Application shortcuts must be a mapping.");
+        }
+        return false;
+    }
+    if (!_data->shortcuts.setAssignments(assignments.toMap(), error))
+    {
+        return false;
+    }
     _data->settingsLoaded = true;
     return true;
 }
@@ -1336,7 +1358,21 @@ void App::_showSettings(SettingsContext context)
             [this, context](QString* error) {
                 if (context == SettingsContext::Application)
                 {
-                    return _data->settings.sync(error);
+                    const auto assignments = _data->settings.value("settings/shortcuts", QVariantMap {}).toMap();
+                    const auto validation  = _data->shortcuts.validateAssignments(assignments);
+                    if (!validation.isEmpty())
+                    {
+                        if (error)
+                        {
+                            *error = validation;
+                        }
+                        return false;
+                    }
+                    if (!_data->settings.sync(error))
+                    {
+                        return false;
+                    }
+                    return _data->shortcuts.setAssignments(assignments, error);
                 }
                 if (context == SettingsContext::Workspace)
                 {
@@ -1377,6 +1413,12 @@ void App::_showSettings(SettingsContext context)
                                                                              tr("Session settings"));
             if (context == SettingsContext::Application)
             {
+                dialog->addPage("application.shortcuts",
+                                "Application",
+                                "Keyboard shortcuts",
+                                "Global command shortcuts. Changes take effect after Apply.",
+                                schema("Shortcuts.yaml"),
+                                _data->settings.node("settings"));
                 dialog->addPage("application.appearance",
                                 "Application",
                                 "Interface",

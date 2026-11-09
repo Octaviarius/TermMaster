@@ -24,6 +24,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Path.cpp
     inc/Termaster/Core/CommandRegistry.h
     src/CommandRegistry.cpp
+    inc/Termaster/Core/CommandShortcuts.h
+    src/CommandShortcuts.cpp
     inc/Termaster/Core/Command.h
     src/Command.cpp
     inc/Termaster/Core/Gui/Action/ActionContainerAdapter.h
@@ -143,6 +145,11 @@ qt_add_resources(Core "actionIcons"
     PREFIX "/Termaster/Core/Icons"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons"
     FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/app-window.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/keyboard.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/panels-top-left.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/text-cursor.svg"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/terminal.svg"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/cable.svg"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/clipboard-paste.svg"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/copy.svg"

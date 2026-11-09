@@ -13,6 +13,8 @@ qt_add_library(App STATIC
     src/Gui/Main/EditActions.cpp
     src/Gui/Settings/SettingsDialog.h
     src/Gui/Settings/SettingsDialog.cpp
+    src/Gui/Settings/ShortcutEditor.h
+    src/Gui/Settings/ShortcutEditor.cpp
     src/Gui/Session/SessionPicker.h
     src/Gui/Session/SessionPicker.cpp
     src/Gui/Terminal/CommandEditor.h
@@ -46,6 +48,7 @@ qt_add_resources(App "appSettingsSchema"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/Res"
     FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/SettingsSchema.yaml"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Shortcuts.yaml"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/TerminalAppearance.yaml"
 )
 

@@ -3,7 +3,7 @@
 This is the single milestone checklist for pending work. Priority applies to the
 requirements collected in [terminal UI requirements](terminal-ui-requirements.md)
 and [process terminal planning](process-terminal.md), not an audit of the entire
-application. Stages P1 and P2 are complete; later stages await a separate start instruction.
+application. Stages P1 through P3 are complete; later stages await a separate start instruction.
 Items within each stage are ordered; later stages depend on relevant earlier work.
 
 ## P1: Consistent terminal controls
@@ -33,15 +33,17 @@ Implemented contracts, limits and verification are recorded in [command input](c
 
 ## P3: Settings presentation
 
-- [ ] Match reset button height to its adjacent control.
-- [ ] Show synchronized color codes and color samples in shared x-widget editors.
-- [ ] Style the settings window after the supplied Qt Creator reference, add
+- [x] Match reset button height to its adjacent control.
+- [x] Show synchronized color codes and color samples in shared x-widget editors.
+- [x] Style the settings window after the supplied Qt Creator reference, add
       navigation icons and retain the hierarchical tree and search.
-- [ ] Add an application-wide keyboard shortcut editor with command search and
+- [x] Add an application-wide keyboard shortcut editor with command search and
       persistent shortcut assignments.
 
 These changes can be implemented independently of command submission. Verify
 alignment and rendering at supported display scales before marking them complete.
+
+Delivered behavior and verification are recorded in [settings forms](settings-forms.md#settings-presentation-and-global-shortcuts).
 
 ## P4: Advanced sending
 

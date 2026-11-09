@@ -1,4 +1,5 @@
 #include <QCheckBox>
+#include <QEvent>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -57,6 +58,7 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
         fieldLayout->setContentsMargins(0, 0, 0, 0);
         auto* controlRow = new QHBoxLayout;
         controlRow->setContentsMargins(0, 0, 0, 0);
+        controlRow->setSpacing(6);
         fieldLayout->addLayout(controlRow);
         auto* editorWidget = registry.create(field, container);
         _editors.insert(field.key, editorWidget);
@@ -96,7 +98,17 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
             reset->setIconSize(QSize(14, 14));
             reset->setAccessibleName(
                 tr("Reset %1 to inherited value").arg(field.title.isEmpty() ? field.key : field.title));
-            reset->setFixedSize(20, std::clamp(editorWidget->sizeHint().height() - 2, 18, 24));
+            QWidget* control = editorWidget;
+            if (editorWidget->layout() && editorWidget->layout()->count() > 0)
+            {
+                if (auto* child = editorWidget->layout()->itemAt(0)->widget())
+                {
+                    control = child;
+                }
+            }
+            reset->setFixedSize(20, control->sizeHint().height());
+            _resetControls.insert(control, reset);
+            control->installEventFilter(this);
             reset->setStyleSheet("QToolButton { background: #f0a13b; border: 1px solid #b87522; border-radius: 4px; }"
                                  "QToolButton:hover { background: #ffbd66; }"
                                  "QToolButton:pressed { background: #d98a24; }"
@@ -130,7 +142,16 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
         label->setWordWrap(false);
         label->setBuddy(editorWidget);
         label->setToolTip(field.description);
-        _groups.value(field.group).form->addRow(label, container);
+        if (field.presentation.value("fullWidth").toBool())
+        {
+            editorWidget->setAccessibleName(label->text());
+            delete label;
+            _groups.value(field.group).form->addRow(container);
+        }
+        else
+        {
+            _groups.value(field.group).form->addRow(label, container);
+        }
         _rows.insert(field.key, {field, container, true});
         connect(editorWidget, &SettingsFieldEditor::valueChanged, this, [this, key = field.key, editorWidget] {
             if (!_model || _updating)
@@ -147,6 +168,14 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
             _refreshState(key);
             _refreshErrors();
             _refreshContext();
+        });
+        connect(editorWidget, &SettingsFieldEditor::validationChanged, this, [this, key = field.key, editorWidget] {
+            if (!_model || _updating)
+            {
+                return;
+            }
+            _model->setInputError(key, editorWidget->inputError());
+            _refreshErrors();
         });
         _refresh(field.key);
     }
@@ -195,6 +224,19 @@ QStringList SettingsFormWidget::visibleFields() const
     }
     keys.sort();
     return keys;
+}
+
+bool SettingsFormWidget::eventFilter(QObject* watched, QEvent* event)
+{
+    if (event->type() == QEvent::Resize || event->type() == QEvent::Show)
+    {
+        if (auto* reset = _resetControls.value(watched))
+        {
+            const auto* control = qobject_cast<QWidget*>(watched);
+            reset->setFixedHeight(control->height());
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void SettingsFormWidget::_applyFilter()

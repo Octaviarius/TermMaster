@@ -23,6 +23,9 @@ public:
     QList<Command*> commands() const;
     bool            remove(const QString& id);
 
+    Q_SIGNAL void commandAdded(const QString& id);
+    Q_SIGNAL void commandRemoved(const QString& id);
+
 private:
     QMap<QString, QPointer<Command>> _commands;
     bool                             _destroying = false;

@@ -20,6 +20,9 @@ public:
     QStringList          visibleFields() const;
     SettingsFieldEditor* editor(const QString& key) const;
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     struct Group
     {
@@ -43,6 +46,7 @@ private:
     QHash<QString, QLabel*>              _errors;
     QHash<QString, QCheckBox*>           _presence;
     QHash<QString, QToolButton*>         _resets;
+    QHash<QObject*, QToolButton*>        _resetControls;
     QLabel*                              _summary   = nullptr;
     bool                                 _updating  = false;
     SettingsFieldEditor*                 _auxiliary = nullptr;
