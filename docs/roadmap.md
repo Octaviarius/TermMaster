@@ -3,7 +3,7 @@
 This is the single milestone checklist for pending work. Priority applies to the
 requirements collected in [terminal UI requirements](terminal-ui-requirements.md)
 and [process terminal planning](process-terminal.md), not an audit of the entire
-application. Stage P1 is complete; later stages await a separate start instruction.
+application. Stages P1 and P2 are complete; later stages await a separate start instruction.
 Items within each stage are ordered; later stages depend on relevant earlier work.
 
 ## P1: Consistent terminal controls
@@ -18,16 +18,18 @@ Preserve backend capability/state checks and verify the affected GUI.
 
 ## P2: Essential command input
 
-- [ ] Provide an editor and buffered send-on-submit mode, distinct from local echo.
-- [ ] Add byte-safe terminators: LF, CRLF, CR, NUL, none and custom sequences.
-- [ ] Add paste policy and confirmation for multiline sending.
-- [ ] Add command history with Up/Down navigation and search.
-- [ ] Add HEX input with validation before sending.
+- [x] Provide an editor and buffered send-on-submit mode, distinct from local echo.
+- [x] Add byte-safe terminators: LF, CRLF, CR, NUL, none and custom sequences.
+- [x] Add paste policy and confirmation for multiline sending.
+- [x] Add command history with Up/Down navigation and search.
+- [x] Add HEX input with validation before sending.
 
 Establish one submission path that handles partial writes, backpressure and
 outgoing conversion without duplicating terminators. Verify exact bytes with
 synthetic transports, including embedded NUL. Keep existing interactive input
 available for shells.
+
+Implemented contracts, limits and verification are recorded in [command input](command-input.md).
 
 ## P3: Settings presentation
 

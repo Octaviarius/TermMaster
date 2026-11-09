@@ -44,17 +44,16 @@ other settings using the shared color editor selected through x-widget.
 
 ## Send after completing input
 
-Status: requested; implementation deferred until an explicit start instruction.
+Status: implemented in stage P2; see [command input](command-input.md).
 
 Add an input option to buffer typed command text locally and send it after input
 is completed, for example on Enter, instead of transmitting each typed character
 immediately. This is useful for AT commands. Keep this behavior distinct from
-local echo and configured outgoing line-ending conversion. The exact editor
-presentation remains to be specified.
+local echo and configured outgoing line-ending conversion. A dedicated multiline editor uses Enter to submit and Shift+Enter for a newline.
 
 ## Outgoing command terminator
 
-Status: requested; implementation deferred until an explicit start instruction.
+Status: implemented in stage P2; see [command input](command-input.md).
 
 Provide a configurable outgoing command terminator alongside buffered command
 input. Support LF (`\n`), CRLF (`\r\n`), NUL (`\0`) and other terminators.
@@ -73,7 +72,9 @@ shared settings editor layout.
 
 ## Additional command input features
 
-Status: requested; implementation deferred until an explicit start instruction.
+Status: history, editor, terminators, validated HEX and paste policy implemented in
+stage P2; favorites, file/delayed/periodic sending and retained disconnected queues
+remain planned in P4. See [command input](command-input.md).
 
 - Command history with Up/Down navigation and search.
 - Editing before submission through a dedicated single-line or multiline editor.

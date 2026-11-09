@@ -95,6 +95,12 @@ if(TERMASTER_BUILD_SOCKET_TESTS)
     add_subdirectory(tools/tests/Socket)
 endif()
 
+option(TERMASTER_BUILD_COMMAND_INPUT_TESTS "Build command preparation and output queue tests" OFF)
+if(TERMASTER_BUILD_COMMAND_INPUT_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/CommandInput)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()

@@ -104,12 +104,12 @@ private slots:
         QCOMPARE(device.write(bytes), 5);
         QCOMPARE(transport->output, bytes.left(2));
         QCOMPARE(device.pendingBytes(), 3);
-        QCOMPARE(device.write(QByteArray(1024 * 1024, 'x')), -1);
+        QCOMPARE(device.write(QByteArray(1024 * 1024, 'x')), 1024 * 1024 - 3);
+        QCOMPARE(device.pendingBytes(), 1024 * 1024);
+        QCOMPARE(device.write("blocked"), 0);
         transport->writable(3);
         QCOMPARE(transport->output, bytes);
-        QCOMPARE(device.pendingBytes(), 0);
-        QCOMPARE(device.write(QByteArray(1024 * 1024, 'x')), 1024 * 1024);
-        QCOMPARE(device.pendingBytes(), 1024 * 1024);
+        QCOMPARE(device.pendingBytes(), 1024 * 1024 - 3);
         device.close();
         QCOMPARE(device.pendingBytes(), 0);
         QVERIFY(!transport->isOpen());

@@ -1,5 +1,6 @@
 #include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/SettingsDialog.h"
+#include "Gui/Terminal/CommandEditor.h"
 
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -73,6 +74,8 @@ public:
         bool             available = false;
         int              attempts  = 0;
         ReconnectDevice* device    = nullptr;
+        QByteArray       output;
+        qint64           allowance = 2;
     };
     explicit ReconnectDevice(std::shared_ptr<Probe> probe) : _probe(std::move(probe))
     {
@@ -117,7 +120,13 @@ public:
     }
     qint64 write(const QByteArray& bytes, QString*) override
     {
-        return _state == State::Open ? bytes.size() : -1;
+        if (_state != State::Open)
+        {
+            return -1;
+        }
+        const auto count = qMin<qint64>(bytes.size(), _probe->allowance);
+        _probe->output.append(bytes.first(count));
+        return count;
     }
     qint64 pendingBytes() const override
     {
@@ -1214,8 +1223,8 @@ content:
                                          &error),
                      qPrintable(error));
             terminalIds.append(_app.selectedTerminal());
-            QVERIFY(qobject_cast<TerminalDisplay*>(tabs->currentWidget()));
-            auto* display = qobject_cast<TerminalDisplay*>(tabs->currentWidget());
+            QVERIFY(tabs->currentWidget()->findChild<TerminalDisplay*>());
+            auto* display = tabs->currentWidget()->findChild<TerminalDisplay*>();
             display->receive(QByteArray("KEEP ") + type);
             _app.mainWindow().activateWindow();
             QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
@@ -1289,8 +1298,8 @@ content:
         // Moving tabs must not redirect an already offered command to another terminal.
         bar->moveTab(0, 2);
         menu->findChild<QAction*>("Serial.Clear")->trigger();
-        QVERIFY(qobject_cast<TerminalDisplay*>(tabs->currentWidget())->text().trimmed().isEmpty());
-        QVERIFY(qobject_cast<TerminalDisplay*>(tabs->widget(0))->text().contains("KEEP socket"));
+        QVERIFY(tabs->currentWidget()->findChild<TerminalDisplay*>()->text().trimmed().isEmpty());
+        QVERIFY(tabs->widget(0)->findChild<TerminalDisplay*>()->text().contains("KEEP socket"));
         menu->close();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
@@ -1541,6 +1550,7 @@ content:
         QVERIFY2(_app.createWorkspace(Path(temporary.filePath("serial.termaster")), "Serial test", &error),
                  qPrintable(error));
         QVERIFY(_app.workspace()->settings().setValue("appearance/fontSize", 17));
+        QVERIFY(_app.workspace()->settings().setValue("input/pastePolicy", "immediate"));
         QVERIFY(_app.workspace()->settings().setValue("serial/baudRates", QVariantList {123456, 250000}));
         QVERIFY2(_app.createSession("Disconnected serial", &error), qPrintable(error));
         _app.mainWindow().activateWindow();
@@ -1776,6 +1786,112 @@ content:
         QVERIFY(display);
         QCOMPARE(display->font().pointSizeF(), 17.0);
         QCOMPARE(_app.session()->objects().value(id), definition);
+    }
+
+    Q_SLOT void bufferedCommandSubmission()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Input.termaster")), "Input fixture", &error));
+        QVERIFY(_app.createSession("Input fixture", &error));
+        const auto probe                         = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                         = true;
+        auto&                    host            = _app.pluginHost();
+        const auto               originalSize    = _app.mainWindow().size();
+        const auto               originalMinimum = _app.mainWindow().minimumSize();
+        const auto               cleanup         = qScopeGuard([&] {
+            _app.closeWorkspace();
+            host.unregisterTerminalType("inputFixture");
+            _app.mainWindow().setMinimumSize(originalMinimum);
+            _app.mainWindow().resize(originalSize);
+        });
+        PluginHost::TerminalType type;
+        type.id             = "inputFixture";
+        type.title          = "Command fixture";
+        type.plugin         = "Synthetic";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Synthetic command input fixture
+content:
+  type: object
+  properties: {}
+)";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        QVariantMap input {
+            {      "mode", "buffered"},
+            {"terminator",      "nul"},
+            { "localEcho",       true}
+        };
+        QVERIFY(_app.createTerminal("inputFixture",
+                                    {
+                                        {"input", input}
+        },
+                                    "Commands",
+                                    &error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        auto* editor  = _app.mainWindow().findChild<CommandEditor*>("commandEditor");
+        auto* draft   = editor->findChild<QPlainTextEdit*>("commandDraft");
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(editor && draft && display);
+        QVERIFY(editor->buffered());
+        host.connectSelectedTerminal();
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        display->setFocus();
+        QTest::keyClicks(QApplication::focusWidget(), "AT");
+        QCOMPARE(draft->toPlainText(), "AT");
+        QCOMPARE(probe->output, QByteArray());
+        QTest::keyClick(draft, Qt::Key_Return);
+        QTRY_COMPARE(probe->output, QByteArray("AT\0", 3));
+        QVERIFY(draft->toPlainText().isEmpty());
+        auto* history = editor->findChild<QComboBox*>("commandHistory");
+        QCOMPARE(history->count(), 1);
+        probe->allowance = 0;
+        draft->setPlainText("must not replay");
+        QTest::keyClick(draft, Qt::Key_Return);
+        QCoreApplication::processEvents();
+        host.disconnectSelectedTerminal();
+        host.connectSelectedTerminal();
+        probe->allowance = 2;
+        QTest::qWait(40);
+        QCOMPARE(probe->output, QByteArray("AT\0", 3));
+        const auto beforeReply = display->text();
+        display->receive("\x1b[6n");
+        QTRY_VERIFY(probe->output.mid(3).endsWith('R'));
+        QVERIFY(probe->output.mid(3).startsWith("\x1b["));
+        QCOMPARE(display->text(), beforeReply);
+        QApplication::clipboard()->setText("PASTE");
+        display->paste();
+        QCOMPARE(draft->toPlainText(), "PASTE");
+        const auto sentBeforePaste = probe->output;
+        auto*      pastePolicy     = editor->findChild<QComboBox*>("commandPastePolicy");
+        pastePolicy->setCurrentIndex(pastePolicy->findData("immediate"));
+        QVERIFY(QMetaObject::invokeMethod(pastePolicy, "activated", Q_ARG(int, pastePolicy->currentIndex())));
+        display->paste();
+        QTRY_COMPARE(probe->output, sentBeforePaste + QByteArray("PASTE\0", 6));
+        QCOMPARE(draft->toPlainText(), "PASTE");
+        const auto capture = qEnvironmentVariable("TERMASTER_COMMAND_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            _app.mainWindow().setMinimumSize(1100, 760);
+            _app.mainWindow().resize(1100, 760);
+            display->clear();
+            display->receive("Synthetic command fixture: exact byte output and bounded queued send.\r\n");
+            draft->setPlainText("AT+GMR");
+            draft->setFocus();
+            QTest::qWait(100);
+            QCOMPARE(_app.mainWindow().size(), QSize(1100, 760));
+            QVERIFY(_app.mainWindow().grab().save(capture));
+            auto* mode = editor->findChild<QComboBox*>("commandInputMode");
+            mode->setCurrentIndex(mode->findData("interactive"));
+            QVERIFY(QMetaObject::invokeMethod(mode, "activated", Q_ARG(int, mode->currentIndex())));
+            QTest::qWait(30);
+            const QFileInfo captureFile(capture);
+            const auto      interactiveName = QString(captureFile.completeBaseName()).replace("Buffered", "Interactive")
+                                            + ".png";
+            QVERIFY(_app.mainWindow().grab().save(QDir(captureFile.absolutePath()).filePath(interactiveName)));
+        }
     }
 
     Q_SLOT void bulkTerminalConnections()

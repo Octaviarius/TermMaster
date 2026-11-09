@@ -58,6 +58,10 @@ qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/Plugin/HostedPlugin.h
     inc/Termaster/Core/Plugin/PluginHost.h
     inc/Termaster/Core/Terminal/SerialDevice.h
+    inc/Termaster/Core/Terminal/TerminalSendQueue.h
+    src/Terminal/TerminalSendQueue.cpp
+    inc/Termaster/Core/Terminal/CommandInput.h
+    src/Terminal/CommandInput.cpp
     inc/Termaster/Core/Terminal/VtParser.h
     src/Terminal/VtParser.cpp
     inc/Termaster/Core/Terminal/TerminalInput.h

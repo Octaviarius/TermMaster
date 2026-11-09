@@ -239,19 +239,19 @@ qint64 SerialByteDevice::write(const QByteArray& data, QString* error)
         fail(error, "Serial port is not open.");
         return -1;
     }
-    if (data.size() > maximumPending - pendingBytes())
+    const auto accepted = qMin<qint64>(data.size(), qMax<qint64>(0, maximumPending - pendingBytes()));
+    if (accepted == 0)
     {
-        fail(error, "Serial output queue limit exceeded.");
-        return -1;
+        return 0;
     }
-    _pending.append(data);
+    _pending.append(data.constData(), accepted);
     _pump();
     if (_state != State::Open)
     {
         fail(error, _lastError);
         return -1;
     }
-    return data.size();
+    return accepted;
 }
 qint64 SerialByteDevice::pendingBytes() const
 {
