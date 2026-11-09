@@ -21,3 +21,12 @@ Status: requested; implementation deferred until an explicit start instruction.
 
 Remove the extra information strip above the terminal display, such as
 `COM1 / 9600 baud`, to reduce window clutter.
+
+## Settings window presentation
+
+Status: requested; implementation deferred until an explicit start instruction.
+
+Use the supplied Qt Creator Preferences screenshot as the visual reference for
+the settings window. Add meaningful icons to the navigation tree while retaining
+the existing hierarchical category/page structure rather than a flat category
+list. Preserve settings search/filtering and the page area on the right.
