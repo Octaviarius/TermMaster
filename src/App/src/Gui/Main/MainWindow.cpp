@@ -252,7 +252,7 @@ void MainWindow::_createMenus()
     recentSessions->addGroup("entries");
     _mainMenu.findMenu("/session")->addMenu(recentSessions.get(), "recent");
     recentSessions.release();
-    menu("terminal", tr("&Terminal"), {"create", "connection", "management", "output", "settings"});
+    menu("terminal", tr("&Terminal"), {"create", "allConnections", "connection", "management", "output", "settings"});
     menu("tools", tr("&Tools"), {"management"});
     menu("help", tr("&Help"), {"about"});
     for (const auto& group : QStringList {"terminalCreation", "terminal"})

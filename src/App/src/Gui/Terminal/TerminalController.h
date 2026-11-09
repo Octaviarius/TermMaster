@@ -99,6 +99,9 @@ private:
     void                                   _restore();
     void                                   _close(const QString& id);
     void                                   _showTabMenu(const QPoint& position);
+    bool                                   _canSetAllConnections(bool requested) const;
+    void                                   _setAllConnections(bool requested);
+    void                                   _setConnectionRequested(QString id, bool requested);
     void                                   _changed(const QString& id);
     QString                                _mainParameter(const Runtime& terminal) const;
     void                                   _attemptConnection(const QString& id);

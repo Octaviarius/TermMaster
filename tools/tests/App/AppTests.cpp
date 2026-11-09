@@ -1217,6 +1217,8 @@ content:
             QVERIFY(qobject_cast<TerminalDisplay*>(tabs->currentWidget()));
             auto* display = qobject_cast<TerminalDisplay*>(tabs->currentWidget());
             display->receive(QByteArray("KEEP ") + type);
+            _app.mainWindow().activateWindow();
+            QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
             _app.pluginHost().refreshTerminalActions();
             QStringList visible;
             for (const auto* action : _app.toolbar().toolbar()->actions())
@@ -1245,6 +1247,19 @@ content:
                 QCoreApplication::processEvents();
                 QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath(QString(type) + ".png")));
             }
+        }
+        const auto menuCapture = qEnvironmentVariable("TERMASTER_CONTROLS_CAPTURE");
+        if (!menuCapture.isEmpty())
+        {
+            auto* terminalMenu = static_cast<MenuActionContainer*>(_app.mainMenu().findMenu("/terminal"))->menu();
+            terminalMenu->popup(_app.mainWindow().mapToGlobal(QPoint(250, 60)));
+            QTest::qWait(100);
+            auto     canvas = _app.mainWindow().grab();
+            QPainter painter(&canvas);
+            painter.drawPixmap(_app.mainWindow().mapFromGlobal(terminalMenu->pos()), terminalMenu->grab());
+            painter.end();
+            QVERIFY(canvas.save(QDir(menuCapture).filePath("TerminalMenu.png")));
+            terminalMenu->close();
         }
         auto* bar      = tabs->tabBar();
         auto  openMenu = [&](int index) {
@@ -1304,6 +1319,13 @@ content:
                                   Qt::DirectConnection,
                                   Q_ARG(QPoint, QPoint(bar->width() - 1, bar->height() - 1)));
         QCOMPARE(_app.mainWindow().findChildren<QMenu*>("terminalTabMenu").size(), count);
+        menu = openMenu(0);
+        QVERIFY(menu);
+        auto* closeConsole = menu->findChild<QAction*>("Console.Close");
+        QVERIFY(closeConsole && closeConsole->isEnabled());
+        closeConsole->trigger();
+        QCOMPARE(tabs->count(), 0);
+        QVERIFY(_app.terminalIds().isEmpty());
     }
 
     Q_SLOT void consolePluginTerminalLifecycle()
@@ -1754,6 +1776,104 @@ content:
         QVERIFY(display);
         QCOMPARE(display->font().pointSizeF(), 17.0);
         QCOMPARE(_app.session()->objects().value(id), definition);
+    }
+
+    Q_SLOT void bulkTerminalConnections()
+    {
+        auto* start = _app.commands().find("Terminal.StartAll")->actions().first();
+        auto* stop  = _app.commands().find("Terminal.StopAll")->actions().first();
+        QVERIFY(!start->isEnabled());
+        QVERIFY(!stop->isEnabled());
+        auto* menu = _app.mainMenu().findMenu("/terminal");
+        QCOMPARE(menu->actions("allConnections"), QList<QAction*>({start, stop}));
+        QVERIFY(!_app.toolbar().toolbar()->actions().contains(start));
+        QVERIFY(!_app.toolbar().toolbar()->actions().contains(stop));
+
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        QString error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Bulk.termaster")), "Bulk fixture", &error));
+        QVERIFY(_app.createSession("Bulk fixture", &error));
+        auto available       = std::make_shared<ReconnectDevice::Probe>();
+        auto unavailable     = std::make_shared<ReconnectDevice::Probe>();
+        available->available = true;
+        auto&      host      = _app.pluginHost();
+        const auto cleanup   = qScopeGuard([&] {
+            _app.closeWorkspace();
+            host.unregisterTerminalType("bulkAvailable");
+            host.unregisterTerminalType("bulkUnavailable");
+        });
+        for (const bool working : {true, false})
+        {
+            PluginHost::TerminalType type;
+            type.id             = working ? "bulkAvailable" : "bulkUnavailable";
+            type.title          = type.id;
+            type.plugin         = "Synthetic";
+            type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Synthetic bulk fixture
+content:
+  type: object
+  properties: {}
+)";
+            type.createDevice   = [probe = working ? available : unavailable] {
+                return std::make_unique<ReconnectDevice>(probe);
+            };
+            host.registerTerminalType(std::move(type));
+        }
+        QVERIFY(_app.createTerminal("bulkAvailable", {}, "Available", &error));
+        QVERIFY(_app.createTerminal("bulkUnavailable", {}, "Unavailable", &error));
+        const auto selected = _app.selectedTerminal();
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.refreshTerminalActions();
+        QVERIFY(start->isEnabled());
+        QVERIFY(!stop->isEnabled());
+        start->trigger();
+        QCOMPARE(available->device->state(), SerialDevice::State::Open);
+        QCOMPARE(unavailable->device->state(), SerialDevice::State::Failed);
+        QCOMPARE(available->attempts, 1);
+        QCOMPARE(unavailable->attempts, 1);
+        QCOMPARE(_app.selectedTerminal(), selected);
+        QVERIFY(host.connectionRequested("bulkUnavailable"));
+        QVERIFY(!start->isEnabled());
+        QVERIFY(stop->isEnabled());
+        start->trigger();
+        QCOMPARE(available->attempts, 1);
+        stop->trigger();
+        QCOMPARE(available->device->state(), SerialDevice::State::Closed);
+        QCOMPARE(unavailable->device->state(), SerialDevice::State::Closed);
+        QVERIFY(!host.connectionRequested("bulkUnavailable"));
+        QCOMPARE(_app.selectedTerminal(), selected);
+        QVERIFY(start->isEnabled());
+        QVERIFY(!stop->isEnabled());
+        QTest::qWait(1200);
+        QCOMPARE(unavailable->attempts, 1);
+        unavailable->available = true;
+        start->trigger();
+        QCOMPARE(available->attempts, 2);
+        QCOMPARE(unavailable->attempts, 2);
+        QCOMPARE(unavailable->device->state(), SerialDevice::State::Open);
+        stop->trigger();
+
+        // Close is still offered when a backend registers no presentation actions.
+        auto*      tabs  = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        const auto point = tabs->tabBar()->tabRect(0).center();
+        QMetaObject::invokeMethod(tabs->tabBar(),
+                                  "customContextMenuRequested",
+                                  Qt::DirectConnection,
+                                  Q_ARG(QPoint, point));
+        auto* popup = _app.mainWindow().findChild<QMenu*>("terminalTabMenu");
+        QVERIFY(popup);
+        QVERIFY(!popup->findChild<QAction*>("Terminal.StartAll"));
+        auto* close = popup->findChild<QAction*>("Terminal.Close");
+        QVERIFY(close);
+        close->trigger();
+        QCOMPARE(tabs->count(), 1);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(!start->isEnabled());
+        QVERIFY(!stop->isEnabled());
     }
 
     Q_SLOT void desiredConnectionSurvivesDeviceLoss()

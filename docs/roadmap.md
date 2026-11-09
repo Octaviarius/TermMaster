@@ -11,6 +11,7 @@ Items within each stage are ordered; later stages depend on relevant earlier wor
 - [x] Unify terminal toolbar control layout/order across backends and remove Close.
 - [x] Add terminal tab context menus; connection/output/settings commands and separated Close.
 - [x] Remove the redundant information strip above the terminal display.
+- [x] Add Start all / Stop all to the Terminal menu and guarantee tab-menu Close.
 
 These small changes address accidental closure and visual clutter first.
 Preserve backend capability/state checks and verify the affected GUI.
@@ -65,3 +66,12 @@ Design reconnect/replay behavior explicitly before combining queues and timers.
 Ordinary process pipes come before invasive attachment research. Hooking remains
 experimental and must not delay the usable launch mode. Detailed lifecycle,
 platform limitations and verification boundaries are in the process planning doc.
+
+## P6: Quake-style dropdown mode
+
+- [ ] Add a Quake-style dropdown console window with a configurable global
+      show/hide shortcut, preserving existing terminal sessions while hidden.
+
+See [dropdown mode requirements](quake-console.md). Monitor, focus and normal-window
+behavior must be defined before implementation. This is a future presentation
+mode, not a new terminal backend.
