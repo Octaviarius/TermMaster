@@ -34,6 +34,54 @@ public:
     }
 };
 
+class DuplexProbe final : public Processor
+{
+public:
+    int                   cancelled = 0;
+    bool                  deferred  = false;
+    std::function<void()> acknowledgement;
+    int                   inputCount() const override
+    {
+        return 2;
+    }
+    int outputCount() const override
+    {
+        return 2;
+    }
+    QVariantMap configuration() const override
+    {
+        return {};
+    }
+    AcceptResult accept(Chunk chunk, Callbacks callbacks) override
+    {
+        if (chunk.port == 0)
+        {
+            callbacks.output({QByteArray("ACK"), Boundary::Packet, 1});
+        }
+        callbacks.output(std::move(chunk));
+        callbacks.completed({});
+        return AcceptResult::Accepted;
+    }
+    void unsolicited(int port, QByteArray bytes)
+    {
+        publishOutput({std::move(bytes), Boundary::StreamChunk, port});
+    }
+    void cancel(std::function<void()> done) override
+    {
+        ++cancelled;
+        setOutputHandler({});
+        setErrorHandler({});
+        if (deferred)
+        {
+            acknowledgement = std::move(done);
+        }
+        else if (done)
+        {
+            done();
+        }
+    }
+};
+
 class RoutingDevice final : public SerialDevice
 {
 public:
@@ -73,6 +121,139 @@ class ProcessingRoutingTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void duplexCrossPortAndIdleRouting()
+    {
+        ProcessingRouter router;
+        QByteArray       received;
+        QByteArray       transmitted;
+        QList<bool>      retention;
+        router.setOutput(ProcessingRouter::Direction::Rx, [&](const auto& chunk, const auto&, QString*) {
+            if (chunk.port != 0)
+            {
+                return Processor::AcceptResult::Rejected;
+            }
+            received += chunk.bytes;
+            return Processor::AcceptResult::Accepted;
+        });
+        router.setOutput(ProcessingRouter::Direction::Tx, [&](const auto& chunk, const auto& options, QString*) {
+            transmitted += chunk.bytes;
+            retention.append(options.retainOnDisconnect);
+            return Processor::AcceptResult::Accepted;
+        });
+        auto protocol = std::make_shared<DuplexProbe>();
+        router.replaceDuplex(protocol);
+        QTRY_VERIFY(router.duplex());
+        TerminalSendQueue::Options options;
+        options.retainOnDisconnect = true;
+        QCOMPARE(router.submit(ProcessingRouter::Direction::Rx, {QByteArray("R\0X", 3)}, options),
+                 Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(received, QByteArray("R\0X", 3));
+        QTRY_COMPARE(transmitted, QByteArray("ACK"));
+        QCOMPARE(retention, QList<bool> {false});
+        QCOMPARE(router.submit(ProcessingRouter::Direction::Tx, {QByteArray("command")}, options),
+                 Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(transmitted, QByteArray("ACKcommand"));
+        QVERIFY(retention.last());
+        protocol->unsolicited(1, "timer");
+        QTRY_COMPARE(transmitted, QByteArray("ACKcommandtimer"));
+        QVERIFY(!retention.last());
+        router.cancel(ProcessingRouter::Direction::Tx);
+        QTRY_COMPARE(protocol->cancelled, 1);
+        QVERIFY(!router.duplex());
+        protocol->unsolicited(1, "late");
+        QTest::qWait(20);
+        QCOMPARE(transmitted, QByteArray("ACKcommandtimer"));
+    }
+
+    void duplexReplacementWaitsForBothDirectionsAndCoalesces()
+    {
+        ProcessingRouter router;
+        auto             rx = std::make_shared<DelayedProcessor>();
+        auto             tx = std::make_shared<DelayedProcessor>();
+        router.replace(ProcessingRouter::Direction::Rx, rx);
+        router.replace(ProcessingRouter::Direction::Tx, tx);
+        QByteArray output;
+        router.setOutput(ProcessingRouter::Direction::Rx, [&](const auto& chunk, const auto&, QString*) {
+            output += chunk.bytes;
+            return Processor::AcceptResult::Accepted;
+        });
+        auto first  = std::make_shared<DuplexProbe>();
+        auto latest = std::make_shared<DuplexProbe>();
+        int  ready  = 0;
+        router.replaceDuplex(first, [&] { ++ready; });
+        QVERIFY(rx->acknowledgement && tx->acknowledgement);
+        router.replaceDuplex(latest, [&] { ++ready; });
+        rx->acknowledgement();
+        QTest::qWait(10);
+        QVERIFY(!router.duplex());
+        QCOMPARE(router.submit(ProcessingRouter::Direction::Rx, {QByteArray("queued")}),
+                 Processor::AcceptResult::Accepted);
+        QTest::qWait(15);
+        QVERIFY(output.isEmpty());
+        tx->acknowledgement();
+        QTRY_VERIFY(router.duplex());
+        QTRY_COMPARE(output, QByteArray("queued"));
+        QCOMPARE(ready, 2);
+        latest->deferred = true;
+        router.cancel(ProcessingRouter::Direction::Rx);
+        QCOMPARE(latest->cancelled, 1);
+        QVERIFY(latest->acknowledgement);
+        latest->acknowledgement();
+        QTRY_COMPARE(router.diagnostics(ProcessingRouter::Direction::Rx).state, ProcessingRouter::State::Bypass);
+        QCOMPARE(first->cancelled, 1);
+    }
+
+    void sharedToIndependentWaitsForSharedAcknowledgement()
+    {
+        ProcessingRouter router;
+        auto             protocol = std::make_shared<DuplexProbe>();
+        protocol->deferred        = true;
+        router.replaceDuplex(protocol);
+        QTRY_VERIFY(router.duplex());
+        auto rx    = std::make_shared<DelayedProcessor>();
+        auto tx    = std::make_shared<DelayedProcessor>();
+        int  ready = 0;
+        router.replace(ProcessingRouter::Direction::Rx, rx, [&] { ++ready; });
+        QSignalSpy rejected(&router, &ProcessingRouter::error);
+        router.replace(ProcessingRouter::Direction::Tx, rx);
+        QCOMPARE(rejected.size(), 1);
+        router.replace(ProcessingRouter::Direction::Tx, tx, [&] { ++ready; });
+        QCOMPARE(protocol->cancelled, 1);
+        QCOMPARE(router.submit(ProcessingRouter::Direction::Rx, {QByteArray("rx")}), Processor::AcceptResult::Accepted);
+        QCOMPARE(router.submit(ProcessingRouter::Direction::Tx, {QByteArray("tx")}), Processor::AcceptResult::Accepted);
+        QTest::qWait(20);
+        QVERIFY(!rx->callbacks.completed && !tx->callbacks.completed);
+        QCOMPARE(ready, 0);
+        QVERIFY(protocol->acknowledgement);
+        protocol->acknowledgement();
+        QTRY_COMPARE(ready, 2);
+        QTRY_VERIFY(rx->callbacks.completed && tx->callbacks.completed);
+        QCOMPARE(rx->input.bytes, QByteArray("rx"));
+        QCOMPARE(tx->input.bytes, QByteArray("tx"));
+        router.cancel(ProcessingRouter::Direction::Rx);
+        rx->acknowledgement();
+        router.cancel(ProcessingRouter::Direction::Tx);
+        tx->acknowledgement();
+    }
+
+    void duplexIdleBoundsAndInvalidPortStopBothDirections()
+    {
+        ProcessingRouter router({4, 2, 4, 1});
+        auto             protocol = std::make_shared<DuplexProbe>();
+        router.replaceDuplex(protocol);
+        QTRY_VERIFY(router.duplex());
+        protocol->unsolicited(1, "12345");
+        QCOMPARE(router.diagnostics(ProcessingRouter::Direction::Rx).state, ProcessingRouter::State::Failed);
+        QCOMPARE(router.diagnostics(ProcessingRouter::Direction::Tx).state, ProcessingRouter::State::Failed);
+        QTRY_COMPARE(protocol->cancelled, 1);
+        auto invalid = std::make_shared<DuplexProbe>();
+        router.replaceDuplex(invalid);
+        QTRY_VERIFY(router.duplex());
+        invalid->unsolicited(9, "x");
+        QCOMPARE(router.diagnostics(ProcessingRouter::Direction::Tx).state, ProcessingRouter::State::Failed);
+        QVERIFY(router.diagnostics(ProcessingRouter::Direction::Rx).lastError.contains("port"));
+    }
+
     void diagnosticsTrackAsyncReplacementAndFailure()
     {
         ProcessingRouter router;

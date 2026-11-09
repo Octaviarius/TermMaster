@@ -31,6 +31,22 @@ ProcessingRouter::ProcessingRouter(Limits limits, QObject* parent) : QObject(par
 
 ProcessingRouter::~ProcessingRouter()
 {
+    ++_pairGeneration;
+    if (_duplex)
+    {
+        _lanes[1].processor.reset();
+    }
+
+    if (_pairProcessors[0])
+    {
+        _retire(_pairProcessors[0], {});
+    }
+    if (_pairProcessors[1] && _pairProcessors[1] != _pairProcessors[0])
+    {
+        _retire(_pairProcessors[1], {});
+    }
+    _pairProcessors = {};
+
     for (auto& lane : _lanes)
     {
         ++lane.generation;
@@ -158,6 +174,202 @@ void ProcessingRouter::_clear(Lane& lane)
 
 void ProcessingRouter::replace(Direction direction, std::shared_ptr<Processor> processor, std::function<void()> ready)
 {
+    if (processor && (processor->inputCount() != 1 || processor->outputCount() != 1 || processor->thread() != thread()))
+    {
+        emit error(direction, QStringLiteral("An independent direction requires a 1x1 processor"));
+        return;
+    }
+
+    const auto otherIndex = direction == Direction::Rx ? 1 : 0;
+    const auto ownIndex   = direction == Direction::Rx ? 0 : 1;
+    if (processor
+        && (processor == _lanes[size_t(otherIndex)].processor || processor == _lanes[size_t(otherIndex)].replacement
+            || processor == _lanes[size_t(ownIndex)].processor
+            || (_pairReplacing && processor == _pairProcessors[size_t(otherIndex)])))
+    {
+        emit error(direction, QStringLiteral("Independent processing requires distinct fresh instances"));
+        return;
+    }
+
+    if (_duplex || _pairReplacing)
+    {
+        auto desired = _pairReplacing && !_pairShared ? _pairProcessors : std::array<std::shared_ptr<Processor>, 2> {};
+        desired[direction == Direction::Rx ? 0 : 1] = std::move(processor);
+        _replacePair(std::move(desired), false, std::move(ready));
+        return;
+    }
+
+    _replaceLane(direction, std::move(processor), std::move(ready));
+}
+
+bool ProcessingRouter::duplex() const
+{
+    return _duplex;
+}
+
+void ProcessingRouter::replaceDuplex(std::shared_ptr<Processor> processor, std::function<void()> ready)
+{
+    if (processor
+        && (processor->thread() != thread() || processor->inputCount() != 2 || processor->outputCount() != 2
+            || processor == _lanes[0].processor || processor == _lanes[1].processor))
+    {
+        emit error(Direction::Rx,
+                   QStringLiteral("Shared processing requires a fresh 2x2 instance on the router thread"));
+        return;
+    }
+
+    _replacePair({processor, processor}, bool(processor), std::move(ready));
+}
+
+void ProcessingRouter::_replacePair(std::array<std::shared_ptr<Processor>, 2> processors,
+                                    bool                                      shared,
+                                    std::function<void()>                     ready)
+{
+    if (ready)
+    {
+        _pairReady.append(std::move(ready));
+    }
+    // Prepared instances may own timers even before their first accepted invocation.
+    auto abandoned  = std::move(_pairProcessors);
+    _pairProcessors = std::move(processors);
+    _pairShared     = shared;
+    for (size_t index = 0; index < abandoned.size(); ++index)
+    {
+        if (abandoned[index] && abandoned[index] != _pairProcessors[0] && abandoned[index] != _pairProcessors[1]
+            && (index == 0 || abandoned[index] != abandoned[0]))
+        {
+            _retire(abandoned[index], {});
+        }
+    }
+
+    if (_pairReplacing)
+    {
+        for (auto& lane : _lanes)
+        {
+            ++lane.generation;
+            _clear(lane);
+            lane.failed = false;
+            lane.lastError.clear();
+        }
+        return;
+    }
+
+    const auto epoch = ++_pairGeneration;
+    _pairReplacing   = true;
+    if (_duplex)
+    {
+        _lanes[1].processor.reset();
+    }
+    _duplex = false;
+    for (auto& lane : _lanes)
+    {
+        _pairReady.append(std::move(lane.ready));
+        lane.ready.clear();
+    }
+
+    auto                       remaining = std::make_shared<int>(2);
+    QPointer<ProcessingRouter> guard(this);
+    auto                       install = [guard, epoch, remaining] {
+        if (!guard || guard->_pairGeneration != epoch || --*remaining != 0)
+        {
+            return;
+        }
+
+        guard->_duplex             = guard->_pairShared;
+        guard->_lanes[0].processor = std::move(guard->_pairProcessors[0]);
+        guard->_lanes[1].processor = std::move(guard->_pairProcessors[1]);
+        guard->_pairReplacing      = false;
+        guard->_installHandlers(Direction::Rx);
+        if (!guard->_duplex)
+        {
+            guard->_installHandlers(Direction::Tx);
+        }
+        auto callbacks = std::move(guard->_pairReady);
+        for (auto& callback : callbacks)
+        {
+            callback();
+            if (!guard)
+            {
+                return;
+            }
+        }
+        emit guard->capacityAvailable(Direction::Rx);
+        if (guard)
+        {
+            emit guard->capacityAvailable(Direction::Tx);
+        }
+        if (guard)
+        {
+            guard->_schedule();
+        }
+    };
+    _replaceLane(Direction::Rx, {}, install);
+    if (guard && guard->_pairGeneration == epoch)
+    {
+        _replaceLane(Direction::Tx, {}, install);
+    }
+}
+
+void ProcessingRouter::_installHandlers(Direction direction)
+{
+    auto& lane = _lane(direction);
+    if (!lane.processor)
+    {
+        return;
+    }
+    QPointer<ProcessingRouter> guard(this);
+    const auto                 generation = lane.generation;
+    lane.processor->setOutputHandler([guard, direction, generation](Processor::Chunk chunk) {
+        if (guard)
+        {
+            guard->_output(direction, generation, std::move(chunk), {}, false);
+        }
+    });
+    lane.processor->setErrorHandler([guard, direction, generation](QString message) {
+        if (guard && guard->_lane(direction).generation == generation)
+        {
+            guard->_fail(direction, std::move(message));
+        }
+    });
+}
+
+void ProcessingRouter::_output(Direction                         source,
+                               quint64                           generation,
+                               Processor::Chunk                  chunk,
+                               const TerminalSendQueue::Options& options,
+                               bool                              requireActive)
+{
+    const auto& origin = _lane(source);
+    if (_pairReplacing || origin.generation != generation || origin.failed || origin.replacing
+        || (requireActive && !origin.active))
+    {
+        return;
+    }
+    if (chunk.port < 0 || chunk.port >= (_duplex ? 2 : 1))
+    {
+        _fail(source, QStringLiteral("Processor emitted an invalid output port"));
+        return;
+    }
+
+    const auto direction = _duplex ? (chunk.port == 0 ? Direction::Rx : Direction::Tx) : source;
+    auto&      target    = _lane(direction);
+    if (target.outputs.size() >= _limits.maxChunks || chunk.bytes.size() > _limits.maxBytes - target.outputBytes)
+    {
+        _fail(direction, QStringLiteral("Processing output exceeds queue limits"));
+        return;
+    }
+
+    chunk.port          = 0;
+    chunk.bytes         = QByteArray(chunk.bytes.constData(), chunk.bytes.size());
+    target.outputBytes += chunk.bytes.size();
+    target.outputs.enqueue({std::move(chunk), direction == source ? options : TerminalSendQueue::Options {}});
+    _schedule();
+}
+
+void ProcessingRouter::_replaceLane(Direction                  direction,
+                                    std::shared_ptr<Processor> processor,
+                                    std::function<void()>      ready)
+{
     auto&       lane  = _lane(direction);
     const auto& other = _lane(direction == Direction::Rx ? Direction::Tx : Direction::Rx);
     if (processor
@@ -195,7 +407,8 @@ void ProcessingRouter::replace(Direction direction, std::shared_ptr<Processor> p
         auto& current     = guard->_lane(direction);
         current.processor = std::move(current.replacement);
         current.replacing = false;
-        auto callbacks    = std::move(current.ready);
+        guard->_installHandlers(direction);
+        auto callbacks = std::move(current.ready);
         emit guard->capacityAvailable(direction);
         if (!guard)
         {
@@ -228,7 +441,7 @@ ProcessingRouter::Diagnostics ProcessingRouter::diagnostics(Direction direction)
     const auto& lane = _lane(direction);
     Diagnostics result;
     result.state          = lane.failed                                                        ? State::Failed :
-                            lane.replacing                                                     ? State::Cancelling :
+                            (lane.replacing || _pairReplacing)                                 ? State::Cancelling :
                             (lane.active || !lane.inputs.isEmpty() || !lane.outputs.isEmpty()) ? State::Busy :
                             lane.processor                                                     ? State::Idle :
                                                                                                  State::Bypass;
@@ -265,6 +478,7 @@ void ProcessingRouter::_fail(Direction direction, QString message)
 {
     message.truncate(4096);
     QPointer<ProcessingRouter> guard(this);
+    const bool                 shared = _duplex;
     replace(direction, {});
     if (!guard)
     {
@@ -273,13 +487,20 @@ void ProcessingRouter::_fail(Direction direction, QString message)
     _lane(direction).failed    = true;
     _lane(direction).lastError = message.left(4096);
     count(_lane(direction).failures, 1);
+    if (shared)
+    {
+        auto& other     = _lane(direction == Direction::Rx ? Direction::Tx : Direction::Rx);
+        other.failed    = true;
+        other.lastError = message;
+        count(other.failures, 1);
+    }
     emit error(direction, message);
 }
 
 void ProcessingRouter::_pump(Direction direction)
 {
     auto& lane = _lane(direction);
-    if (_pumping || lane.replacing || lane.failed)
+    if (_pumping || _pairReplacing || lane.replacing || lane.failed)
     {
         return;
     }
@@ -340,36 +561,24 @@ void ProcessingRouter::_pump(Direction direction)
             lane.outputs.enqueue(std::move(item));
             continue;
         }
-        lane.active           = true;
-        lane.activeBytes      = item.chunk.bytes.size();
-        lane.activeOptions    = item.options;
-        lane.inputBytes      -= lane.inputs.dequeue().chunk.bytes.size();
-        auto       processor  = lane.processor;
-        const auto result     = processor->accept(item.chunk,
-                                                  {[guard, direction, generation](Processor::Chunk output) {
-                                                   if (!guard)
+        lane.active         = true;
+        lane.activeBytes    = item.chunk.bytes.size();
+        lane.activeOptions  = item.options;
+        lane.inputBytes    -= lane.inputs.dequeue().chunk.bytes.size();
+        auto processor      = lane.processor;
+        item.chunk.port     = _duplex && direction == Direction::Tx ? 1 : 0;
+        const auto result   = processor->accept(item.chunk,
+                                                {[guard, direction, generation](Processor::Chunk output) {
+                                                   if (guard)
                                                    {
-                                                       return;
+                                                       guard->_output(direction,
+                                                                      generation,
+                                                                      std::move(output),
+                                                                      guard->_lane(direction).activeOptions,
+                                                                      true);
                                                    }
-                                                   auto& current = guard->_lane(direction);
-                                                   if (current.generation != generation || !current.active)
-                                                   {
-                                                       return;
-                                                   }
-                                                   if (current.outputs.size() >= guard->_limits.maxChunks
-                                                       || output.bytes.size()
-                                                              > guard->_limits.maxBytes - current.outputBytes)
-                                                   {
-                                                       guard->_fail(direction,
-                                                                    QStringLiteral(
-                                                                        "Processing output exceeds queue limits"));
-                                                       return;
-                                                   }
-                                                   current.outputBytes += output.bytes.size();
-                                                   current.outputs.enqueue({std::move(output), current.activeOptions});
-                                                   guard->_schedule();
-                                                   },
-                                                   [guard, direction, generation](QString message) {
+                                                 },
+                                                 [guard, direction, generation](QString message) {
                                                    if (!guard)
                                                    {
                                                        return;
@@ -391,7 +600,7 @@ void ProcessingRouter::_pump(Direction direction)
                                                    {
                                                        guard->_schedule();
                                                    }
-                                                   }});
+                                                 }});
         if (!guard)
         {
             return;

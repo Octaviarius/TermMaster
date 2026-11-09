@@ -26,7 +26,7 @@ namespace
 {
 QString directionKey(int index)
 {
-    return index == 0 ? QStringLiteral("rx") : QStringLiteral("tx");
+    return index == 2 ? QStringLiteral("duplex") : index == 0 ? QStringLiteral("rx") : QStringLiteral("tx");
 }
 QString stateName(ProcessingRouter::State state)
 {
@@ -70,7 +70,8 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
     bar->setContentsMargins(4, 2, 4, 2);
     for (int index = 0; index < 2; ++index)
     {
-        bar->addWidget(new QLabel(index == 0 ? tr("Rx") : tr("Tx"), this));
+        _labels[index] = new QLabel(index == 0 ? tr("Rx") : tr("Tx"), this);
+        bar->addWidget(_labels[index]);
         _selectors[index] = new ProcessorSelector(this, favorites);
         _selectors[index]->setObjectName(index == 0 ? "rxProcessor" : "txProcessor");
         _selectors[index]->setMinimumContentsLength(12);
@@ -106,6 +107,67 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
             _showProperties();
         });
     }
+    _duplexSelector = new ProcessorSelector(this, favorites);
+    _duplexSelector->setObjectName("duplexProcessor");
+    _duplexSelector->setMaximumWidth(440);
+    _duplexSelector->setMinimumContentsLength(18);
+    _duplexSelector->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    _duplexSelector->setToolTip(tr("Shared receive and transmit processor"));
+    bar->addWidget(_duplexSelector, 1);
+    _duplexToggle = new QToolButton(this);
+    _duplexToggle->setObjectName("duplexProcessingToggle");
+    _duplexToggle->setIcon(Icons::icon("network"));
+    _duplexToggle->setCheckable(true);
+    _duplexToggle->setToolTip(tr("Use one shared processor for receive and transmit"));
+    bar->addWidget(_duplexToggle);
+    connect(_duplexToggle, &QToolButton::toggled, this, [this](bool shared) {
+        if (_updating)
+        {
+            return;
+        }
+        QString error;
+        if (!_flush(&error))
+        {
+            _error->setText(error);
+            _updating = true;
+            _duplexToggle->setChecked(_sharedMode);
+            _updating = false;
+            return;
+        }
+        _mode(shared);
+        _showProperties();
+    });
+    connect(_duplexSelector, &QComboBox::activated, this, [this] {
+        QString error;
+        if (!_flush(&error))
+        {
+            _error->setText(error);
+            _catalog();
+            return;
+        }
+        auto id = _duplexSelector->currentData().toString();
+        if (id == "native.bypass")
+        {
+            id.clear();
+        }
+        if (_draft.value("duplex").toMap().value("type").toString() != id)
+        {
+            if (id.isEmpty())
+            {
+                _draft.remove("duplex");
+            }
+            else
+            {
+                _draft.insert("duplex",
+                              QVariantMap {
+                                  {"type", id}
+                });
+            }
+        }
+        _shownDirection = 2;
+        _direction->setCurrentIndex(2);
+        _showProperties();
+    });
     auto* toggle = new QToolButton(this);
     toggle->setObjectName("processingPropertiesToggle");
     toggle->setIcon(Icons::icon("sliders-horizontal"));
@@ -121,7 +183,7 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
     layout->setContentsMargins(6, 4, 6, 4);
     _direction = new QComboBox(_properties);
     _direction->setObjectName("processingPropertyDirection");
-    _direction->addItems({tr("Receive (Rx)"), tr("Transmit (Tx)")});
+    _direction->addItems({tr("Receive (Rx)"), tr("Transmit (Tx)"), tr("Shared flow")});
     layout->addWidget(_direction);
     _table = new QTableWidget(0, 2, _properties);
     _table->setObjectName("processingPropertyTable");
@@ -176,6 +238,7 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
         _nodes.clear();
         _baseline = _latest;
         _draft    = _baseline;
+        _mode(_draft.contains("duplex"));
         _catalog();
         _showProperties();
     });
@@ -208,6 +271,7 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
         }
     });
     diagnostics->start();
+    _mode(_draft.contains("duplex"));
     _catalog();
     _showProperties();
     _diagnostics();
@@ -246,6 +310,7 @@ void TerminalProcessingPanel::setConfiguration(const QVariantMap& configuration)
     }
     _baseline = configuration;
     _draft    = configuration;
+    _mode(_draft.contains("duplex"));
     _catalog();
     _showProperties();
 }
@@ -268,8 +333,21 @@ bool TerminalProcessingPanel::applyDraft(QString* error)
     {
         message = tr("Terminal settings changed. Revert the draft before applying.");
     }
-    else if (_flush(&message) && _draft != _baseline)
+    else if (_flush(&message))
     {
+        if (_sharedMode)
+        {
+            _draft.remove("rx");
+            _draft.remove("tx");
+        }
+        else
+        {
+            _draft.remove("duplex");
+        }
+        if (_draft == _baseline)
+        {
+            return true;
+        }
         const QPointer<TerminalProcessingPanel> self(this);
         auto                                    apply    = _apply;
         const auto                              baseline = _baseline;
@@ -335,13 +413,66 @@ void TerminalProcessingPanel::_clearRows()
     _table->setRowCount(0);
 }
 
-void TerminalProcessingPanel::_catalog()
+void TerminalProcessingPanel::_mode(bool shared)
 {
-    const auto types = _registry.types();
+    _sharedMode = shared;
+    _updating   = true;
+    _duplexToggle->setChecked(shared);
+    _updating = false;
     for (int index = 0; index < 2; ++index)
     {
-        _selectors[index]->setCatalog(types, _draft.value(directionKey(index)).toMap().value("type").toString());
+        _selectors[index]->setVisible(!shared);
+        _labels[index]->setVisible(!shared);
     }
+    _duplexSelector->setVisible(shared);
+    _shownDirection = shared ? 2 : 0;
+    _direction->setCurrentIndex(_shownDirection);
+    for (int index = 0; index < _direction->count(); ++index)
+    {
+        _direction->setItemData(index,
+                                (shared ? index == 2 : index != 2) ? QVariant {} : QVariant(0),
+                                Qt::UserRole - 1);
+    }
+}
+
+void TerminalProcessingPanel::_catalog()
+{
+    const auto                    types = _registry.types();
+    QList<ProcessorCatalog::Type> independent;
+    QList<ProcessorCatalog::Type> shared;
+    QStringList                   excludedIndependent;
+    QStringList                   excludedShared;
+    for (const auto& type : types)
+    {
+        if (type.id != "native.bypass" && (type.inputCount != 2 || type.outputCount != 2))
+        {
+            excludedShared.append(type.id);
+        }
+        if (type.inputCount != 1 || type.outputCount != 1)
+        {
+            excludedIndependent.append(type.id);
+        }
+        if (type.inputCount == 1 && type.outputCount == 1)
+        {
+            independent.append(type);
+            if (type.id == "native.bypass")
+            {
+                // The selector's Bypass entry clears selection; it is not a shared instance.
+                shared.append(type);
+            }
+        }
+        else if (type.inputCount == 2 && type.outputCount == 2)
+        {
+            shared.append(type);
+        }
+    }
+    for (int index = 0; index < 2; ++index)
+    {
+        _selectors[index]->setCatalog(independent,
+                                      _draft.value(directionKey(index)).toMap().value("type").toString(),
+                                      excludedIndependent);
+    }
+    _duplexSelector->setCatalog(shared, _draft.value("duplex").toMap().value("type").toString(), excludedShared);
 }
 
 bool TerminalProcessingPanel::_flush(QString* error)

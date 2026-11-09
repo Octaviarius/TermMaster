@@ -14,6 +14,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QDockWidget>
 #include <QFile>
 #include <QFileInfo>
 #include <QHelpEvent>
@@ -2261,6 +2262,11 @@ content:
         QVERIFY(_app.workspace()->processorDefinitions().contains(block));
         QVERIFY(_app.plugins().processors().type(block));
         QVERIFY(editor->model().renameBlock(block, "Discarded name", &error));
+        auto* dockHost    = editor->findChild<QMainWindow*>("lineflowDockHost");
+        auto* paletteDock = editor->findChild<QDockWidget*>("lineflowPaletteDock");
+        QVERIFY(dockHost && paletteDock);
+        dockHost->addDockWidget(Qt::RightDockWidgetArea, paletteDock);
+        const auto savedLayout = editor->dockLayout();
         editor->reject();
         QTRY_VERIFY(!editor);
         QCOMPARE(_app.workspace()->processorDefinitions().value(block).toMap().value("name").toString(),
@@ -2269,6 +2275,11 @@ content:
         action->trigger();
         editor = _app.mainWindow().findChild<LineflowEditorDialog*>("lineflowEditor");
         QVERIFY(editor);
+        QCOMPARE(QByteArray::fromBase64(_app.settings().value("settings/ui/lineflow/docks").toString().toLatin1()),
+                 savedLayout);
+        dockHost    = editor->findChild<QMainWindow*>("lineflowDockHost");
+        paletteDock = editor->findChild<QDockWidget*>("lineflowPaletteDock");
+        QCOMPARE(dockHost->dockWidgetArea(paletteDock), Qt::RightDockWidgetArea);
         // Widget factory removal releases consumers while retaining the Lineflow draft.
         _app.pluginHost().unregisterEditor("commandFavorites");
         removedFavorites = true;
@@ -2476,6 +2487,55 @@ content:
         probe->device->injectReceive("REOPEN");
         QTRY_VERIFY(display->text().contains("REOPEN"));
         QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+
+        // A shared two-lane definition is selected once and drives both device directions.
+        QVERIFY2(_app.workspace()
+                     ->setProcessorDefinition("duplex.fixture",
+                                              {
+                                                  {    "id","duplex.fixture"                                                            },
+                                                  {  "name",                                        "Duplex fixture"},
+                                                  {  "kind",                                              "lineflow"},
+                                                  {"source",
+                                                   QVariantMap {{"channels", 2},
+                                                   {"nodes",
+                                                   QVariantList {QVariantMap {{"name", "decode"},
+                                                   {"type",
+                                                   "native.hex-decoder"},
+                                                   {"lane", "rx"}},
+                                                   QVariantMap {{"name", "encode"},
+                                                   {"type",
+                                                   "native.hex-encoder"},
+                                                   {"lane", "tx"},
+                                                   {"configuration",
+                                                   QVariantMap {{"separator",
+                                                   ""}}}}}}}                                                        }
+        },
+                                              &error),
+                 qPrintable(error));
+        auto* sharedToggle    = processingPanel->findChild<QToolButton*>("duplexProcessingToggle");
+        auto* sharedSelection = processingPanel->findChild<QComboBox*>("duplexProcessor");
+        QVERIFY(sharedToggle && sharedSelection);
+        sharedToggle->setChecked(true);
+        QVERIFY(sharedSelection->findData("duplex.fixture") >= 0);
+        sharedSelection->setCurrentIndex(sharedSelection->findData("duplex.fixture"));
+        emit sharedSelection->activated(sharedSelection->currentIndex());
+        QVERIFY2(processingPanel->applyDraft(&error), qPrintable(error));
+        QTest::qWait(30);
+        probe->output.clear();
+        display->clear();
+        probe->device->injectReceive("41");
+        display->outputBytes("B", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_VERIFY(display->text().contains('A'));
+        QTRY_COMPARE(probe->output, QByteArray("42"));
+        QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("duplex.fixture"));
+        QVERIFY(!controller.selectedSettings().value("processing/rx").isValid());
+        QVERIFY(!controller.selectedSettings().value("processing/tx").isValid());
+        host.disconnectSelectedTerminal();
+        host.connectSelectedTerminal();
+        QTest::qWait(30);
+        probe->output.clear();
+        display->outputBytes("C", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_COMPARE(probe->output, QByteArray("43"));
 
         // Stop must discard both router output and the full downstream transport queue.
         probe->output.clear();
