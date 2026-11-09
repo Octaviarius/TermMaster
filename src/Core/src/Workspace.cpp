@@ -2,6 +2,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <Termaster/Core/Processing/ProcessorBlocks.h>
 #include <Termaster/Core/Workspace.h>
 #include <utility>
 
@@ -233,6 +234,32 @@ Settings::Node Workspace::state()
     return _settings->node("state");
 }
 
+Settings::Node Workspace::processorBlocks()
+{
+    return _settings->node("processorBlocks");
+}
+
+bool Workspace::setProcessorBlock(const QString& id, const QVariantMap& definition, QString* error)
+{
+    auto blocks = _settings->value("processorBlocks").toMap();
+    blocks.insert(id, definition);
+    return ProcessorBlocks::validate(blocks, error) && _settings->setValue("processorBlocks", blocks, error);
+}
+
+bool Workspace::removeProcessorBlock(const QString& id, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    auto blocks = _settings->value("processorBlocks").toMap();
+    if (!blocks.remove(id))
+    {
+        return fail(error, "Processor block is not registered: " + id);
+    }
+    return ProcessorBlocks::validate(blocks, error) && _settings->setValue("processorBlocks", blocks, error);
+}
+
 Path Workspace::sessionsDirectory() const
 {
     return _file.parent().join("sessions");
@@ -390,6 +417,18 @@ bool Workspace::_validate(const Settings& settings, const Path& file, QString* e
         if (settings.value(key).typeId() != QMetaType::QVariantMap)
         {
             return fail(error, QString("Workspace %1 must be a mapping").arg(key));
+        }
+    }
+    if (settings.contains("processorBlocks"))
+    {
+        const auto blocks = settings.value("processorBlocks");
+        if (blocks.typeId() != QMetaType::QVariantMap)
+        {
+            return fail(error, "Workspace processorBlocks must be a mapping");
+        }
+        if (!ProcessorBlocks::validate(blocks.toMap(), error))
+        {
+            return false;
         }
     }
     const auto entries = settings.value("sessions").toMap();

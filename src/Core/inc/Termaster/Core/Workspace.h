@@ -24,6 +24,9 @@ public:
     SettingsOverlay     settings();
     Settings::Node      sessions();
     Settings::Node      state();
+    Settings::Node      processorBlocks();
+    bool                setProcessorBlock(const QString& id, const QVariantMap& definition, QString* error = nullptr);
+    bool                removeProcessorBlock(const QString& id, QString* error = nullptr);
     Path                sessionsDirectory() const;
     QStringList         sessionIds() const;
     std::optional<Path> sessionDirectory(const QString& id, QString* error = nullptr) const;

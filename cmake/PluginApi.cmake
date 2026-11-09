@@ -7,6 +7,8 @@ foreach(api_header IN ITEMS
     Plugin/HostedPlugin.h
     Plugin/PluginHost.h
     Terminal/SerialDevice.h
+    Processing/Processor.h
+    Processing/ProcessorCatalog.h
 )
     configure_file(
         "${CMAKE_CURRENT_LIST_DIR}/../src/Core/inc/Termaster/Core/${api_header}"

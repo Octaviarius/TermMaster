@@ -389,6 +389,135 @@ private slots:
         QVERIFY(!Path(temporary.filePath("future")).exists());
     }
 
+    void processorBlocksRoundTripPreservesUnknownMetadata()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        const Path    path(temporary.filePath("workspace.yaml"));
+        Workspace     workspace(path, base.node(""));
+        QVERIFY(workspace.create("Processing"));
+
+        const QVariantMap node {
+            {              "name",                                                           "processor"},
+            {              "type",                                        "unavailable.vendor.processor"},
+            {     "configuration", QVariantMap {{"mode", "future"}, {"opaque", QVariantList {"a", "b"}}}},
+            {"futureNodeMetadata",                                       QVariantMap {{"color", "blue"}}}
+        };
+        const QVariantMap definition {
+            {                 "id",                            "shared"},
+            {               "name",      QString::fromUtf8("Shared 雪")},
+            {              "nodes",                 QVariantList {node}},
+            {"futureBlockMetadata", QVariantMap {{"owner", "external"}}}
+        };
+        QString error;
+        QVERIFY2(workspace.setProcessorBlock("shared", definition, &error), qPrintable(error));
+        QVERIFY2(workspace.sync(&error), qPrintable(error));
+
+        // Persistence is independent of currently installed native processor factories.
+        Workspace opened(path, base.node(""));
+        QVERIFY2(opened.load(&error), qPrintable(error));
+        QCOMPARE(opened.processorBlocks().value("shared").toMap(), definition);
+        QVERIFY(!opened.isDirty());
+
+        QVERIFY(opened.setName("Renamed"));
+        QVERIFY2(opened.sync(&error), qPrintable(error));
+        QVERIFY2(workspace.load(&error), qPrintable(error));
+        QCOMPARE(workspace.processorBlocks().value("shared").toMap(), definition);
+    }
+
+    void invalidProcessorBlockEditsAreAtomic()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        const Path    path(temporary.filePath("workspace.yaml"));
+        Workspace     workspace(path, base.node(""));
+        QVERIFY(workspace.create("Processing"));
+
+        const QVariantMap leaf {
+            {   "id",                                                                             "leaf"},
+            { "name",                                                                             "Leaf"},
+            {"nodes", QVariantList {QVariantMap {{"name", "processor"}, {"type", "unavailable.native"}}}}
+        };
+        const QVariantMap parent {
+            {   "id",                                                               "parent"},
+            { "name",                                                               "Parent"},
+            {"nodes", QVariantList {QVariantMap {{"name", "nested"}, {"reference", "leaf"}}}}
+        };
+        QVERIFY(workspace.setProcessorBlock("leaf", leaf));
+        QVERIFY(workspace.setProcessorBlock("parent", parent));
+        QVERIFY(workspace.sync());
+        const auto original  = workspace.processorBlocks().values();
+        const auto persisted = readFile(path.toString());
+
+        auto invalid = leaf;
+        invalid.insert("nodes",
+                       QVariantList {
+                           QVariantMap {{"name", "ambiguous"}, {"type", "native"}, {"reference", "parent"}}
+        });
+        QString error;
+        QVERIFY(!workspace.setProcessorBlock("leaf", invalid, &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(workspace.processorBlocks().values(), original);
+        QVERIFY(!workspace.isDirty());
+
+        // Replacing leaf by a reference to parent would close a two-block cycle.
+        invalid.insert("nodes",
+                       QVariantList {
+                           QVariantMap {{"name", "cycle"}, {"reference", "parent"}}
+        });
+        QVERIFY(!workspace.setProcessorBlock("leaf", invalid, &error));
+        QVERIFY(error.contains("cycle"));
+        QCOMPARE(workspace.processorBlocks().values(), original);
+
+        QVERIFY(!workspace.removeProcessorBlock("leaf", &error));
+        QVERIFY(error.contains("reference"));
+        QCOMPARE(workspace.processorBlocks().values(), original);
+        QVERIFY(!workspace.isDirty());
+        QCOMPARE(readFile(path.toString()), persisted);
+
+        QVERIFY(workspace.removeProcessorBlock("parent"));
+        QVERIFY(workspace.removeProcessorBlock("leaf"));
+        QVERIFY(workspace.processorBlocks().values().isEmpty());
+    }
+
+    void invalidProcessorBlocksRetainLoadedOwnerAndFile()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        const Path    path(temporary.filePath("workspace.yaml"));
+        Workspace     workspace(path, base.node(""));
+        QVERIFY(workspace.create("Original"));
+        const QVariantMap definition {
+            {   "id",          "good"},
+            { "name",          "Good"},
+            {"nodes", QVariantList {}}
+        };
+        QVERIFY(workspace.setProcessorBlock("good", definition));
+        QVERIFY(workspace.sync());
+        const auto original  = workspace.processorBlocks().values();
+        const auto persisted = readFile(path.toString());
+
+        // Scoped views can stage drafts, but invalid drafts cannot reach the file.
+        QVERIFY(workspace.processorBlocks().setValue("good/nodes", "invalid"));
+        QString error;
+        QVERIFY(!workspace.sync(&error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(readFile(path.toString()), persisted);
+        QVERIFY(workspace.isDirty());
+        QVERIFY(workspace.load());
+        QCOMPARE(workspace.processorBlocks().values(), original);
+
+        QVERIFY(workspace.setName("Pending"));
+        QVERIFY(writeDocument(path.toString(),
+                              "name: Replacement\nsettings: {}\nsessions: {}\nprocessorBlocks:\n"
+                              "  bad: {id: bad, name: Bad, nodes: [{name: nested, reference: missing}]}"));
+        QVERIFY(!workspace.load(&error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(workspace.name(), "Pending");
+        QCOMPARE(workspace.processorBlocks().values(), original);
+        QVERIFY(workspace.isDirty());
+    }
+
     void workspaceViewLifetime()
     {
         QTemporaryDir temporary;
