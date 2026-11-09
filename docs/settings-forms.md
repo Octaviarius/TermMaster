@@ -83,11 +83,21 @@ and `enum` can also select standard controls automatically. These flat annotatio
 are presentation hints; JSON Schema remains authoritative for validation. The old
 nested `x-ui` annotations are rejected and are not aliases for the flat names.
 
-The `fontFamily` and `color` editors each use one compact button showing the current
-family or color code. The color button includes an inline swatch. Selecting a button
-opens its picker; cancellation preserves the draft, while acceptance creates an
-explicit override even when the selected value equals the inherited value. Loaded
-unknown values remain unchanged until a selection is accepted.
+The `fontFamily` editor uses a native dropdown of installed font families and a
+presentation-only All fonts / Monospaced / Proportional filter. Each row shows the
+family in the UI font, a circular separator and the same name in its own font at
+the UI point size. The selected label uses the same delegate when both names fit;
+otherwise it retains the readable UI-font name. Popup widths account for both
+names and their font metrics. Font classification uses `QFontDatabase::isFixedPitch`.
+The current configured family remains visible when unavailable or excluded by the
+filter, with an explanatory tooltip. Filtering never edits the draft or establishes
+an override. An explicit family selection, including the inherited value, creates
+an override. Font size remains a separate field; no font dialog is opened.
+
+The `color` editor uses one compact color-code button with an inline swatch.
+Selecting it opens the color picker; cancellation preserves the draft, while
+acceptance creates an explicit override even when the selected value equals the
+inherited value. Loaded unknown values remain unchanged until explicitly replaced.
 
 Object and array fields use a YAML value editor. This is also available as the
 `yaml` hint. The form does not recursively lay out nested `properties`; complex
@@ -169,9 +179,9 @@ not form a cross-file transaction.
 ### Descriptor-selected appearance widgets
 
 Field hints `x-widget: fontFamily` and `x-widget: color` select the registered Qt
-picker editors. Manual input remains available, picker cancellation leaves drafts
-unchanged, and opening/closing pickers does not save settings. Font-family picking
-changes the family; the point-size field remains independently editable.
+font dropdown and color picker. Filtering fonts and cancelling a color picker leave
+drafts unchanged; neither interaction saves settings. Font-family selection changes
+only the family; the point-size field remains independently editable.
 
 A root `x-widget: terminalPreview` explicitly selects the auxiliary preview, with
 its title in root `x-widget-options`. SettingsSchema exposes these annotations;
@@ -262,9 +272,9 @@ the reference capture above reflects the rounded-button variant.
 
 Status: implemented through descriptor-selected editors and the terminal preview.
 
-Terminal appearance forms need a font selection button and foreground/background
-color selection buttons, using appropriate Qt pickers instead of requiring
-manual entry of font names and color codes. Preserve explicit font-size editing
+Terminal appearance forms use a font-family dropdown with font-type filtering and
+foreground/background color selection buttons, using native Qt Widgets controls
+instead of requiring manual entry of font names and color codes. Preserve explicit font-size editing
 and the existing settings inheritance, validation and reset behavior.
 
 A terminal preview must show how the selected font, size and colors render text.
@@ -456,3 +466,30 @@ The 1100 × 760 logical-pixel captures were visually checked at
 [scale 1](images/preferences/PickerButtons1x/Appearance.png) and
 [scale 2](images/preferences/PickerButtons2x/Appearance.png). Both show a single
 font-family button and single color-code buttons with inline swatches.
+
+
+### Font-family dropdown verification
+
+Verified on 2026-11-09 with Windows x64, MSVC 19.44, Qt 6.12.0 and Ninja Debug.
+The complete Debug build, including Termaster.exe, and all 28 configured CTest
+suites passed. SettingsFormTests passed 23 results on native Windows at scale
+factors 1 and 2; the native application preferences fixture passed at both scales.
+Coverage includes all three filters without draft changes, equal inherited
+selection creating an override, Apply/reset, unknown and non-string loaded values,
+independent font size, delegate metrics and reset height after font changes.
+The offscreen form suite loads two installed Windows fonts only when its platform
+has no system font discovery. The color picker acceptance, cancellation and
+form-destruction lifecycle checks remain covered.
+
+The selected family uses the same normal-name / circular-separator / font-sample
+presentation as popup rows when space permits. Selected popup rows use a matched
+palette highlight/text pair. The following native captures use the same
+1100 × 760 logical-pixel window and were visually inspected:
+
+- Scale 1: [Appearance](images/preferences/FontDropdown1x/Appearance.png),
+  [Font dropdown](images/preferences/FontDropdown1x/FontPopup.png).
+- Scale 2: [Appearance](images/preferences/FontDropdown2x/Appearance.png),
+  [Font dropdown](images/preferences/FontDropdown2x/FontPopup.png).
+
+No files were downloaded, no hardware was opened and no elevation was requested.
+Release was not rebuilt. Earlier font-button captures document the superseded UI.

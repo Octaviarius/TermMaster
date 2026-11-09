@@ -1,10 +1,12 @@
+#include <QAbstractItemDelegate>
+#include <QAbstractItemView>
 #include <QAccessible>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFile>
-#include <QFontDialog>
+#include <QFontDatabase>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -12,6 +14,7 @@
 #include <QSpinBox>
 #include <QStandardItemModel>
 #include <QStyle>
+#include <QStyleOptionViewItem>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QToolButton>
@@ -45,7 +48,7 @@ public:
         layout->addWidget(combo);
         auto* model = new QStandardItemModel(combo);
         auto* item  = new QStandardItem(QApplication::style()->standardIcon(QStyle::SP_ComputerIcon),
-                                       "Synthetic COM fixture");
+                                        "Synthetic COM fixture");
         item->setData(QString("COM_TEST"), Qt::UserRole);
         model->appendRow(item);
         combo->setModel(model);
@@ -70,6 +73,19 @@ class SettingsFormTests : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void initTestCase()
+    {
+#ifdef Q_OS_WIN
+        // The offscreen plugin has no system font discovery; use installed, bounded fixtures.
+        if (QFontDatabase::families().isEmpty())
+        {
+            const QString root = qEnvironmentVariable("SystemRoot");
+            QVERIFY(QFontDatabase::addApplicationFont(root + "/Fonts/consola.ttf") >= 0);
+            QVERIFY(QFontDatabase::addApplicationFont(root + "/Fonts/arial.ttf") >= 0);
+        }
+#endif
+    }
+
     Q_SLOT void colorSwatchTracksDraftAndReset()
     {
         QTemporaryDir directory;
@@ -77,7 +93,7 @@ private:
         Settings      local(directory.filePath("local.yaml"));
         QVERIFY(base.setValue("fg", "#112233"));
         SettingsFormModel      model(schema("fg: {type: string, x-widget: color}"),
-                                SettingsOverlay(base.node(""), local.node("")));
+                                     SettingsOverlay(base.node(""), local.node("")));
         SettingsWidgetRegistry registry;
         SettingsFormWidget     form(model, registry);
         auto*                  editor = form.editor("fg");
@@ -133,7 +149,7 @@ private:
     {
         QTemporaryDir directory;
         Settings      owner(directory.filePath("settings.yaml"));
-        for (const QString hint : {QString("fontFamily"), QString("color")})
+        for (const QString hint : {QString("color")})
         {
             auto descriptor = schema(("value: {type: string, default: '#112233', x-widget: " + hint + "}").toUtf8());
             SettingsFormModel            model(descriptor, owner.node(""));
@@ -155,12 +171,95 @@ private:
         }
     }
 
+    Q_SLOT void fontDropdownPreservesDraftAndFilters()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      local(directory.filePath("local.yaml"));
+        const auto    families = QFontDatabase::families();
+        QVERIFY(!families.isEmpty());
+        const QString inherited = families.first();
+        QVERIFY(base.setValue("family", inherited));
+        SettingsFormModel      model(schema("family: {type: string, x-widget: fontFamily}"),
+                                     SettingsOverlay(base.node(""), local.node("")));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        auto*                  editor = form.editor("family");
+        auto*                  combo  = editor->findChild<QComboBox*>("settingsFontFamily");
+        auto*                  filter = editor->findChild<QComboBox*>("settingsFontFilter");
+        QVERIFY(combo);
+        QVERIFY(filter);
+        QVERIFY(!editor->findChild<QToolButton*>());
+        QVERIFY(!editor->findChild<QLineEdit*>());
+        QCOMPARE(combo->labelDrawingMode(), QComboBox::LabelDrawingMode::UseDelegate);
+        QCOMPARE(filter->count(), 3);
+        for (int kind = 0; kind < filter->count(); ++kind)
+        {
+            filter->setCurrentIndex(kind);
+            QCOMPARE(model.value("family").toString(), inherited);
+            QCOMPARE(combo->currentText(), inherited);
+            QVERIFY(!model.isDirty());
+            QVERIFY(!model.hasOverride("family"));
+            for (int row = 0; row < combo->count(); ++row)
+            {
+                const auto family = combo->itemText(row);
+                if (kind != 0 && family != inherited)
+                {
+                    QCOMPARE(QFontDatabase::isFixedPitch(family), kind == 1);
+                }
+            }
+        }
+        filter->setCurrentIndex(0);
+        QStyleOptionViewItem option;
+        option.initFrom(combo);
+        option.font       = combo->font();
+        const auto index  = combo->model()->index(combo->currentIndex(), 0);
+        QFont      sample = option.font;
+        sample.setFamily(inherited);
+        const QSize rowSize = combo->itemDelegate()->sizeHint(option, index);
+        QVERIFY(rowSize.width() >= QFontMetrics(option.font).horizontalAdvance(inherited)
+                                       + QFontMetrics(sample).horizontalAdvance(inherited) + 24);
+        QVERIFY(rowSize.height() >= QFontMetrics(sample).height());
+        QVERIFY(combo->view()->minimumWidth() >= rowSize.width());
+        combo->activated(combo->currentIndex());
+        QVERIFY(model.hasOverride("family"));
+        QCOMPARE(model.value("family").toString(), inherited);
+        QVERIFY(!local.contains("family"));
+        QVERIFY(model.apply());
+        QCOMPARE(local.value("family").toString(), inherited);
+        form.findChild<QToolButton*>("reset_family")->click();
+        QVERIFY(!model.hasOverride("family"));
+        QCOMPARE(combo->currentText(), inherited);
+        QVERIFY(model.apply());
+        QVERIFY(!local.contains("family"));
+        const QString unavailable = "Unavailable Termaster Font Fixture";
+        model.setValue("family", unavailable);
+        filter->setCurrentIndex(1);
+        QCOMPARE(combo->currentText(), unavailable);
+        QCOMPARE(editor->value().toString(), unavailable);
+        editor->setValue(42);
+        filter->setCurrentIndex(2);
+        QCOMPARE(editor->value().typeId(), QMetaType::Int);
+        QCOMPARE(combo->currentText(), QString("42"));
+        form.resize(900, 300);
+        form.show();
+        QTest::qWait(20);
+        auto* reset = form.findChild<QToolButton*>("reset_family");
+        QCOMPARE(reset->height(), combo->height());
+        QFont larger = combo->font();
+        larger.setPointSize(18);
+        combo->setFont(larger);
+        QTest::qWait(20);
+        QCOMPARE(reset->height(), combo->height());
+        QVERIFY(!QApplication::activeModalWidget());
+    }
+
     Q_SLOT void terminalPreviewRetainsRichSampleAfterResize()
     {
         QTemporaryDir     directory;
         Settings          owner(directory.filePath("settings.yaml"));
         auto              descriptor = schema("size: {type: number, default: 12, x-settings-path: appearance/fontSize}",
-                                 "  x-widget: terminalPreview\n");
+                                              "  x-widget: terminalPreview\n");
         SettingsFormModel model(descriptor, owner.node(""));
         SettingsWidgetRegistry registry;
         SettingsFormWidget     form(model, registry);
@@ -210,9 +309,9 @@ private:
         SettingsOverlay overlay(base.node(""), local.node(""));
         auto            descriptor = schema(
             "family: {type: string, default: Consolas, x-widget: fontFamily, x-settings-path: appearance/fontFamily}\n"
-                       "size: {type: number, default: 12, x-settings-path: appearance/fontSize}\n"
-                       "fg: {type: string, default: '#eeeeee', x-widget: color, x-settings-path: appearance/foreground}\n"
-                       "bg: {type: string, default: '#111111', x-widget: color, x-settings-path: appearance/background}",
+            "size: {type: number, default: 12, x-settings-path: appearance/fontSize}\n"
+            "fg: {type: string, default: '#eeeeee', x-widget: color, x-settings-path: appearance/foreground}\n"
+            "bg: {type: string, default: '#111111', x-widget: color, x-settings-path: appearance/background}",
             "  x-widget: terminalPreview\n  x-widget-options: {title: Draft preview}\n");
         QCOMPARE(descriptor->widget(), QString("terminalPreview"));
         QCOMPARE(descriptor->presentation().value("title").toString(), QString("Draft preview"));
@@ -237,7 +336,7 @@ private:
         QVERIFY(!local.contains("appearance/fontSize"));
         model.removeValue("size");
         QCOMPARE(preview->font().pointSizeF(), 12.0);
-        for (const QString key : {QString("family"), QString("fg")})
+        for (const QString key : {QString("fg")})
         {
             auto*      editor = form.editor(key);
             const auto before = model.value(key);
@@ -252,15 +351,12 @@ private:
             editor->findChild<QToolButton*>("settingsPicker")->click();
             QCOMPARE(model.value(key), before);
         }
-        QTimer::singleShot(0, &form, [] {
-            auto* dialog = qobject_cast<QFontDialog*>(QApplication::activeModalWidget());
-            QVERIFY(dialog);
-            QFont selected;
-            selected.setFamily("Courier New");
-            dialog->setCurrentFont(selected);
-            dialog->accept();
-        });
-        form.editor("family")->findChild<QToolButton*>("settingsPicker")->click();
+        auto* family = form.editor("family")->findChild<QComboBox*>("settingsFontFamily");
+        QVERIFY(family);
+        const int selected = family->findText(QFontDatabase::families().first());
+        QVERIFY(selected >= 0);
+        family->setCurrentIndex(selected);
+        family->activated(selected);
         QVERIFY(!model.value("family").toString().isEmpty());
         QCOMPARE(preview->font().family(), model.value("family").toString());
         QVERIFY(!local.contains("appearance/fontFamily"));
@@ -376,12 +472,12 @@ private:
         QVERIFY(owner.setValue("wide", qlonglong(9007199254740991LL)));
         QVERIFY(owner.setValue("fraction", 0.12345678901234566));
         QVERIFY(owner.setValue("invalid", QString("unavailable")));
-        auto                   descriptor = schema("small: {type: integer, minimum: -2.5, maximum: 4.5, default: 2}\n"
-                                                   "wide: {type: integer}\n"
-                                                   "fraction: {type: number, minimum: -1, maximum: 1}\n"
-                                                   "invalid: {type: integer, minimum: 1, maximum: 9}\n"
-                                                   "choice: {type: integer, enum: [1, 2], default: 1}\n"
-                                                   "exclusive: {type: integer, exclusiveMinimum: 2, exclusiveMaximum: 6, default: 3}");
+        auto descriptor = schema("small: {type: integer, minimum: -2.5, maximum: 4.5, default: 2}\n"
+                                 "wide: {type: integer}\n"
+                                 "fraction: {type: number, minimum: -1, maximum: 1}\n"
+                                 "invalid: {type: integer, minimum: 1, maximum: 9}\n"
+                                 "choice: {type: integer, enum: [1, 2], default: 1}\n"
+                                 "exclusive: {type: integer, exclusiveMinimum: 2, exclusiveMaximum: 6, default: 3}");
         SettingsFormModel      model(descriptor, owner.node(""));
         SettingsWidgetRegistry registry;
         SettingsFormWidget     form(model, registry);
@@ -763,8 +859,8 @@ private:
         Settings      owner(directory.filePath("settings.yaml"));
         auto          descriptor = schema(
             "count: {type: integer, default: 3, title: Quantity, x-group: connection, x-settings-path: serial/rate}\n"
-                     "name: {type: string, default: initial, title: Display, description: Unicode Ωμέγα, x-group: connection}\n"
-                     "other: {type: string, default: other, x-group: appearance}",
+            "name: {type: string, default: initial, title: Display, description: Unicode Ωμέγα, x-group: connection}\n"
+            "other: {type: string, default: other, x-group: appearance}",
             "  x-groups:\n    - {id: connection, title: Transport}\n    - {id: appearance, title: Appearance}\n");
         SettingsFormModel      model(descriptor, owner.node(""));
         SettingsWidgetRegistry registry;
