@@ -213,7 +213,8 @@ bool Workspace::create(const QString& name, QString* error)
     auto candidate = document(file);
     if (!candidate->setValue("name", name, error) || !candidate->setValue("settings", QVariantMap {}, error)
         || !candidate->setValue("sessions", QVariantMap {}, error)
-        || !candidate->setValue("directories", QVariantMap {}, error))
+        || !candidate->setValue("directories", QVariantMap {}, error)
+        || !candidate->setValue("state/processing/favorites", QStringList {"native.bypass"}, error))
     {
         return false;
     }
@@ -735,6 +736,37 @@ bool Workspace::_validate(const Settings& settings, const Path& file, QString* e
             return fail(error, "Workspace state must be a mapping");
         }
         const auto map = state.toMap();
+        if (map.contains("processing"))
+        {
+            const auto processing = map.value("processing");
+            if (processing.typeId() != QMetaType::QVariantMap)
+            {
+                return fail(error, "Workspace processing preferences must be a mapping");
+            }
+            const auto preferences = processing.toMap();
+            if (preferences.contains("favorites"))
+            {
+                const auto favorites = preferences.value("favorites");
+                if ((favorites.typeId() != QMetaType::QVariantList && favorites.typeId() != QMetaType::QStringList)
+                    || favorites.toList().size() > 128)
+                {
+                    return fail(error, "Workspace processor favorites must be a list of at most 128 IDs");
+                }
+                QSet<QString> seen;
+                for (const auto& value : favorites.toList())
+                {
+                    const auto id = value.toString();
+                    if (value.typeId() != QMetaType::QString || id.isEmpty() || id.size() > 256 || id != id.trimmed()
+                        || id.contains(QChar::Null) || seen.contains(id))
+                    {
+                        return fail(
+                            error,
+                            "Workspace processor favorite IDs must be unique trimmed strings of 1 to 256 characters without NUL");
+                    }
+                    seen.insert(id);
+                }
+            }
+        }
         if (map.contains("recentSessions"))
         {
             const auto recent = map.value("recentSessions");

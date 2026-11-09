@@ -736,6 +736,83 @@ private slots:
         QVERIFY(!QFileInfo::exists(path.toString() + ".d"));
     }
 
+    void newWorkspacePersistsProcessorFavoritesAndExplicitEmpty()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        const Path    path(temporary.filePath("workspace.yaml"));
+        Workspace     workspace(path, base.node(""));
+        QVERIFY(workspace.create("Favorites"));
+        QCOMPARE(workspace.state().value("processing/favorites").toStringList(), QStringList {"native.bypass"});
+        Workspace reopened(path, base.node(""));
+        QVERIFY(reopened.load());
+        QCOMPARE(reopened.state().value("processing/favorites").toStringList(), QStringList {"native.bypass"});
+        QVERIFY(reopened.state().setValue("processing/unknown",
+                                          QVariantMap {
+                                              {"retained", true}
+        }));
+        const QStringList ids {"native.stub", "missing.vendor.processor", QString::fromUtf8("custom.雪")};
+        QVERIFY(reopened.state().setValue("processing/favorites", ids));
+        QVERIFY(reopened.sync());
+        QVERIFY(workspace.load());
+        QCOMPARE(workspace.state().value("processing/favorites").toStringList(), ids);
+        QCOMPARE(workspace.state().value("processing/unknown").toMap().value("retained").toBool(), true);
+        QVERIFY(workspace.state().setValue("processing/favorites", QStringList {}));
+        QVERIFY(workspace.sync());
+        QVERIFY(reopened.load());
+        QVERIFY(reopened.state().contains("processing/favorites"));
+        QVERIFY(reopened.state().value("processing/favorites").toList().isEmpty());
+    }
+
+    void invalidProcessorFavoritesCannotSaveOrReplaceLoadedOwner()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        const Path    path(temporary.filePath("workspace.yaml"));
+        Workspace     workspace(path, base.node(""));
+        QVERIFY(workspace.create("Original"));
+        const auto            original = readFile(path.toString());
+        const QList<QVariant> invalid {
+            7,
+            QString("not-a-list"),
+            QVariantList {true},
+            QVariantList {"id", "id"},
+            QVariantList {" padded"},
+            QVariantList {QString(257, 'x')},
+            QVariantList {QString("bad") + QChar::Null},
+            QVariant(QStringList(129, "many"))
+        };
+        QString error;
+        for (const auto& value : invalid)
+        {
+            QVERIFY(workspace.state().setValue("processing/favorites", value));
+            QVERIFY(!workspace.sync(&error));
+            QVERIFY(!error.isEmpty());
+            QCOMPARE(readFile(path.toString()), original);
+            QVERIFY(workspace.load());
+            QCOMPARE(workspace.state().value("processing/favorites").toStringList(), QStringList {"native.bypass"});
+        }
+        QVERIFY(workspace.state().setValue("processing", 7));
+        QVERIFY(!workspace.sync(&error));
+        QCOMPARE(readFile(path.toString()), original);
+        QVERIFY(workspace.load());
+        const QList<QByteArray> badStates {"state: {processing: invalid}",
+                                           "state: {processing: {favorites: invalid}}",
+                                           "state: {processing: {favorites: [true]}}",
+                                           "state: {processing: {favorites: [same, same]}}",
+                                           "state: {processing: {favorites: [' padded']}}"};
+        QVERIFY(workspace.setName("Pending"));
+        for (const auto& state : badStates)
+        {
+            QVERIFY(writeDocument(path.toString(), "name: Replacement\nsettings: {}\nsessions: {}\n" + state));
+            QVERIFY(!workspace.load(&error));
+            QVERIFY(!error.isEmpty());
+            QCOMPARE(workspace.name(), QString("Pending"));
+            QCOMPARE(workspace.state().value("processing/favorites").toStringList(), QStringList {"native.bypass"});
+            QVERIFY(workspace.isDirty());
+        }
+    }
+
     void workspaceViewLifetime()
     {
         QTemporaryDir temporary;
