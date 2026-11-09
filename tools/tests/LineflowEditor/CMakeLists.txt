@@ -18,3 +18,19 @@ add_test(NAME LineflowEditorTests COMMAND LineflowEditorTests)
 set_tests_properties(LineflowEditorTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
 )
+
+qt_add_executable(TerminalProcessingTests
+    TerminalProcessingTests.cpp
+)
+target_include_directories(TerminalProcessingTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/App/src"
+)
+target_link_libraries(TerminalProcessingTests PRIVATE
+    App
+    Qt6::Test
+    Qt6::Widgets
+)
+add_test(NAME TerminalProcessingTests COMMAND TerminalProcessingTests)
+set_tests_properties(TerminalProcessingTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+)

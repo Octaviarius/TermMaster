@@ -4,6 +4,7 @@
 #include "Gui/Settings/SettingsDialog.h"
 #include "Gui/Terminal/CommandEditor.h"
 #include "Gui/Terminal/TerminalController.h"
+#include "Gui/Terminal/TerminalProcessingPanel.h"
 
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -294,7 +295,7 @@ private:
         Workspace savedWorkspace(file, savedApplication.node("settings"));
         QVERIFY(savedWorkspace.load(&error));
         QCOMPARE(savedWorkspace.settings().value("child/autosave").toInt(), 42);
-        // Adopt the independent child save before further parent edits.
+        // Adopt the independent child process save before making further parent edits.
         QVERIFY2(_app.workspace()->load(&error), qPrintable(error));
 
         auto*      active     = _app.workspace();
@@ -2348,6 +2349,38 @@ content:
         display->outputBytes("2", TerminalDisplay::OutputKind::Reply, {});
         QTRY_VERIFY(display->text().contains('A'));
         QTRY_COMPARE(probe->output, QByteArray("B"));
+
+        // Rx-only edits preserve the Tx decoder's buffered nibble and running transport.
+        auto* processingPanel = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
+        QVERIFY(processingPanel);
+        auto* rxSelection = processingPanel->findChild<QComboBox*>("rxProcessor");
+        QVERIFY(rxSelection);
+        probe->output.clear();
+        display->outputBytes("4", TerminalDisplay::OutputKind::Reply, {});
+        QTest::qWait(30);
+        QVERIFY(processingPanel->applyDraft(&error));
+        rxSelection->setCurrentIndex(rxSelection->findData("native.gate"));
+        emit rxSelection->activated(rxSelection->currentIndex());
+        QVERIFY2(processingPanel->applyDraft(&error), qPrintable(error));
+        display->outputBytes("2", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_COMPARE(probe->output, QByteArray("B"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        rxSelection->setCurrentIndex(rxSelection->findData("native.hex-decoder"));
+        emit rxSelection->activated(rxSelection->currentIndex());
+        QVERIFY2(processingPanel->applyDraft(&error), qPrintable(error));
+        QCOMPARE(_app.session()
+                     ->objects()
+                     .value(static_cast<TerminalController&>(host).selectedTerminal())
+                     .toMap()
+                     .value("settings")
+                     .toMap()
+                     .value("processing")
+                     .toMap()
+                     .value("rx")
+                     .toMap()
+                     .value("type")
+                     .toString(),
+                 QString("native.hex-decoder"));
 
         // A workspace block is selectable through the same controller boundary.
         QVERIFY(

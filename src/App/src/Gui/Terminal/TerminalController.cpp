@@ -5,6 +5,7 @@
 #include "../Main/MainWindow.h"
 #include "../Settings/SettingsDialog.h"
 #include "CommandEditor.h"
+#include "TerminalProcessingPanel.h"
 
 #include <QAction>
 #include <QApplication>
@@ -14,6 +15,8 @@
 #include <QFontMetrics>
 #include <QMenu>
 #include <QMessageBox>
+#include <QSaveFile>
+#include <QSplitter>
 #include <QStatusBar>
 #include <QTabBar>
 #include <QTabWidget>
@@ -120,7 +123,9 @@ struct TerminalController::Runtime
     std::unique_ptr<AdvancedSender>    advanced;
     std::unique_ptr<ProcessingRouter>  processing;
     QVariantMap                        processingConfiguration;
-    bool                               processingOpen = false;
+    QPointer<TerminalProcessingPanel>  processingPanel;
+    bool                               processingUpdate = false;
+    bool                               processingOpen   = false;
     QVariantMap                        targetConfiguration;
     QPointer<CommandEditor>            editor;
     QPointer<TerminalDisplay>          display;
@@ -137,7 +142,10 @@ struct TerminalController::Runtime
     {
         connectionRequested = false;
         reconnect.stop();
+        processingUpdate = true;
         advanced.reset();
+        delete processingPanel.data();
+        delete panel.data();
         processing.reset();
         sender.reset();
         if (device)
@@ -449,6 +457,13 @@ void TerminalController::registerEditor(const QString& id, EditorFactory factory
 void TerminalController::unregisterEditor(const QString& id)
 {
     _closeSettings();
+    for (const auto& [key, terminal] : _terminals)
+    {
+        if (terminal->processingPanel)
+        {
+            terminal->processingPanel->releaseEditors();
+        }
+    }
     _editors.unregisterWidget(id);
 }
 void TerminalController::refreshTerminalActions()
@@ -590,7 +605,9 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         auto* layout    = new QVBoxLayout(container);
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
-        layout->addWidget(content, 1);
+        auto* split = new QSplitter(Qt::Horizontal, container);
+        split->addWidget(content);
+        layout->addWidget(split, 1);
         terminal->editor = new CommandEditor(container);
         terminal->editor->setSettings(terminal->settings.value("input").toMap());
         if (terminal->advanced)
@@ -605,6 +622,22 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         terminal->advanced   = std::make_unique<AdvancedSender>(*terminal->sender, *terminal->device);
         terminal->advanced->configure(terminal->settings.value("input").toMap());
         terminal->targetConfiguration = _effective(type, terminal->settings).value("transport").toMap();
+        if (_processors)
+        {
+            terminal->processingPanel = new TerminalProcessingPanel(
+                *_processors,
+                _editors,
+                *terminal->processing,
+                terminal->settings.value("processing").toMap(),
+                [this, id](const QVariantMap& baseline, const QVariantMap& candidate, QString* error) {
+                    return _applyProcessing(id, baseline, candidate, error);
+                },
+                container);
+            split->addWidget(terminal->processingPanel->propertiesWidget());
+            split->setStretchFactor(0, 1);
+            split->setStretchFactor(1, 0);
+            layout->addWidget(terminal->processingPanel);
+        }
     }
     catch (const std::exception& exception)
     {
@@ -795,7 +828,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
     auto* advanced = _terminals.at(id)->advanced.get();
     connect(advanced, &AdvancedSender::stopped, this, [this, id] {
         const auto it = _terminals.find(id);
-        if (it != _terminals.end())
+        if (it != _terminals.end() && !it->second->processingUpdate)
         {
             QString error;
             if (!_configureProcessing(*it->second,
@@ -1202,54 +1235,74 @@ void TerminalController::setProcessorRegistry(ProcessorRegistry& registry)
     _processors = &registry;
 }
 
-bool TerminalController::_configureProcessing(Runtime& terminal, QString* error, bool txOnly)
+std::optional<std::array<std::shared_ptr<Processor>, 2>> TerminalController::_prepareProcessing(
+    const QVariantMap& configuration,
+    QString*           error,
+    bool               txOnly)
 {
-    const auto                 configuration = terminal.settings.value("processing").toMap();
-    std::shared_ptr<Processor> instances[2];
-    const QString              directions[] = {"rx", "tx"};
+    std::array<std::shared_ptr<Processor>, 2> instances;
+    const QString                             directions[] = {"rx", "tx"};
     for (int index = txOnly ? 1 : 0; index < 2; ++index)
     {
         const auto value = configuration.value(directions[index]);
         if (value.isValid() && value.metaType().id() != QMetaType::QVariantMap)
         {
-            return fail(error, "Processing selection must be a map: " + directions[index]);
+            fail(error, "Processing selection must be a map: " + directions[index]);
+            return std::nullopt;
         }
         const auto selection = value.toMap();
         for (const auto& key : {QStringLiteral("configuration"), QStringLiteral("overrides")})
         {
             if (selection.contains(key) && selection.value(key).metaType().id() != QMetaType::QVariantMap)
             {
-                return fail(error, "Processing configuration must be a map: " + directions[index] + "/" + key);
+                fail(error, "Processing configuration must be a map: " + directions[index] + "/" + key);
+                return std::nullopt;
             }
         }
         if (selection.contains("type") && selection.value("type").metaType().id() != QMetaType::QString)
         {
-            return fail(error, "Processing identifier must be a string: " + directions[index]);
+            fail(error, "Processing identifier must be a string: " + directions[index]);
+            return std::nullopt;
         }
         const auto type = selection.value("type").toString();
         if (type.isEmpty())
         {
             if (!selection.isEmpty())
             {
-                return fail(error, "Processing selection requires a type: " + directions[index]);
+                fail(error, "Processing selection requires a type: " + directions[index]);
+                return std::nullopt;
             }
             continue;
         }
         if (!_processors)
         {
-            return fail(error, "Processing registry is unavailable");
+            fail(error, "Processing registry is unavailable");
+            return std::nullopt;
         }
         const auto prepared = _processors->prepare(type, selection.value("configuration").toMap(), {}, error);
         if (!prepared)
         {
-            return false;
+            return std::nullopt;
         }
         instances[index] = prepared->instantiate(selection.value("overrides").toMap(), error);
         if (!instances[index])
         {
-            return false;
+            return std::nullopt;
         }
     }
+
+    return instances;
+}
+
+bool TerminalController::_configureProcessing(Runtime& terminal, QString* error, bool txOnly)
+{
+    const auto configuration = terminal.settings.value("processing").toMap();
+    auto       prepared      = _prepareProcessing(configuration, error, txOnly);
+    if (!prepared)
+    {
+        return false;
+    }
+    auto& instances = *prepared;
 
     if (!txOnly)
     {
@@ -1259,6 +1312,124 @@ bool TerminalController::_configureProcessing(Runtime& terminal, QString* error,
     terminal.processingConfiguration = configuration;
     terminal.advanced->setProcessingRouter(configuration.value("tx").toMap().isEmpty() ? nullptr :
                                                                                          terminal.processing.get());
+    return true;
+}
+
+bool TerminalController::_applyProcessing(const QString&     id,
+                                          const QVariantMap& baseline,
+                                          const QVariantMap& configuration,
+                                          QString*           error)
+{
+    const QPointer<TerminalController> self(this);
+    const auto                         it = _terminals.find(id);
+    if (!_session || it == _terminals.end())
+    {
+        return fail(error, "Terminal is no longer available");
+    }
+    auto&                   terminal        = *it->second;
+    const QPointer<QWidget> originalPanel   = terminal.panel;
+    Session* const          originalSession = _session;
+    if (terminal.settings.value("processing").toMap() != baseline)
+    {
+        return fail(error, "Terminal processing settings changed concurrently; revert the draft");
+    }
+    if (configuration == baseline)
+    {
+        return true;
+    }
+    const bool rxChanged            = configuration.value("rx") != baseline.value("rx");
+    const bool txChanged            = configuration.value("tx") != baseline.value("tx");
+    auto       changedConfiguration = configuration;
+    if (!rxChanged)
+    {
+        changedConfiguration.remove("rx");
+    }
+    if (!txChanged)
+    {
+        changedConfiguration.remove("tx");
+    }
+    auto prepared = _prepareProcessing(changedConfiguration, error);
+    if (!prepared)
+    {
+        return false;
+    }
+    if (!self)
+    {
+        return false;
+    }
+    const auto current = _terminals.find(id);
+    if (!originalPanel || _session != originalSession || current == _terminals.end()
+        || current->second->panel != originalPanel)
+    {
+        return fail(error, "Terminal changed while preparing processing instances");
+    }
+    if (!_session->diskUnchanged(error))
+    {
+        return false;
+    }
+
+    auto objects  = _session->objects().values();
+    auto object   = objects.value(id).toMap();
+    auto settings = object.value("settings").toMap();
+    settings.insert("processing", configuration);
+    object.insert("settings", settings);
+    objects.insert(id, object);
+    const auto bytes = _session->prepareObjects(objects, error);
+    if (!bytes)
+    {
+        return false;
+    }
+    QSaveFile file(_session->filePath().toString());
+    file.setDirectWriteFallback(false);
+    if (!file.open(QIODevice::WriteOnly) || file.write(*bytes) != bytes->size() || !file.commit())
+    {
+        return fail(error, "Cannot save terminal processing settings: " + file.errorString());
+    }
+    if (!_session->acceptPreparedDocument(*bytes, error))
+    {
+        return false;
+    }
+
+    const auto liveTerminal = [self, originalPanel, originalSession, id]() -> Runtime* {
+        if (!self || !originalPanel || self->_session != originalSession)
+        {
+            return nullptr;
+        }
+        const auto current = self->_terminals.find(id);
+        return current != self->_terminals.end() && current->second->panel == originalPanel ? current->second.get() :
+                                                                                              nullptr;
+    };
+    terminal.processingUpdate = true;
+    if (txChanged)
+    {
+        terminal.advanced->stop();
+    }
+    auto* live = liveTerminal();
+    if (!live)
+    {
+        return true;
+    }
+    live->processingUpdate = false;
+    if (rxChanged)
+    {
+        live->processing->replace(ProcessingRouter::Direction::Rx, std::move((*prepared)[0]));
+    }
+    live = liveTerminal();
+    if (!live)
+    {
+        return true;
+    }
+    if (txChanged)
+    {
+        live->processing->replace(ProcessingRouter::Direction::Tx, std::move((*prepared)[1]));
+    }
+    live = liveTerminal();
+    if (!live)
+    {
+        return true;
+    }
+    live->processingConfiguration = configuration;
+    live->advanced->setProcessingRouter(configuration.value("tx").toMap().isEmpty() ? nullptr : live->processing.get());
     return true;
 }
 
@@ -1327,6 +1498,10 @@ void TerminalController::applySettings()
         if (terminal->processingConfiguration != terminal->settings.value("processing").toMap())
         {
             terminal->advanced->stop();
+        }
+        if (terminal->processingPanel)
+        {
+            terminal->processingPanel->setConfiguration(terminal->settings.value("processing").toMap());
         }
         terminal->name = _session->objects().value(id).toMap().value("name", id).toString();
         _changed(id);

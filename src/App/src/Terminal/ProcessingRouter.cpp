@@ -2,6 +2,15 @@
 
 #include <QPointer>
 #include <algorithm>
+#include <limits>
+
+namespace
+{
+void count(quint64& value, quint64 amount)
+{
+    value += std::min(amount, std::numeric_limits<quint64>::max() - value);
+}
+} // namespace
 
 ProcessingRouter::ProcessingRouter(QObject* parent) : ProcessingRouter(Limits {}, parent)
 {
@@ -77,6 +86,7 @@ Processor::AcceptResult ProcessingRouter::submit(Direction                      
         }
         return Processor::AcceptResult::WouldBlock;
     }
+    count(lane.acceptedBytes, quint64(chunk.bytes.size()));
     lane.inputBytes += chunk.bytes.size();
     lane.inputs.enqueue({std::move(chunk), options});
     _schedule();
@@ -131,6 +141,7 @@ void ProcessingRouter::replace(Direction direction, std::shared_ptr<Processor> p
     ++lane.generation;
     _clear(lane);
     lane.failed = false;
+    lane.lastError.clear();
     if (lane.replacement && lane.replacement != processor)
     {
         _retire(std::move(lane.replacement), {});
@@ -183,6 +194,24 @@ void ProcessingRouter::wake(Direction direction)
     _pump(direction);
 }
 
+ProcessingRouter::Diagnostics ProcessingRouter::diagnostics(Direction direction) const
+{
+    const auto& lane = _lane(direction);
+    Diagnostics result;
+    result.state          = lane.failed                                                        ? State::Failed :
+                            lane.replacing                                                     ? State::Cancelling :
+                            (lane.active || !lane.inputs.isEmpty() || !lane.outputs.isEmpty()) ? State::Busy :
+                            lane.processor                                                     ? State::Idle :
+                                                                                                 State::Bypass;
+    result.pendingBytes   = pendingBytes(direction);
+    result.pendingChunks  = pendingSubmissions(direction);
+    result.acceptedBytes  = lane.acceptedBytes;
+    result.forwardedBytes = lane.forwardedBytes;
+    result.failures       = lane.failures;
+    result.lastError      = lane.lastError;
+    return result;
+}
+
 qsizetype ProcessingRouter::pendingBytes(Direction direction) const
 {
     const auto& lane = _lane(direction);
@@ -205,13 +234,16 @@ void ProcessingRouter::_schedule()
 
 void ProcessingRouter::_fail(Direction direction, QString message)
 {
+    message.truncate(4096);
     QPointer<ProcessingRouter> guard(this);
     replace(direction, {});
     if (!guard)
     {
         return;
     }
-    _lane(direction).failed = true;
+    _lane(direction).failed    = true;
+    _lane(direction).lastError = message.left(4096);
+    count(_lane(direction).failures, 1);
     emit error(direction, message);
 }
 
@@ -258,6 +290,7 @@ void ProcessingRouter::_pump(Direction direction)
                 }
                 break;
             }
+            count(lane.forwardedBytes, quint64(item.chunk.bytes.size()));
             lane.outputBytes -= lane.outputs.dequeue().chunk.bytes.size();
             emit capacityAvailable(direction);
             if (!guard)
