@@ -10,6 +10,8 @@ set_property(TARGET Qt6::Svg PROPERTY IMPORTED_GLOBAL TRUE)
 qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/Gui/Icons.h
     src/Gui/Icons.cpp
+    inc/Termaster/Core/Gui/SelectionIconDelegate.h
+    src/Gui/SelectionIconDelegate.cpp
     inc/Termaster/Core/ApplicationPaths.h
     src/ApplicationPaths.cpp
     inc/Termaster/Core/Version.h
