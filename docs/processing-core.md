@@ -7,8 +7,8 @@ execution or control-flow language is delivered in this stage.
 
 The core is independent of terminal widgets and transports. Workspace definitions
 are reusable configuration, while each instantiated pipeline owns separate stream
-state. Rx and Tx consumers must instantiate separate pipelines. The operation
-editor remains a standalone interaction prototype and is not connected to this core.
+state. Rx and Tx consumers must instantiate separate pipelines. The [workspace Lineflow editor](lineflow-editor.md) edits reusable definitions
+through the catalog; it does not instantiate processing runtimes.
 
 ```mermaid
 flowchart LR
@@ -348,13 +348,13 @@ workspace switching and collision rejection without losing the active session.
 The independent SDK consumer was rebuilt from a clean external build and its
 explicit acceptance reported three passes without skips. Changed C++ files were
 clang-formatted; local documentation links and `git diff --check` passed.
-No visual layout changed. Python execution and production editing remain future work.
+That milestone did not change visual layout. Python execution remains future work;
+the subsequent [Lineflow editor](lineflow-editor.md) delivers workspace editing.
 
 ## Follow-up delivery order
 
 The single implementation checklist is in [the roadmap](roadmap.md#flow-3-unified-processor-registration).
-The remaining steps are workspace editing, compact terminal selectors/private
-properties and Codeflow.
+The remaining steps are compact terminal selectors/private properties and Codeflow.
 Routing requires an explicit receive backpressure and outgoing-kind contract;
 the current core alone does not establish transport integration.
 

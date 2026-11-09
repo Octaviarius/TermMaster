@@ -185,3 +185,10 @@ Each node's unique `name` is its identity within the block. A session terminal's
 configuration overrides; saving definitions does not require their native plugins
 to be loaded. The [processing core](processing-core.md) specifies defaults,
 occurrence paths, validation and independent runtime lifetimes.
+
+The [Lineflow editor](lineflow-editor.md) applies workspace definition drafts and
+refactors named occurrence overrides across registered active/closed sessions.
+Owner snapshots preserve borrowed settings views and unrelated pending settings.
+Staged multi-document writes use a bounded recovery journal beside the workspace;
+App checks it before opening/restoring the workspace. External changes stop
+preflight or recovery rather than being overwritten automatically.
