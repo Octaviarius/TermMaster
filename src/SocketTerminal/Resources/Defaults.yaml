@@ -1,0 +1,102 @@
+version: 1
+type: termaster.settings-schema
+description: Socket terminal default transport configuration
+content:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Socket
+  type: object
+  additionalProperties: false
+  required: [protocol, host, port, bindAddress, bindPort, connectTimeoutMs, keepAlive, noDelay]
+  x-groups:
+    - id: remote
+      title: Remote endpoint
+      order: 0
+    - id: binding
+      title: Local binding
+      order: 1
+    - id: tcp
+      title: TCP options
+      order: 2
+  properties:
+    protocol:
+      title: Protocol
+      description: Raw client protocol. UDP Open means locally ready; no peer handshake is performed.
+      type: string
+      default: TCP
+      enum: [TCP, UDP]
+      x-settings-path: transport/protocol
+      x-widget: enumCombo
+      x-group: remote
+      x-order: 0
+    host:
+      title: Remote host
+      description: DNS name or numeric IP address of the remote endpoint.
+      type: string
+      default: ''
+      minLength: 0
+      maxLength: 253
+      x-settings-path: transport/host
+      x-widget: stringLineEdit
+      x-group: remote
+      x-order: 1
+    port:
+      title: Remote port
+      description: Raw endpoint port; no Telnet negotiation or TLS is performed.
+      type: integer
+      default: 5000
+      minimum: 1
+      maximum: 65535
+      x-settings-path: transport/port
+      x-widget: integer
+      x-group: remote
+      x-order: 2
+    bindAddress:
+      title: Local address
+      description: Optional numeric IP address. Leave empty for automatic local address selection.
+      type: string
+      default: ''
+      maxLength: 128
+      x-settings-path: transport/bindAddress
+      x-widget: stringLineEdit
+      x-group: binding
+      x-order: 0
+    bindPort:
+      title: Local port
+      description: Zero selects an ephemeral local port.
+      type: integer
+      default: 0
+      minimum: 0
+      maximum: 65535
+      x-settings-path: transport/bindPort
+      x-widget: integer
+      x-group: binding
+      x-order: 1
+    connectTimeoutMs:
+      title: Connect timeout (ms)
+      description: Limits name resolution and connection setup; does not establish UDP peer availability.
+      type: integer
+      default: 10000
+      minimum: 100
+      maximum: 300000
+      x-settings-path: transport/connectTimeoutMs
+      x-widget: integer
+      x-group: remote
+      x-order: 3
+    keepAlive:
+      title: Keep alive
+      description: TCP only. Enable socket keep-alive probes.
+      type: boolean
+      default: true
+      x-settings-path: transport/keepAlive
+      x-widget: boolCheckBox
+      x-group: tcp
+      x-order: 0
+    noDelay:
+      title: No delay
+      description: TCP only. Disable delayed packet coalescing.
+      type: boolean
+      default: true
+      x-settings-path: transport/noDelay
+      x-widget: boolCheckBox
+      x-group: tcp
+      x-order: 1

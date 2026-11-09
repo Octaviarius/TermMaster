@@ -89,6 +89,12 @@ if(TERMASTER_BUILD_CONSOLE_TESTS)
     add_subdirectory(tools/tests/Console)
 endif()
 
+option(TERMASTER_BUILD_SOCKET_TESTS "Build socket terminal tests" OFF)
+if(TERMASTER_BUILD_SOCKET_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Socket)
+endif()
+
 message("")
 message("All project options table:")
 show_all_options()

@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/SocketTerminal">
+        <file>Settings.yaml</file>
+        <file>Defaults.yaml</file>
+    </qresource>
+</RCC>
