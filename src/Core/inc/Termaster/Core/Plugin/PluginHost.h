@@ -6,9 +6,11 @@
 #include <QObject>
 #include <QString>
 #include <QVariant>
+#include <Termaster/Core/Processing/ProcessorCatalog.h>
 #include <Termaster/Core/Terminal/SerialDevice.h>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 
 class QWidget;
 
@@ -74,6 +76,37 @@ public:
         std::function<bool()> visible;
     };
 
+    /** Manager assigns the catalog and owner only while invoking plugin lifecycle calls.
+     * Factories are registered during startup and automatically removed before unload.
+     */
+    void setProcessorCatalog(ProcessorCatalog* catalog, QString owner = {})
+    {
+        _processorCatalog = catalog;
+        _processorOwner   = std::move(owner);
+    }
+    void registerProcessorType(ProcessorCatalog::Type type)
+    {
+        if (!_processorCatalog || _processorOwner.isEmpty())
+        {
+            throw std::logic_error("Processor registration requires plugin startup scope");
+        }
+
+        _processorCatalog->registerType(_processorOwner, std::move(type));
+    }
+
+    bool unregisterProcessorType(const QString& id, QString* error = nullptr)
+    {
+        if (!_processorCatalog || _processorOwner.isEmpty())
+        {
+            if (error)
+            {
+                *error = "Processor removal requires plugin lifecycle scope";
+            }
+            return false;
+        }
+        return _processorCatalog->unregisterType(_processorOwner, id, error);
+    }
+
     virtual ~PluginHost()                                                                       = default;
     /** Snapshot of effective workspace settings; no borrowed storage crosses the plugin ABI. */
     virtual QVariantMap workspaceSettings() const                                               = 0;
@@ -98,4 +131,8 @@ public:
     virtual void clearSelectedTerminal()                                                        = 0;
     virtual void showSelectedTerminalSettings()                                                 = 0;
     virtual void refreshTerminalActions()                                                       = 0;
+
+private:
+    ProcessorCatalog* _processorCatalog = nullptr;
+    QString           _processorOwner;
 };

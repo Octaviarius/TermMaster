@@ -373,4 +373,15 @@ HostedPlugin ABI version 6 adds `SerialDevice::atomicWrites()`. The default stre
 capability permits partial writes and byte/line pacing; UDP reports atomic writes
 so the shared output queue preserves datagram boundaries and rejects byte pacing.
 Rebuild every hosted plugin against this SDK. Interface IID
-`org.octaviarius.Termaster.HostedPlugin/6.0` rejects older hosted binary interfaces.
+`org.octaviarius.Termaster.HostedPlugin/7.0` rejects older hosted binary interfaces.
+
+## Native processor registrations
+
+The header-only processing SDK exposes `Processor` and `ProcessorCatalog`.
+A hosted plugin registers types through `PluginHost::registerProcessorType` during
+startup. Invalid registrations throw, including a descriptor whose defaults cannot
+form a valid initial configuration. Unregistration remains fallible while live
+instances or cancellation retain a module lease. The manager removes remaining
+factories after shutdown and before unloading native code. See the
+[processing core](processing-core.md) for the asynchronous byte contract and
+verification fixture.

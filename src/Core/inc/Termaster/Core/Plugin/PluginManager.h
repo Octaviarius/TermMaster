@@ -7,6 +7,7 @@
 #include <QSet>
 #include <QTimer>
 #include <Termaster/Core/Plugin/Plugin.h>
+#include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <map>
 #include <memory>
 
@@ -65,16 +66,17 @@ public:
     QVariant               data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    QList<Entry> plugins() const;
-    QString      directory() const;
-    QStringList  reverseDependencies(const QString& id) const;
-    bool         isActive() const;
-    void         setHost(PluginHost* host);
-    bool         start(QString* error = nullptr);
-    bool         stop(QString* error = nullptr);
-    bool         rescan(QString* error = nullptr);
-    bool         setEnabled(const QString& id, bool enabled, QString* error = nullptr);
-    bool         reload(const QString& id, QString* error = nullptr);
+    QList<Entry>       plugins() const;
+    QString            directory() const;
+    QStringList        reverseDependencies(const QString& id) const;
+    bool               isActive() const;
+    void               setHost(PluginHost* host);
+    ProcessorRegistry& processors();
+    bool               start(QString* error = nullptr);
+    bool               stop(QString* error = nullptr);
+    bool               rescan(QString* error = nullptr);
+    bool               setEnabled(const QString& id, bool enabled, QString* error = nullptr);
+    bool               reload(const QString& id, QString* error = nullptr);
 
     Q_SIGNAL void pluginStarted(const QString& id);
     Q_SIGNAL void pluginStopped(const QString& id);
@@ -93,6 +95,7 @@ private:
         bool                           failed           = false;
     };
 
+    ProcessorRegistry                          _processors;
     PluginHost*                                _host = nullptr;
     Settings&                                  _settings;
     QString                                    _directory;

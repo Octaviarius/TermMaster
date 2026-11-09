@@ -4,6 +4,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <Termaster/Core/Plugin/PluginHost.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/Settings.h>
 #include <yaml-cpp/yaml.h>
@@ -31,6 +32,78 @@ bool setPreference(Settings& settings, const QString& id, bool enabled)
     return settings.load() && settings.setValue("enabled/" + id, enabled) && settings.sync();
 }
 } // namespace
+
+class ProcessorTestHost final : public QObject, public PluginHost
+{
+public:
+    QVariantMap workspaceSettings() const override
+    {
+        return {};
+    }
+    void showMessage(const QString&) override
+    {
+    }
+    QObject* context() override
+    {
+        return this;
+    }
+    void registerTerminalType(TerminalType) override
+    {
+    }
+    bool unregisterTerminalType(const QString&, QString*) override
+    {
+        return true;
+    }
+    void registerAction(Action) override
+    {
+    }
+    void unregisterAction(const QString&) override
+    {
+    }
+    void registerEditor(const QString&, EditorFactory) override
+    {
+    }
+    void unregisterEditor(const QString&) override
+    {
+    }
+    void showCreateTerminal(const QString&) override
+    {
+    }
+    SerialDevice* selectedDevice(const QString&) override
+    {
+        return nullptr;
+    }
+    bool canCreateTerminal() const override
+    {
+        return false;
+    }
+    bool connectionRequested(const QString&) const override
+    {
+        return false;
+    }
+    bool hasSelectedTerminal(const QString&) const override
+    {
+        return false;
+    }
+    void connectSelectedTerminal() override
+    {
+    }
+    void disconnectSelectedTerminal() override
+    {
+    }
+    void closeSelectedTerminal() override
+    {
+    }
+    void clearSelectedTerminal() override
+    {
+    }
+    void showSelectedTerminalSettings() override
+    {
+    }
+    void refreshTerminalActions() override
+    {
+    }
+};
 
 class PluginIntegrationTests final : public QObject
 {
@@ -64,6 +137,56 @@ private:
     {
         QFile file(path);
         return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+    }
+
+    Q_SLOT void processorFactoryLeaseAndAsyncCancellation()
+    {
+        QTemporaryDir temporary;
+        const QString directory = temporary.path() + "/plugin";
+        QVERIFY(!copy(FIXTURE_Processor, directory).isEmpty());
+        Settings settings(temporary.path() + "/plugin.yaml");
+        QVERIFY(setPreference(settings, "processor", true));
+        ProcessorTestHost host;
+        PluginManager     manager(settings, directory);
+        manager.setHost(&host);
+        QVERIFY(manager.start());
+        QString error;
+        auto    processor = manager.processors().create("fixture.async",
+                                                        {
+                                                            {"label", "saved"}
+        },
+                                                        {},
+                                                        &error);
+        QVERIFY2(processor != nullptr, qPrintable(error));
+        QCOMPARE(processor->configuration().value("label").toString(), QString("saved"));
+        QList<QByteArray> outputs;
+        int               completions = 0;
+        Processor::Chunk  input {QByteArray("A\0B", 3), Processor::Boundary::Packet};
+        auto callbacks = Processor::Callbacks {[&](Processor::Chunk output) { outputs.append(output.bytes); },
+                                               [&](QString cause) {
+                                                   QVERIFY(cause.isEmpty());
+                                                   ++completions;
+                                               }};
+        QCOMPARE(processor->accept(input, callbacks), Processor::AcceptResult::Accepted);
+        QCOMPARE(processor->accept(input, callbacks), Processor::AcceptResult::WouldBlock);
+        QCOMPARE(completions, 0);
+        QVERIFY(!manager.stop(&error));
+        QVERIFY(manager.processors().type("fixture.async").has_value());
+        QTRY_COMPARE(completions, 1);
+        QCOMPARE(outputs, QList<QByteArray> {input.bytes});
+        QCOMPARE(processor->accept(input, callbacks), Processor::AcceptResult::Accepted);
+        bool quiescent = false;
+        processor->cancel([&] { quiescent = true; });
+        QVERIFY(!quiescent);
+        QVERIFY(!manager.stop(&error));
+        QTRY_VERIFY(quiescent);
+        QCOMPARE(completions, 1);
+        processor.reset();
+        QVERIFY(!manager.stop(&error));
+        QTRY_VERIFY(manager.processors().canRemoveOwner("processor"));
+        QVERIFY2(manager.stop(&error), qPrintable(error));
+        QVERIFY(!manager.processors().type("fixture.async").has_value());
+        QCOMPARE(entry(manager, "processor").status, PluginManager::Status::Stopped);
     }
 
     Q_SLOT void independentSdkConsumer()

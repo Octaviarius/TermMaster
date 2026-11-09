@@ -8,9 +8,11 @@
 #include <QJsonObject>
 #include <QLibrary>
 #include <QRegularExpression>
+#include <QScopeGuard>
 #include <QScopedValueRollback>
 #include <QThread>
 #include <Termaster/Core/Plugin/HostedPlugin.h>
+#include <Termaster/Core/Plugin/PluginHost.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/Settings.h>
 #include <algorithm>
@@ -784,6 +786,16 @@ bool PluginManager::_startRecord(Record& record)
     record.loader->setLoadHints(QLibrary::ResolveAllSymbolsHint);
     record.loader->setFileName(entry.path);
     QString cause;
+    if (_host)
+    {
+        _host->setProcessorCatalog(&_processors, entry.info.id);
+    }
+    const auto scope = qScopeGuard([this] {
+        if (_host)
+        {
+            _host->setProcessorCatalog(nullptr);
+        }
+    });
     try
     {
         QObject* root = record.loader->instance();
@@ -869,7 +881,27 @@ bool PluginManager::_stopRecord(Record& record)
     auto& entry  = record.entry;
     entry.status = Status::Stopping;
     QString cause;
-    bool    complete = record.shutdownComplete || !record.instance;
+    // Do not let plugin shutdown invalidate processors or worker state still in use.
+    if (!_processors.canRemoveOwner(entry.info.id, &cause))
+    {
+        entry.status          = Status::Failed;
+        entry.error           = QStringLiteral("Cannot unload %1: %2").arg(entry.info.id, cause);
+        record.failed         = true;
+        record.lifecycleError = entry.error;
+        _report(entry.error);
+        return false;
+    }
+    if (_host)
+    {
+        _host->setProcessorCatalog(&_processors, entry.info.id);
+    }
+    const auto scope    = qScopeGuard([this] {
+        if (_host)
+        {
+            _host->setProcessorCatalog(nullptr);
+        }
+    });
+    bool       complete = record.shutdownComplete || !record.instance;
     try
     {
         if (!complete)
@@ -887,6 +919,11 @@ bool PluginManager::_stopRecord(Record& record)
     }
     cause                   = QString(cause.constData(), cause.size());
     record.shutdownComplete = complete;
+    // A plugin may omit unregistering a factory; destroy every callable before unmapping code.
+    if (complete && !_processors.removeOwner(entry.info.id, &cause))
+    {
+        complete = false;
+    }
     if (complete && record.loader->unload())
     {
         record.instance = nullptr;
@@ -1050,4 +1087,9 @@ void PluginManager::setHost(PluginHost* host)
         throw std::logic_error("Set the plugin host before starting plugins");
     }
     _host = host;
+}
+
+ProcessorRegistry& PluginManager::processors()
+{
+    return _processors;
 }

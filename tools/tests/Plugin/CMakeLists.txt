@@ -55,6 +55,9 @@ target_compile_definitions(PluginFixtureStartFailure PRIVATE FIXTURE_START_FAILU
 add_plugin_fixture(PluginFixtureStopFailure stopFailure 1.0.0 provider)
 target_compile_definitions(PluginFixtureStopFailure PRIVATE FIXTURE_STOP_FAILURE)
 
+add_plugin_fixture(PluginFixtureProcessor processor 1.0.0 "")
+target_compile_definitions(PluginFixtureProcessor PRIVATE FIXTURE_PROCESSOR)
+
 qt_add_executable(PluginIntegrationTests PluginIntegrationTests.cpp)
 target_compile_features(PluginIntegrationTests PRIVATE cxx_std_20)
 target_link_libraries(PluginIntegrationTests PRIVATE Core Qt6::Test yaml-cpp)
@@ -63,6 +66,7 @@ foreach(fixture IN ITEMS
     Consumer
     Leaf
     ProviderV2
+    Processor
     Missing
     CycleA
     CycleB
