@@ -766,6 +766,18 @@ private:
             dialog->selectPage("application.terminal");
             QApplication::processEvents();
             QVERIFY(dialog->grab().save(QDir(capture).filePath("Appearance.png")));
+            auto* family = dialog->findChild<QComboBox*>("settingsFontFamily");
+            QVERIFY(family);
+            family->showPopup();
+            QTest::qWait(100);
+            auto* popup = family->view()->window();
+            QVERIFY(popup->isVisible());
+            auto     image = dialog->grab();
+            QPainter painter(&image);
+            painter.drawPixmap(dialog->mapFromGlobal(popup->mapToGlobal(QPoint())), popup->grab());
+            painter.end();
+            QVERIFY(image.save(QDir(capture).filePath("FontPopup.png")));
+            family->hidePopup();
             dialog->selectPage("application.appearance");
             dialog->pageModel("application.appearance")->setValue("toolbar", false);
             QApplication::processEvents();

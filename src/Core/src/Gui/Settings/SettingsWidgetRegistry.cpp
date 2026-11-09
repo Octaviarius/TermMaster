@@ -1,8 +1,10 @@
+#include <QAbstractItemView>
+#include <QApplication>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDoubleSpinBox>
-#include <QFontDialog>
+#include <QFontDatabase>
 #include <QFontMetricsF>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -15,6 +17,8 @@
 #include <QRegularExpression>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStyle>
+#include <QStyledItemDelegate>
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -218,6 +222,155 @@ protected:
         return partial.match(text).hasMatch() ? QValidator::Intermediate : QValidator::Invalid;
     }
 };
+class FontFamilyDelegate final : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override
+    {
+        const QString family = index.data(Qt::DisplayRole).toString();
+        QFont         sample = option.font;
+        sample.setFamily(family);
+        const QFontMetrics normalMetrics(option.font);
+        const QFontMetrics sampleMetrics(sample);
+        return QSize(normalMetrics.horizontalAdvance(family) + sampleMetrics.horizontalAdvance(family) + 36,
+                     std::max(normalMetrics.height(), sampleMetrics.height()) + 8);
+    }
+
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override
+    {
+        QStyleOptionViewItem background(option);
+        initStyleOption(&background, index);
+        const QString family = background.text;
+        background.text.clear();
+        const auto* style = option.widget ? option.widget->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &background, painter, option.widget);
+
+        painter->save();
+        painter->setClipRect(option.rect);
+        const bool   selected  = option.state & QStyle::State_Selected;
+        const QColor textColor = option.palette.color(selected ? QPalette::HighlightedText : QPalette::Text);
+        if (selected)
+        {
+            // Native inactive popup painting may otherwise combine a pale background with white text.
+            painter->fillRect(option.rect, option.palette.color(QPalette::Highlight));
+        }
+        painter->setPen(textColor);
+        painter->setFont(option.font);
+        const QFontMetrics normalMetrics(option.font);
+        const QRect        content     = option.rect.adjusted(6, 0, -6, 0);
+        const int          normalWidth = normalMetrics.horizontalAdvance(family);
+        painter->drawText(content,
+                          Qt::AlignLeft | Qt::AlignVCenter,
+                          normalMetrics.elidedText(family, Qt::ElideRight, content.width()));
+        QFont sample = option.font;
+        sample.setFamily(family);
+        const int sampleLeft = content.left() + normalWidth + 24;
+        // The closed combo retains a readable UI-font label when both names cannot fit.
+        if (sampleLeft + QFontMetrics(sample).horizontalAdvance(family) <= content.right() + 1)
+        {
+            painter->setRenderHint(QPainter::Antialiasing);
+            painter->setBrush(painter->pen().color());
+            painter->setPen(Qt::NoPen);
+            painter->drawEllipse(QPointF(content.left() + normalWidth + 12, content.center().y()), 2, 2);
+            painter->setPen(textColor);
+            painter->setFont(sample);
+            painter->drawText(QRect(sampleLeft, content.top(), content.right() - sampleLeft + 1, content.height()),
+                              Qt::AlignLeft | Qt::AlignVCenter,
+                              family);
+        }
+        painter->restore();
+    }
+};
+
+class FontFamilyEditor final : public SettingsFieldEditor
+{
+public:
+    explicit FontFamilyEditor(QWidget* parent) : SettingsFieldEditor(parent)
+    {
+        auto* layout = new QHBoxLayout(this);
+        layout->setContentsMargins(0, 0, 0, 0);
+        _families = QFontDatabase::families();
+        _combo    = new QComboBox(this);
+        _combo->setObjectName("settingsFontFamily");
+        _combo->setAccessibleName(tr("Font family"));
+        _combo->setItemDelegate(new FontFamilyDelegate(_combo));
+        _combo->setLabelDrawingMode(QComboBox::LabelDrawingMode::UseDelegate);
+        _combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+        _combo->setMinimumContentsLength(26);
+        _combo->setMaxVisibleItems(12);
+        _combo->view()->setTextElideMode(Qt::ElideNone);
+        layout->addWidget(_combo, 1);
+        _filter = new QComboBox(this);
+        _filter->setObjectName("settingsFontFilter");
+        _filter->setAccessibleName(tr("Font type filter"));
+        _filter->setToolTip(tr("Filter available font families without changing the selected value"));
+        _filter->addItems({tr("All fonts"), tr("Monospaced"), tr("Proportional")});
+        layout->addWidget(_filter);
+        connect(_filter, &QComboBox::currentIndexChanged, this, [this] { _refresh(); });
+        connect(_combo, &QComboBox::activated, this, [this](int index) {
+            _value = _combo->itemText(index);
+            emit valueChanged();
+        });
+    }
+
+    QVariant value() const override
+    {
+        return _value;
+    }
+    void setValue(const QVariant& value) override
+    {
+        _value = value;
+        _refresh();
+    }
+
+private:
+    QComboBox*  _combo  = nullptr;
+    QComboBox*  _filter = nullptr;
+    QStringList _families;
+    QVariant    _value;
+
+    void _refresh()
+    {
+        const QSignalBlocker blocker(_combo);
+        _combo->clear();
+        const int filter = _filter->currentIndex();
+        for (const auto& family : _families)
+        {
+            const bool fixed = QFontDatabase::isFixedPitch(family);
+            if (filter == 0 || (filter == 1 && fixed) || (filter == 2 && !fixed))
+            {
+                _combo->addItem(family);
+            }
+        }
+        int selected = _combo->findText(_value.toString(), Qt::MatchExactly);
+        if (selected < 0)
+        {
+            // Keep unavailable or filtered-out configured names visible without substituting a font.
+            _combo->insertItem(0, _value.toString());
+            _combo->setItemData(0,
+                                _families.contains(_value.toString()) ?
+                                    tr("Current family retained outside the selected filter") :
+                                    tr("Configured family is unavailable on this computer"),
+                                Qt::ToolTipRole);
+            selected = 0;
+        }
+        _combo->setCurrentIndex(selected);
+        _combo->setToolTip(_value.toString());
+        QStyleOptionViewItem option;
+        option.initFrom(_combo);
+        option.font = _combo->font();
+        int width   = _combo->width();
+        for (int row = 0; row < _combo->count(); ++row)
+        {
+            width = std::max(width,
+                             _combo->itemDelegate()->sizeHint(option, _combo->model()->index(row, 0)).width() + 24);
+        }
+        _combo->view()->setMinimumWidth(width);
+    }
+};
+
 class BuiltinEditor final : public SettingsFieldEditor
 {
 public:
@@ -333,49 +486,29 @@ public:
             (_integer ? static_cast<QAbstractSpinBox*>(_integer) : _number)->installEventFilter(this);
             connect(_line, &QLineEdit::textChanged, this, [this] { _changed(); });
         }
-        else if (hint == "fontFamily" || hint == "color")
+        else if (hint == "color")
         {
             _picker = new QToolButton(this);
             _picker->setObjectName("settingsPicker");
             _picker->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-            _picker->setToolTip(hint == "fontFamily" ? tr("Choose font family") : tr("Choose color"));
+            _picker->setToolTip(tr("Choose color"));
             _picker->setAccessibleName(_picker->toolTip());
             setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
             layout->addWidget(_picker);
-            connect(_picker, &QToolButton::clicked, this, [this, hint] {
+            connect(_picker, &QToolButton::clicked, this, [this] {
                 const QPointer<BuiltinEditor> editor(this);
-                if (hint == "fontFamily")
+                QPointer<QColorDialog>        dialog = new QColorDialog(QColor(_value.toString()), this);
+                dialog->setOption(QColorDialog::DontUseNativeDialog);
+                dialog->setWindowTitle(tr("Choose color"));
+                dialog->adjustSize();
+                const int result = dialog->exec();
+                if (editor && dialog && result == QDialog::Accepted && dialog->selectedColor().isValid())
                 {
-                    QFont initial;
-                    initial.setFamily(_value.toString());
-                    QPointer<QFontDialog> dialog = new QFontDialog(initial, this);
-                    dialog->setOption(QFontDialog::DontUseNativeDialog);
-                    dialog->setWindowTitle(tr("Choose font family"));
-                    dialog->adjustSize();
-                    const int result = dialog->exec();
-                    if (editor && dialog && result == QDialog::Accepted)
-                    {
-                        const auto selected = dialog->selectedFont().family();
-                        editor->_value      = selected;
-                        editor->_changed();
-                    }
-                    delete dialog.data();
+                    const auto selected = dialog->selectedColor().name(QColor::HexRgb);
+                    editor->_value      = selected;
+                    editor->_changed();
                 }
-                else
-                {
-                    QPointer<QColorDialog> dialog = new QColorDialog(QColor(_value.toString()), this);
-                    dialog->setOption(QColorDialog::DontUseNativeDialog);
-                    dialog->setWindowTitle(tr("Choose color"));
-                    dialog->adjustSize();
-                    const int result = dialog->exec();
-                    if (editor && dialog && result == QDialog::Accepted && dialog->selectedColor().isValid())
-                    {
-                        const auto selected = dialog->selectedColor().name(QColor::HexRgb);
-                        editor->_value      = selected;
-                        editor->_changed();
-                    }
-                    delete dialog.data();
-                }
+                delete dialog.data();
             });
         }
         else
@@ -674,6 +807,10 @@ SettingsFieldEditor* SettingsWidgetRegistry::create(const SettingsSchema::Field&
     if (field.widget == "terminalPreview")
     {
         return new TerminalPreviewEditor(field, parent);
+    }
+    if (field.widget == "fontFamily")
+    {
+        return new FontFamilyEditor(parent);
     }
     return new BuiltinEditor(field, parent);
 }
