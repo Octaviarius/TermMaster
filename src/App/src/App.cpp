@@ -203,7 +203,8 @@ int App::run()
     }
     for (const auto& plugin : _data->plugins.plugins())
     {
-        if ((plugin.info.id == "SerialTerminal" || plugin.info.id == "ConsoleTerminal")
+        if ((plugin.info.id == "SerialTerminal" || plugin.info.id == "ConsoleTerminal"
+             || plugin.info.id == "SocketTerminal")
             && !_data->pluginSettings.contains("enabled/" + plugin.info.id))
         {
             if (!_data->plugins.setEnabled(plugin.info.id, true, &error))
