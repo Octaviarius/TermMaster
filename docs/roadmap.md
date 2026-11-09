@@ -65,3 +65,12 @@ Design reconnect/replay behavior explicitly before combining queues and timers.
 Ordinary process pipes come before invasive attachment research. Hooking remains
 experimental and must not delay the usable launch mode. Detailed lifecycle,
 platform limitations and verification boundaries are in the process planning doc.
+
+## P6: Quake-style dropdown mode
+
+- [ ] Add a Quake-style dropdown console window with a configurable global
+      show/hide shortcut, preserving existing terminal sessions while hidden.
+
+See [dropdown mode requirements](quake-console.md). Monitor, focus and normal-window
+behavior must be defined before implementation. This is a future presentation
+mode, not a new terminal backend.
