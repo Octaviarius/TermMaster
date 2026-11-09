@@ -194,8 +194,30 @@ content:
 Terminal tabs use the connection-status glyph geometry and colors from the local
 Flowgate `src/gui/qml/ConnectionStatus.qml` component (Drawngate naming). Standalone
 SVG resources under `src/App/Res/Status` represent closed, open, transitional and
-failed states. Tab text is the terminal name; the accessible tab name includes
-the connection state. The transitional arc is static in this Widgets integration.
+failed states. Tabs show two native Qt text lines: the concise terminal type
+(Console, Serial or Socket), then its effective main connection parameter. Serial
+uses the raw port name, sockets use host:port with IPv6 brackets, and consoles use
+the configured executable or "Automatic shell" when unset. Connection parameters
+refresh after settings apply and saved-definition reconstruction; they describe
+the next connection configuration. Long parameters are elided using current font
+metrics. Hover and accessible text retain the full parameter, saved object name
+and connection state. Executable arguments and environment variables are excluded.
+Saved object names and UUIDs remain unchanged. A tab-size hint adds the second
+font line to native Windows theme sizing; painting, selection, close buttons,
+reordering and scroll buttons remain Qt-owned.
+
+The upper line also has a 16-logical-pixel terminal/cable/network glyph beside
+the type. This presentation icon moves with the tab's Qt-owned data; the separate
+connection-state glyph is retained. Close buttons align with the upper line.
+Selected tabs use a 3-logical-pixel Highlight-colored bottom stripe and a 20%
+Highlight/Window background blend. Inactive tabs retain Window/WindowText colors
+and subtle separators. Palette changes refresh this tab-local styling.
+
+The disconnected `terminalTabTypeAndEndpoint` fixture passed with Qt 6.12.0 / MSVC
+Debug on offscreen and native Windows at scale factors 1 and 2. Native captures
+verified both text lines and long-endpoint elision. The fixture also checks live
+inherited settings, applied local settings, IPv6, restoration, saved metadata and
+accessible labels without opening a backend. The transitional arc is static in this Widgets integration.
 No QML dependency or additional transport backend is introduced.
 
 Verified with MSVC 19.44 / Qt 6.12.0 Debug: the application and production plugin

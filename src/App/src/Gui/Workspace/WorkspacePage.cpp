@@ -4,8 +4,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QStyle>
 #include <QVBoxLayout>
+#include <Termaster/Core/Gui/Icons.h>
 
 WorkspacePage::WorkspacePage(QWidget* parent) : QWidget(parent)
 {
@@ -29,9 +29,9 @@ WorkspacePage::WorkspacePage(QWidget* parent) : QWidget(parent)
     _file->setObjectName("workspaceFile");
     _file->setReadOnly(true);
     auto* buttons = new QHBoxLayout;
-    auto* create  = new QPushButton(style()->standardIcon(QStyle::SP_FileIcon), tr("Create workspace…"), this);
+    auto* create  = new QPushButton(Icons::icon("folder-plus"), tr("Create workspace…"), this);
     create->setObjectName("createWorkspace");
-    auto* open = new QPushButton(style()->standardIcon(QStyle::SP_DirOpenIcon), tr("Open workspace…"), this);
+    auto* open = new QPushButton(Icons::icon("folder-open"), tr("Open workspace…"), this);
     open->setObjectName("openWorkspace");
     buttons->addWidget(create);
     buttons->addWidget(open);
@@ -52,9 +52,9 @@ WorkspacePage::WorkspacePage(QWidget* parent) : QWidget(parent)
     _sessionFile = new QLineEdit(this);
     _sessionFile->setObjectName("sessionFile");
     _sessionFile->setReadOnly(true);
-    _createSession = new QPushButton(style()->standardIcon(QStyle::SP_FileIcon), tr("Create session…"), this);
+    _createSession = new QPushButton(Icons::icon("file-plus"), tr("Create session…"), this);
     _createSession->setObjectName("createSession");
-    _openSession = new QPushButton(style()->standardIcon(QStyle::SP_DirOpenIcon), tr("Open session…"), this);
+    _openSession = new QPushButton(Icons::icon("folder-open"), tr("Open session…"), this);
     _openSession->setObjectName("openSession");
     auto* sessions = new QHBoxLayout;
     sessions->addWidget(_createSession);

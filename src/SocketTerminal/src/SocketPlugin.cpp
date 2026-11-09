@@ -1,8 +1,6 @@
 #include "SocketPlugin.h"
 
-#include <QApplication>
 #include <QFile>
-#include <QStyle>
 #include <Termaster/SocketTerminal/SocketTerminal.h>
 #include <exception>
 
@@ -125,27 +123,27 @@ void SocketPlugin::_registerActions()
     _actionsRegistered.reserve(6);
     struct Description
     {
-        QString                id;
-        QString                title;
-        QString                group;
-        QStyle::StandardPixmap icon;
+        QString id;
+        QString title;
+        QString group;
+        QString icon;
     };
     const QList<Description> descriptions {
-        {       "Socket.New",   "New socket",     "create",               QStyle::SP_FileIcon},
-        {   "Socket.Connect",      "Connect", "connection",              QStyle::SP_MediaPlay},
-        {"Socket.Disconnect",   "Disconnect", "connection",              QStyle::SP_MediaStop},
-        {     "Socket.Close",        "Close", "management",      QStyle::SP_DialogCloseButton},
-        {     "Socket.Clear", "Clear screen",     "output",      QStyle::SP_DialogResetButton},
-        {  "Socket.Settings",  "Settings...",   "settings", QStyle::SP_FileDialogDetailedView}
+        {       "Socket.New",   "New socket",     "create",            "network"},
+        {   "Socket.Connect",      "Connect", "connection",               "plug"},
+        {"Socket.Disconnect",   "Disconnect", "connection",             "unplug"},
+        {     "Socket.Close",        "Close", "management",                  "x"},
+        {     "Socket.Clear", "Clear screen",     "output",             "eraser"},
+        {  "Socket.Settings",  "Settings...",   "settings", "sliders-horizontal"}
     };
     for (const auto& item : descriptions)
     {
         PluginHost::Action action;
-        action.id      = item.id;
-        action.title   = item.title;
-        action.group   = item.group;
-        action.icon    = QApplication::style()->standardIcon(item.icon);
-        action.visible = [this, id = item.id] {
+        action.id       = item.id;
+        action.title    = item.title;
+        action.group    = item.group;
+        action.iconName = item.icon;
+        action.visible  = [this, id = item.id] {
             return _host && (id == "Socket.New" ? true : _host->hasSelectedTerminal("socket"));
         };
         action.enabled = [this, id = item.id] {

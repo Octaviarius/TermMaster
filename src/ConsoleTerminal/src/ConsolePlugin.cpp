@@ -4,9 +4,7 @@
 #include "Gui/Environment/EnvironmentEditor.h"
 #include "Gui/Launch/ShellSelector.h"
 
-#include <QApplication>
 #include <QFile>
-#include <QStyle>
 #include <Termaster/ConsoleTerminal/ConsoleTerminal.h>
 #include <exception>
 
@@ -218,35 +216,31 @@ void ConsolePlugin::_registerActions()
 {
     struct Description
     {
-        QString                id;
-        QString                title;
-        QString                group;
-        QStyle::StandardPixmap icon;
+        QString id;
+        QString title;
+        QString group;
+        QString icon;
     };
     const QList<Description> descriptions {
-        {                       "Console.New","New console",     "create",QStyle::SP_FileIcon                                                                            },
-        {                     "Console.Start",        "Start", "connection",              QStyle::SP_MediaPlay},
-        {                      "Console.Stop",         "Stop", "connection",              QStyle::SP_MediaStop},
-        {                   "Console.Restart",      "Restart", "connection",          QStyle::SP_BrowserReload},
-        {                     "Console.Close",        "Close", "management",      QStyle::SP_DialogCloseButton},
-        {                     "Console.Clear", "Clear screen",     "output",      QStyle::SP_DialogResetButton},
-        {                  "Console.Settings",  "Settings...",   "settings", QStyle::SP_FileDialogDetailedView},
-        {       "Console.Environment.Refresh",
-         "Refresh user environment for next launch",   "settings",
-         QStyle::SP_BrowserReload                                                                             },
-        {"Console.Environment.RefreshRestart",
-         "Refresh user environment and restart",   "settings",
-         QStyle::SP_BrowserReload                                                                             }
+        {                       "Console.New",                              "New console",     "create",    "square-terminal"},
+        {                     "Console.Start",                                    "Start", "connection",               "play"},
+        {                      "Console.Stop",                                     "Stop", "connection",             "square"},
+        {                   "Console.Restart",                                  "Restart", "connection",          "rotate-cw"},
+        {                     "Console.Close",                                    "Close", "management",                  "x"},
+        {                     "Console.Clear",                             "Clear screen",     "output",             "eraser"},
+        {                  "Console.Settings",                              "Settings...",   "settings", "sliders-horizontal"},
+        {       "Console.Environment.Refresh", "Refresh user environment for next launch",   "settings",         "refresh-cw"},
+        {"Console.Environment.RefreshRestart",     "Refresh user environment and restart",   "settings",          "rotate-cw"}
     };
     _actionsRegistered.reserve(descriptions.size());
     for (const auto& item : descriptions)
     {
         PluginHost::Action action;
-        action.id      = item.id;
-        action.title   = item.title;
-        action.group   = item.group;
-        action.icon    = QApplication::style()->standardIcon(item.icon);
-        action.visible = [this, id = item.id] {
+        action.id       = item.id;
+        action.title    = item.title;
+        action.group    = item.group;
+        action.iconName = item.icon;
+        action.visible  = [this, id = item.id] {
             return _host
                 && (id == "Console.New" || id == "Console.Environment.Refresh"
                     || _host->hasSelectedTerminal("console"));

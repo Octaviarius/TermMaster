@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QDesktopServices>
 #include <QFile>
+#include <QFontMetrics>
 #include <QLabel>
 #include <QStatusBar>
 #include <QTabBar>
@@ -16,6 +17,7 @@
 #include <QUuid>
 #include <QVBoxLayout>
 #include <Termaster/Core/CommandRegistry.h>
+#include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
@@ -316,6 +318,11 @@ bool TerminalController::unregisterTerminalType(const QString& type, QString* er
 }
 void TerminalController::registerAction(Action action)
 {
+    if (!action.iconName.isEmpty())
+    {
+        action.icon = Icons::icon(action.iconName);
+        action.iconName.clear();
+    }
     if (!action.trigger || action.icon.isNull() || _actions.contains(action.id))
     {
         throw std::invalid_argument("Invalid terminal action registration");
@@ -677,6 +684,30 @@ void TerminalController::_close(const QString& id)
     refreshTerminalActions();
     emit selectionChanged();
 }
+QString TerminalController::_mainParameter(const Runtime& terminal) const
+{
+    const auto transport = _effective(_types.at(terminal.type), terminal.settings).value("transport").toMap();
+    if (terminal.type == "socket")
+    {
+        auto host = transport.value("host").toString();
+        if (host.contains(':') && !host.startsWith('['))
+        {
+            host = '[' + host + ']';
+        }
+        return host + ':' + transport.value("port").toString();
+    }
+    if (terminal.type == "serial")
+    {
+        return transport.value("portName").toString();
+    }
+    if (terminal.type == "console")
+    {
+        const auto program = transport.value("program").toString();
+        return program.isEmpty() ? tr("Automatic shell") : program;
+    }
+    return {};
+}
+
 void TerminalController::_changed(const QString& id)
 {
     auto it = _terminals.find(id);
@@ -733,11 +764,28 @@ void TerminalController::_changed(const QString& id)
     {
         icon = "Retry";
     }
-    const auto index = _window.terminalTabs().indexOf(it->second->panel);
-    _window.terminalTabs().setTabText(index, it->second->name);
+    const auto         index     = _window.terminalTabs().indexOf(it->second->panel);
+    const auto         type      = terminal.type == "socket"  ? tr("Socket") :
+                                   terminal.type == "serial"  ? tr("Serial") :
+                                   terminal.type == "console" ? tr("Console") :
+                                                                _types.at(terminal.type).registration.title;
+    const auto         parameter = _mainParameter(terminal);
+    const QFontMetrics metrics(_window.terminalTabs().tabBar()->font());
+    const auto detail   = metrics.elidedText(parameter.simplified(), Qt::ElideMiddle, 32 * metrics.averageCharWidth());
+    const auto label    = parameter.isEmpty() ? type : type + '\n' + detail;
+    const auto typeIcon = terminal.type == "serial" ? "cable" :
+                          terminal.type == "socket" ? "network" :
+                                                      "square-terminal";
+    _window.terminalTabs().tabBar()->setTabData(index, Icons::icon(typeIcon));
+    _window.terminalTabs().setTabText(index, QString(label).replace('&', "&&"));
     _window.terminalTabs().setTabIcon(index, QIcon(":/Termaster/App/Status/" + icon + ".svg"));
     const auto desired = terminal.connectionRequested ? tr("Connected") : tr("Disconnected");
-    QString    tooltip = tr("Desired: %1\nActual: %2").arg(desired, status);
+    QString    tooltip = type;
+    if (!parameter.isEmpty())
+    {
+        tooltip += "\n" + parameter;
+    }
+    tooltip += tr("\nName: %1\nDesired: %2\nActual: %3").arg(terminal.name, desired, status);
     if (!terminal.lastError.isEmpty())
     {
         tooltip += tr("\nLast error: %1").arg(terminal.lastError);
@@ -755,7 +803,7 @@ void TerminalController::_changed(const QString& id)
         tooltip += "\n" + terminal.title;
     }
     _window.terminalTabs().setTabToolTip(index, Qt::convertFromPlainText(tooltip));
-    _window.terminalTabs().tabBar()->setAccessibleTabName(index, it->second->name + ", " + tooltip);
+    _window.terminalTabs().tabBar()->setAccessibleTabName(index, tooltip);
     refreshTerminalActions();
 }
 void TerminalController::connectSelectedTerminal()

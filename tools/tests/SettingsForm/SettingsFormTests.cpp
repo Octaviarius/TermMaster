@@ -1,11 +1,14 @@
+#include <QAccessible>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFile>
 #include <QFontDialog>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QPlainTextEdit>
+#include <QSpinBox>
 #include <QStandardItemModel>
 #include <QStyle>
 #include <QTemporaryDir>
@@ -282,6 +285,150 @@ private:
         QVERIFY(!model.isValid());
     }
 
+    Q_SLOT void numericSpinBoxesPreserveBoundsAndLoadedValues()
+    {
+        QTemporaryDir directory;
+        Settings      owner(directory.filePath("settings.yaml"));
+        QVERIFY(owner.setValue("wide", qlonglong(9007199254740991LL)));
+        QVERIFY(owner.setValue("fraction", 0.12345678901234566));
+        QVERIFY(owner.setValue("invalid", QString("unavailable")));
+        auto descriptor = schema("small: {type: integer, minimum: -2.5, maximum: 4.5, default: 2}\n"
+                                 "wide: {type: integer}\n"
+                                 "fraction: {type: number, minimum: -1, maximum: 1}\n"
+                                 "invalid: {type: integer, minimum: 1, maximum: 9}\n"
+                                 "choice: {type: integer, enum: [1, 2], default: 1}\n"
+                                 "exclusive: {type: integer, exclusiveMinimum: 2, exclusiveMaximum: 6, default: 3}");
+        SettingsFormModel      model(descriptor, owner.node(""));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        auto*                  small = form.editor("small")->findChild<QSpinBox*>();
+        QVERIFY(small);
+        QCOMPARE(small->minimum(), -2);
+        QCOMPARE(small->maximum(), 4);
+        auto* wide = form.editor("wide")->findChild<QDoubleSpinBox*>();
+        QVERIFY(wide);
+        QCOMPARE(wide->decimals(), 0);
+        QCOMPARE(form.editor("wide")->value().toLongLong(), qlonglong(9007199254740991LL));
+        wide->stepDown();
+        QCOMPARE(model.value("wide").toLongLong(), qlonglong(9007199254740990LL));
+        auto* fraction = form.editor("fraction")->findChild<QDoubleSpinBox*>();
+        QVERIFY(fraction);
+        QCOMPARE(fraction->minimum(), -1.0);
+        QCOMPARE(fraction->maximum(), 1.0);
+        QCOMPARE(form.editor("fraction")->value().toDouble(), 0.12345678901234566);
+        QCOMPARE(fraction->findChild<QLineEdit*>()->text(), QString::number(0.12345678901234566, 'g', 17));
+        auto* fractionInput = fraction->findChild<QLineEdit*>();
+        fractionInput->selectAll();
+        QTest::keyClicks(fractionInput, "-2.5e-12");
+        QCOMPARE(model.value("fraction").toDouble(), -2.5e-12);
+        QVERIFY(fraction->hasAcceptableInput());
+        fraction->setSingleStep(1e-12);
+        fraction->stepUp();
+        QVERIFY(std::abs(model.value("fraction").toDouble() - (-1.5e-12)) < 1e-27);
+        model.setValue("fraction", 1e-20);
+        QCOMPARE(form.editor("fraction")->value().toDouble(), 1e-20);
+        QVERIFY(fraction->hasAcceptableInput());
+        fraction->setSingleStep(1e-20);
+        fraction->stepUp();
+        QCOMPARE(model.value("fraction").toDouble(), 2e-20);
+        QCOMPARE(form.editor("invalid")->value().toString(), QString("unavailable"));
+        QCOMPARE(form.editor("invalid")->findChild<QLineEdit*>()->text(), QString("unavailable"));
+        QVERIFY(!model.isValid());
+        QVERIFY(!model.apply());
+        QCOMPARE(owner.value("invalid").toString(), QString("unavailable"));
+        QVERIFY(form.editor("choice")->findChild<QComboBox*>());
+        QVERIFY(!form.editor("choice")->findChild<QAbstractSpinBox*>());
+        auto* exclusive = form.editor("exclusive")->findChild<QSpinBox*>();
+        QVERIFY(exclusive);
+        QCOMPARE(exclusive->minimum(), 3);
+        QCOMPARE(exclusive->maximum(), 5);
+    }
+
+    Q_SLOT void numericValueSettersUpdateDrafts()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      local(directory.filePath("local.yaml"));
+        QVERIFY(base.setValue("integer", 2));
+        QVERIFY(base.setValue("number", 0.25));
+        SettingsOverlay        overlay(base.node(""), local.node(""));
+        auto                   descriptor = schema("integer: {type: integer, minimum: 1, maximum: 9}\n"
+                                                   "number: {type: number, minimum: 0, maximum: 1}");
+        SettingsFormModel      model(descriptor, overlay);
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        auto*                  integer = form.editor("integer")->findChild<QSpinBox*>();
+        integer->setValue(5);
+        QCOMPARE(model.value("integer").toInt(), 5);
+        QVERIFY(model.hasOverride("integer"));
+        auto* number     = form.editor("number")->findChild<QDoubleSpinBox*>();
+        auto* accessible = QAccessible::queryAccessibleInterface(number);
+        QVERIFY(accessible);
+        auto* value = accessible->valueInterface();
+        QVERIFY(value);
+        value->setCurrentValue(0.75);
+        QCOMPARE(model.value("number").toDouble(), 0.75);
+        QVERIFY(model.hasOverride("number"));
+        QVERIFY(!local.contains("integer"));
+        QVERIFY(!local.contains("number"));
+        QVERIFY(model.apply());
+        QCOMPARE(local.value("integer").toInt(), 5);
+        QCOMPARE(local.value("number").toDouble(), 0.75);
+    }
+
+    Q_SLOT void invalidLoadedNumbersSurviveFocusAndConfirmation()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      local(directory.filePath("local.yaml"));
+        QVERIFY(base.setValue("integer", 50));
+        QVERIFY(base.setValue("number", QString("unavailable")));
+        QVERIFY(base.setValue("invalidInteger", QString("unavailable")));
+        SettingsOverlay        overlay(base.node(""), local.node(""));
+        auto                   descriptor = schema("integer: {type: integer, minimum: 1, maximum: 9}\n"
+                                                   "number: {type: number, minimum: 0, maximum: 1}\n"
+                                                   "invalidInteger: {type: integer, minimum: 1, maximum: 9}");
+        SettingsFormModel      model(descriptor, overlay);
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        form.resize(640, 260);
+        form.show();
+        QTest::qWait(30);
+        for (const auto& key : {QString("integer"), QString("number"), QString("invalidInteger")})
+        {
+            auto*          editor       = form.editor(key);
+            auto*          input        = editor->findChild<QLineEdit*>();
+            const QVariant original     = model.value(key);
+            const QString  originalText = input->text();
+            QCOMPARE(originalText, original.toString());
+            input->setFocus();
+            QTest::keyClick(input, Qt::Key_Return);
+            form.editor(key == "number" ? "integer" : "number")->findChild<QLineEdit*>()->setFocus();
+            QCoreApplication::processEvents();
+            QCOMPARE(input->text(), originalText);
+            QCOMPARE(editor->value(), original);
+            QCOMPARE(model.value(key), original);
+            QVERIFY(!model.hasOverride(key));
+            QVERIFY(!model.isDirty());
+        }
+        QVERIFY(!model.apply());
+        QVERIFY(!local.contains("integer"));
+        QVERIFY(!local.contains("number"));
+        QVERIFY(!local.contains("invalidInteger"));
+        form.editor("invalidInteger")->findChild<QSpinBox*>()->stepUp();
+        QVERIFY(model.hasOverride("invalidInteger"));
+        auto* integer = form.editor("integer")->findChild<QSpinBox*>();
+        integer->stepDown();
+        QVERIFY(model.hasOverride("integer"));
+        QVERIFY(model.value("integer").toInt() >= 1 && model.value("integer").toInt() <= 9);
+        auto* numberInput = form.editor("number")->findChild<QLineEdit*>();
+        numberInput->selectAll();
+        QTest::keyClicks(numberInput, "0.5");
+        QCOMPARE(model.value("number").toDouble(), 0.5);
+        QVERIFY(model.apply());
+        QCOMPARE(local.value("number").toDouble(), 0.5);
+    }
+
     Q_SLOT void typedDraftAndConcurrentChanges()
     {
         QTemporaryDir directory;
@@ -393,6 +540,17 @@ private:
         input->setText("17");
         QVERIFY(reset->isEnabled());
         QVERIFY(!reset->isHidden());
+        form.resize(640, 220);
+        form.show();
+        QTest::qWait(30);
+        auto* valueControl = form.editor("fontSize")->findChild<QAbstractSpinBox*>();
+        QVERIFY(valueControl);
+        QVERIFY(reset->height() < valueControl->height());
+        QVERIFY(reset->styleSheet().contains("#f0a13b"));
+        QVERIFY(reset->height() <= 24);
+        const auto resetCenter = reset->mapTo(&form, reset->rect().center());
+        const auto inputCenter = valueControl->mapTo(&form, valueControl->rect().center());
+        QVERIFY(std::abs(resetCenter.y() - inputCenter.y()) <= 1);
         QCOMPARE(form.editor("fontSize")->palette().color(QPalette::Text), inheritedTextColor);
         QVERIFY(!form.editor("fontSize")->property("settingsInherited").toBool());
         if (!capture.isEmpty())

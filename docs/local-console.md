@@ -151,3 +151,7 @@ private runtime folder. No UAC prompt or real elevated-token acceptance was run.
 The native 1280 × 800 settings capture includes the editable dropdown and the
 administrator flag in the generated Launch group. Environment fields were filtered
 out before capture; the preview edits only a draft and never starts a shell or UAC.
+
+Future process-pipe terminals and existing-process attachment options are recorded
+in [process terminal planning](process-terminal.md). Implementation remains planned
+and requires a separate start instruction.

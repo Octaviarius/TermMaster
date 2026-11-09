@@ -8,23 +8,13 @@
 #include <QSignalBlocker>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
 #include <algorithm>
-
-static void initializeSettingsFormResources()
-{
-    static const bool initialized = [] {
-        Q_INIT_RESOURCE(settingsFormIcons);
-        return true;
-    }();
-    Q_UNUSED(initialized)
-}
 
 SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetRegistry& registry, QWidget* parent) :
     QWidget(parent), _model(&model)
 {
-    initializeSettingsFormResources();
-
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
     auto* scroll = new QScrollArea(this);
@@ -102,11 +92,11 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
         {
             auto* reset = new QToolButton(container);
             reset->setObjectName(QStringLiteral("reset_") + field.key);
-            reset->setIcon(QIcon(":/Termaster/Core/Gui/Settings/ResetOverride.svg"));
+            reset->setIcon(Icons::icon("undo-2", QColor("#33200c")));
             reset->setIconSize(QSize(14, 14));
             reset->setAccessibleName(
                 tr("Reset %1 to inherited value").arg(field.title.isEmpty() ? field.key : field.title));
-            reset->setFixedSize(20, 26);
+            reset->setFixedSize(20, std::clamp(editorWidget->sizeHint().height() - 2, 18, 24));
             reset->setStyleSheet("QToolButton { background: #f0a13b; border: 1px solid #b87522; border-radius: 4px; }"
                                  "QToolButton:hover { background: #ffbd66; }"
                                  "QToolButton:pressed { background: #d98a24; }"
@@ -115,7 +105,7 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
             resetPolicy.setRetainSizeWhenHidden(true);
             reset->setSizePolicy(resetPolicy);
             _resets.insert(field.key, reset);
-            controlRow->addWidget(reset, 0, Qt::AlignTop);
+            controlRow->addWidget(reset, 0, Qt::AlignVCenter);
             connect(reset, &QToolButton::clicked, this, [this, key = field.key] {
                 if (_model)
                 {

@@ -4,6 +4,20 @@ find_package(Qt6 REQUIRED COMPONENTS
     Widgets
 )
 
+qt_add_executable(IconTests
+    IconTests.cpp
+)
+target_compile_features(IconTests PRIVATE cxx_std_20)
+target_link_libraries(IconTests PRIVATE
+    Core
+    Qt6::Test
+    Qt6::Widgets
+)
+add_test(NAME IconTests COMMAND IconTests)
+set_tests_properties(IconTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+)
+
 qt_add_executable(AppTests
     AppTests.cpp
 )
