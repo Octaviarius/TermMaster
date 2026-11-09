@@ -166,6 +166,8 @@ changing behavior. These rules apply repository-wide.
   protected and private methods.
 - Separate validation, preparation, execution and result handling with blank
   lines inside functions.
+- Separate independent logical code blocks with blank lines; do not concatenate
+  unrelated steps or declarations into dense blocks.
 - Declare one variable per declaration and per line.
 - Use Q_DISABLE_COPY or related Qt macros when corresponding special members
   should be deleted. Preserve deliberate move-only APIs.
