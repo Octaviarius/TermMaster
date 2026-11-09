@@ -18,7 +18,9 @@ or outside click cancels. The closed control displays only the chosen title.
 Empty saved selection still means the direct bypass path; explicitly selecting
 Bypass chooses `native.bypass`.
 
-The properties button opens a side table. Receive and transmit drafts are independent.
+The properties button opens a side pane beside the terminal display and input.
+It leaves the compact command bar in place; history and sending tools use popups.
+The pane contains the property table and its explicit Apply/Revert controls. Receive and transmit drafts are independent.
 Leaf headings follow expanded Lineflow traversal, including the complete occurrence
 path for repeated nested blocks. Controls come from descriptor `x-widget` factories.
 Reset removes the terminal override and restores the effective inherited value.
@@ -109,3 +111,26 @@ zero-output Stub completion and cancellation. No real serial device or external
 network was used; Release and the separate SDK consumer were not rebuilt.
 
 ![Processor tree and workspace favorites](images/processor-selector/ProcessorSelector.png)
+
+## FLOW-7 acceptance
+
+Qt 6.12.0 / MSVC2022 x64 Debug application and bundled modules built successfully.
+All 46 configured CTest executables passed in 100.56 seconds. Native Windows
+buffered-input capture fixtures passed at scales 1 and 2 (three QtTest passes,
+no skips per run), using the same 1100 by 760 logical client size. The capture
+window has a fixed position to avoid unrelated multi-monitor placement differences.
+Tools popups are rendered from the actual widgets over the main-window capture.
+Buffered and interactive layouts and tools were inspected at both scales; the
+compact editor also passes a 640-pixel-width fixture. No real serial device or
+external endpoint was used. Release and the separate SDK consumer were not rebuilt.
+
+Pacer checks cover split binary endings, byte/line spacing, rate/burst scheduling,
+packet atomicity, resource limits, reentrant callbacks and cancellation. Saved
+Lineflow checks verify output before upstream completion, busy-stage ordering,
+1200 emissions within a four-chunk resident queue and cancellation during output.
+The timing assertions test processor emission, not physical device delivery.
+
+- [Buffered input](images/terminal-processing/Buffered.png)
+- [Sending tools](images/terminal-processing/Advanced.png)
+- [Interactive input](images/terminal-processing/Interactive.png)
+- [Sending tools at scale 2](images/terminal-processing/2x/Advanced.png)

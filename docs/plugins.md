@@ -370,8 +370,9 @@ shared toolbar positions; Close and Additional roles are menu-only.
 ## Atomic output capability ABI
 
 HostedPlugin ABI version 6 adds `SerialDevice::atomicWrites()`. The default stream
-capability permits partial writes and byte/line pacing; UDP reports atomic writes
-so the shared output queue preserves datagram boundaries and rejects byte pacing.
+capability permits partial writes; UDP reports atomic writes so the shared output
+queue preserves datagram boundaries. Byte/line timing belongs to native Pacer
+processing, which reports an error when byte spacing would split a packet.
 Rebuild every hosted plugin against this SDK. Interface IID
 `org.octaviarius.Termaster.HostedPlugin/9.0` rejects older hosted binary interfaces.
 

@@ -218,3 +218,13 @@ FLOW-2 routing, FLOW-3 registration, FLOW-4 workspace editing and FLOW-5 termina
 The remaining processing stage is FLOW-6. Editors depend on the unified catalog definition registration
 and update contracts. Python execution remains part of P7/FLOW-6.
 The earlier unrelated P5/P6 milestones do not block this processing sequence.
+
+## FLOW-7: Processing timing and compact terminal controls
+
+- [x] Move byte/line delays and rate limiting into the asynchronous native Pacer node.
+- [x] Stream Lineflow output between busy stages under bounded resident queues.
+- [x] Preserve packet atomicity, cancellation, partial writes and bounded file ingress.
+- [x] Keep mode, terminator, draft and Rx/Tx selection compact; move history and sending tools into popups.
+- [x] Verify synthetic timing/lifecycle tests and native 1x/2x rendering.
+
+See [processing nodes](processing-nodes.md) and [terminal processing](terminal-processing.md).

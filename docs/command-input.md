@@ -2,6 +2,13 @@
 
 ## Interaction and settings
 
+The main bar contains the input mode, buffered-command terminator and optional custom
+ending, recent-command history, sending tools, active-send status and Stop. History
+and sending tools open anchored popups rather than expanding the terminal layout.
+Interactive mode hides the multiline draft and command terminator controls; Buffered
+mode shows the draft and Send button. Switching modes preserves the draft. Processor
+properties use a separate side pane beside the terminal; they do not expand this bar.
+
 Terminal tabs retain interactive keyboard input by default. The input panel can
 switch to Buffered mode without reopening a connection. In Buffered mode a
 multiline draft receives focus even when the display is clicked. Enter submits;
@@ -34,7 +41,7 @@ history is limited to 100 entries and 1 MiB of UTF-8. Oversized paste is rejecte
 
 Input settings use the existing `input` YAML overlay and generated descriptor:
 `mode`, `terminator`, `customTerminator`, `pastePolicy`,
-`confirmMultiline`, `localEcho`, `favorites`, `byteDelayMs`, `lineDelayMs`,
+`confirmMultiline`, `localEcho`, `favorites`,
 `disconnectedPolicy` and `periodMs`. Controls update only the active
 terminal override; application/workspace/session generated forms provide inherited
 values. Normal existing session saves persist those overrides. Settings and custom
@@ -60,7 +67,7 @@ keeps only untouched user submissions within the same 4 MiB / 4,096 limits.
 Unexpected disconnect drops a submission's entire remainder once any prefix was
 accepted; accepted prefixes are never replayed. A single queued status notification reports
 the discarded submission and byte counts without including contents. Replies, focus and mouse reports
-are never retained or paced. Explicit Stop, connection Stop, terminal close and
+are never retained. Their bytes still pass through the selected Tx processor. Explicit Stop, connection Stop, terminal close and
 shutdown clear all pending output. Changing effective transport settings cancels
 pending output with a concrete message, preventing replay to a different endpoint.
 Partial transport acceptance cannot be rolled back; failure can leave a prefix
@@ -105,8 +112,8 @@ scales; captures measure 1100 × 760 and 2200 × 1520 physical pixels respective
 
 ## Advanced sending
 
-The icon beside command input opens a compact optional panel. It is collapsed by
-default, including for interactive shells. Named favorites store command text,
+The sending-tools button opens a popup containing saved commands, raw/line file
+sending, repeat controls and the disconnected-send policy. It is closed by default. Named favorites store command text,
 terminator and custom escaped terminator separately. Loading a favorite edits the
 draft; it does not send. Save replaces a matching name while preserving unknown
 entry fields. Favorites are limited to 100 entries, 16,384 UTF-16 units per command
@@ -115,14 +122,15 @@ application, workspace, session and terminal overlays use the existing settings
 owner. The `commandFavorites` x-widget provides a table and multiline editor in
 generated forms. No commands or file contents enter routine logs.
 
-Byte delay and line delay range from 0 to 60,000 ms. Byte pacing deliberately
-operates on raw bytes and may split UTF-8 characters. Stream writes honor partial
-acceptance and backpressure. Line pacing recognizes CR, LF and a combined CRLF
-boundary; line-file submissions explicitly mark their logical boundary even when
-the selected terminator is NUL, custom or empty. Protocol output keeps FIFO order
-without acquiring pacing or retention. Datagram submissions stay atomic and reject
-byte pacing. Raw file sending uses explicit datagrams of up to 65,507 bytes on UDP;
-line files use one datagram per logical line and reject oversized datagrams.
+Timing belongs to the selected native Pacer processor or a Lineflow containing it;
+command-input settings and TerminalSendQueue no longer read byte or line delays.
+See [Pacer configuration](processing-nodes.md#pacer). It operates on actual byte
+patterns, so a line-file logical boundary with an empty or different terminator
+does not imply a Pacer pause. There are no legacy delay readers or aliases.
+Datagram submissions stay atomic. Raw file sending uses explicit datagrams of up
+to 65,507 bytes on UDP; line files use one datagram per logical line and reject
+oversized datagrams. A Pacer byte delay reports an error for packet input rather
+than splitting its boundary.
 
 File sending requires an explicit file chooser followed by confirmation of raw or
 line mode. Raw mode sends unchanged bytes without a terminator. Line mode does not
@@ -136,18 +144,18 @@ retains its normal bound. Large files are not loaded as a whole. Stop and discon
 close the file immediately; files never resume automatically. Already accepted
 transport bytes cannot be recalled.
 
-Periodic sending snapshots the current command bytes and pacing, shows an active
-indicator, and exposes Stop even with the advanced panel collapsed. Intervals range
+Periodic sending snapshots the current command bytes, shows an active indicator
+and exposes Stop in the main bar while the tools popup is closed. Intervals range
 from 100 ms to 24 hours. A new interval begins after the previous application-queue
 submission drains, so backpressure does not accumulate repeated commands. Only one
 file or periodic producer can run per terminal. Periodic work stops on disconnect
-and does not restart after reconnect or application startup. Pacing changes affect
-new jobs; current producer options are snapshots. Stop clears manual retained
+and does not restart after reconnect or application startup. Applying changed Tx
+processing stops producers and replaces their processing state. Stop clears manual retained
 submissions as well as file and periodic work.
 
 The main application remains unelevated and owns files, producer timers, scoped
-settings and lifecycle orchestration. Core's borrowed-device queue owns submission
-ordering and bounded pacing only. All producer work is cooperative on the GUI
+settings and lifecycle orchestration. Core's borrowed-device queue owns bounded FIFO
+ordering, transport backpressure, partial writes and atomic packet submission. All producer work is cooperative on the GUI
 event loop; there are no background services, new IPC paths or device commands in
 verification. File reads are bounded synchronous local reads; a slow filesystem
 can delay the individual read call. Acceptance into transport memory is not proof
@@ -164,7 +172,7 @@ manual-only retention, target-configuration changes, periodic non-overlap and
 callback-triggered cancellation/deletion. Changed C++ files were clang-formatted;
 local documentation links and `git diff --check` passed.
 
-Native Windows fixture runs passed at 100% and 200%. The advanced panel shows a
+The historical P4 native Windows fixture runs passed at 100% and 200%. The former advanced panel shows a
 selected named CRLF command and active periodic status in
 [the 100% capture](images/command-input/Advanced.png) and
 [the 200% capture](images/command-input/AdvancedScale2.png). The custom favorites
@@ -173,3 +181,14 @@ settings editor is shown at [100%](images/command-input/Favorites.png) and
 and their physical dimensions verified as 1100 × 760 and 2200 × 1520. Existing
 buffered, interactive and input-settings captures were refreshed. No hardware,
 external network target, download, elevation or installed service change was used.
+
+
+## FLOW-7 verification scope
+
+Synthetic router coverage exercises 1024-byte stream fragmentation, atomic whole-
+submission admission, exact 4 MiB capacity, packet preservation and borrowed-byte
+ownership. Real Pacer fixtures cover periodic backpressure, cancellation during a
+4 KiB raw file and a 2 MiB line with embedded NUL and a binary terminator. Widget
+fixtures cover compact controls, popup tools, draft preservation and the properties
+side pane. Earlier captures and suite totals above record their original milestones;
+current visual and full-suite acceptance are recorded with FLOW-7 delivery.
