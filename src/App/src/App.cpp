@@ -1,6 +1,7 @@
 #include "Gui/Main/EditActions.h"
 #include "Gui/Main/MainWindow.h"
 #include "Gui/Session/SessionPicker.h"
+#include "Gui/Settings/FavoritesEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
 #include "Gui/Settings/ShortcutEditor.h"
 #include "Gui/Terminal/TerminalController.h"
@@ -136,6 +137,9 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
     _data = std::make_unique<Data>(options);
     _data->settingsWidgets.registerWidget("commandShortcuts", [this](const SettingsSchema::Field&, QWidget* parent) {
         return new ShortcutEditor(_data->commands, _data->shortcuts, parent);
+    });
+    _data->settingsWidgets.registerWidget("commandFavorites", [](const SettingsSchema::Field&, QWidget* parent) {
+        return new FavoritesEditor(parent);
     });
     connect(&_data->shortcuts, &CommandShortcuts::diagnostic, _data->window.get(), [this](const QString& error) {
         _data->window->statusBar()->showMessage(error);

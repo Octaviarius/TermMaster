@@ -42,6 +42,11 @@ public:
      * Stream devices may accept a prefix; datagrams are accepted atomically (including empty ones). */
     virtual qint64 write(const QByteArray& data, QString* error = nullptr)        = 0;
     virtual qint64 pendingBytes() const                                           = 0;
+    /** Datagram transports require one atomic write per submission. */
+    virtual bool atomicWrites() const
+    {
+        return false;
+    }
     /** Optional terminal geometry, in character cells; serial transports ignore it. */
     virtual void resize(int, int)
     {

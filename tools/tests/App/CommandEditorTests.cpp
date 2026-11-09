@@ -4,17 +4,150 @@
 #include <QClipboard>
 #include <QComboBox>
 #include <QCompleter>
+#include <QInputDialog>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalSpy>
+#include <QSpinBox>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 
 class CommandEditorTests final : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void advancedSettingsAndRequests()
+    {
+        CommandEditor widget;
+        widget.show();
+        auto* panel  = widget.findChild<QWidget*>("commandAdvancedPanel");
+        auto* toggle = widget.findChild<QToolButton*>("commandAdvancedToggle");
+        QVERIFY(panel->isHidden());
+        QTest::mouseClick(toggle, Qt::LeftButton);
+        QVERIFY(!panel->isHidden());
+        QSignalSpy changes(&widget, &CommandEditor::settingChanged);
+        QSignalSpy periodic(&widget, &CommandEditor::periodicRequested);
+        QSignalSpy files(&widget, &CommandEditor::fileRequested);
+        QSignalSpy stop(&widget, &CommandEditor::stopRequested);
+        widget.setSettings({
+            {              "mode", "buffered"},
+            {  "confirmMultiline",      false},
+            {       "byteDelayMs",         12},
+            {       "lineDelayMs",         34},
+            {          "periodMs",        200},
+            {"disconnectedPolicy",   "retain"}
+        });
+        QCOMPARE(changes.count(), 0);
+        auto* bytes = widget.findChild<QSpinBox*>("commandByteDelay");
+        QCOMPARE(bytes->value(), 12);
+        bytes->setValue(13);
+        QCOMPARE(changes.last().at(0).toString(), QString("byteDelayMs"));
+        QCOMPARE(widget.findChild<QComboBox*>("commandDisconnectedPolicy")->currentData().toString(),
+                 QString("retain"));
+        auto* draft = widget.findChild<QPlainTextEdit*>("commandDraft");
+        draft->setPlainText("AT\nNEXT");
+        widget.findChild<QPushButton*>("commandPeriodicStart")->click();
+        QCOMPARE(periodic.count(), 1);
+        QCOMPARE(periodic.first().at(0).toString(), draft->toPlainText());
+        QCOMPARE(periodic.first().at(3).toInt(), 200);
+        widget.setSettings({
+            {"periodMs", 0}
+        });
+        QCOMPARE(periodic.count(), 1);
+        QCOMPARE(widget.findChild<QSpinBox*>("commandPeriod")->value(), 100);
+        widget.findChild<QPushButton*>("commandRawFile")->click();
+        widget.findChild<QPushButton*>("commandLineFile")->click();
+        QCOMPARE(files.count(), 2);
+        QCOMPARE(files.at(0).at(0).toBool(), false);
+        QCOMPARE(files.at(1).at(0).toBool(), true);
+        widget.setSendingState(true, "Sending");
+        auto* stopButton = widget.findChild<QToolButton*>("commandStop");
+        QVERIFY(!stopButton->isHidden());
+        stopButton->click();
+        QCOMPARE(stop.count(), 1);
+        QVERIFY(widget.findChild<QPushButton*>("commandSend")->isEnabled());
+        widget.setSendingState(false, {});
+        QVERIFY(stopButton->isHidden());
+    }
+
+    Q_SLOT void periodicConfirmationPreservesDraft()
+    {
+        CommandEditor widget;
+        widget.setSettings({
+            {"mode", "buffered"}
+        });
+        auto* draft = widget.findChild<QPlainTextEdit*>("commandDraft");
+        draft->setPlainText("AT\nRESET");
+        QSignalSpy periodic(&widget, &CommandEditor::periodicRequested);
+        bool       prompted = false;
+        QTimer::singleShot(0, [&] {
+            if (auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget()))
+            {
+                prompted = true;
+                box->done(QMessageBox::No);
+            }
+        });
+        widget.findChild<QPushButton*>("commandPeriodicStart")->click();
+        QVERIFY(prompted);
+        QCOMPARE(periodic.count(), 0);
+        QCOMPARE(draft->toPlainText(), QString("AT\nRESET"));
+        QCOMPARE(widget.findChild<QComboBox*>("commandHistory")->count(), 0);
+    }
+
+    Q_SLOT void favoritesPreserveFieldsAndLoadWithoutSending()
+    {
+        CommandEditor widget;
+        QVariantList  favorites {
+            QVariantMap {{"name", "Reset"},
+                         {"text", "RESET"},
+                         {"terminator", "custom"},
+                         {"customTerminator", "\\0"},
+                         {"extension", 42}}
+        };
+        widget.setSettings({
+            {"favorites", favorites}
+        });
+        QSignalSpy changes(&widget, &CommandEditor::settingChanged);
+        int        sends = 0;
+        widget.setSendCallback([&](const QString&, const QString&, const QString&) {
+            ++sends;
+            return true;
+        });
+        widget.findChild<QPushButton*>("commandFavoriteLoad")->click();
+        QCOMPARE(widget.findChild<QPlainTextEdit*>("commandDraft")->toPlainText(), QString("RESET"));
+        QCOMPARE(widget.findChild<QComboBox*>("commandTerminator")->currentData().toString(), QString("custom"));
+        QCOMPARE(sends, 0);
+        QTimer::singleShot(0, [] {
+            if (auto* dialog = qobject_cast<QInputDialog*>(QApplication::activeModalWidget()))
+            {
+                dialog->setTextValue("Reset");
+                dialog->accept();
+            }
+        });
+        widget.findChild<QPushButton*>("commandFavoriteSave")->click();
+        QCOMPARE(changes.last().at(0).toString(), QString("favorites"));
+        const auto saved = changes.last().at(1).toList();
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(saved.first().toMap().value("extension").toInt(), 42);
+        widget.findChild<QPushButton*>("commandFavoriteDelete")->click();
+        QVERIFY(changes.last().at(1).toList().isEmpty());
+        favorites.clear();
+        for (int i = 0; i < 101; ++i)
+        {
+            favorites.append(QVariantMap {
+                {"name", QString::number(i)},
+                {"text",               "AT"}
+            });
+        }
+        widget.setSettings({
+            {"favorites", favorites}
+        });
+        QCOMPARE(widget.findChild<QComboBox*>("commandFavorites")->count(), 100);
+    }
+
     Q_SLOT void acceptedDraftAndHistory()
     {
         CommandEditor widget;

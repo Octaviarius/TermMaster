@@ -11,6 +11,7 @@ public:
     State                 currentState = State::Open;
     qint64                allowance    = 0;
     bool                  fail         = false;
+    bool                  atomic       = false;
     QByteArray            accepted;
     QList<QByteArray>     submissions;
 
@@ -53,6 +54,10 @@ public:
         accepted.append(data.first(count));
         return count;
     }
+    bool atomicWrites() const override
+    {
+        return atomic;
+    }
     qint64 pendingBytes() const override
     {
         return 0;
@@ -63,6 +68,27 @@ class CommandInputTests : public QObject
 {
     Q_OBJECT
 private slots:
+    void reconnectRevalidatesAtomicCapability()
+    {
+        FakeDevice device;
+        device.currentState = SerialDevice::State::Closed;
+        TerminalSendQueue queue(device);
+        queue.setRetainDisconnected(true);
+        TerminalSendQueue::Options options;
+        options.retainOnDisconnect = true;
+        options.byteDelayMs        = 1;
+        QVERIFY(queue.enqueue("offline", options));
+        device.atomic       = true;
+        device.allowance    = 100;
+        device.currentState = SerialDevice::State::Open;
+        QSignalSpy failures(&queue, &TerminalSendQueue::failed);
+        queue.connectionChanged();
+        QTRY_COMPARE(failures.count(), 1);
+        QVERIFY(failures.first().first().toString().contains("datagram"));
+        QCOMPARE(queue.pendingSubmissions(), 0);
+        QVERIFY(device.submissions.isEmpty());
+    }
+
     void preparation()
     {
         QString       error;
@@ -164,6 +190,133 @@ private slots:
         };
         deletedQueue->flush();
         QVERIFY(!deletedQueue);
+    }
+    void pacingAndRawBytes()
+    {
+        FakeDevice device;
+        device.allowance = 100;
+        TerminalSendQueue          queue(device);
+        TerminalSendQueue::Options options;
+        options.byteDelayMs    = 30;
+        options.lineDelayMs    = 100;
+        const QByteArray bytes = QByteArray::fromHex("e282ac0d0a5a");
+        QElapsedTimer    clock;
+        clock.start();
+        QList<qint64> writeTimes;
+        device.duringWrite = [&] { writeTimes.append(clock.elapsed()); };
+        QVERIFY(queue.enqueue(bytes, options));
+        queue.flush();
+        QCOMPARE(device.accepted, bytes.first(1));
+        queue.flush();
+        QCOMPARE(device.accepted.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(queue.pendingSubmissions(), 0, 2000);
+        QCOMPARE(writeTimes.size(), 6);
+        for (qsizetype index = 1; index < writeTimes.size(); ++index)
+        {
+            const qint64 minimum = index == 5 ? 130 : 30;
+            QVERIFY(writeTimes.at(index) - writeTimes.at(index - 1) >= minimum);
+        }
+        QCOMPARE(device.accepted, bytes);
+        for (const QByteArray& chunk : device.submissions)
+        {
+            QCOMPARE(chunk.size(), 1);
+        }
+    }
+    void linePacingAndDatagrams()
+    {
+        FakeDevice device;
+        device.allowance = 100;
+        TerminalSendQueue          queue(device);
+        TerminalSendQueue::Options options;
+        options.lineDelayMs = 80;
+        QVERIFY(queue.enqueue("A\r\nB\rC\nD", options));
+        queue.flush();
+        QCOMPARE(device.accepted, QByteArray("A\r\n"));
+        queue.flush();
+        QCOMPARE(device.submissions.size(), 1);
+        QTRY_COMPARE(queue.pendingSubmissions(), 0);
+        QCOMPARE(device.submissions, QList<QByteArray>({"A\r\n", "B\r", "C\n", "D"}));
+        device.atomic = true;
+        device.submissions.clear();
+        QVERIFY(queue.enqueue("one\ntwo", options));
+        queue.flush();
+        QCOMPARE(device.submissions, QList<QByteArray>({"one\ntwo"}));
+        options.byteDelayMs = 1;
+        QString error;
+        QVERIFY(!queue.enqueue("bad", options, &error));
+        QVERIFY(!error.isEmpty());
+    }
+    void retainedUntouchedOnlyAndStop()
+    {
+        FakeDevice                 device;
+        TerminalSendQueue          queue(device);
+        TerminalSendQueue::Options options;
+        options.retainOnDisconnect = true;
+        queue.setRetainDisconnected(true);
+        device.allowance = 1;
+        QVERIFY(queue.enqueue("partial", options));
+        QVERIFY(queue.enqueue("retained", options));
+        QVERIFY(queue.enqueue("protocol"));
+        queue.flush();
+        device.close();
+        queue.connectionChanged();
+        QCOMPARE(queue.pendingBytes(), 8);
+        QCOMPARE(queue.pendingSubmissions(), 1);
+        QVERIFY(!queue.enqueue("protocol"));
+        QVERIFY(queue.enqueue("offline", options));
+        device.currentState = SerialDevice::State::Open;
+        device.allowance    = 100;
+        queue.connectionChanged();
+        QTRY_COMPARE(queue.pendingSubmissions(), 0);
+        QCOMPARE(device.accepted, QByteArray("pretainedoffline"));
+        device.close();
+        QVERIFY(queue.enqueue("stop", options));
+        queue.reset();
+        QCOMPARE(queue.pendingSubmissions(), 0);
+        device.currentState = SerialDevice::State::Open;
+        queue.connectionChanged();
+        queue.flush();
+        QCOMPARE(device.accepted, QByteArray("pretainedoffline"));
+        device.close();
+        QVERIFY(queue.enqueue("discard", options));
+        queue.setRetainDisconnected(false);
+        QCOMPARE(queue.pendingSubmissions(), 0);
+        QVERIFY(!queue.enqueue("closed", options));
+    }
+    void pacingBoundsAndReentrantDisconnect()
+    {
+        FakeDevice                 device;
+        TerminalSendQueue          queue(device);
+        TerminalSendQueue::Options options;
+        QString                    error;
+        options.byteDelayMs = -1;
+        QVERIFY(!queue.enqueue("x", options, &error));
+        options.byteDelayMs = 60001;
+        QVERIFY(!queue.enqueue("x", options));
+        options.byteDelayMs = 0;
+        options.lineDelayMs = -1;
+        QVERIFY(!queue.enqueue("x", options));
+        options.lineDelayMs = 60001;
+        QVERIFY(!queue.enqueue("x", options));
+        options.lineDelayMs        = 60000;
+        options.retainOnDisconnect = true;
+        queue.setRetainDisconnected(true);
+        QVERIFY(queue.enqueue("inflight", options));
+        QVERIFY(queue.enqueue("untouched", options));
+        device.allowance   = 1;
+        device.duringWrite = [&] {
+            device.close();
+            queue.connectionChanged();
+        };
+        queue.flush();
+        QCOMPARE(queue.pendingSubmissions(), 1);
+        QCOMPARE(queue.pendingBytes(), 9);
+        device.duringWrite  = {};
+        device.currentState = SerialDevice::State::Open;
+        device.allowance    = 100;
+        queue.connectionChanged();
+        QTRY_COMPARE(queue.pendingSubmissions(), 0);
+        QCOMPARE(device.accepted, QByteArray("iuntouched"));
     }
     void limitsAndErrors()
     {

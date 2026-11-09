@@ -7,12 +7,16 @@ find_package(Qt6 REQUIRED COMPONENTS
 qt_add_library(App STATIC
     inc/Termaster/App/App.h
     src/App.cpp
+    src/Terminal/AdvancedSender.h
+    src/Terminal/AdvancedSender.cpp
     src/Gui/Main/MainWindow.h
     src/Gui/Main/MainWindow.cpp
     src/Gui/Main/EditActions.h
     src/Gui/Main/EditActions.cpp
     src/Gui/Settings/SettingsDialog.h
     src/Gui/Settings/SettingsDialog.cpp
+    src/Gui/Settings/FavoritesEditor.h
+    src/Gui/Settings/FavoritesEditor.cpp
     src/Gui/Settings/ShortcutEditor.h
     src/Gui/Settings/ShortcutEditor.cpp
     src/Gui/Session/SessionPicker.h

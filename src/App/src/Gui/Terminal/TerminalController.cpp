@@ -1,5 +1,6 @@
 #include "TerminalController.h"
 
+#include "../../Terminal/AdvancedSender.h"
 #include "../Main/MainWindow.h"
 #include "../Settings/SettingsDialog.h"
 #include "CommandEditor.h"
@@ -8,8 +9,10 @@
 #include <QApplication>
 #include <QDesktopServices>
 #include <QFile>
+#include <QFileDialog>
 #include <QFontMetrics>
 #include <QMenu>
+#include <QMessageBox>
 #include <QStatusBar>
 #include <QTabBar>
 #include <QTabWidget>
@@ -112,6 +115,8 @@ struct TerminalController::Runtime
     SettingsOverlay                    settings;
     std::unique_ptr<SerialDevice>      device;
     std::unique_ptr<TerminalSendQueue> sender;
+    std::unique_ptr<AdvancedSender>    advanced;
+    QVariantMap                        targetConfiguration;
     QPointer<CommandEditor>            editor;
     QPointer<TerminalDisplay>          display;
     QPointer<QWidget>                  panel;
@@ -127,6 +132,7 @@ struct TerminalController::Runtime
     {
         connectionRequested = false;
         reconnect.stop();
+        advanced.reset();
         sender.reset();
         if (device)
         {
@@ -580,10 +586,17 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         layout->addWidget(content, 1);
         terminal->editor = new CommandEditor(container);
         terminal->editor->setSettings(terminal->settings.value("input").toMap());
+        if (terminal->advanced)
+        {
+            terminal->advanced->configure(terminal->settings.value("input").toMap());
+        }
         terminal->display->setFocusProxy(terminal->editor->buffered() ? terminal->editor.data() : nullptr);
         layout->addWidget(terminal->editor);
-        terminal->panel  = container;
-        terminal->sender = std::make_unique<TerminalSendQueue>(*terminal->device);
+        terminal->panel    = container;
+        terminal->sender   = std::make_unique<TerminalSendQueue>(*terminal->device);
+        terminal->advanced = std::make_unique<AdvancedSender>(*terminal->sender, *terminal->device);
+        terminal->advanced->configure(terminal->settings.value("input").toMap());
+        terminal->targetConfiguration = _effective(type, terminal->settings).value("transport").toMap();
     }
     catch (const std::exception& exception)
     {
@@ -632,7 +645,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             auto it = self->_terminals.find(id);
             if (it != self->_terminals.end())
             {
-                it->second->sender->reset();
+                it->second->advanced->connectionChanged();
                 if (it->second->lastError != error)
                 {
                     self->_window.statusBar()->showMessage(owned(error));
@@ -684,6 +697,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             showMessage(error);
         }
         it->second->editor->setSettings(it->second->settings.value("input").toMap());
+        it->second->advanced->configure(it->second->settings.value("input").toMap());
         it->second->display->setFocusProxy(it->second->editor->buffered() ? it->second->editor.data() : nullptr);
         if (key == "mode")
         {
@@ -697,6 +711,69 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             }
         }
     });
+    auto* advanced = _terminals.at(id)->advanced.get();
+    connect(advanced, &AdvancedSender::stateChanged, editor, &CommandEditor::setSendingState);
+    connect(advanced, &AdvancedSender::failed, this, [this](const QString& error) { showMessage(error); });
+    connect(editor, &CommandEditor::stopRequested, advanced, &AdvancedSender::stop);
+    connect(editor,
+            &CommandEditor::periodicRequested,
+            this,
+            [this, id](const QString& text, const QString& terminator, const QString& custom, int interval) {
+                const auto it = _terminals.find(id);
+                if (it == _terminals.end())
+                {
+                    return;
+                }
+                QString    error;
+                const auto bytes = CommandInput::prepare(text, terminator, custom, &error);
+                if (!bytes || !it->second->advanced->startPeriodic(*bytes, interval, &error))
+                {
+                    showMessage(error);
+                }
+            });
+    connect(editor, &CommandEditor::fileRequested, this, [this, id](bool lines) {
+        const auto initial = _terminals.find(id);
+        if (initial == _terminals.end())
+        {
+            return;
+        }
+        const QPointer<QWidget>            panel = initial->second->panel;
+        const QPointer<TerminalController> self(this);
+        const QString                      path = QFileDialog::getOpenFileName(&_window, tr("Select file to send"));
+        if (!self || path.isEmpty())
+        {
+            return;
+        }
+        if (QMessageBox::question(&_window,
+                                  tr("Send file"),
+                                  lines ?
+                                      tr("Send this file as byte-preserving lines with the selected terminator?\n%1")
+                                          .arg(path) :
+                                      tr("Send this file as raw bytes without a terminator?\n%1").arg(path),
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No)
+                != QMessageBox::Yes
+            || !self)
+        {
+            return;
+        }
+        const auto it = _terminals.find(id);
+        if (!panel || it == _terminals.end() || it->second->panel != panel)
+        {
+            return;
+        }
+        QString    error;
+        const auto input      = it->second->settings.value("input").toMap();
+        const auto terminator = CommandInput::prepare({},
+                                                      input.value("terminator", "cr").toString(),
+                                                      input.value("customTerminator").toString(),
+                                                      &error);
+        if ((lines && !terminator)
+            || !it->second->advanced->startFile(path, lines, lines ? *terminator : QByteArray {}, &error))
+        {
+            showMessage(error);
+        }
+    });
     connect(_terminals.at(id)->sender.get(), &TerminalSendQueue::failed, this, [this](const QString& error) {
         showMessage(error);
     });
@@ -708,7 +785,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         }
         QString    error;
         const auto bytes = CommandInput::prepare(text, terminator, custom, &error);
-        if (!bytes || !it->second->sender->enqueue(*bytes, &error))
+        if (!bytes || !it->second->advanced->submit(*bytes, &error))
         {
             showMessage(error);
             return false;
@@ -857,10 +934,7 @@ void TerminalController::_changed(const QString& id)
     }
     const auto state    = it->second->device->state();
     auto&      terminal = *it->second;
-    if (state != SerialDevice::State::Open)
-    {
-        terminal.sender->reset();
-    }
+    terminal.advanced->connectionChanged();
     if (state == SerialDevice::State::Open)
     {
         terminal.lastError.clear();
@@ -1042,7 +1116,22 @@ void TerminalController::applySettings()
         terminal->display->setAppearance(
             _effective(_types.at(terminal->type), terminal->settings).value("appearance").toMap());
         terminal->editor->setSettings(terminal->settings.value("input").toMap());
+        if (terminal->advanced)
+        {
+            terminal->advanced->configure(terminal->settings.value("input").toMap());
+        }
         terminal->display->setFocusProxy(terminal->editor->buffered() ? terminal->editor.data() : nullptr);
+        const auto target = _effective(_types.at(terminal->type), terminal->settings).value("transport").toMap();
+        if (target != terminal->targetConfiguration)
+        {
+            const bool pending = terminal->advanced->active();
+            terminal->advanced->stop();
+            terminal->targetConfiguration = target;
+            if (pending)
+            {
+                showMessage(tr("Pending output cancelled because the terminal connection settings changed."));
+            }
+        }
         terminal->name = _session->objects().value(id).toMap().value("name", id).toString();
         _changed(id);
     }
@@ -1153,7 +1242,7 @@ void TerminalController::_setConnectionRequested(QString id, bool requested)
     terminal.connectionRequested = false;
     terminal.reconnect.stop();
     terminal.lastError.clear();
-    terminal.sender->reset();
+    terminal.advanced->stop();
     terminal.device->close();
     _changed(id);
 }
@@ -1282,6 +1371,17 @@ void TerminalController::_attemptConnection(const QString& id)
     if (type == _types.end())
     {
         return;
+    }
+    const auto target = _effective(type->second, terminal.settings).value("transport").toMap();
+    if (target != terminal.targetConfiguration)
+    {
+        const bool pending = terminal.advanced->active();
+        terminal.advanced->stop();
+        terminal.targetConfiguration = target;
+        if (pending)
+        {
+            showMessage(tr("Pending output cancelled because the terminal connection settings changed."));
+        }
     }
     terminal.device->resize(terminal.display->terminalSize().width(), terminal.display->terminalSize().height());
     QString error;
