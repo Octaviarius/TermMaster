@@ -22,7 +22,6 @@ int hexDigit(QChar character)
 } // namespace
 
 std::optional<QByteArray> CommandInput::prepare(const QString& text,
-                                                bool           hex,
                                                 const QString& terminator,
                                                 const QString& custom,
                                                 QString*       error)
@@ -38,53 +37,12 @@ std::optional<QByteArray> CommandInput::prepare(const QString& text,
         }
         return std::nullopt;
     };
-    if (text.size() > MaximumBytes * 3 || custom.size() > MaximumBytes)
+    if (text.size() > MaximumBytes || custom.size() > MaximumBytes)
     {
         return reject(QStringLiteral("Command exceeds the 4 MiB byte limit."));
     }
 
-    QByteArray result;
-    if (hex)
-    {
-        int high = -1;
-        for (const QChar character : text)
-        {
-            if (character.isSpace())
-            {
-                if (high >= 0)
-                {
-                    return reject(QStringLiteral("Hex bytes require two adjacent digits."));
-                }
-                continue;
-            }
-            const int digit = hexDigit(character);
-            if (digit < 0)
-            {
-                return reject(QStringLiteral("Hex input contains a non-hexadecimal character."));
-            }
-            if (high < 0)
-            {
-                high = digit;
-            }
-            else
-            {
-                result.append(static_cast<char>((high << 4) | digit));
-                high = -1;
-            }
-            if (result.size() > MaximumBytes)
-            {
-                return reject(QStringLiteral("Command exceeds the 4 MiB byte limit."));
-            }
-        }
-        if (high >= 0)
-        {
-            return reject(QStringLiteral("Hex input has an incomplete byte."));
-        }
-    }
-    else
-    {
-        result = text.toUtf8();
-    }
+    QByteArray result = text.toUtf8();
 
     const QString kind = terminator.toLower();
     if (kind == QStringLiteral("lf"))

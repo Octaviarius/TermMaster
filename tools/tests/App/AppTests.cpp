@@ -2013,6 +2013,22 @@ content:
             const auto      interactiveName = QString(captureFile.completeBaseName()).replace("Buffered", "Interactive")
                                             + ".png";
             QVERIFY(_app.mainWindow().grab().save(QDir(captureFile.absolutePath()).filePath(interactiveName)));
+            _app.commands().find("Application.Settings")->actions().first()->trigger();
+            auto* settings = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+            QVERIFY(settings && settings->selectPage("application.terminal"));
+            settings->setFixedSize(1100, 760);
+            QTest::qWait(100);
+            for (auto* area : settings->findChildren<QScrollArea*>())
+            {
+                if (area->isVisible())
+                {
+                    area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());
+                }
+            }
+            QApplication::processEvents();
+            const auto settingsName = QString(captureFile.completeBaseName()).replace("Buffered", "Settings") + ".png";
+            QVERIFY(settings->grab().save(QDir(captureFile.absolutePath()).filePath(settingsName)));
+            settings->reject();
         }
     }
 

@@ -4,7 +4,6 @@
 #include <QWidget>
 #include <functional>
 
-class QCheckBox;
 class QComboBox;
 class QLineEdit;
 class QPlainTextEdit;
@@ -14,7 +13,7 @@ class CommandEditor final : public QWidget
 {
     Q_OBJECT
 public:
-    using SendCallback = std::function<bool(const QString&, bool, const QString&, const QString&)>;
+    using SendCallback = std::function<bool(const QString&, const QString&, const QString&)>;
 
     explicit CommandEditor(QWidget* parent = nullptr);
     Q_DISABLE_COPY_MOVE(CommandEditor)
@@ -35,7 +34,6 @@ private:
     static constexpr int _maximumCharacters   = 16384;
     static constexpr int _maximumHistoryBytes = 1024 * 1024;
     QComboBox*           _mode;
-    QCheckBox*           _hex;
     QComboBox*           _terminator;
     QLineEdit*           _custom;
     QComboBox*           _pastePolicy;

@@ -1,6 +1,5 @@
 #include "CommandEditor.h"
 
-#include <QCheckBox>
 #include <QComboBox>
 #include <QCompleter>
 #include <QHBoxLayout>
@@ -47,10 +46,6 @@ CommandEditor::CommandEditor(QWidget* parent) : QWidget(parent)
     _mode->addItem(tr("Buffered"), QStringLiteral("buffered"));
     _mode->setToolTip(tr("Send keys immediately or edit commands before sending"));
     options->addWidget(_mode);
-    _hex = new QCheckBox(tr("HEX"), this);
-    _hex->setObjectName(QStringLiteral("commandHex"));
-    _hex->setToolTip(tr("Enter hexadecimal byte pairs, separated by spaces"));
-    options->addWidget(_hex);
     _terminator = new QComboBox(this);
     _terminator->setObjectName(QStringLiteral("commandTerminator"));
     for (const auto& value : {"LF", "CRLF", "CR", "NUL", "None", "Custom"})
@@ -120,7 +115,6 @@ CommandEditor::CommandEditor(QWidget* parent) : QWidget(parent)
     connect(_mode, &QComboBox::activated, this, [this] {
         emit settingChanged(QStringLiteral("mode"), _mode->currentData());
     });
-    connect(_hex, &QCheckBox::toggled, this, [this](bool value) { emit settingChanged(QStringLiteral("hex"), value); });
     connect(_terminator, &QComboBox::activated, this, [this] {
         emit settingChanged(QStringLiteral("terminator"), _terminator->currentData());
     });
@@ -137,7 +131,6 @@ void CommandEditor::setSettings(const QVariantMap& input)
 {
     _settings = input;
     const QSignalBlocker modeBlock(_mode);
-    const QSignalBlocker hexBlock(_hex);
     const QSignalBlocker terminatorBlock(_terminator);
     const QSignalBlocker customBlock(_custom);
     const QSignalBlocker pasteBlock(_pastePolicy);
@@ -146,12 +139,10 @@ void CommandEditor::setSettings(const QVariantMap& input)
         combo->setCurrentIndex(index < 0 ? 0 : index);
     };
     select(_mode, input.value(QStringLiteral("mode"), QStringLiteral("interactive")));
-    _hex->setChecked(input.value(QStringLiteral("hex"), false).toBool());
     select(_terminator, input.value(QStringLiteral("terminator"), QStringLiteral("cr")));
     _custom->setText(input.value(QStringLiteral("customTerminator")).toString());
     select(_pastePolicy, input.value(QStringLiteral("pastePolicy"), QStringLiteral("edit")));
     _body->setVisible(buffered());
-    _hex->setEnabled(buffered());
     _terminator->setEnabled(buffered());
     _custom->setVisible(_terminator->currentData().toString() == QStringLiteral("custom"));
     _custom->setEnabled(buffered());
@@ -239,7 +230,7 @@ bool CommandEditor::_submit(const QString& text, bool clearDraft)
         return false;
     }
     const auto send = _send;
-    if (!send(text, _hex->isChecked(), _terminator->currentData().toString(), _custom->text()) || !guard)
+    if (!send(text, _terminator->currentData().toString(), _custom->text()) || !guard)
     {
         return false;
     }

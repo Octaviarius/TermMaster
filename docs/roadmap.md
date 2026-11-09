@@ -22,7 +22,6 @@ Preserve backend capability/state checks and verify the affected GUI.
 - [x] Add byte-safe terminators: LF, CRLF, CR, NUL, none and custom sequences.
 - [x] Add paste policy and confirmation for multiline sending.
 - [x] Add command history with Up/Down navigation and search.
-- [x] Add HEX input with validation before sending.
 
 Establish one submission path that handles partial writes, backpressure and
 outgoing conversion without duplicating terminators. Verify exact bytes with
@@ -96,6 +95,7 @@ is deferred until an explicit start instruction.
       native codecs must not require the Python runtime.
 - [ ] Apply codecs to buffered packet submissions through the shared send pipeline.
 - [ ] Provide SLIP packet encoding/decoding and HEX conversion as initial examples.
+- [ ] Add codec selection for command input in place of the removed HEX toggle.
 - [ ] Verify split frames, malformed input, bounded buffering, backpressure and
       cancellation with synthetic streams.
 

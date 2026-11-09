@@ -67,31 +67,23 @@ private slots:
     {
         QString       error;
         const QString unicode = QString::fromUtf8("\xE2\x82\xAC\xF0\x9F\x98\x80");
-        QCOMPARE(*CommandInput::prepare(unicode, false, "crlf", {}, &error), QByteArray::fromHex("e282acf09f98800d0a"));
-        QCOMPARE(*CommandInput::prepare("AT", false, "lf", {}), QByteArray("AT\n"));
-        QCOMPARE(*CommandInput::prepare("AT", false, "cr", {}), QByteArray("AT\r"));
-        QCOMPARE(*CommandInput::prepare("AT", false, "none", {}), QByteArray("AT"));
+        QCOMPARE(*CommandInput::prepare(unicode, "crlf", {}, &error), QByteArray::fromHex("e282acf09f98800d0a"));
+        QCOMPARE(*CommandInput::prepare("AT", "lf", {}), QByteArray("AT\n"));
+        QCOMPARE(*CommandInput::prepare("AT", "cr", {}), QByteArray("AT\r"));
+        QCOMPARE(*CommandInput::prepare("AT", "none", {}), QByteArray("AT"));
         QVERIFY(error.isEmpty());
-        QCOMPARE(*CommandInput::prepare("00 ff 41", true, "nul", {}), QByteArray::fromHex("00ff4100"));
-        QCOMPARE(*CommandInput::prepare("4142", true, "none", {}), QByteArray("AB"));
-        QCOMPARE(*CommandInput::prepare("", false, "custom", R"(\r\n\0\xFF\\)"), QByteArray::fromHex("0d0a00ff5c"));
-        for (const QString text : {QString("0"), QString("gg"), QString("a b"), QString("0x41")})
-        {
-            QVERIFY(!CommandInput::prepare(text, true, "none", {}, &error));
-        }
+        QCOMPARE(*CommandInput::prepare("41 54", "nul", {}), QByteArray("41 54\0", 6));
+        QCOMPARE(*CommandInput::prepare(QString::fromLatin1("A\0B", 3), "none", {}), QByteArray("A\0B", 3));
+        QCOMPARE(*CommandInput::prepare("", "custom", R"(\r\n\0\xFF\\)"), QByteArray::fromHex("0d0a00ff5c"));
         for (const QString custom : {QString("\\"), QString("\\q"), QString("\\x1"), QString("\\xGG")})
         {
-            QVERIFY(!CommandInput::prepare("x", false, "custom", custom, &error));
+            QVERIFY(!CommandInput::prepare("x", "custom", custom, &error));
         }
-        QVERIFY(!CommandInput::prepare("x", false, "unknown", {}, &error));
+        QVERIFY(!CommandInput::prepare("x", "unknown", {}, &error));
         const QString maximum(CommandInput::MaximumBytes, QLatin1Char('x'));
-        QVERIFY(CommandInput::prepare(maximum, false, "none", {}));
-        QVERIFY(!CommandInput::prepare(maximum, false, "lf", {}, &error));
-        QVERIFY(!CommandInput::prepare(QString(CommandInput::MaximumBytes / 2 + 1, QChar(0x20ac)),
-                                       false,
-                                       "none",
-                                       {},
-                                       &error));
+        QVERIFY(CommandInput::prepare(maximum, "none", {}));
+        QVERIFY(!CommandInput::prepare(maximum, "lf", {}, &error));
+        QVERIFY(!CommandInput::prepare(QString(CommandInput::MaximumBytes / 2 + 1, QChar(0x20ac)), "none", {}, &error));
     }
     void partialWritesAndBoundaries()
     {
