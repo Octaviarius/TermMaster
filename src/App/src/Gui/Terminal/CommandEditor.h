@@ -10,6 +10,7 @@ class QPlainTextEdit;
 class QSpinBox;
 class QLabel;
 class QToolButton;
+class QPushButton;
 
 /** GUI-thread command draft and bounded, memory-only accepted-command history. */
 class CommandEditor final : public QWidget
@@ -51,10 +52,12 @@ private:
     QWidget*             _body;
     QPlainTextEdit*      _editor;
     QComboBox*           _history;
-    QWidget*             _advanced;
+    QWidget*             _advanced     = nullptr;
+    QWidget*             _historyPopup = nullptr;
+    QToolButton*         _advancedToggle;
+    QToolButton*         _historyToggle;
+    QPushButton*         _periodicStart;
     QComboBox*           _favorites;
-    QSpinBox*            _byteDelay;
-    QSpinBox*            _lineDelay;
     QSpinBox*            _period;
     QComboBox*           _disconnected;
     QLabel*              _sendingStatus;
@@ -67,6 +70,7 @@ private:
     int                  _historyIndex = 0;
     int                  _historyBytes = 0;
 
+    void _showPopup(QWidget* popup, QWidget* anchor);
     void _loadFavorite();
     void _saveFavorite();
     void _refreshFavorites();

@@ -74,6 +74,7 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
         _selectors[index] = new ProcessorSelector(this, favorites);
         _selectors[index]->setObjectName(index == 0 ? "rxProcessor" : "txProcessor");
         _selectors[index]->setMinimumContentsLength(12);
+        _selectors[index]->setMaximumWidth(240);
         _selectors[index]->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
         bar->addWidget(_selectors[index], 1);
         connect(_selectors[index], &QComboBox::activated, this, [this, index] {
@@ -111,6 +112,7 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
     toggle->setToolTip(tr("Processing properties"));
     toggle->setCheckable(true);
     bar->addWidget(toggle);
+    bar->addStretch();
 
     _properties = new QWidget(parent);
     _properties->setObjectName("processingProperties");
@@ -146,8 +148,8 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
     revert->setObjectName("revertProcessing");
     _applyButton = new QPushButton(tr("Apply"), _properties);
     _applyButton->setObjectName("applyProcessing");
-    buttons->addWidget(revert);
     buttons->addStretch();
+    buttons->addWidget(revert);
     buttons->addWidget(_applyButton);
     layout->addLayout(buttons);
     _properties->hide();
@@ -525,10 +527,8 @@ void TerminalProcessingPanel::_diagnostics()
         const auto value = _router.diagnostics(index == 0 ? ProcessingRouter::Direction::Rx :
                                                             ProcessingRouter::Direction::Tx);
         const auto title = index == 0 ? tr("Rx") : tr("Tx");
-        text.append(tr("%1: %2 · %3 B / %4 queued")
-                        .arg(title, stateName(value.state))
-                        .arg(value.pendingBytes)
-                        .arg(value.pendingChunks));
+        text.append(tr("%1: %2").arg(title, stateName(value.state)));
+        detail.append(tr("%1 queue: %2 B, %3 chunks").arg(title).arg(value.pendingBytes).arg(value.pendingChunks));
         detail.append(tr("%1: accepted %2 B, forwarded %3 B, failures %4")
                           .arg(title)
                           .arg(value.acceptedBytes)
@@ -539,6 +539,6 @@ void TerminalProcessingPanel::_diagnostics()
             detail.append(title + ": " + value.lastError);
         }
     }
-    _status->setText(text.join('\n'));
+    _status->setText(text.join(QStringLiteral("  ·  ")));
     _status->setToolTip(detail.join('\n'));
 }

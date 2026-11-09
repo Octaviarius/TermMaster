@@ -126,24 +126,6 @@ content:
       x-settings-path: input/confirmMultiline
       x-group: input
       x-order: 11
-    byteDelayMs:
-      type: integer
-      title: Byte delay (ms)
-      default: 0
-      minimum: 0
-      maximum: 60000
-      x-settings-path: input/byteDelayMs
-      x-group: input
-      x-order: 12
-    lineDelayMs:
-      type: integer
-      title: Line delay (ms)
-      default: 0
-      minimum: 0
-      maximum: 60000
-      x-settings-path: input/lineDelayMs
-      x-group: input
-      x-order: 13
     disconnectedPolicy:
       type: string
       title: Disconnected sending
