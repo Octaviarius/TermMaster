@@ -26,7 +26,7 @@ QVariant ownedValue(const QVariant& value)
         }
         return result;
     }
-    if (value.metaType().id() == QMetaType::QVariantList)
+    if (value.metaType().id() == QMetaType::QVariantList || value.metaType().id() == QMetaType::QStringList)
     {
         QVariantList result;
         for (const auto& item : value.toList())
@@ -37,6 +37,24 @@ QVariant ownedValue(const QVariant& value)
     }
     return value;
 }
+QStringList lineflowNames(const QVariantMap& block, int channels, bool input)
+{
+    const auto value = block.value(input ? "inputNames" : "outputNames").toStringList();
+    if (!value.isEmpty())
+    {
+        QStringList owned;
+        for (const auto& name : value)
+        {
+            owned.append(QString(name.constData(), name.size()));
+        }
+        return owned;
+    }
+    if (channels == 1)
+    {
+        return {input ? QStringLiteral("Input") : QStringLiteral("Output")};
+    }
+    return input ? QStringList {"Device Rx", "Terminal Tx"} : QStringList {"Terminal Rx", "Device Tx"};
+}
 } // namespace
 
 std::unique_ptr<Lineflow> Lineflow::compose(std::vector<std::shared_ptr<Processor>> nodes,
@@ -44,16 +62,22 @@ std::unique_ptr<Lineflow> Lineflow::compose(std::vector<std::shared_ptr<Processo
                                             Limits                                  limits,
                                             QStringList                             nodeNames,
                                             int                                     channels,
-                                            std::vector<int>                        lanes)
+                                            std::vector<int>                        lanes,
+                                            std::vector<bool>                       flipped,
+                                            QStringList                             inputNames,
+                                            QStringList                             outputNames)
 {
     Prepared prepared;
     prepared._configuration = std::move(configuration);
     prepared._limits        = limits;
     prepared._channels      = channels;
+    prepared._inputNames    = inputNames.isEmpty() ? lineflowNames({}, channels, true) : std::move(inputNames);
+    prepared._outputNames   = outputNames.isEmpty() ? lineflowNames({}, channels, false) : std::move(outputNames);
     auto result             = std::unique_ptr<Lineflow>(new Lineflow(prepared));
     result->_nodes          = std::move(nodes);
     result->_nodeNames      = std::move(nodeNames);
     result->_lanes          = lanes.empty() ? std::vector<int>(result->_nodes.size(), 0) : std::move(lanes);
+    result->_flipped        = flipped.empty() ? std::vector<bool>(result->_nodes.size(), false) : std::move(flipped);
     result->_connectOutputs();
     return result;
 }
@@ -61,6 +85,15 @@ std::unique_ptr<Lineflow> Lineflow::compose(std::vector<std::shared_ptr<Processo
 QVariantMap Lineflow::Prepared::configuration() const
 {
     return _configuration;
+}
+
+QStringList Lineflow::Prepared::inputNames() const
+{
+    return _inputNames;
+}
+QStringList Lineflow::Prepared::outputNames() const
+{
+    return _outputNames;
 }
 
 int Lineflow::Prepared::inputCount() const
@@ -135,6 +168,7 @@ std::unique_ptr<Lineflow> Lineflow::Prepared::instantiate(ProcessorRegistry& reg
         }
         runtime->_nodes.push_back(std::move(processor));
         runtime->_lanes.push_back(_nodes[index].lane);
+        runtime->_flipped.push_back(_nodes[index].flipped);
     }
     runtime->_connectOutputs();
     return runtime;
@@ -180,7 +214,7 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
             }
             return true;
         }
-        if (type == QMetaType::QVariantList)
+        if (type == QMetaType::QVariantList || type == QMetaType::QStringList)
         {
             for (const auto& item : value.toList())
             {
@@ -206,12 +240,14 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
         return {};
     }
 
-    result->_channels = blocks.value(id).toMap().value("channels", 1).toInt();
-    QSet<QString>                                                 visiting;
-    QString                                                       problem;
-    qsizetype                                                     visitedNodes = 0;
-    std::function<bool(const QString&, int, const QString&, int)> expand =
-        [&](const QString& key, int depth, const QString& prefix, int placement) {
+    result->_channels    = blocks.value(id).toMap().value("channels", 1).toInt();
+    result->_inputNames  = lineflowNames(blocks.value(id).toMap(), result->_channels, true);
+    result->_outputNames = lineflowNames(blocks.value(id).toMap(), result->_channels, false);
+    QSet<QString>                                                       visiting;
+    QString                                                             problem;
+    qsizetype                                                           visitedNodes = 0;
+    std::function<bool(const QString&, int, const QString&, int, bool)> expand =
+        [&](const QString& key, int depth, const QString& prefix, int placement, bool flipped) {
             if (depth > limits.maxDepth)
             {
                 problem = QStringLiteral("Lineflow reference depth exceeded");
@@ -270,7 +306,7 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
                         problem = QStringLiteral("Lineflow reference shape does not match its lane");
                         return false;
                     }
-                    if (!expand(target, depth + 1, path, lane))
+                    if (!expand(target, depth + 1, path, lane, node.value("flipped", false).toBool()))
                     {
                         return false;
                     }
@@ -305,7 +341,8 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
                     result->_nodes.push_back({QString(path.constData(), path.size()),
                                               QString(type.constData(), type.size()),
                                               ownedValue(configuration).toMap(),
-                                              lane});
+                                              lane,
+                                              node.value("flipped", false).toBool()});
                 }
             }
             if (channels == 1 && placement >= 0)
@@ -319,10 +356,26 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
                     result->_nodes[index].lane = placement;
                 }
             }
+            if (channels == 2 && flipped)
+            {
+                std::reverse(result->_nodes.begin() + qsizetype(start), result->_nodes.end());
+                for (size_t index = start; index < result->_nodes.size(); ++index)
+                {
+                    auto& node = result->_nodes[index];
+                    if (node.lane == 2)
+                    {
+                        node.flipped = !node.flipped;
+                    }
+                    else
+                    {
+                        node.lane = 1 - node.lane;
+                    }
+                }
+            }
             visiting.remove(key);
             return true;
         };
-    if (!expand(id, 1, QString {}, -1))
+    if (!expand(id, 1, QString {}, -1, false))
     {
         fail(problem);
         return {};
@@ -337,7 +390,7 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
 
 Lineflow::Lineflow(const Prepared& prepared) :
     _configuration(prepared._configuration), _limits(prepared._limits), _roots(size_t(prepared._channels)),
-    _channels(prepared._channels)
+    _channels(prepared._channels), _inputNames(prepared._inputNames), _outputNames(prepared._outputNames)
 {
     for (const auto& node : prepared._nodes)
     {
@@ -359,6 +412,15 @@ int Lineflow::outputCount() const
     return _channels;
 }
 
+QString Lineflow::inputName(int port) const
+{
+    return port >= 0 && port < _channels ? _inputNames[port] : QString {};
+}
+QString Lineflow::outputName(int port) const
+{
+    return port >= 0 && port < _channels ? _outputNames[port] : QString {};
+}
+
 Processor::AcceptResult Lineflow::accept(Chunk input, Callbacks callbacks)
 {
     if (_stopped || input.port < 0 || input.port >= _channels || input.bytes.size() > _limits.maxBytes)
@@ -378,7 +440,7 @@ Processor::AcceptResult Lineflow::accept(Chunk input, Callbacks callbacks)
     root.outputChunks  = 0;
     input.bytes        = QByteArray(input.bytes.constData(), input.bytes.size());
     const auto first   = _nextStage(origin == 0 ? -1 : int(_nodes.size()), origin);
-    input.port         = first == _nodes.size() || _lanes[first] == 2 ? origin : 0;
+    input.port         = first == _nodes.size() ? origin : _lanes[first] == 2 ? origin ^ int(_flipped[first]) : 0;
     _queuedBytes      += input.bytes.size();
     _queue.push_back({first, std::move(input), origin, std::make_shared<Budget>(Budget {_limits.maxSteps})});
     _schedule();
@@ -430,7 +492,7 @@ void Lineflow::_enqueueOutput(size_t index, Chunk chunk, int origin, int inputPo
         _fail(_nodeError(index, QStringLiteral("Invalid output port")));
         return;
     }
-    const int   direction     = _lanes[index] == 2 ? chunk.port : _lanes[index];
+    const int   direction     = _lanes[index] == 2 ? chunk.port ^ int(_flipped[index]) : _lanes[index];
     const auto  next          = _nextStage(int(index), direction);
     const auto  bytes         = chunk.bytes.size();
     const auto* invocation    = inputPort < 0 ? nullptr : &_stages[index].inputs[size_t(inputPort)];
@@ -455,7 +517,7 @@ void Lineflow::_enqueueOutput(size_t index, Chunk chunk, int origin, int inputPo
         ++_roots[size_t(origin)].outputChunks;
         _roots[size_t(origin)].outputBytes += bytes;
     }
-    chunk.port    = final || _lanes[next] == 2 ? direction : 0;
+    chunk.port    = final ? direction : _lanes[next] == 2 ? direction ^ int(_flipped[next]) : 0;
     chunk.bytes   = QByteArray(chunk.bytes.constData(), chunk.bytes.size());
     _queuedBytes += bytes;
     _queue.push_back({next, std::move(chunk), origin, std::move(budget)});

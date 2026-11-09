@@ -8,6 +8,7 @@
 #include <Termaster/Core/Processing/Lineflow.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/SettingsSchema.h>
+#include <algorithm>
 #include <exception>
 #include <stdexcept>
 
@@ -130,9 +131,17 @@ ProcessorRegistry::Type metadata(const ProcessorRegistry::Type& type)
     result.group          = owned(type.group);
     result.inputCount     = type.inputCount;
     result.outputCount    = type.outputCount;
-    result.defaults       = copyValue(type.defaults).toMap();
-    result.editor         = copyValue(type.editor).toMap();
-    result.definition     = copyValue(type.definition).toMap();
+    for (const auto& name : type.inputNames)
+    {
+        result.inputNames.append(owned(name));
+    }
+    for (const auto& name : type.outputNames)
+    {
+        result.outputNames.append(owned(name));
+    }
+    result.defaults   = copyValue(type.defaults).toMap();
+    result.editor     = copyValue(type.editor).toMap();
+    result.definition = copyValue(type.definition).toMap();
     for (const auto& reference : type.references)
     {
         result.references.append(owned(reference));
@@ -154,6 +163,43 @@ bool validId(const QString& id)
 {
     static const QRegularExpression pattern("\\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\z");
     return pattern.match(id).hasMatch();
+}
+
+QStringList portNames(const QStringList& supplied, int count, const QString& prefix, QStringList defaults = {})
+{
+    QStringList result;
+    if (supplied.isEmpty())
+    {
+        if (!defaults.isEmpty())
+        {
+            return defaults;
+        }
+        for (int port = 0; port < count; ++port)
+        {
+            result.append(prefix + QString::number(port + 1));
+        }
+        return result;
+    }
+    if (supplied.size() != count)
+    {
+        throw std::invalid_argument("Processor port names must match the port count");
+    }
+    QSet<QString> seen;
+    for (const auto& name : supplied)
+    {
+        if (name.isEmpty() || name != name.trimmed() || name.size() > 128 || name.contains(QChar::Null)
+            || seen.contains(name) || std::any_of(name.cbegin(), name.cend(), [](QChar character) {
+                   return character.category() == QChar::Other_Control || character.category() == QChar::Separator_Line
+                       || character.category() == QChar::Separator_Paragraph;
+               }))
+        {
+            throw std::invalid_argument(
+                "Processor port names must be unique trimmed names of 1 to 128 characters without controls");
+        }
+        seen.insert(name);
+        result.append(owned(name));
+    }
+    return result;
 }
 
 struct Lease
@@ -184,10 +230,28 @@ bool validLineflowNode(const ProcessorCatalog::Type& parent,
 class ForwardProcessor final : public Processor
 {
 public:
-    explicit ForwardProcessor(std::shared_ptr<Processor> instance, Limits limits = {}) :
+    explicit ForwardProcessor(std::shared_ptr<Processor> instance,
+                              Limits                     limits      = {},
+                              QStringList                inputNames  = {},
+                              QStringList                outputNames = {}) :
         _instance(std::move(instance)), _limits(limits), _inputCount(_instance->inputCount()),
-        _outputCount(_instance->outputCount()), _pending(size_t(_inputCount))
+        _outputCount(_instance->outputCount()), _pending(size_t(_inputCount)), _inputNames(std::move(inputNames)),
+        _outputNames(std::move(outputNames))
     {
+        if (_inputNames.isEmpty())
+        {
+            for (int port = 0; port < _inputCount; ++port)
+            {
+                _inputNames.append(_instance->inputName(port));
+            }
+        }
+        if (_outputNames.isEmpty())
+        {
+            for (int port = 0; port < _outputCount; ++port)
+            {
+                _outputNames.append(_instance->outputName(port));
+            }
+        }
         QPointer<ForwardProcessor> guard(this);
         _instance->setOutputHandler([guard](Chunk output) {
             if (!guard || guard->_stopped)
@@ -226,6 +290,15 @@ public:
     int outputCount() const override
     {
         return _outputCount;
+    }
+
+    QString inputName(int port) const override
+    {
+        return port >= 0 && port < _inputCount ? _inputNames[port] : QString {};
+    }
+    QString outputName(int port) const override
+    {
+        return port >= 0 && port < _outputCount ? _outputNames[port] : QString {};
     }
 
     AcceptResult accept(Chunk input, Callbacks callbacks) override
@@ -312,6 +385,8 @@ private:
     std::vector<std::shared_ptr<Pending>> _pending;
     bool                                  _stopped        = false;
     quint64                               _stopGeneration = 0;
+    QStringList                           _inputNames;
+    QStringList                           _outputNames;
 
     bool _validOutput(const Chunk& output) const
     {
@@ -506,10 +581,31 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
             {
                 throw std::invalid_argument("Lineflow lane must match its channel topology");
             }
+            const auto flipped = node.value("flipped", false);
+            if (flipped.typeId() != QMetaType::Bool || (flipped.toBool() && lane != "duplex"))
+            {
+                throw std::invalid_argument("Lineflow flipped must be a boolean on a duplex node");
+            }
             entry->type.references.append(owned(target.toString()));
         }
     }
     entry->type.references.removeDuplicates();
+    QStringList inputDefaults;
+    QStringList outputDefaults;
+    if (definition.kind == "lineflow")
+    {
+        inputDefaults  = entry->type.inputCount == 1 ? QStringList {"Input"} : QStringList {"Device Rx", "Terminal Tx"};
+        outputDefaults = entry->type.outputCount == 1 ? QStringList {"Output"} :
+                                                        QStringList {"Terminal Rx", "Device Tx"};
+    }
+    entry->type.inputNames  = portNames(definition.inputNames,
+                                        entry->type.inputCount,
+                                        QStringLiteral("Input"),
+                                        inputDefaults);
+    entry->type.outputNames = portNames(definition.outputNames,
+                                        entry->type.outputCount,
+                                        QStringLiteral("Output"),
+                                        outputDefaults);
     return entry;
 }
 
@@ -609,6 +705,35 @@ std::optional<QList<ProcessorRegistry::Definition>> ProcessorRegistry::parseDefi
                     || value.toLongLong() < 1 || value.toLongLong() > 32)
                 {
                     throw std::invalid_argument("Processor port counts must be integers from 1 to 32");
+                }
+            }
+            for (const auto& key : {"inputNames", "outputNames"})
+            {
+                if (!map.contains(key))
+                {
+                    continue;
+                }
+                const auto value = map.value(key);
+                if (value.typeId() != QMetaType::QStringList && value.typeId() != QMetaType::QVariantList)
+                {
+                    throw std::invalid_argument("Processor port names must be string lists");
+                }
+                QStringList names;
+                for (const auto& name : value.toList())
+                {
+                    if (name.typeId() != QMetaType::QString)
+                    {
+                        throw std::invalid_argument("Processor port names must be strings");
+                    }
+                    names.append(name.toString());
+                }
+                if (QString::fromLatin1(key) == "inputNames")
+                {
+                    definition.inputNames = names;
+                }
+                else
+                {
+                    definition.outputNames = names;
                 }
             }
             definition.inputCount     = map.value("inputCount", 1).toInt();
@@ -743,6 +868,8 @@ bool ProcessorRegistry::validatePublication(const QString&           owner,
                                   {        "source",                            definition.source},
                                   {    "inputCount",                        definition.inputCount},
                                   {   "outputCount",                       definition.outputCount},
+                                  {    "inputNames",                        definition.inputNames},
+                                  {   "outputNames",                       definition.outputNames},
                                   {      "defaults",                          definition.defaults},
                                   {        "editor",                            definition.editor},
                                   {"settingsSchema", QString::fromUtf8(definition.settingsSchema)},
@@ -889,7 +1016,9 @@ void ProcessorRegistry::registerType(const QString& owner, Type type)
                            type.references,
                            type.group,
                            type.inputCount,
-                           type.outputCount};
+                           type.outputCount,
+                           type.inputNames,
+                           type.outputNames};
     auto       entry = _definitionEntry(owner, definition);
     if (owner.isEmpty() || owner.contains(QChar::Null))
     {
@@ -1412,6 +1541,15 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
     }
 }
 
+QStringList ProcessorRegistry::Prepared::inputNames() const
+{
+    return _inputNames;
+}
+QStringList ProcessorRegistry::Prepared::outputNames() const
+{
+    return _outputNames;
+}
+
 int ProcessorRegistry::Prepared::inputCount() const
 {
     return _inputCount;
@@ -1453,6 +1591,8 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
                                                       std::shared_ptr<const void> lease,
                                                       int                         inputCount,
                                                       int                         outputCount,
+                                                      QStringList                 inputNames,
+                                                      QStringList                 outputNames,
                                                       QString*                    error)
 {
     struct Hold
@@ -1522,7 +1662,7 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
         fail(error, "Processor factory port counts do not match catalog metadata");
         return {};
     }
-    return std::make_shared<ForwardProcessor>(std::move(leased), limits);
+    return std::make_shared<ForwardProcessor>(std::move(leased), limits, std::move(inputNames), std::move(outputNames));
 }
 
 std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::prepare(const QString&           id,
@@ -1594,6 +1734,8 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
     result->_configuration = *effective;
     result->_inputCount    = entry->type.inputCount;
     result->_outputCount   = entry->type.outputCount;
+    result->_inputNames    = entry->type.inputNames;
+    result->_outputNames   = entry->type.outputNames;
     visiting.insert(id);
     const auto leave = qScopeGuard([&] { visiting.remove(id); });
     if (entry->saved && entry->type.kind == "lineflow")
@@ -1602,7 +1744,8 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
         {
             QString                         name;
             std::shared_ptr<const Prepared> prepared;
-            int                             lane = 0;
+            int                             lane    = 0;
+            bool                            flipped = false;
         };
         std::vector<Child> children;
         for (const auto& value : entry->type.definition.value("nodes").toList())
@@ -1638,7 +1781,12 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                 result->_paths.append(name);
             }
             const auto laneName = node.value("lane", "rx").toString();
-            children.push_back({name, std::move(child), laneName == "duplex" ? 2 : laneName == "tx" ? 1 : 0});
+            children.push_back({name,
+                                std::move(child),
+                                laneName == "duplex" ? 2 :
+                                laneName == "tx"     ? 1 :
+                                                       0,
+                                node.value("flipped", false).toBool()});
         }
         result->_composite   = true;
         const auto paths     = result->_paths;
@@ -1695,18 +1843,23 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
             }
             auto configuration = snapshot;
             configuration.insert("overrides", values);
-            QStringList      nodeNames;
-            std::vector<int> lanes;
+            QStringList       nodeNames;
+            std::vector<int>  lanes;
+            std::vector<bool> flipped;
             for (const auto& child : children)
             {
                 nodeNames.append(child.name);
                 lanes.push_back(child.lane);
+                flipped.push_back(child.flipped);
             }
             Type::Factory factory =
-                [nodes     = std::move(nodes),
-                 nodeNames = std::move(nodeNames),
-                 lanes     = std::move(lanes),
-                 channels  = entry->type.inputCount](const QVariantMap&       config,
+                [nodes       = std::move(nodes),
+                 nodeNames   = std::move(nodeNames),
+                 lanes       = std::move(lanes),
+                 flipped     = std::move(flipped),
+                 inputNames  = entry->type.inputNames,
+                 outputNames = entry->type.outputNames,
+                 channels    = entry->type.inputCount](const QVariantMap&       config,
                                                     const Processor::Limits& limits,
                                                     QString*) mutable -> std::unique_ptr<Processor> {
                 return Lineflow::compose(std::move(nodes),
@@ -1714,7 +1867,10 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                                          limits,
                                          std::move(nodeNames),
                                          channels,
-                                         std::move(lanes));
+                                         std::move(lanes),
+                                         std::move(flipped),
+                                         inputNames,
+                                         outputNames);
             };
             return _create(factory,
                            configuration,
@@ -1722,6 +1878,8 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                            lease,
                            entry->type.inputCount,
                            entry->type.outputCount,
+                           entry->type.inputNames,
+                           entry->type.outputNames,
                            error);
         };
         return result;
@@ -1824,7 +1982,15 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
             std::vector<std::shared_ptr<const Prepared>> references;
         };
         auto pins = std::make_shared<Pins>(Pins {lease, providerLease, referencePins});
-        return _create(factory, configuration, limits, pins, entry->type.inputCount, entry->type.outputCount, error);
+        return _create(factory,
+                       configuration,
+                       limits,
+                       pins,
+                       entry->type.inputCount,
+                       entry->type.outputCount,
+                       entry->type.inputNames,
+                       entry->type.outputNames,
+                       error);
     };
     return result;
 }

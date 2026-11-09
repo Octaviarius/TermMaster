@@ -462,6 +462,301 @@ class DuplexProcessorTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void namedPortsAreMetadataOwnedSnapshotsAndHaveUsefulDefaults()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QCOMPARE(registry.type("native.framer")->inputNames, QStringList {"Stream"});
+        QCOMPARE(registry.type("native.framer")->outputNames, QStringList {"Frames"});
+        QCOMPARE(registry.type("native.hex-encoder")->inputNames, QStringList {"Bytes"});
+        QCOMPARE(registry.type("native.hex-encoder")->outputNames, QStringList {"HEX"});
+        auto native = registry.create("native.pacer", {}, {});
+        QCOMPARE(native->inputName(0), QString("Data"));
+        QCOMPARE(native->outputName(0), QString("Data"));
+        QVERIFY(native->inputName(-1).isEmpty());
+        QVERIFY(native->outputName(1).isEmpty());
+        const auto fixture = std::make_shared<Fixture>();
+        registerFixtures(registry, fixture);
+        QChar                  inputStorage[] {QChar('W'), QChar('i'), QChar('r'), QChar('e')};
+        QChar                  outputStorage[] {QChar('D'), QChar('a'), QChar('t'), QChar('a')};
+        ProcessorCatalog::Type type;
+        type.id             = "test.named";
+        type.title          = type.id;
+        type.settingsSchema = emptySchema();
+        type.inputCount     = 2;
+        type.outputCount    = 2;
+        type.inputNames     = {QString::fromRawData(inputStorage, 4), "Application"};
+        type.outputNames    = {QString::fromRawData(outputStorage, 4), "Responses"};
+        type.create         = [](const QVariantMap&, const Processor::Limits&, QString*) {
+            return std::make_unique<Protocol>();
+        };
+        registry.registerType("named", type);
+        inputStorage[0]  = 'Z';
+        outputStorage[0] = 'Z';
+        QCOMPARE(registry.type("test.named")->inputNames, QStringList({"Wire", "Application"}));
+        QCOMPARE(registry.type("test.named")->outputNames, QStringList({"Data", "Responses"}));
+        auto namedPrepared = registry.prepare("test.named", {}, {});
+        QCOMPARE(namedPrepared->inputNames(), QStringList({"Wire", "Application"}));
+        QCOMPARE(namedPrepared->outputNames(), QStringList({"Data", "Responses"}));
+        auto named = namedPrepared->instantiate();
+        QCOMPARE(named->inputName(0), QString("Wire"));
+        QCOMPARE(named->outputName(1), QString("Responses"));
+        QString error;
+        auto    definition = block("named-flow", {node("test.named", "protocol", "duplex")});
+        QVERIFY2(registry.publishDefinitions("workspace", {definition}, &error), qPrintable(error));
+        QCOMPARE(registry.type("named-flow")->inputNames, QStringList({"Device Rx", "Terminal Tx"}));
+        QCOMPARE(registry.type("named-flow")->outputNames, QStringList({"Terminal Rx", "Device Tx"}));
+        definition.inputNames  = {"Device", "Terminal"};
+        definition.outputNames = {"Display", "Transport"};
+        QVERIFY2(registry.publishDefinitions("workspace", {definition}, &error), qPrintable(error));
+        auto snapshot = registry.prepare("named-flow", {}, {}, &error);
+        QVERIFY2(snapshot, qPrintable(error));
+        definition.inputNames = {"New device", "New terminal"};
+        QVERIFY2(registry.publishDefinitions("workspace", {definition}, &error), qPrintable(error));
+        QCOMPARE(snapshot->inputNames(), QStringList({"Device", "Terminal"}));
+        auto runtime = snapshot->instantiate({}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QCOMPARE(runtime->inputName(0), QString("Device"));
+        QCOMPARE(runtime->outputName(1), QString("Transport"));
+        auto unary = block("unary", {}, 1);
+        QVERIFY2(registry.publishDefinitions("workspace", {unary}, &error), qPrintable(error));
+        QCOMPARE(registry.type("unary")->inputNames, QStringList {"Input"});
+        QCOMPARE(registry.type("unary")->outputNames, QStringList {"Output"});
+        named->cancel({});
+        runtime->cancel({});
+        native->cancel({});
+    }
+
+    void rejectsMalformedPortNamesAndFlippedFlags()
+    {
+        ProcessorRegistry registry;
+        const auto        fixture = std::make_shared<Fixture>();
+        registerFixtures(registry, fixture);
+        const QList<QStringList> invalid {
+            {"only one"},
+            {"same", "same"},
+            {"", "other"},
+            {" padded", "other"},
+            {"line\nbreak", "other"},
+            {"tab\tname", "other"},
+            {QString(129, 'a'), "other"},
+            {QString(QChar::Null), "other"},
+            {QString(QChar(0x2028)), "other"}
+        };
+        QString error;
+        for (const auto& names : invalid)
+        {
+            auto definition       = block("bad-names", {});
+            definition.inputNames = names;
+            QVERIFY(!registry.publishDefinitions("workspace", {definition}, &error));
+            QVERIFY(error.contains("names"));
+            ProcessorCatalog::Type type;
+            type.id             = "test.invalid-name";
+            type.title          = type.id;
+            type.settingsSchema = emptySchema();
+            type.inputCount     = 2;
+            type.outputCount    = 2;
+            type.inputNames     = names;
+            type.create         = [](const QVariantMap&, const Processor::Limits&, QString*) {
+                return std::make_unique<Protocol>();
+            };
+            QVERIFY_THROWS_EXCEPTION(std::invalid_argument, registry.registerType("fixture", std::move(type)));
+            QVariantMap standalone {
+                {"root",
+                 QVariantMap {{"id", "root"},
+                              {"name", "Root"},
+                              {"channels", 2},
+                              {"inputNames", names},
+                              {"nodes", QVariantList {}}}}
+            };
+            QVERIFY(!Lineflow::prepare(standalone, "root", registry, {}, &error));
+        }
+        for (const auto& flag : {QVariant(1), QVariant("true")})
+        {
+            auto entry = node("test.protocol", "protocol", "duplex");
+            entry.insert("flipped", flag);
+            QVERIFY(!registry.publishDefinitions("workspace", {block("invalid", {entry})}, &error));
+        }
+        auto unary = node("test.A", "single");
+        unary.insert("flipped", true);
+        QVERIFY(!registry.publishDefinitions("workspace", {block("invalid", {unary})}, &error));
+        unary.insert("flipped", false);
+        QVERIFY2(registry.publishDefinitions("workspace", {block("valid", {unary})}, &error), qPrintable(error));
+        QCOMPARE(fixture->created, 0);
+    }
+
+    void flippedProtocolSwapsRoutingForSolicitedAndIdleOutputs()
+    {
+        ProcessorRegistry registry;
+        const auto        fixture = std::make_shared<Fixture>();
+        registerFixtures(registry, fixture);
+        auto protocol = node("test.protocol", "protocol", "duplex");
+        protocol.insert("flipped", true);
+        const auto definition = block("flipped",
+                                      {node("test.A", "device-tx", "tx"),
+                                       node("test.R", "device-rx"),
+                                       protocol,
+                                       node("test.B", "terminal-tx", "tx"),
+                                       node("test.S", "terminal-rx")});
+        QString    error;
+        QVERIFY2(registry.publishDefinitions("workspace", {definition}, &error), qPrintable(error));
+        auto runtime = registry.create("flipped", {}, {}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QList<Processor::Chunk> outputs;
+        int                     completed = 0;
+        Processor::Callbacks    callbacks {[&](Processor::Chunk output) { outputs.append(std::move(output)); },
+                                           [&](QString error) {
+                                            QVERIFY2(error.isEmpty(), qPrintable(error));
+                                            ++completed;
+                                           }};
+        runtime->accept({QByteArray("r"), Processor::Boundary::Packet, 0}, callbacks);
+        QTRY_COMPARE(completed, 1);
+        QCOMPARE(outputs.size(), 1);
+        QCOMPARE(outputs[0].bytes, QByteArray("rR/tx0S"));
+        QCOMPARE(outputs[0].port, 0);
+        outputs.clear();
+        runtime->accept({QByteArray("t"), Processor::Boundary::Packet, 1}, callbacks);
+        QTRY_COMPARE(completed, 2);
+        QCOMPARE(outputs.size(), 2);
+        QCOMPARE(outputs[0].bytes, QByteArray("tB/rx1A"));
+        QCOMPARE(outputs[0].port, 1);
+        QCOMPARE(outputs[1].bytes, QByteArray("ack1S"));
+        QCOMPARE(outputs[1].port, 0);
+        outputs.clear();
+        runtime->setOutputHandler([&](Processor::Chunk output) { outputs.append(std::move(output)); });
+        fixture->protocol->scheduleIdle("idle", 0);
+        QTRY_COMPARE(outputs.size(), 1);
+        QCOMPARE(outputs[0].bytes, QByteArray("idleA"));
+        QCOMPARE(outputs[0].port, 1);
+        outputs.clear();
+        fixture->protocol->scheduleIdle("idle", 1);
+        QTRY_COMPARE(outputs.size(), 1);
+        QCOMPARE(outputs[0].bytes, QByteArray("idleS"));
+        QCOMPARE(outputs[0].port, 0);
+        QCOMPARE(fixture->created, 1);
+        runtime->cancel({});
+    }
+
+    void nestedFlippedBlockMatchesDirectFlatteningAndPreservesNames()
+    {
+        ProcessorRegistry registry;
+        const auto        fixture = std::make_shared<Fixture>();
+        registerFixtures(registry, fixture);
+        auto child       = block("child",
+                                 {node("test.R", "receive"),
+                                  node("test.protocol", "protocol", "duplex"),
+                                  node("test.B", "send", "tx")});
+        auto root        = block("root",
+                                 {
+                                     QVariantMap {{"name", "reverse"},
+                                                  {"reference", "child"},
+                                                  {"lane", "duplex"},
+                                                  {"flipped", true}}
+        });
+        root.inputNames  = {"Incoming", "Outgoing"};
+        root.outputNames = {"Received", "Sent"};
+        QString error;
+        QVERIFY2(registry.publishDefinitions("workspace", {child, root}, &error), qPrintable(error));
+        QVariantMap directDocument;
+        for (const auto& definition : {child, root})
+        {
+            auto source = definition.source;
+            source.insert("id", definition.id);
+            source.insert("name", definition.title);
+            source.insert("inputNames", definition.inputNames);
+            source.insert("outputNames", definition.outputNames);
+            directDocument.insert(definition.id, source);
+        }
+        auto directPrepared = Lineflow::prepare(directDocument, "root", registry, {}, &error);
+        QVERIFY2(directPrepared, qPrintable(error));
+        QCOMPARE(directPrepared->inputNames(), root.inputNames);
+        QCOMPARE(directPrepared->outputNames(), root.outputNames);
+        for (bool direct : {false, true})
+        {
+            std::shared_ptr<Processor> runtime;
+            if (direct)
+            {
+                runtime = directPrepared->instantiate(registry, &error);
+            }
+            else
+            {
+                runtime = registry.create("root", {}, {}, &error);
+            }
+            QVERIFY2(runtime, qPrintable(error));
+            QCOMPARE(runtime->inputName(0), QString("Incoming"));
+            QCOMPARE(runtime->outputName(1), QString("Sent"));
+            QList<Processor::Chunk> outputs;
+            int                     completed = 0;
+            Processor::Callbacks    callbacks {[&](Processor::Chunk output) { outputs.append(std::move(output)); },
+                                               [&](QString error) {
+                                                QVERIFY2(error.isEmpty(), qPrintable(error));
+                                                ++completed;
+                                               }};
+            runtime->accept({QByteArray("r"), Processor::Boundary::Packet, 0}, callbacks);
+            QTRY_COMPARE(completed, 1);
+            QCOMPARE(outputs.size(), 1);
+            QCOMPARE(outputs[0].bytes, QByteArray("rB/tx0"));
+            QCOMPARE(outputs[0].port, 0);
+            outputs.clear();
+            runtime->accept({QByteArray("t"), Processor::Boundary::Packet, 1}, callbacks);
+            QTRY_COMPARE(completed, 2);
+            QCOMPARE(outputs.size(), 2);
+            QCOMPARE(outputs[0].bytes, QByteArray("tR/rx1"));
+            QCOMPARE(outputs[0].port, 1);
+            QCOMPARE(outputs[1].bytes, QByteArray("ack1"));
+            QCOMPARE(outputs[1].port, 0);
+            runtime->cancel({});
+        }
+        QCOMPARE(fixture->created, 2);
+    }
+
+    void flippedSharedProtocolAcceptsAckOnOppositeLogicalInput()
+    {
+        ProcessorRegistry         registry;
+        QPointer<WaitingProtocol> protocol;
+        ProcessorCatalog::Type    type;
+        type.id             = "test.waiting-flipped";
+        type.title          = type.id;
+        type.settingsSchema = emptySchema();
+        type.inputCount     = 2;
+        type.outputCount    = 2;
+        type.inputNames     = {"Acknowledgements", "Commands"};
+        type.outputNames    = {"Received", "Sent"};
+        type.create         = [&](const QVariantMap&, const Processor::Limits&, QString*) {
+            auto result = std::make_unique<WaitingProtocol>();
+            protocol    = result.get();
+            return result;
+        };
+        registry.registerType("fixture", std::move(type));
+        auto entry = node("test.waiting-flipped", "protocol", "duplex");
+        entry.insert("flipped", true);
+        QString error;
+        QVERIFY2(registry.publishDefinitions("workspace", {block("reverse-wait", {entry})}, &error), qPrintable(error));
+        auto runtime = registry.create("reverse-wait", {}, {}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        int        commandCompleted = 0;
+        int        ackCompleted     = 0;
+        QByteArray sent;
+        runtime->accept({QByteArray("command"), Processor::Boundary::Packet, 0},
+                        {[&](Processor::Chunk output) {
+                             QCOMPARE(output.port, 0);
+                             sent.append(output.bytes);
+                         },
+                         [&](QString error) {
+                             QVERIFY(error.isEmpty());
+                             ++commandCompleted;
+                         }});
+        QTRY_VERIFY(protocol->txWaiting);
+        runtime->accept({QByteArray("ACK"), Processor::Boundary::Packet, 1}, {{}, [&](QString error) {
+                                                                                  QVERIFY(error.isEmpty());
+                                                                                  ++ackCompleted;
+                                                                              }});
+        QTRY_COMPARE_WITH_TIMEOUT(commandCompleted, 1, 1500);
+        QTRY_COMPARE(ackCompleted, 1);
+        QCOMPARE(sent, QByteArray("sent:command"));
+        runtime->cancel({});
+    }
+
     void metadataSharedStateCrossPortRoutingAndIdleOutput()
     {
         ProcessorRegistry registry;

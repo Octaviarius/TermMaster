@@ -76,6 +76,15 @@ public:
         return 1;
     }
 
+    virtual QString inputName(int port) const
+    {
+        return port >= 0 && port < inputCount() ? QStringLiteral("Input%1").arg(port + 1) : QString {};
+    }
+    virtual QString outputName(int port) const
+    {
+        return port >= 0 && port < outputCount() ? QStringLiteral("Output%1").arg(port + 1) : QString {};
+    }
+
     /** Lifetime-owned output/error channels for timer or protocol traffic unrelated to an
      * accepted invocation. All handlers use this object's thread. Clear before cancellation;
      * cancellation must stop future publication before acknowledging quiescence.

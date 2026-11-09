@@ -22,6 +22,8 @@ public:
         QVariantMap               configuration() const;
         int                       inputCount() const;
         int                       outputCount() const;
+        QStringList               inputNames() const;
+        QStringList               outputNames() const;
         std::unique_ptr<Lineflow> instantiate(ProcessorRegistry& registry, QString* error = nullptr) const;
         std::unique_ptr<Lineflow> instantiate(ProcessorRegistry& registry,
                                               const QVariantMap& overrides,
@@ -34,13 +36,16 @@ public:
             QString     path;
             QString     type;
             QVariantMap configuration;
-            int         lane = 0;
+            int         lane    = 0;
+            bool        flipped = false;
         };
 
         QVariantMap       _configuration;
         std::vector<Node> _nodes;
         Limits            _limits;
         int               _channels = 1;
+        QStringList       _inputNames;
+        QStringList       _outputNames;
     };
 
     static std::shared_ptr<const Prepared> prepare(const QVariantMap& blocks,
@@ -53,6 +58,8 @@ public:
     QVariantMap  configuration() const override;
     int          inputCount() const override;
     int          outputCount() const override;
+    QString      inputName(int port) const override;
+    QString      outputName(int port) const override;
     AcceptResult accept(Chunk input, Callbacks callbacks) override;
     void         cancel(std::function<void()> quiescent) override;
 
@@ -61,9 +68,12 @@ private:
     static std::unique_ptr<Lineflow> compose(std::vector<std::shared_ptr<Processor>> nodes,
                                              QVariantMap                             configuration,
                                              Limits                                  limits,
-                                             QStringList                             nodeNames = {},
-                                             int                                     channels  = 1,
-                                             std::vector<int>                        lanes     = {});
+                                             QStringList                             nodeNames   = {},
+                                             int                                     channels    = 1,
+                                             std::vector<int>                        lanes       = {},
+                                             std::vector<bool>                       flipped     = {},
+                                             QStringList                             inputNames  = {},
+                                             QStringList                             outputNames = {});
 
     struct Budget
     {
@@ -108,6 +118,9 @@ private:
     std::vector<Root>                       _roots;
     std::vector<int>                        _lanes;
     int                                     _channels = 1;
+    std::vector<bool>                       _flipped;
+    QStringList                             _inputNames;
+    QStringList                             _outputNames;
     std::vector<std::function<void()>>      _cancelCallbacks;
     qsizetype                               _queuedBytes = 0;
     quint64                                 _generation  = 0;

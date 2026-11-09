@@ -29,6 +29,8 @@ public:
         QString     group;
         int         inputCount  = 1;
         int         outputCount = 1;
+        QStringList inputNames;
+        QStringList outputNames;
     };
 
     /** Source validation is static and must not execute user code. Preparation may

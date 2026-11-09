@@ -20,17 +20,43 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
         QString                         group;
         QByteArray                      schema;
         ProcessorCatalog::Type::Factory create;
+        QString                         inputName;
+        QString                         outputName;
     };
     const QList<Definition> definitions {
-        {        "native.bypass",         "Bypass", "Control",        Bypass::schema(),        Bypass::create},
-        {          "native.stub",           "Stub", "Control",          Stub::schema(),          Stub::create},
-        {          "native.gate",           "Gate", "Control",          Gate::schema(),          Gate::create},
-        {         "native.pacer",          "Pacer",  "Timing",         Pacer::schema(),         Pacer::create},
-        {        "native.framer",         "Framer", "Framing",        Framer::schema(),        Framer::create},
-        {   "native.hex-encoder",    "HEX Encoder",  "Codecs",    HexEncoder::schema(),    HexEncoder::create},
-        {   "native.hex-decoder",    "HEX Decoder",  "Codecs",    HexDecoder::schema(),    HexDecoder::create},
-        {"native.base64-encoder", "Base64 Encoder",  "Codecs", Base64Encoder::schema(), Base64Encoder::create},
-        {"native.base64-decoder", "Base64 Decoder",  "Codecs", Base64Decoder::schema(), Base64Decoder::create}
+        Definition("native.bypass", "Bypass", "Control", Bypass::schema(), Bypass::create, "Data", "Data"),
+        Definition("native.stub", "Stub", "Control", Stub::schema(), Stub::create, "Data", "Data"),
+        Definition("native.gate", "Gate", "Control", Gate::schema(), Gate::create, "Data", "Data"),
+        Definition("native.pacer", "Pacer", "Timing", Pacer::schema(), Pacer::create, "Data", "Data"),
+        Definition("native.framer", "Framer", "Framing", Framer::schema(), Framer::create, "Stream", "Frames"),
+        Definition("native.hex-encoder",
+                   "HEX Encoder",
+                   "Codecs",
+                   HexEncoder::schema(),
+                   HexEncoder::create,
+                   "Bytes",
+                   "HEX"),
+        Definition("native.hex-decoder",
+                   "HEX Decoder",
+                   "Codecs",
+                   HexDecoder::schema(),
+                   HexDecoder::create,
+                   "HEX",
+                   "Bytes"),
+        Definition("native.base64-encoder",
+                   "Base64 Encoder",
+                   "Codecs",
+                   Base64Encoder::schema(),
+                   Base64Encoder::create,
+                   "Bytes",
+                   "Base64"),
+        Definition("native.base64-decoder",
+                   "Base64 Decoder",
+                   "Codecs",
+                   Base64Decoder::schema(),
+                   Base64Decoder::create,
+                   "Base64",
+                   "Bytes"),
     };
     QStringList registered;
     try
@@ -43,6 +69,8 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
             type.group          = definition.group;
             type.settingsSchema = definition.schema;
             type.create         = definition.create;
+            type.inputNames     = {definition.inputName};
+            type.outputNames    = {definition.outputName};
             catalog.registerType(owner, std::move(type));
             registered.append(definition.id);
         }

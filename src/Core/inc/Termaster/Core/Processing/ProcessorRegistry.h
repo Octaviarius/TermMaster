@@ -28,6 +28,8 @@ public:
         QString     group;
         int         inputCount  = 1;
         int         outputCount = 1;
+        QStringList inputNames;
+        QStringList outputNames;
     };
     struct PropertyNode
     {
@@ -44,6 +46,8 @@ public:
         QVariantMap                configuration() const;
         int                        inputCount() const;
         int                        outputCount() const;
+        QStringList                inputNames() const;
+        QStringList                outputNames() const;
         std::shared_ptr<Processor> instantiate(const QVariantMap& overrides = {}, QString* error = nullptr) const;
 
     private:
@@ -54,6 +58,8 @@ public:
         bool                                                                    _composite   = false;
         int                                                                     _inputCount  = 1;
         int                                                                     _outputCount = 1;
+        QStringList                                                             _inputNames;
+        QStringList                                                             _outputNames;
     };
 
     explicit ProcessorRegistry(QObject* parent = nullptr);
@@ -124,5 +130,7 @@ private:
                                               std::shared_ptr<const void> lease,
                                               int                         inputCount,
                                               int                         outputCount,
+                                              QStringList                 inputNames,
+                                              QStringList                 outputNames,
                                               QString*                    error);
 };
