@@ -4,7 +4,8 @@ The application opens the editor through **Tools > Lineflow editor** when a
 workspace is open. Core provides configurable Gate, Framer and HEX/Base64 encoder/decoder
 processors; plugins can add processors through the common catalog. The editor
 creates reusable workspace definitions and never creates processing runtimes.
-Terminal Rx/Tx selection and private property panels remain FLOW-5 work.
+Terminal Rx/Tx selection and private properties are available through the
+[terminal processing panel](terminal-processing.md).
 
 ## Draft model and presentation
 
