@@ -190,10 +190,10 @@ private:
         QCOMPARE(plugins->actions().size(), 1);
         QCOMPARE(quit->shortcut(), QKeySequence(QKeySequence::Quit));
         QVERIFY(tools->actions("management").contains(plugins->actions().first()));
-        QVERIFY(_app.toolbar().actions("application").contains(plugins->actions().first()));
-        QCOMPARE(_app.toolbar().groups(), QStringList({"application", "workspace", "session", "terminal"}));
+        QVERIFY(!_app.toolbar().toolbar()->actions().contains(plugins->actions().first()));
+        QCOMPARE(_app.toolbar().groups(), QStringList({"terminalCreation", "terminal"}));
         QCOMPARE(_app.toolbar().toolbar()->toolButtonStyle(), Qt::ToolButtonIconOnly);
-        QVERIFY(!_app.toolbar().toolbar()->actions().isEmpty());
+        QVERIFY(_app.toolbar().toolbar()->actions().isEmpty());
         for (auto* action : _app.toolbar().toolbar()->actions())
         {
             if (!action->isSeparator())
@@ -202,7 +202,17 @@ private:
                 QVERIFY(!action->toolTip().isEmpty());
             }
         }
-        QVERIFY(_app.toolbar().toolbar()->actions().size() >= 5);
+        for (const auto* id : {"Workspace.New",
+                               "Workspace.Open",
+                               "Workspace.Save",
+                               "Workspace.Close",
+                               "Session.New",
+                               "Session.Open",
+                               "Session.Save",
+                               "Session.Close"})
+        {
+            QVERIFY(!_app.toolbar().toolbar()->actions().contains(_app.commands().find(id)->actions().first()));
+        }
         QVERIFY(!QFileInfo::exists(_app.paths().configFile("plugins").toString()));
     }
 
@@ -965,6 +975,36 @@ private:
                                      "Console acceptance",
                                      &error),
                  qPrintable(error));
+        const auto menuCapture = qEnvironmentVariable("TERMASTER_TERMINAL_MENU_CAPTURE");
+        if (!menuCapture.isEmpty())
+        {
+            for (const auto* source : {TERMASTER_SERIAL_PLUGIN_FILE, TERMASTER_SOCKET_PLUGIN_FILE})
+            {
+                QVERIFY(QFile::copy(source, QDir(_app.plugins().directory()).filePath(QFileInfo(source).fileName())));
+            }
+            QVERIFY(_app.plugins().rescan(&error));
+            QVERIFY(_app.plugins().setEnabled("SerialTerminal", true, &error));
+            QVERIFY(_app.plugins().setEnabled("SocketTerminal", true, &error));
+            _app.mainWindow().hide();
+            _app.mainWindow().show();
+            _app.mainWindow().activateWindow();
+            QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+            _app.pluginHost().refreshTerminalActions();
+            auto* menu = static_cast<MenuActionContainer*>(_app.mainMenu().findMenu("/terminal"))->menu();
+            menu->popup(QPoint(20, 20));
+            QTest::qWait(100);
+            QPixmap canvas(1280, 800);
+            canvas.fill(_app.mainWindow().palette().color(QPalette::Window));
+            QPainter painter(&canvas);
+            painter.drawPixmap(20, 20, menu->grab());
+            painter.end();
+            QVERIFY(QDir().mkpath(menuCapture));
+            QVERIFY(canvas.save(QDir(menuCapture).filePath("TerminalMenu.png")));
+            _app.mainWindow().resize(1280, 800);
+            QVERIFY(_app.mainWindow().grab().save(QDir(menuCapture).filePath("TerminalToolbar.png")));
+            menu->close();
+            return;
+        }
         const auto launchCapture = qEnvironmentVariable("TERMASTER_SHELL_GUI_CAPTURE");
         if (!launchCapture.isEmpty())
         {
@@ -1099,7 +1139,7 @@ private:
             QVERIFY(!action->icon().isNull());
             QVERIFY(!action->toolTip().isEmpty());
             QVERIFY(terminalMenu->actions(it.value()).contains(action));
-            QVERIFY(_app.toolbar().actions("terminal").contains(action));
+            QVERIFY(_app.toolbar().actions(it.value() == "create" ? "terminalCreation" : "terminal").contains(action));
         }
         QVERIFY(!_app.commands().find("Serial.New")->actions().first()->isEnabled());
         QVERIFY(_app.settings().setValue("settings/appearance/fontSize", 15));

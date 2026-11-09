@@ -5,30 +5,29 @@
 Application toolbars use icons, not text-only buttons. Every toolbar action must
 provide a meaningful icon and a tooltip. Icon-only presentation uses native Qt
 metrics for high-DPI scaling; the same QAction may also appear in a menu with its
-text. The plugin-management action uses the application-x-addon theme icon with
-a native detailed-list fallback.
+text. Workspace, session and plugin management remain accessible through menus.
 
-The toolbar exposes ordered extension groups:
+The toolbar exposes exactly two ordered extension groups:
 
 | Group | Scope | Context |
 | --- | --- | --- |
-| application | Application-wide operations | Available independently of workspace/terminal selection |
-| workspace | Operations on the current workspace | Requires an open workspace |
-| session | Operations on the current session group | Requires the appropriate loaded/selected session |
-| terminal | Operations on the selected terminal | Requires a live selected terminal and matching capabilities/state |
+| terminalCreation | New console, serial and socket connections | Requires a workspace/session capable of creating a terminal |
+| terminal | Operations on the selected terminal | Requires a matching target, capability and state |
 
-Groups are stable placement slots. They do not determine whether a command is
-valid and do not own domain state. Empty groups produce no separator or button.
-The application and workspace groups contain implemented commands. New/Open
-workspace commands remain available without an active workspace; Save/Close
-require one. Session New/Open require a workspace; session Save/Close/Rename
-require an active session. The terminal group remains reserved for runtime work.
+Plugin actions registered in the Terminal menu's create group use terminalCreation.
+Other terminal actions use terminal. This ordering keeps all creation buttons at
+the beginning regardless of plugin load order. Groups are placement slots, not
+owners of domain state or command eligibility. Empty groups add no buttons.
+
+File retains workspace commands and Session retains session commands. Tools / Plugins
+opens plugin management. These actions are absent from the terminal toolbar;
+workspace/session command identities, shortcuts and enablement remain unchanged.
 
 ## Context and execution requirements
 
 App derives workspace and session command state from its active owners,
 and EditActions derives editor command state from the focused standard Qt editor.
-Future terminal presentation derives state from the selected terminal. Terminal connection
+TerminalController derives terminal presentation state from the selected terminal. Terminal connection
 state and operation capabilities remain authoritative in the terminal/backend
 owners. The controller must observe target selection changes, target destruction,
 state transitions and capability changes, then update the affected actions.

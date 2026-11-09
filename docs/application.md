@@ -120,8 +120,8 @@ own entry points and windows.
 Its schema and form behavior are described in [settings forms](settings-forms.md).
 Toolbar/status preferences use
 `ui/toolbarVisible` and `ui/statusBarVisible` through the active configuration
-scope. Tools/Plugins and the toolbar share one QAction and open the same modeless
-plugin window. Closing the dialog deletes it; another invocation creates a new
+scope. Tools/Plugins opens the modeless plugin window; application management stays
+in the menus. The toolbar is reserved for terminal creation and terminal operations. Closing the dialog deletes it; another invocation creates a new
 one. Help provides About Termaster and About Qt. MainWindow constructs views and
 native containers; App sequences application operations.
 
@@ -250,7 +250,8 @@ settings under Tools / Settings limited to application configuration and global
 component defaults; session-specific configuration belongs to session navigation.
 The menu groups New, Open, Save, Close and Rename, followed by Recent sessions
 and Session settings. Availability follows the active workspace/session. Recent
-workspaces remain in File; existing command identities and toolbar groups are retained.
+workspaces remain in File; existing command identities are retained. Workspace and
+session operations are menu-only.
 
 ## Secondary metadata presentation
 
@@ -269,8 +270,8 @@ must not imply that the item is disabled.
 Application windows retain independent drafts when opening session/terminal
 settings. Only the target owner's settings are written; global toolbar/status
 visibility is stored at application scope. Borrowed session/workspace views close
-before owner release. The Session menu retains existing command IDs and toolbar
-groups, and owns its recent-session submenu. Duplicate session display names
+before owner release. The Session menu retains existing command IDs and owns its recent-session
+submenu. Session operations do not occupy the terminal toolbar. Duplicate session display names
 remain distinguishable by stable UUID item data. Native application checks passed
 at scale factors 1 and 2. See [settings acceptance](settings-forms.md#contextual-settings-acceptance).
 

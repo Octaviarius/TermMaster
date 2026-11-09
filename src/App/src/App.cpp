@@ -461,8 +461,7 @@ void App::_setupActions()
                               icon("document-new", QStyle::SP_FileIcon),
                               QKeySequence::New,
                               "file",
-                              "workspace",
-                              "application");
+                              "workspace");
     create->setToolTip(tr("Create a workspace"));
     connect(create, &QAction::triggered, this, &App::_chooseNewWorkspace);
     auto* open = _addAction("Workspace.Open",
@@ -470,8 +469,7 @@ void App::_setupActions()
                             icon("document-open", QStyle::SP_DirOpenIcon),
                             QKeySequence::Open,
                             "file",
-                            "workspace",
-                            "application");
+                            "workspace");
     open->setToolTip(tr("Open a workspace"));
     connect(open, &QAction::triggered, this, &App::_chooseWorkspace);
     _data->saveAction = _addAction("Workspace.Save",
@@ -479,7 +477,6 @@ void App::_setupActions()
                                    icon("document-save", QStyle::SP_DialogSaveButton),
                                    QKeySequence::Save,
                                    "file",
-                                   "workspace",
                                    "workspace");
     _data->saveAction->setToolTip(tr("Save the current workspace"));
     connect(_data->saveAction, &QAction::triggered, this, [this]() {
@@ -494,7 +491,6 @@ void App::_setupActions()
                                     icon("document-close", QStyle::SP_DialogCloseButton),
                                     QKeySequence::Close,
                                     "file",
-                                    "workspace",
                                     "workspace");
     _data->closeAction->setToolTip(tr("Close the current workspace"));
     connect(_data->closeAction, &QAction::triggered, this, [this]() {
@@ -542,7 +538,6 @@ void App::_setupActions()
                                             icon("document-new", QStyle::SP_FileIcon),
                                             {},
                                             "session",
-                                            "session",
                                             "session");
     _data->createSessionAction->setToolTip(tr("Create a session"));
     connect(_data->createSessionAction, &QAction::triggered, this, &App::_chooseNewSession);
@@ -551,7 +546,6 @@ void App::_setupActions()
                                           icon("document-open", QStyle::SP_DirOpenIcon),
                                           {},
                                           "session",
-                                          "session",
                                           "session");
     _data->openSessionAction->setToolTip(tr("Open a session from this workspace"));
     connect(_data->openSessionAction, &QAction::triggered, this, &App::_chooseSession);
@@ -559,7 +553,6 @@ void App::_setupActions()
                                           tr("Save session"),
                                           icon("document-save", QStyle::SP_DialogSaveButton),
                                           {},
-                                          "session",
                                           "session",
                                           "session");
     _data->saveSessionAction->setToolTip(tr("Save the current session"));
@@ -574,7 +567,6 @@ void App::_setupActions()
                                            tr("Close session"),
                                            icon("document-close", QStyle::SP_DialogCloseButton),
                                            {},
-                                           "session",
                                            "session",
                                            "session");
     _data->closeSessionAction->setToolTip(tr("Close the current session"));
@@ -697,8 +689,7 @@ void App::_setupActions()
                                icon("application-x-addon", QStyle::SP_FileDialogDetailedView),
                                {},
                                "tools",
-                               "management",
-                               "application");
+                               "management");
     plugins->setToolTip(tr("Manage plugins"));
     connect(plugins, &QAction::triggered, this, &App::_showPluginManager);
     auto* about = _addAction("Help.About", tr("&About Termaster"), windowIcon(), {}, "help", "about");
@@ -1028,16 +1019,11 @@ QAction* App::_addAction(const QString&      id,
                          const QIcon&        icon,
                          const QKeySequence& shortcut,
                          const QString&      menu,
-                         const QString&      group,
-                         const QString&      toolbarGroup)
+                         const QString&      group)
 {
     auto* command = commands().create(id, text, icon, shortcut);
     auto* action  = command->newAction(_data->window.get());
     mainMenu().findMenu('/' + menu)->addAction(action, group);
-    if (!toolbarGroup.isEmpty())
-    {
-        toolbar().addAction(action, toolbarGroup);
-    }
     return action;
 }
 
