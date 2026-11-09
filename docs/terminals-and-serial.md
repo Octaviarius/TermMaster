@@ -124,9 +124,9 @@ compatibility matrix, limits, demo and verification.
 
 Full VT-family conformance and every Unix terminal extension are not claimed.
 History remains bounded in RAM; disk-backed unlimited history, graph execution,
-terminal rename GUI are separate work. No SSH or network backend is implied by
-the view's protocol support. [Local console terminals](local-console.md) are
-implemented by the independent ConsoleTerminal plugin.
+terminal rename GUI are separate work. No SSH backend is implied by the view's
+protocol support. [Local console terminals](local-console.md) and
+[TCP/UDP socket terminals](socket-terminal.md) are implemented by independent plugins.
 
 ## Verification
 

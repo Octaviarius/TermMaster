@@ -337,8 +337,8 @@ registration and scoped icon actions. See [terminal lifecycle](terminals-and-ser
 Desktop presets disable plugin fixtures by default. Explicitly enabling
 `TERMASTER_BUILD_PLUGIN_TESTS` builds the synthetic modules and provider SDKs
 under `<build>/tools/tests/Plugin/plugin`, outside the application's scanned
-`<build>/plugin` directory. The production libraries there are SerialTerminal and ConsoleTerminal, alongside
-the header-only PluginApi SDK. No fixture library is a production plugin.
+`<build>/plugin` directory. The production libraries there are SerialTerminal,
+ConsoleTerminal and SocketTerminal, alongside the header-only PluginApi SDK. No fixture library is a production plugin.
 
 The independent SDK consumer uses `<build>/plugin/PluginApi` and
 `<build>/tools/tests/Plugin/plugin/PluginFixtureProvider` as package prefixes.
@@ -355,3 +355,6 @@ and is not a loadable plugin. The normal Debug application target builds.
 
 Local process terminals and environment commands are provided by the independent
 [ConsoleTerminal plugin](local-console.md), using HostedPlugin ABI version 4.
+
+Raw TCP/UDP client terminals are provided by the independent
+[SocketTerminal plugin](socket-terminal.md), using the same hosted SDK.

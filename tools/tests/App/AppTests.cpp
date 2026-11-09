@@ -31,6 +31,8 @@
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTableView>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextDocumentFragment>
@@ -836,6 +838,91 @@ private:
         picker.reject();
     }
 
+    Q_SLOT void socketPluginTerminalLifecycle()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        QString    error;
+        const auto pluginFile = QDir(_app.plugins().directory())
+                                    .filePath(QFileInfo(TERMASTER_SOCKET_PLUGIN_FILE).fileName());
+        QVERIFY(QDir().mkpath(_app.plugins().directory()));
+        QVERIFY(QFile::copy(TERMASTER_SOCKET_PLUGIN_FILE, pluginFile));
+        const auto cleanup = qScopeGuard([&] {
+            _app.plugins().setEnabled("SocketTerminal", false);
+            _app.closeWorkspace();
+            QFile::remove(pluginFile);
+            _app.plugins().rescan();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        });
+        QVERIFY2(_app.plugins().rescan(&error), qPrintable(error));
+        QVERIFY2(_app.plugins().setEnabled("SocketTerminal", true, &error), qPrintable(error));
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        QVERIFY2(_app.createWorkspace(Path(temporary.filePath("Socket.termaster")), "Socket fixture", &error),
+                 qPrintable(error));
+        QVERIFY2(_app.createSession("Socket fixture", &error), qPrintable(error));
+        QVERIFY2(_app.createTerminal("socket",
+                                     {
+                                         {"transport",
+                                          QVariantMap {{"protocol", "TCP"},
+                                                       {"host", "127.0.0.1"},
+                                                       {"port", int(server.serverPort())}}}
+        },
+                                     "Socket acceptance",
+                                     &error),
+                 qPrintable(error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        auto& host   = _app.pluginHost();
+        auto* device = host.selectedDevice("socket");
+        QVERIFY(device);
+        QVERIFY(device->autoReconnect());
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(display);
+        host.connectSelectedTerminal();
+        QVERIFY(host.connectionRequested("socket"));
+        QTRY_COMPARE(device->state(), SerialDevice::State::Open);
+        QTRY_VERIFY(server.hasPendingConnections());
+        std::unique_ptr<QTcpSocket> peer(server.nextPendingConnection());
+        peer->write(QByteArray::fromHex("1b5b324a1b5b48536f636b6574201b5b33326d5443501b5b306d0d0a"));
+        QTRY_VERIFY(display->text().contains("Socket TCP"));
+        QByteArray outbound;
+        connect(peer.get(), &QIODevice::readyRead, this, [&] { outbound += peer->readAll(); });
+        QTest::keyClicks(display, "ping");
+        QTest::keyClick(display, Qt::Key_Return);
+        QTRY_VERIFY(outbound.contains("ping\r"));
+        peer->disconnectFromHost();
+        QTRY_VERIFY(device->state() != SerialDevice::State::Open);
+        QVERIFY(host.connectionRequested("socket"));
+        QTRY_VERIFY_WITH_TIMEOUT(server.hasPendingConnections(), 5000);
+        peer.reset(server.nextPendingConnection());
+        QTRY_COMPARE(device->state(), SerialDevice::State::Open);
+        host.disconnectSelectedTerminal();
+        QVERIFY(!host.connectionRequested("socket"));
+        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        QTest::qWait(1200);
+        QVERIFY(!server.hasPendingConnections());
+        host.showSelectedTerminalSettings();
+        auto* dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+        QVERIFY(dialog);
+        auto* model = dialog->pageModel("terminal.connection");
+        QVERIFY(model && model->isValid());
+        QCOMPARE(model->value("protocol").toString(), "TCP");
+        model->setValue("protocol", "UDP");
+        QVERIFY2(model->apply(&error), qPrintable(error));
+        QPointer<SettingsDialog> liveDialog(dialog);
+        QVERIFY2(_app.plugins().setEnabled("SocketTerminal", false, &error), qPrintable(error));
+        QVERIFY(liveDialog.isNull());
+        QVERIFY(_app.terminalIds().isEmpty());
+        QVERIFY(!_app.commands().find("Socket.New"));
+        // Persisted objects retain their type/settings and reconstruct disconnected.
+        QVERIFY2(_app.plugins().setEnabled("SocketTerminal", true, &error), qPrintable(error));
+        QCOMPARE(_app.terminalIds().size(), 1);
+        device = host.selectedDevice("socket");
+        QVERIFY(device);
+        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        QVERIFY(!host.connectionRequested("socket"));
+    }
     Q_SLOT void consolePluginTerminalLifecycle()
     {
         QTemporaryDir temporary;

@@ -50,7 +50,8 @@ changing behavior. These rules apply repository-wide.
 
 ## Architecture
 
-- Core, App, SerialTerminal and ConsoleTerminal are the active implementation modules.
+- Core, App, SerialTerminal, ConsoleTerminal and SocketTerminal are the active
+  implementation modules.
   Obsolete Managers, Logic, Terminal, Widgets and the legacy bootstrap were removed.
 - Keep main.cpp as a minimal wrapper that constructs App and calls run(). Module
   App owns QApplication integration, application orchestration and the base
