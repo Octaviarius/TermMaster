@@ -25,30 +25,27 @@ int main(int argc, char** argv)
         painter.drawText(x, y, value);
     };
 
-    text(38, 45, QString::fromUtf8("Недоступные команды: варианты акцента"), 23, "#20242a", true);
+    text(38, 45, QString::fromUtf8("Недоступные команды: степень блеклости"), 23, "#20242a", true);
     text(38, 76, QString::fromUtf8("Исходные значки Lucide · размер 24 px · без изменения формы"), 11, "#5c6470");
 
-    const QStringList titles       = {QString::fromUtf8("Сейчас"),
-                                      QString::fromUtf8("1. Более тёмный серый"),
-                                      QString::fromUtf8("2. Серая подложка"),
-                                      QString::fromUtf8("3. Пунктирная рамка")};
-    const QStringList descriptions = {QString::fromUtf8("Бледный значок на светлом фоне"),
-                                      QString::fromUtf8("Больше контраста, привычный вид"),
-                                      QString::fromUtf8("Недоступность видна отдельным фоном"),
-                                      QString::fromUtf8("Максимально явное отличие состояния")};
+    const QStringList titles       = {QString::fromUtf8("Образец — без ослабления"),
+                                      QString::fromUtf8("Блеклость 10% — непрозрачность 90%"),
+                                      QString::fromUtf8("Блеклость 25% — непрозрачность 75%"),
+                                      QString::fromUtf8("Блеклость 50% — непрозрачность 50%")};
+    const QStringList descriptions = {QString::fromUtf8("Непрозрачность значка «Стоп»: 100%"),
+                                      QString::fromUtf8("Небольшое ослабление чёрного значка"),
+                                      QString::fromUtf8("Умеренное ослабление чёрного значка"),
+                                      QString::fromUtf8("Заметное ослабление чёрного значка")};
+    const double      opacity[]    = {1.0, 0.9, 0.75, 0.5};
     const QStringList names        = {"play", "square", "rotate-cw", "eraser", "sliders-horizontal"};
     for (int row = 0; row < 4; ++row)
     {
         const int y = 104 + row * 119;
-        painter.setPen(QPen(QColor(row == 2 ? "#9aa5b1" : "#dce0e5"), row == 2 ? 2 : 1));
+        painter.setPen(QPen(QColor("#dce0e5"), 1));
         painter.setBrush(Qt::white);
         painter.drawRoundedRect(QRectF(30, y, 1040, 104), 10, 10);
         text(49, y + 31, titles[row], 13, "#242a31", true);
         text(49, y + 59, descriptions[row], 10, "#606875");
-        if (row == 2)
-        {
-            text(49, y + 85, QString::fromUtf8("Рекомендуемый вариант"), 10, "#475569", true);
-        }
 
         painter.setPen(QColor("#d8dadd"));
         painter.setBrush(QColor("#f0f0f0"));
@@ -57,26 +54,17 @@ int main(int argc, char** argv)
         {
             const int  x        = 620 + index * 51;
             const bool disabled = index == 1;
-            if (disabled && row >= 2)
-            {
-                QPen border(QColor(row == 2 ? "#a7adb4" : "#858d96"));
-                if (row == 3)
-                {
-                    border.setStyle(Qt::DashLine);
-                }
-                painter.setPen(border);
-                painter.setBrush(QColor(row == 2 ? "#dce0e4" : "#eceef0"));
-                painter.drawRoundedRect(QRectF(x + 1, y + 23, 36, 36), 4, 4);
-            }
-            QFile svg(root + "/components/lucide/icons/" + names[index] + ".svg");
+            QFile      svg(root + "/components/lucide/icons/" + names[index] + ".svg");
             if (!svg.open(QIODevice::ReadOnly))
             {
                 return 2;
             }
             QByteArray data = svg.readAll();
-            data.replace("currentColor", disabled ? (row == 0 ? "#999999" : "#686868") : "#171717");
+            data.replace("currentColor", "#000000");
             QSvgRenderer renderer(data);
+            painter.setOpacity(disabled ? opacity[row] : 1.0);
             renderer.render(&painter, QRectF(x + 7, y + 29, 24, 24));
+            painter.setOpacity(1.0);
         }
         text(660, y + 89, QString::fromUtf8("↑ Недоступно"), 9, "#646b75");
         text(908, y + 45, QString::fromUtf8("Стоп"), 11, "#505762");
@@ -85,7 +73,7 @@ int main(int argc, char** argv)
     text(38,
          615,
          QString::fromUtf8(
-             "Статический эскиз: остальные команды доступны. Цвет и рамка не меняют доступность действий."),
+             "Ослаблен только «Стоп». Остальные значки: чёрный, 100%. Фон и форма одинаковы во всех строках."),
          10,
          "#666f7b");
     painter.end();
