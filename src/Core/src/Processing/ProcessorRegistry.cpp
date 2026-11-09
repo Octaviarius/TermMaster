@@ -1,5 +1,6 @@
 #include <QDebug>
 #include <QJsonDocument>
+#include <QPointer>
 #include <QRegularExpression>
 #include <QScopeGuard>
 #include <QThread>
@@ -127,6 +128,8 @@ ProcessorRegistry::Type metadata(const ProcessorRegistry::Type& type)
     result.kind           = owned(type.kind);
     result.origin         = owned(type.origin);
     result.group          = owned(type.group);
+    result.inputCount     = type.inputCount;
+    result.outputCount    = type.outputCount;
     result.defaults       = copyValue(type.defaults).toMap();
     result.editor         = copyValue(type.editor).toMap();
     result.definition     = copyValue(type.definition).toMap();
@@ -162,27 +165,212 @@ struct Lease
     }
 };
 
+bool validLineflowNode(const ProcessorCatalog::Type& parent,
+                       const QVariantMap&            node,
+                       const ProcessorCatalog::Type& child,
+                       QString*                      error)
+{
+    const auto lane   = node.value("lane", "rx").toString();
+    const bool single = child.inputCount == 1 && child.outputCount == 1;
+    const bool duplex = child.inputCount == 2 && child.outputCount == 2;
+    if ((parent.inputCount == 1 && (!single || lane != "rx"))
+        || (parent.inputCount == 2 && ((!single && !duplex) || (duplex != (lane == "duplex")))))
+    {
+        return fail(error, "Lineflow node port shape does not match its lane: " + node.value("name").toString());
+    }
+    return true;
+}
+
 class ForwardProcessor final : public Processor
 {
 public:
-    explicit ForwardProcessor(std::shared_ptr<Processor> instance) : _instance(std::move(instance))
+    explicit ForwardProcessor(std::shared_ptr<Processor> instance, Limits limits = {}) :
+        _instance(std::move(instance)), _limits(limits), _inputCount(_instance->inputCount()),
+        _outputCount(_instance->outputCount()), _pending(size_t(_inputCount))
     {
+        QPointer<ForwardProcessor> guard(this);
+        _instance->setOutputHandler([guard](Chunk output) {
+            if (!guard || guard->_stopped)
+            {
+                return;
+            }
+            if (!guard->_validOutput(output))
+            {
+                guard->_stop(QString::fromLatin1("Processor published an invalid output port or payload size"), {});
+                return;
+            }
+            output.bytes = QByteArray(output.bytes.constData(), output.bytes.size());
+            guard->publishOutput(std::move(output));
+        });
+        _instance->setErrorHandler([guard](QString error) {
+            if (guard && !guard->_stopped)
+            {
+                guard->_stop(owned(error.left(4096)), {});
+            }
+        });
+    }
+    ~ForwardProcessor() override
+    {
+        _stopped = true;
+        _instance->setOutputHandler({});
+        _instance->setErrorHandler({});
     }
     QVariantMap configuration() const override
     {
         return _instance->configuration();
     }
+    int inputCount() const override
+    {
+        return _inputCount;
+    }
+    int outputCount() const override
+    {
+        return _outputCount;
+    }
+
     AcceptResult accept(Chunk input, Callbacks callbacks) override
     {
-        return _instance->accept(std::move(input), std::move(callbacks));
+        if (!_stopped && (_instance->inputCount() != _inputCount || _instance->outputCount() != _outputCount))
+        {
+            _stop(QString::fromLatin1("Processor port counts changed after creation"), {});
+            return AcceptResult::Rejected;
+        }
+        if (_stopped || input.port < 0 || input.port >= inputCount() || input.bytes.size() > _limits.maxBytes)
+        {
+            return AcceptResult::Rejected;
+        }
+        const auto port = size_t(input.port);
+        if (_pending[port])
+        {
+            return AcceptResult::WouldBlock;
+        }
+        auto pending       = std::make_shared<Pending>();
+        pending->callbacks = std::move(callbacks);
+        _pending[port]     = pending;
+        QPointer<ForwardProcessor> guard(this);
+        input.bytes   = QByteArray(input.bytes.constData(), input.bytes.size());
+        auto instance = _instance;
+        const auto
+            result = instance
+                         ->accept(std::move(input),
+                                  {[guard, pending](Chunk output) {
+                                       if (!guard || guard->_stopped || pending->done)
+                                       {
+                                           return;
+                                       }
+                                       if (!guard->_validOutput(output))
+                                       {
+                                           guard
+                                               ->_stop(QString::fromLatin1(
+                                                           "Processor returned an invalid output port or payload size"),
+                                                       {});
+                                           return;
+                                       }
+                                       auto callback = pending->callbacks.output;
+                                       if (callback)
+                                       {
+                                           output.bytes = QByteArray(output.bytes.constData(), output.bytes.size());
+                                           callback(std::move(output));
+                                       }
+                                   },
+                                   [guard, pending, port](QString error) {
+                                       if (!guard || guard->_stopped || pending->done)
+                                       {
+                                           return;
+                                       }
+                                       pending->done = true;
+                                       guard->_pending[port].reset();
+                                       auto completed     = std::move(pending->callbacks.completed);
+                                       pending->callbacks = {};
+                                       if (completed)
+                                       {
+                                           completed(owned(error.left(4096)));
+                                       }
+                                   }});
+        if (guard && result != AcceptResult::Accepted && _pending[port] == pending)
+        {
+            pending->done = true;
+            _pending[port].reset();
+        }
+        return result;
     }
     void cancel(std::function<void()> ready) override
     {
-        _instance->cancel(std::move(ready));
+        _stop({}, std::move(ready));
     }
 
 private:
-    std::shared_ptr<Processor> _instance;
+    struct Pending
+    {
+        Callbacks callbacks;
+        bool      done = false;
+    };
+    std::shared_ptr<Processor>            _instance;
+    Limits                                _limits;
+    int                                   _inputCount;
+    int                                   _outputCount;
+    std::vector<std::shared_ptr<Pending>> _pending;
+    bool                                  _stopped        = false;
+    quint64                               _stopGeneration = 0;
+
+    bool _validOutput(const Chunk& output) const
+    {
+        return _instance->inputCount() == _inputCount && _instance->outputCount() == _outputCount && output.port >= 0
+            && output.port < _outputCount && output.bytes.size() <= _limits.maxBytes;
+    }
+    void _stop(QString error, std::function<void()> ready)
+    {
+        const auto generation = ++_stopGeneration;
+        _stopped              = true;
+        _instance->setOutputHandler({});
+        _instance->setErrorHandler({});
+        setOutputHandler({});
+        if (error.isEmpty())
+        {
+            setErrorHandler({});
+        }
+        std::vector<std::function<void(QString)>> completions;
+        for (auto& pending : _pending)
+        {
+            if (pending)
+            {
+                pending->done = true;
+                if (!error.isEmpty() && pending->callbacks.completed)
+                {
+                    completions.push_back(std::move(pending->callbacks.completed));
+                }
+                pending->callbacks = {};
+                pending.reset();
+            }
+        }
+        QPointer<ForwardProcessor> guard(this);
+        auto                       instance = _instance;
+        instance->cancel([guard,
+                          generation,
+                          error       = std::move(error),
+                          completions = std::move(completions),
+                          ready       = std::move(ready)]() mutable {
+            if (guard && guard->_stopGeneration == generation && !error.isEmpty())
+            {
+                if (completions.empty())
+                {
+                    guard->publishError(error);
+                }
+                for (auto& completed : completions)
+                {
+                    if (!guard || guard->_stopGeneration != generation)
+                    {
+                        break;
+                    }
+                    completed(error);
+                }
+            }
+            if (ready)
+            {
+                ready();
+            }
+        });
+    }
 };
 } // namespace
 
@@ -216,13 +404,20 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
     {
         throw std::invalid_argument("Invalid processor definition ID, title or kind");
     }
-    auto entry         = std::make_shared<Entry>();
-    entry->owner       = owned(owner);
-    entry->saved       = true;
-    entry->type.id     = owned(definition.id);
-    entry->type.title  = owned(definition.title);
-    entry->type.kind   = owned(definition.kind);
-    entry->type.origin = owned(owner);
+    auto entry              = std::make_shared<Entry>();
+    entry->owner            = owned(owner);
+    entry->saved            = true;
+    entry->type.id          = owned(definition.id);
+    entry->type.title       = owned(definition.title);
+    entry->type.kind        = owned(definition.kind);
+    entry->type.origin      = owned(owner);
+    entry->type.inputCount  = definition.inputCount;
+    entry->type.outputCount = definition.outputCount;
+    if (definition.inputCount < 1 || definition.inputCount > 32 || definition.outputCount < 1
+        || definition.outputCount > 32)
+    {
+        throw std::invalid_argument("Processor port counts must be from 1 to 32");
+    }
     if (definition.group.size() > 128 || definition.group.contains(QChar::Null)
         || definition.group != definition.group.trimmed())
     {
@@ -259,7 +454,19 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
     entry->type.defaults = entry->defaults;
     if (definition.kind == "lineflow")
     {
-        const auto nodes = definition.source.value("nodes");
+        const auto channels = definition.source.value("channels", 1);
+        if (channels.typeId() != QMetaType::Int && channels.typeId() != QMetaType::LongLong
+            && channels.typeId() != QMetaType::UInt && channels.typeId() != QMetaType::ULongLong)
+        {
+            throw std::invalid_argument("Lineflow channels must be 1 or 2");
+        }
+        if (channels.toLongLong() < 1 || channels.toLongLong() > 2)
+        {
+            throw std::invalid_argument("Lineflow channels must be 1 or 2");
+        }
+        entry->type.inputCount  = channels.toInt();
+        entry->type.outputCount = channels.toInt();
+        const auto nodes        = definition.source.value("nodes");
         if (nodes.typeId() != QMetaType::QVariantList || nodes.toList().size() > 256)
         {
             throw std::invalid_argument("Lineflow nodes require a list of at most 256 nodes");
@@ -292,6 +499,12 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
                 && (node.contains("reference") || node.value("configuration").typeId() != QMetaType::QVariantMap))
             {
                 throw std::invalid_argument("Invalid Lineflow node configuration");
+            }
+            const auto lane = node.value("lane", "rx");
+            if (lane.typeId() != QMetaType::QString || (lane != "rx" && lane != "tx" && lane != "duplex")
+                || (entry->type.inputCount == 1 && lane != "rx"))
+            {
+                throw std::invalid_argument("Lineflow lane must match its channel topology");
             }
             entry->type.references.append(owned(target.toString()));
         }
@@ -384,10 +597,22 @@ std::optional<QList<ProcessorRegistry::Definition>> ProcessorRegistry::parseDefi
                 throw std::invalid_argument("Processor group must be a string");
             }
             Definition definition;
-            definition.id             = it.key();
-            definition.title          = map.value("name").toString();
-            definition.kind           = map.value("kind").toString();
-            definition.group          = map.value("group").toString();
+            definition.id    = it.key();
+            definition.title = map.value("name").toString();
+            definition.kind  = map.value("kind").toString();
+            definition.group = map.value("group").toString();
+            for (const auto& key : {"inputCount", "outputCount"})
+            {
+                const auto value = map.value(key, 1);
+                if ((value.typeId() != QMetaType::Int && value.typeId() != QMetaType::UInt
+                     && value.typeId() != QMetaType::LongLong && value.typeId() != QMetaType::ULongLong)
+                    || value.toLongLong() < 1 || value.toLongLong() > 32)
+                {
+                    throw std::invalid_argument("Processor port counts must be integers from 1 to 32");
+                }
+            }
+            definition.inputCount     = map.value("inputCount", 1).toInt();
+            definition.outputCount    = map.value("outputCount", 1).toInt();
             definition.source         = map.value("source").toMap();
             definition.defaults       = map.value("defaults").toMap();
             definition.editor         = map.value("editor").toMap();
@@ -516,6 +741,8 @@ bool ProcessorRegistry::validatePublication(const QString&           owner,
                                   {          "kind",                              definition.kind},
                                   {         "group",                             definition.group},
                                   {        "source",                            definition.source},
+                                  {    "inputCount",                        definition.inputCount},
+                                  {   "outputCount",                       definition.outputCount},
                                   {      "defaults",                          definition.defaults},
                                   {        "editor",                            definition.editor},
                                   {"settingsSchema", QString::fromUtf8(definition.settingsSchema)},
@@ -579,6 +806,10 @@ bool ProcessorRegistry::validatePublication(const QString&           owner,
                 if (!target)
                 {
                     continue;
+                }
+                if (!validLineflowNode(entry->type, node, target->type, error))
+                {
+                    return false;
                 }
                 const auto effective = merged(target->defaults, node.value("configuration").toMap());
                 const auto errors    = target->schema->validate(effective);
@@ -656,7 +887,9 @@ void ProcessorRegistry::registerType(const QString& owner, Type type)
                            type.defaults,
                            type.editor,
                            type.references,
-                           type.group};
+                           type.group,
+                           type.inputCount,
+                           type.outputCount};
     auto       entry = _definitionEntry(owner, definition);
     if (owner.isEmpty() || owner.contains(QChar::Null))
     {
@@ -846,6 +1079,10 @@ bool ProcessorRegistry::_available(const QString& id, QSet<QString>& visiting, Q
                 if (!target)
                 {
                     continue;
+                }
+                if (!validLineflowNode(entry->type, node, target->type, &problem))
+                {
+                    break;
                 }
                 const auto effective = merged(target->defaults, node.value("configuration").toMap());
                 const auto errors    = target->schema->validate(effective);
@@ -1175,6 +1412,15 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
     }
 }
 
+int ProcessorRegistry::Prepared::inputCount() const
+{
+    return _inputCount;
+}
+int ProcessorRegistry::Prepared::outputCount() const
+{
+    return _outputCount;
+}
+
 QVariantMap ProcessorRegistry::Prepared::configuration() const
 {
     return _configuration;
@@ -1205,6 +1451,8 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
                                                       const QVariantMap&          configuration,
                                                       const Processor::Limits&    limits,
                                                       std::shared_ptr<const void> lease,
+                                                      int                         inputCount,
+                                                      int                         outputCount,
                                                       QString*                    error)
 {
     struct Hold
@@ -1245,7 +1493,7 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
         fail(error, "Processor factory must return an unparented instance on the calling thread");
         return {};
     }
-    return std::shared_ptr<Processor>(instance.release(), [hold](Processor* processor) {
+    auto leased = std::shared_ptr<Processor>(instance.release(), [hold](Processor* processor) {
         // An explicit sentinel pins code even if a broken implementation discards
         // the acknowledgement callback or throws before retaining it.
         auto pin          = new std::shared_ptr<Hold>(hold);
@@ -1269,6 +1517,12 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
             qCritical() << "Processor cancellation threw; instance remains pinned";
         }
     });
+    if (leased->inputCount() != inputCount || leased->outputCount() != outputCount)
+    {
+        fail(error, "Processor factory port counts do not match catalog metadata");
+        return {};
+    }
+    return std::make_shared<ForwardProcessor>(std::move(leased), limits);
 }
 
 std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::prepare(const QString&           id,
@@ -1281,7 +1535,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::prepare(co
         error->clear();
     }
     if (limits.maxBytes <= 0 || limits.maxChunks <= 0 || limits.maxDepth <= 0 || limits.maxInstances <= 0
-        || limits.eventBudget <= 0)
+        || limits.eventBudget <= 0 || limits.maxSteps <= 0)
     {
         fail(error, "Processor limits must be positive");
         return {};
@@ -1338,6 +1592,8 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
     lease->release         = [entry] { --entry->instances; };
     auto result            = std::make_shared<Prepared>();
     result->_configuration = *effective;
+    result->_inputCount    = entry->type.inputCount;
+    result->_outputCount   = entry->type.outputCount;
     visiting.insert(id);
     const auto leave = qScopeGuard([&] { visiting.remove(id); });
     if (entry->saved && entry->type.kind == "lineflow")
@@ -1346,6 +1602,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
         {
             QString                         name;
             std::shared_ptr<const Prepared> prepared;
+            int                             lane = 0;
         };
         std::vector<Child> children;
         for (const auto& value : entry->type.definition.value("nodes").toList())
@@ -1363,6 +1620,11 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
             {
                 return {};
             }
+            const auto childType = _entries.value(target);
+            if (!childType || !validLineflowNode(entry->type, node, childType->type, error))
+            {
+                return {};
+            }
             const auto name = node.value("name").toString();
             if (child->_composite)
             {
@@ -1375,7 +1637,8 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
             {
                 result->_paths.append(name);
             }
-            children.push_back({name, std::move(child)});
+            const auto laneName = node.value("lane", "rx").toString();
+            children.push_back({name, std::move(child), laneName == "duplex" ? 2 : laneName == "tx" ? 1 : 0});
         }
         result->_composite   = true;
         const auto paths     = result->_paths;
@@ -1432,18 +1695,34 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
             }
             auto configuration = snapshot;
             configuration.insert("overrides", values);
-            QStringList nodeNames;
+            QStringList      nodeNames;
+            std::vector<int> lanes;
             for (const auto& child : children)
             {
                 nodeNames.append(child.name);
+                lanes.push_back(child.lane);
             }
-            Type::Factory factory = [nodes     = std::move(nodes),
-                                     nodeNames = std::move(nodeNames)](const QVariantMap&       config,
-                                                                       const Processor::Limits& limits,
-                                                                       QString*) mutable -> std::unique_ptr<Processor> {
-                return Lineflow::compose(std::move(nodes), config, limits, std::move(nodeNames));
+            Type::Factory factory =
+                [nodes     = std::move(nodes),
+                 nodeNames = std::move(nodeNames),
+                 lanes     = std::move(lanes),
+                 channels  = entry->type.inputCount](const QVariantMap&       config,
+                                                    const Processor::Limits& limits,
+                                                    QString*) mutable -> std::unique_ptr<Processor> {
+                return Lineflow::compose(std::move(nodes),
+                                         config,
+                                         limits,
+                                         std::move(nodeNames),
+                                         channels,
+                                         std::move(lanes));
             };
-            return _create(factory, configuration, limits, lease, error);
+            return _create(factory,
+                           configuration,
+                           limits,
+                           lease,
+                           entry->type.inputCount,
+                           entry->type.outputCount,
+                           error);
         };
         return result;
     }
@@ -1545,7 +1824,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
             std::vector<std::shared_ptr<const Prepared>> references;
         };
         auto pins = std::make_shared<Pins>(Pins {lease, providerLease, referencePins});
-        return _create(factory, configuration, limits, pins, error);
+        return _create(factory, configuration, limits, pins, entry->type.inputCount, entry->type.outputCount, error);
     };
     return result;
 }

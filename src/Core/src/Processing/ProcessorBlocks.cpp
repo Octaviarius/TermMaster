@@ -61,6 +61,13 @@ bool ProcessorBlocks::validate(const QVariantMap& blocks, QString* error)
         {
             return fail(error, "Processor block name must contain 1 to 256 characters and no NUL");
         }
+        const auto channelValue = block.value("channels", 1);
+        if ((channelValue.typeId() != QMetaType::Int && channelValue.typeId() != QMetaType::UInt
+             && channelValue.typeId() != QMetaType::LongLong && channelValue.typeId() != QMetaType::ULongLong)
+            || channelValue.toLongLong() < 1 || channelValue.toLongLong() > 2)
+        {
+            return fail(error, "Lineflow channels must be 1 or 2");
+        }
         const auto nodes = block.value("nodes");
         if (nodes.typeId() != QMetaType::QVariantList || nodes.toList().size() > 256)
         {
@@ -85,6 +92,12 @@ bool ProcessorBlocks::validate(const QVariantMap& blocks, QString* error)
                             "Processor nodes require unique names without slashes, NUL or surrounding whitespace");
             }
             nodeNames.insert(node.value("name").toString());
+            const auto lane = node.value("lane", "rx");
+            if (lane.typeId() != QMetaType::QString || (lane != "rx" && lane != "tx" && lane != "duplex")
+                || (channelValue.toInt() == 1 && lane != "rx"))
+            {
+                return fail(error, "Lineflow lane must match its channel topology");
+            }
             if (node.contains("type") == node.contains("reference"))
             {
                 return fail(error, "Processor block node requires exactly one type or reference");

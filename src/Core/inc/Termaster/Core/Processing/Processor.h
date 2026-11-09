@@ -32,6 +32,7 @@ public:
     {
         QByteArray bytes;
         Boundary   boundary = Boundary::StreamChunk;
+        int        port     = 0;
     };
 
     struct Limits
@@ -41,6 +42,7 @@ public:
         int       maxDepth     = 16;
         int       maxInstances = 256;
         int       eventBudget  = 64;
+        qsizetype maxSteps     = 1024 * 1024;
     };
 
     struct Callbacks
@@ -64,9 +66,33 @@ public:
     Q_DISABLE_COPY_MOVE(Processor)
 
     virtual QVariantMap configuration() const = 0;
+    /** Port counts are immutable for this instance. General native shapes use 1 to 32 ports. */
+    virtual int inputCount() const
+    {
+        return 1;
+    }
+    virtual int outputCount() const
+    {
+        return 1;
+    }
+
+    /** Lifetime-owned output/error channels for timer or protocol traffic unrelated to an
+     * accepted invocation. All handlers use this object's thread. Clear before cancellation;
+     * cancellation must stop future publication before acknowledging quiescence.
+     */
+    virtual void setOutputHandler(std::function<void(Chunk)> handler)
+    {
+        _outputHandler = std::move(handler);
+    }
+    virtual void setErrorHandler(std::function<void(QString)> handler)
+    {
+        _errorHandler = std::move(handler);
+    }
 
     /** Owned input. WouldBlock/Rejected consume nothing and must not invoke callbacks.
-     * Accepted owns one invocation until completed. Implementations may complete inline.
+     * Accepted owns one invocation on input.port until completed. Different ports may run
+     * concurrently; a provider may return WouldBlock when that port cannot advance.
+     * Implementations may complete inline. Output port is independent of input port.
      * Output expansion and persistent buffering must respect the supplied factory limits.
      */
     virtual AcceptResult accept(Chunk input, Callbacks callbacks) = 0;
@@ -77,4 +103,26 @@ public:
      * state is achieved by creating a new instance from the prepared configuration.
      */
     virtual void cancel(std::function<void()> quiescent) = 0;
+
+protected:
+    void publishOutput(Chunk output)
+    {
+        auto handler = _outputHandler;
+        if (handler)
+        {
+            handler(std::move(output));
+        }
+    }
+    void publishError(QString error)
+    {
+        auto handler = _errorHandler;
+        if (handler)
+        {
+            handler(std::move(error));
+        }
+    }
+
+private:
+    std::function<void(Chunk)>   _outputHandler;
+    std::function<void(QString)> _errorHandler;
 };
