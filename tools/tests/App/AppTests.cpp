@@ -910,7 +910,8 @@ content:
         QCOMPARE(tabs->tabText(0), "Socket\nlocalhost:5000");
         const auto socketGlyph = qvariant_cast<QIcon>(tabs->tabBar()->tabData(0)).pixmap(16, 16).toImage();
         QVERIFY(!socketGlyph.isNull());
-        QVERIFY(!tabs->tabIcon(0).isNull());
+        QVERIFY(tabs->tabBar()->tabButton(0, QTabBar::LeftSide));
+        QCOMPARE(tabs->tabBar()->tabButton(0, QTabBar::LeftSide)->objectName(), "terminalStatusIndicator");
         QVERIFY(QTextDocumentFragment::fromHtml(tabs->tabToolTip(0)).toPlainText().contains("Saved <friendly> socket"));
         QVERIFY(tabs->tabBar()->accessibleTabName(0).contains("localhost:5000"));
         QVERIFY(tabs->tabBar()->accessibleTabName(0).contains("Disconnected"));
@@ -980,6 +981,11 @@ content:
             const auto firstLineCenter = tabs->tabBar()->tabRect(index).center().y()
                                        - tabs->tabBar()->fontMetrics().lineSpacing() / 2;
             QVERIFY(qAbs(close->geometry().center().y() - firstLineCenter) <= 3);
+            auto* status = tabs->tabBar()->tabButton(index, QTabBar::LeftSide);
+            QVERIFY(status);
+            QCOMPARE(status->objectName(), "terminalStatusIndicator");
+            QVERIFY(qAbs(status->geometry().center().y() - firstLineCenter) <= 3);
+            QVERIFY(!status->grab().isNull());
         }
         const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
         if (!capture.isEmpty())
@@ -1019,8 +1025,8 @@ content:
                 const auto stripe = tabs->tabBar()->tabRect(selected).bottomLeft() + QPoint(8, -1);
                 QCOMPARE(image.pixelColor(qRound(stripe.x() * ratio), qRound(stripe.y() * ratio)),
                          tabs->tabBar()->palette().color(QPalette::Highlight));
-                const auto selectedBackground = tabs->tabBar()->tabRect(selected).topLeft() + QPoint(3, 3);
-                const auto inactiveBackground = tabs->tabBar()->tabRect(1 - selected).topLeft() + QPoint(3, 3);
+                const auto selectedBackground = tabs->tabBar()->tabRect(selected).bottomLeft() + QPoint(3, -5);
+                const auto inactiveBackground = tabs->tabBar()->tabRect(1 - selected).bottomLeft() + QPoint(3, -5);
                 QCOMPARE(image.pixelColor(qRound(inactiveBackground.x() * ratio),
                                           qRound(inactiveBackground.y() * ratio)),
                          QApplication::palette().color(QPalette::Window));
@@ -1498,7 +1504,8 @@ content:
 
         auto* tabs = _app.mainWindow().findChild<QTabWidget*>();
         QVERIFY(tabs);
-        QVERIFY(!tabs->tabIcon(tabs->currentIndex()).pixmap(16, 16).isNull());
+        QVERIFY(tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide));
+        QVERIFY(!tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide)->grab().isNull());
         QCOMPARE(tabs->tabText(tabs->currentIndex()), QString("Serial\nCOM_TERMASTER_TEST_UNUSED"));
         QVERIFY(settings->selectPage("terminal.connection"));
         if (QGuiApplication::platformName() == "windows")
@@ -1665,13 +1672,13 @@ content:
             QVERIFY(image.save(QDir(capture).filePath("ConnectionRetry.png")));
         }
         QToolTip::hideText();
-        const auto failedIcon = tabs->tabIcon(tabs->currentIndex()).pixmap(16, 16).toImage();
+        const auto failedIcon = tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide)->grab().toImage();
         probe->available      = true;
         QTRY_COMPARE_WITH_TIMEOUT(probe->device->state(), SerialDevice::State::Open, 3500);
         QVERIFY(probe->attempts >= 2);
         QVERIFY(tooltip().contains("Actual: Connected"));
         QVERIFY(!tooltip().contains("Synthetic port unavailable"));
-        QVERIFY(tabs->tabIcon(tabs->currentIndex()).pixmap(16, 16).toImage() != failedIcon);
+        QVERIFY(tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide)->grab().toImage() != failedIcon);
         auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
         QVERIFY(display);
         display->receive("\033]2;Remote title\007");

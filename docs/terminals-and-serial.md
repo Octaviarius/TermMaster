@@ -208,7 +208,11 @@ reordering and scroll buttons remain Qt-owned.
 
 The upper line also has a 16-logical-pixel terminal/cable/network glyph beside
 the type. This presentation icon moves with the tab's Qt-owned data; the separate
-connection-state glyph is retained. Close buttons align with the upper line.
+connection-state glyph is retained. State indicators and close buttons align with
+the upper line. The state indicator is a pointer-transparent native tab child
+that paints its vector QIcon at the current device scale; it does not rasterize
+the glyph at a fixed resolution. A native left-side close button, if present, is
+relocated to the right before reserving the indicator slot.
 Selected tabs use a 3-logical-pixel Highlight-colored bottom stripe and a 20%
 Highlight/Window background blend. Inactive tabs retain Window/WindowText colors
 and subtle separators. Palette changes refresh this tab-local styling.

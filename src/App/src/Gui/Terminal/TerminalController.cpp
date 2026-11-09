@@ -778,7 +778,7 @@ void TerminalController::_changed(const QString& id)
                                                       "square-terminal";
     _window.terminalTabs().tabBar()->setTabData(index, Icons::icon(typeIcon));
     _window.terminalTabs().setTabText(index, QString(label).replace('&', "&&"));
-    _window.terminalTabs().setTabIcon(index, QIcon(":/Termaster/App/Status/" + icon + ".svg"));
+    _window.setTerminalStatusIcon(index, QIcon(":/Termaster/App/Status/" + icon + ".svg"));
     const auto desired = terminal.connectionRequested ? tr("Connected") : tr("Disconnected");
     QString    tooltip = type;
     if (!parameter.isEmpty())

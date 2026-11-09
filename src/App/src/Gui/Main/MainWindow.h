@@ -5,6 +5,7 @@
 #include <Termaster/Core/Gui/Action/ToolbarActionContainer.h>
 
 class WorkspacePage;
+class QIcon;
 class QTabWidget;
 class QStackedWidget;
 
@@ -19,6 +20,7 @@ public:
     ToolbarActionContainer& toolbar();
     QTabWidget&             terminalTabs();
     void                    showTerminals(bool visible);
+    void                    setTerminalStatusIcon(int index, const QIcon& icon);
     void                    setWorkspace(const QString& name, const QString& file);
     void                    showWorkspaceChoice(const QString& error = {});
     void                    setSession(const QString& name, const QString& file, int objects, int links);

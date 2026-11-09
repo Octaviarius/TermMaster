@@ -19,6 +19,34 @@
 
 namespace
 {
+/** Vector-backed status presentation; pointer input remains with the native tab. */
+class TerminalStatusIndicator final : public QWidget
+{
+public:
+    explicit TerminalStatusIndicator(QWidget* parent) : QWidget(parent)
+    {
+        setFixedSize(16, 16);
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setObjectName("terminalStatusIndicator");
+    }
+
+    void setIcon(const QIcon& icon)
+    {
+        _icon = icon;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        QPainter painter(this);
+        _icon.paint(&painter, rect(), Qt::AlignCenter, isEnabled() ? QIcon::Normal : QIcon::Disabled);
+    }
+
+private:
+    QIcon _icon;
+};
+
 /** Preserve native tab painting and interactions while allowing two text lines. */
 class TerminalTabBar final : public QTabBar
 {
@@ -26,7 +54,7 @@ public:
     TerminalTabBar()
     {
         qApp->installEventFilter(this);
-        connect(this, &QTabBar::currentChanged, this, [this] { _positionCloseButtons(); });
+        connect(this, &QTabBar::currentChanged, this, [this] { _positionTabButtons(); });
         _refreshStyle();
     }
 
@@ -75,13 +103,13 @@ protected:
     void tabLayoutChange() override
     {
         QTabBar::tabLayoutChange();
-        _positionCloseButtons();
+        _positionTabButtons();
     }
 
     void resizeEvent(QResizeEvent* event) override
     {
         QTabBar::resizeEvent(event);
-        _positionCloseButtons();
+        _positionTabButtons();
     }
 
     bool eventFilter(QObject* watched, QEvent* event) override
@@ -94,7 +122,7 @@ protected:
     }
 
 private:
-    void _positionCloseButtons()
+    void _positionTabButtons()
     {
         for (int index = 0; index < count(); ++index)
         {
@@ -242,6 +270,27 @@ QTabWidget& MainWindow::terminalTabs()
 {
     return *_terminalTabs;
 }
+void MainWindow::setTerminalStatusIcon(int index, const QIcon& icon)
+{
+    auto* bar = _terminalTabs->tabBar();
+    if (index < 0 || index >= bar->count())
+    {
+        return;
+    }
+    auto* indicator = dynamic_cast<TerminalStatusIndicator*>(bar->tabButton(index, QTabBar::LeftSide));
+    if (!indicator)
+    {
+        if (auto* close = bar->tabButton(index, QTabBar::LeftSide))
+        {
+            bar->setTabButton(index, QTabBar::LeftSide, nullptr);
+            bar->setTabButton(index, QTabBar::RightSide, close);
+        }
+        indicator = new TerminalStatusIndicator(bar);
+        bar->setTabButton(index, QTabBar::LeftSide, indicator);
+    }
+    indicator->setIcon(icon);
+}
+
 void MainWindow::showTerminals(bool visible)
 {
     _central->setCurrentWidget(visible && _terminalTabs->count() ? static_cast<QWidget*>(_terminalTabs) :
