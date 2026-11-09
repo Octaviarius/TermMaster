@@ -177,9 +177,41 @@ used. Release was not rebuilt for this feature.
 
 ## Reusable processor definitions
 
-Workspace `content/processorDefinitions` stores reusable named processing definitions
-with a kind, source, defaults, schema and editor metadata. App publishes them into
-the common processor registry when opening or changing a workspace.
+Reusable processor definitions are separate version 1 YAML documents under
+`<workspace filename>.d/processors/`, adjacent to the workspace file. The workspace
+YAML contains no processor definition payload. Each filename is the lowercase
+SHA-256 hexadecimal digest of the stable ID's UTF-8 bytes, followed by `.yaml`.
+This permits arbitrary valid catalog IDs, including names that differ only in
+case or resemble Windows device names, without filename collisions or path syntax.
+Human-readable names and groups remain metadata inside the document.
+
+```yaml
+version: 1
+type: termaster.processor-definition
+description: Workspace processor definition
+content:
+  id: receive
+  name: Receive processing
+  kind: lineflow
+  source:
+    nodes:
+      - name: frame
+        type: native.framer
+        configuration: {}
+```
+
+The workspace owner loads the complete collection before replacing its cached
+map or publishing it through App into the common processor registry. A missing
+directory represents an empty collection. Up to 1024 documents and 4 MiB of total
+processor YAML are supported. Malformed documents, duplicate IDs, mismatched
+filenames and directory links fail the complete load without replacing the active
+owner. Missing processor providers and references remain valid saved definitions.
+Unknown document-envelope and definition fields, including literal keys containing
+slashes, survive edits. Unchanged files retain their exact bytes. Other non-YAML
+files in the directory are neither loaded as definitions nor removed. Inline
+`processorDefinitions` payloads are rejected; no legacy reader or migration is
+provided during development.
+
 Each node's unique `name` is its identity within the block. A session terminal's
 `settings/processing` map stores its private Rx/Tx catalog selection and occurrence
 configuration overrides; saving definitions does not require their native plugins
@@ -189,6 +221,16 @@ occurrence paths, validation and independent runtime lifetimes.
 The [Lineflow editor](lineflow-editor.md) applies workspace definition drafts and
 refactors named occurrence overrides across registered active/closed sessions.
 Owner snapshots preserve borrowed settings views and unrelated pending settings.
-Staged multi-document writes use a bounded recovery journal beside the workspace;
-App checks it before opening/restoring the workspace. External changes stop
-preflight or recovery rather than being overwritten automatically.
+Normal workspace saves and editor refactorings use the same bounded file transaction.
+Creating, editing and removing definitions commits their individual files together
+with applicable workspace and session changes. Display-name changes keep the stable
+filename; definition removal deletes its file but retains unavailable references.
+A journal beside the workspace records explicit original/replacement presence and
+bytes, so an absent file is distinct from an existing empty file. Core load and App
+check recovery before opening/restoring the workspace. Exact-byte and collection
+inventory checks stop external edits or newly introduced YAML files before writes;
+recovery refuses unrecognized states and retains its journal for resolution.
+Empty directories can remain after a failed creation attempt; unrelated files are
+never removed. Journals are claimed with an atomic exclusive reservation before
+file replacement. A crash leaving an incomplete reservation blocks automatic
+recovery without changing documents.

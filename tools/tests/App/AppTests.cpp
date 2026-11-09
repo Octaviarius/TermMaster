@@ -294,6 +294,8 @@ private:
         Workspace savedWorkspace(file, savedApplication.node("settings"));
         QVERIFY(savedWorkspace.load(&error));
         QCOMPARE(savedWorkspace.settings().value("child/autosave").toInt(), 42);
+        // Adopt the independent child save before further parent edits.
+        QVERIFY2(_app.workspace()->load(&error), qPrintable(error));
 
         auto*      active     = _app.workspace();
         const auto remembered = _app.settings().value("state/lastWorkspace");
@@ -604,10 +606,12 @@ private:
         Settings childSaved(file, {"termaster.session", "Termaster session"});
         QVERIFY(childSaved.load(&error));
         QCOMPARE(childSaved.value("settings/sessionTest/childAutosave").toInt(), 99);
+        QVERIFY2(_app.session()->load(&error), qPrintable(error));
         auto borrowed = _app.session()->objects();
         QVERIFY(_app.closeSession(&error));
         QVERIFY(!borrowed.isValid());
         QVERIFY(!_app.session());
+        QVERIFY2(_app.workspace()->load(&error), qPrintable(error));
         QVERIFY(_app.openSession(id, &error));
         QCOMPARE(_app.session()->name(), QString("Renamed session"));
         QCOMPARE(_app.configuration().value("sessionTest/value").toInt(), 31);

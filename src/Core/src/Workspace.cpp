@@ -1,9 +1,13 @@
+#include <QCryptographicHash>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <QSet>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/Workspace.h>
+#include <Termaster/Core/WorkspaceFileTransaction.h>
 #include <utility>
 
 namespace
@@ -94,6 +98,16 @@ std::optional<Path> catalogDirectory(const Path& file, const QVariant& value, QS
     return path;
 }
 
+QString processorFile(const Path& workspace, const QString& id)
+{
+    return QDir::fromNativeSeparators(workspace.toString()) + ".d/processors/"
+         + QString::fromLatin1(QCryptographicHash::hash(id.toUtf8(), QCryptographicHash::Sha256).toHex()) + ".yaml";
+}
+std::unique_ptr<Settings> processorCache()
+{
+    return std::make_unique<Settings>(QString {},
+                                      Settings::Info {"termaster.processor-cache", "In-memory processor definitions"});
+}
 std::unique_ptr<Settings> document(const Path& file)
 {
     return std::make_unique<Settings>(file, Settings::Info {"termaster.workspace", "Termaster workspace"});
@@ -106,7 +120,8 @@ Workspace::Workspace(Path file, Settings::Node baseSettings) :
 }
 
 Workspace::Workspace(Path file, SettingsOverlay baseSettings) :
-    QObject(nullptr), _file(file.absolute()), _baseSettings(std::move(baseSettings)), _settings(document(_file))
+    QObject(nullptr), _file(file.absolute()), _baseSettings(std::move(baseSettings)), _settings(document(_file)),
+    _processors(processorCache())
 {
 }
 
@@ -128,14 +143,37 @@ bool Workspace::load(QString* error)
         return false;
     }
 
+    if (!WorkspaceFileTransaction::recover(*canonical, error))
+    {
+        return false;
+    }
     auto candidate = document(*canonical);
     if (!candidate->load(error) || !_validate(*candidate, *canonical, error))
     {
         return false;
     }
 
-    _file     = *canonical;
-    _settings = std::move(candidate);
+    QVariantMap    values;
+    ProcessorFiles files;
+    if (!_readProcessorFiles(*canonical, values, files, error) || !_validateProcessors(values, error))
+    {
+        return false;
+    }
+    auto       processors = processorCache();
+    const auto bytes      = processors->serializedPatch(
+        {
+            {"definitions", values}
+    },
+        {},
+        error);
+    if (!bytes || !processors->replaceSerialized(*bytes, error))
+    {
+        return false;
+    }
+    _file          = *canonical;
+    _settings      = std::move(candidate);
+    _processors    = std::move(processors);
+    _processorDisk = std::move(files);
     _publishProcessors();
     return true;
 }
@@ -162,6 +200,16 @@ bool Workspace::create(const QString& name, QString* error)
     }
     const auto file = parent->join(_file.name());
 
+    QVariantMap    processorValues;
+    ProcessorFiles processorFiles;
+    if (!_readProcessorFiles(file, processorValues, processorFiles, error))
+    {
+        return false;
+    }
+    if (!processorFiles.isEmpty())
+    {
+        return fail(error, "Workspace processor directory already contains definitions");
+    }
     auto candidate = document(file);
     if (!candidate->setValue("name", name, error) || !candidate->setValue("settings", QVariantMap {}, error)
         || !candidate->setValue("sessions", QVariantMap {}, error)
@@ -195,12 +243,11 @@ bool Workspace::create(const QString& name, QString* error)
 
 std::optional<QByteArray> Workspace::prepareProcessorDefinitions(const QVariantMap& values, QString* error) const
 {
-    const auto bytes = _settings->serializedPatch(
-        {
-            {"processorDefinitions", values}
-    },
-        {},
-        error);
+    if (!_validateProcessors(values, error))
+    {
+        return std::nullopt;
+    }
+    const auto bytes = _settings->serializedPatch({}, {}, error);
     if (!bytes)
     {
         return std::nullopt;
@@ -211,6 +258,73 @@ std::optional<QByteArray> Workspace::prepareProcessorDefinitions(const QVariantM
         return std::nullopt;
     }
     return bytes;
+}
+
+std::optional<Workspace::ProcessorFiles> Workspace::prepareProcessorFiles(const QVariantMap& values,
+                                                                          QString*           error) const
+{
+    if (!_validateProcessors(values, error))
+    {
+        return std::nullopt;
+    }
+    ProcessorFiles files;
+    qint64         total = 0;
+    for (auto it = values.cbegin(); it != values.cend(); ++it)
+    {
+        const auto path = processorFile(_file, it.key());
+        Settings   document(path, Settings::Info {"termaster.processor-definition", "Workspace processor definition"});
+        if (_processorDisk.contains(path) && !document.replaceSerialized(_processorDisk.value(path), error))
+        {
+            return std::nullopt;
+        }
+        const auto definition = it.value().toMap();
+        const auto bytes      = document.values() == definition && _processorDisk.contains(path) ?
+                                    std::optional<QByteArray>(_processorDisk.value(path)) :
+                                    document.serializedContent(definition, error);
+        if (!bytes)
+        {
+            return std::nullopt;
+        }
+        total += bytes->size();
+        if (total > 4 * 1024 * 1024)
+        {
+            fail(error, "Processor documents exceed the 4 MiB collection limit");
+            return std::nullopt;
+        }
+        files.insert(path, *bytes);
+    }
+    return files;
+}
+Workspace::ProcessorFiles Workspace::processorDiskFiles() const
+{
+    return _processorDisk;
+}
+Path Workspace::processorsDirectory() const
+{
+    return Path(_file.toString() + ".d/processors");
+}
+bool Workspace::acceptProcessorDefinitions(const QVariantMap&    values,
+                                           const ProcessorFiles& files,
+                                           QString*              error,
+                                           bool                  dirty)
+{
+    if (!_validateProcessors(values, error))
+    {
+        return false;
+    }
+    const auto bytes = _processors->serializedPatch(
+        {
+            {"definitions", values}
+    },
+        {},
+        error);
+    if (!bytes || !_processors->replaceSerialized(*bytes, error, dirty))
+    {
+        return false;
+    }
+    _processorDisk = files;
+    _publishProcessors();
+    return true;
 }
 
 bool Workspace::acceptPreparedDocument(const QByteArray& bytes, QString* error, bool dirty)
@@ -227,12 +341,30 @@ bool Workspace::acceptPreparedDocument(const QByteArray& bytes, QString* error, 
 
 bool Workspace::diskUnchanged(QString* error) const
 {
-    return _settings->diskUnchanged(error);
+    if (!_settings->diskUnchanged(error))
+    {
+        return false;
+    }
+    QVariantMap    values;
+    ProcessorFiles files;
+    if (!_readProcessorFiles(_file, values, files, error))
+    {
+        return false;
+    }
+    return files == _processorDisk
+        || fail(error, "Processor files were externally changed since their last load or write");
 }
 
 bool Workspace::captureDiskBaseline(QString* error)
 {
-    return _settings->captureDiskBaseline(error);
+    QVariantMap    values;
+    ProcessorFiles files;
+    if (!_readProcessorFiles(_file, values, files, error) || !_settings->captureDiskBaseline(error))
+    {
+        return false;
+    }
+    _processorDisk = std::move(files);
+    return true;
 }
 
 bool Workspace::sync(QString* error)
@@ -241,11 +373,81 @@ bool Workspace::sync(QString* error)
     {
         error->clear();
     }
-    if (!_validate(*_settings, _file, error) || !_settings->sync(error))
+    if (!_validate(*_settings, _file, error) || !diskUnchanged(error))
     {
         return false;
     }
-    _publishProcessors();
+    const auto values = processorDefinitions().values();
+    const auto main   = prepareProcessorDefinitions(values, error);
+    const auto files  = prepareProcessorFiles(values, error);
+    if (!main || !files)
+    {
+        return false;
+    }
+    QFile original(_file.toString());
+    if (!original.open(QIODevice::ReadOnly))
+    {
+        return fail(error, "Cannot read workspace before save");
+    }
+    const auto originalBytes = original.read(4 * 1024 * 1024 + 1);
+    if (original.error() != QFileDevice::NoError || originalBytes.size() > 4 * 1024 * 1024)
+    {
+        return fail(error, "Cannot read bounded workspace before save");
+    }
+    original.close();
+    QList<WorkspaceFileTransaction::Change> changes {
+        {QFileInfo(_file.toString()).canonicalFilePath(), originalBytes, *main}
+    };
+    QSet<QString> paths;
+    for (const auto& path : _processorDisk.keys())
+    {
+        paths.insert(path);
+    }
+    for (const auto& path : files->keys())
+    {
+        paths.insert(path);
+    }
+    for (const auto& path : paths)
+    {
+        const auto before = _processorDisk.contains(path) ? std::optional<QByteArray>(_processorDisk.value(path)) :
+                                                            std::nullopt;
+        const auto after  = files->contains(path) ? std::optional<QByteArray>(files->value(path)) : std::nullopt;
+        changes.append({path, before, after});
+    }
+    if (!WorkspaceFileTransaction::commit(_file, changes, error))
+    {
+        return false;
+    }
+    const auto snapshot          = _settings->serializedPatch({}, {}, error);
+    const auto processorSnapshot = processorDefinitions().values();
+    const auto diskSnapshot      = _processorDisk;
+    const bool mainDirty         = _settings->isDirty();
+    const bool processorDirty    = _processors->isDirty();
+    QString    failure;
+    if (!acceptPreparedDocument(*main, &failure) || !acceptProcessorDefinitions(values, *files, &failure)
+        || !WorkspaceFileTransaction::finish(_file, &failure))
+    {
+        QString    rollback;
+        const bool restored = WorkspaceFileTransaction::recover(_file, &rollback);
+        if (!restored)
+        {
+            failure += "; rollback failed: " + rollback;
+        }
+        if (snapshot)
+        {
+            _settings->replaceSerialized(*snapshot, &rollback, mainDirty);
+        }
+        acceptProcessorDefinitions(processorSnapshot, diskSnapshot, &rollback, processorDirty);
+        if (restored)
+        {
+            captureDiskBaseline(&rollback);
+        }
+        if (error)
+        {
+            *error = failure;
+        }
+        return false;
+    }
     return true;
 }
 
@@ -270,7 +472,7 @@ bool Workspace::setName(const QString& name, QString* error)
 
 bool Workspace::isDirty() const
 {
-    return _settings->isDirty();
+    return _settings->isDirty() || _processors->isDirty();
 }
 
 SettingsOverlay Workspace::settings()
@@ -290,16 +492,16 @@ Settings::Node Workspace::state()
 
 Settings::Node Workspace::processorDefinitions()
 {
-    return _settings->node("processorDefinitions");
+    return _processors->node("definitions");
 }
 
 bool Workspace::setProcessorDefinition(const QString& id, const QVariantMap& definition, QString* error)
 {
-    auto definitions = _settings->value("processorDefinitions").toMap();
+    auto definitions = _processors->value("definitions").toMap();
     definitions.insert(id, definition);
     if (!ProcessorRegistry::parseDefinitions(definitions, error)
         || (_processorValidator && !_processorValidator(definitions, error))
-        || !_settings->setValue("processorDefinitions", definitions, error))
+        || !_processors->setValue("definitions", definitions, error))
     {
         return false;
     }
@@ -313,14 +515,14 @@ bool Workspace::removeProcessorDefinition(const QString& id, QString* error)
     {
         error->clear();
     }
-    auto definitions = _settings->value("processorDefinitions").toMap();
+    auto definitions = _processors->value("definitions").toMap();
     if (!definitions.remove(id))
     {
         return fail(error, "Processor definition is not registered: " + id);
     }
     if (!ProcessorRegistry::parseDefinitions(definitions, error)
         || (_processorValidator && !_processorValidator(definitions, error))
-        || !_settings->setValue("processorDefinitions", definitions, error))
+        || !_processors->setValue("definitions", definitions, error))
     {
         return false;
     }
@@ -335,7 +537,7 @@ void Workspace::setProcessorValidator(std::function<bool(const QVariantMap&, QSt
 
 void Workspace::_publishProcessors()
 {
-    const auto definitions = _settings->value("processorDefinitions").toMap();
+    const auto definitions = _processors->value("definitions").toMap();
     if (_processorsPublished && definitions == _publishedProcessors)
     {
         return;
@@ -506,19 +708,8 @@ bool Workspace::_validate(const Settings& settings, const Path& file, QString* e
     }
     if (settings.contains("processorDefinitions"))
     {
-        const auto blocks = settings.value("processorDefinitions");
-        if (blocks.typeId() != QMetaType::QVariantMap)
-        {
-            return fail(error, "Workspace processorDefinitions must be a mapping");
-        }
-        if (!ProcessorRegistry::parseDefinitions(blocks.toMap(), error))
-        {
-            return false;
-        }
-    }
-    if (_processorValidator && !_processorValidator(settings.value("processorDefinitions").toMap(), error))
-    {
-        return false;
+        return fail(error,
+                    "Inline processorDefinitions are unsupported; definitions belong in workspace processor files");
     }
     const auto entries = settings.value("sessions").toMap();
     for (auto entry = entries.cbegin(); entry != entries.cend(); ++entry)
@@ -591,6 +782,81 @@ bool Workspace::_validate(const Settings& settings, const Path& file, QString* e
         }
     }
     return true;
+}
+
+bool Workspace::_validateProcessors(const QVariantMap& values, QString* error) const
+{
+    return ProcessorRegistry::parseDefinitions(values, error).has_value()
+        && (!_processorValidator || _processorValidator(values, error));
+}
+bool Workspace::_readProcessorFiles(const Path& file, QVariantMap& values, ProcessorFiles& files, QString* error) const
+{
+    const auto    workspacePath = QDir::fromNativeSeparators(file.toString());
+    const QString root          = workspacePath + ".d/processors";
+    for (const auto& path : QStringList {workspacePath + ".d", root})
+    {
+        const QFileInfo info(path);
+        if (info.isSymLink()
+            || (info.exists() && (!info.isDir() || info.canonicalFilePath() != info.absoluteFilePath())))
+        {
+            return fail(error, "Processor directory is not a confined regular directory: " + path);
+        }
+    }
+    if (!QFileInfo::exists(root))
+    {
+        return true;
+    }
+    QDirIterator iterator(root, QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
+    int          inspected = 0;
+    qint64       total     = 0;
+    while (iterator.hasNext())
+    {
+        if (++inspected > 4096)
+        {
+            return fail(error, "Processor directory contains too many entries");
+        }
+        iterator.next();
+        const auto entry = iterator.fileInfo();
+        if (entry.suffix().compare("yaml", Qt::CaseInsensitive) != 0)
+        {
+            continue;
+        }
+        if (files.size() >= 1024 || entry.isSymLink() || !entry.isFile()
+            || entry.canonicalFilePath() != entry.absoluteFilePath())
+        {
+            return fail(error, "Invalid or excessive processor document: " + entry.absoluteFilePath());
+        }
+        if (entry.size() < 0 || entry.size() > 4 * 1024 * 1024 - total)
+        {
+            return fail(error, "Processor documents exceed the 4 MiB collection limit");
+        }
+        QFile input(entry.absoluteFilePath());
+        if (!input.open(QIODevice::ReadOnly))
+        {
+            return fail(error, "Cannot read processor document: " + input.errorString());
+        }
+        const auto bytes = input.read(4 * 1024 * 1024 - total + 1);
+        if (input.error() != QFileDevice::NoError || bytes.size() > 4 * 1024 * 1024 - total)
+        {
+            return fail(error, "Cannot read bounded processor document");
+        }
+        total += bytes.size();
+        Settings document(entry.absoluteFilePath(),
+                          Settings::Info {"termaster.processor-definition", "Workspace processor definition"});
+        if (!document.replaceSerialized(bytes, error))
+        {
+            return false;
+        }
+        const auto definition = document.values();
+        const auto id         = definition.value("id").toString();
+        if (values.contains(id) || processorFile(file, id) != entry.absoluteFilePath())
+        {
+            return fail(error, "Processor filename does not match its unique stable ID: " + entry.fileName());
+        }
+        values.insert(id, definition);
+        files.insert(entry.absoluteFilePath(), bytes);
+    }
+    return ProcessorRegistry::parseDefinitions(values, error).has_value();
 }
 
 std::optional<Path> Workspace::_directory(const QString& key) const

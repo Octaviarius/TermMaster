@@ -603,6 +603,27 @@ std::optional<QByteArray> Settings::serializedPatch(QVariantMap values, QStringL
     }
 }
 
+std::optional<QByteArray> Settings::serializedContent(const QVariantMap& values, QString* error) const
+{
+    if (error)
+    {
+        error->clear();
+    }
+    try
+    {
+        auto      candidate  = YAML::Clone(_data->root);
+        qsizetype remaining  = 100000;
+        candidate["content"] = toYaml(values, remaining);
+        validateEnvelope(candidate, _data->expectedInfo);
+        return serialize(candidate);
+    }
+    catch (const std::exception& exception)
+    {
+        failure(error, "prepare content", _data->path, exception);
+        return std::nullopt;
+    }
+}
+
 bool Settings::replaceSerialized(const QByteArray& bytes, QString* error, bool dirty)
 {
     if (error)
