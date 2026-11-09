@@ -358,3 +358,11 @@ Local process terminals and environment commands are provided by the independent
 
 Raw TCP/UDP client terminals are provided by the independent
 [SocketTerminal plugin](socket-terminal.md), using the same hosted SDK.
+
+## Terminal action placement ABI
+
+HostedPlugin ABI version 5 adds semantic `PluginHost::Action::Role` and the
+owning `terminalType`. Rebuild hosted plugins against the current SDK. The host
+copies the terminal type string before plugin unload; it filters tab context
+menus independently from global Terminal menu visibility. Standard roles select
+shared toolbar positions; Close and Additional roles are menu-only.

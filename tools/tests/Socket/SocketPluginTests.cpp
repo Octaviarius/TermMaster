@@ -109,10 +109,12 @@ public:
     void connectSelectedTerminal() override
     {
         ++started;
+        events.append("connect");
     }
     void disconnectSelectedTerminal() override
     {
         ++stopped;
+        events.append("disconnect");
     }
     void closeSelectedTerminal() override
     {
@@ -167,6 +169,55 @@ class SocketPluginTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void reconnectRevalidatesStateAndDispatchesInOrder()
+    {
+        FakeHost     host;
+        SocketPlugin plugin;
+        plugin.setHost(&host);
+        QVERIFY(plugin.startup());
+        StateDevice device;
+        host.device          = &device;
+        host.selected        = true;
+        const auto reconnect = host.actions.value("Socket.Reconnect");
+        QCOMPARE(reconnect.role, PluginHost::Action::Role::Restart);
+        for (const bool wanted : {false, true})
+        {
+            host.wanted = wanted;
+            for (const auto state : {SerialDevice::State::Closed,
+                                     SerialDevice::State::Opening,
+                                     SerialDevice::State::Open,
+                                     SerialDevice::State::Closing,
+                                     SerialDevice::State::Failed})
+            {
+                device.current     = state;
+                const bool allowed = state != SerialDevice::State::Closing
+                                  && (wanted || state == SerialDevice::State::Open
+                                      || state == SerialDevice::State::Opening);
+                QCOMPARE(reconnect.enabled(), allowed);
+                host.events.clear();
+                reconnect.trigger();
+                QCOMPARE(host.events, allowed ? QStringList({"disconnect", "connect"}) : QStringList());
+            }
+        }
+        device.current = SerialDevice::State::Open;
+        QVERIFY(reconnect.enabled());
+        host.selected = false;
+        QVERIFY(!reconnect.enabled());
+        host.events.clear();
+        reconnect.trigger();
+        QVERIFY(host.events.isEmpty());
+        host.selected = true;
+        host.device   = nullptr;
+        QVERIFY(!reconnect.enabled());
+        reconnect.trigger();
+        QVERIFY(host.events.isEmpty());
+        QVERIFY(plugin.shutdown());
+        host.device = &device;
+        host.events.clear();
+        QVERIFY(!reconnect.enabled());
+        reconnect.trigger();
+        QVERIFY(host.events.isEmpty());
+    }
     void lifecycleRetainsFactoriesUntilTypeRemoval()
     {
         FakeHost     host;
@@ -182,7 +233,7 @@ private slots:
         QVERIFY(host.type.settingsSchema.contains("enum: [TCP, UDP]"));
         QVERIFY(host.type.defaultSettingsSchema.contains("minLength: 0"));
         QVERIFY(!host.type.createPanel);
-        QCOMPARE(host.actions.size(), 6);
+        QCOMPARE(host.actions.size(), 7);
         QVERIFY(host.editors.isEmpty());
         auto device = host.type.createDevice();
         QCOMPARE(device->state(), SerialDevice::State::Closed);
@@ -192,7 +243,7 @@ private slots:
         QVERIFY(!plugin.shutdown(&error));
         QCOMPARE(plugin.state(), Plugin::State::Failed);
         QCOMPARE(error, "Synthetic persistence failure");
-        QCOMPARE(host.actions.size(), 6);
+        QCOMPARE(host.actions.size(), 7);
         QVERIFY(host.editors.isEmpty());
         QVERIFY(!plugin.startup());
         host.removalAllowed = true;

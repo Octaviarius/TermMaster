@@ -8,7 +8,7 @@
 #include <QDesktopServices>
 #include <QFile>
 #include <QFontMetrics>
-#include <QLabel>
+#include <QMenu>
 #include <QStatusBar>
 #include <QTabBar>
 #include <QTabWidget>
@@ -25,6 +25,7 @@
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/SettingsSchema.h>
 #include <Termaster/Core/Workspace.h>
+#include <algorithm>
 #include <stdexcept>
 
 namespace
@@ -157,6 +158,9 @@ TerminalController::TerminalController(MainWindow&                 window,
             }
         }
     });
+    auto* bar = _window.terminalTabs().tabBar();
+    bar->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(bar, &QWidget::customContextMenuRequested, this, &TerminalController::_showTabMenu);
     connect(qApp, &QApplication::focusChanged, this, [this] { refreshTerminalActions(); });
     connect(qApp, &QGuiApplication::focusWindowChanged, this, [this] { refreshTerminalActions(); });
 }
@@ -332,6 +336,7 @@ void TerminalController::registerAction(Action action)
     {
         throw std::invalid_argument("Unknown terminal action group");
     }
+    action.terminalType     = owned(action.terminalType);
     action.id               = owned(action.id);
     action.title            = owned(action.title);
     action.group            = owned(action.group);
@@ -343,7 +348,24 @@ void TerminalController::registerAction(Action action)
         presentation = command->newAction(&_window);
         presentation->setToolTip(action.title);
         menu->addAction(presentation, action.group);
-        _window.toolbar().addAction(presentation, action.group == "create" ? "terminalCreation" : "terminal");
+        if (action.role != Action::Role::Close && action.role != Action::Role::Additional)
+        {
+            const auto group = action.role == Action::Role::Create ? "terminalCreation" : "terminal";
+            qsizetype  index = 0;
+            for (const auto* existing : _window.toolbar().actions(group))
+            {
+                const auto it = std::find_if(_actions.cbegin(), _actions.cend(), [existing](const auto& item) {
+                    return item.second.action == existing;
+                });
+                if (it != _actions.cend()
+                    && (it->second.registration.role < action.role
+                        || (it->second.registration.role == action.role && it->first < id)))
+                {
+                    ++index;
+                }
+            }
+            _window.toolbar().insertAction(presentation, group, index);
+        }
         _actions.emplace(id, RegisteredAction {std::move(action), presentation});
     }
     catch (...)
@@ -944,6 +966,93 @@ void TerminalController::showCreateTerminal(const QString& type)
     dialog->selectPage("new.connection");
     connect(dialog, &SettingsDialog::applied, dialog, &QDialog::accept);
     dialog->show();
+}
+
+void TerminalController::_showTabMenu(const QPoint& position)
+{
+    auto&      tabs  = _window.terminalTabs();
+    const auto index = tabs.tabBar()->tabAt(position);
+    if (index < 0)
+    {
+        return;
+    }
+    tabs.setCurrentIndex(index);
+    refreshTerminalActions();
+    const auto terminalId = selectedTerminal();
+    if (terminalId.isEmpty())
+    {
+        return;
+    }
+
+    auto* menu = new QMenu(&_window);
+    menu->setObjectName("terminalTabMenu");
+    menu->setAttribute(Qt::WA_DeleteOnClose);
+    QList<QString> ids;
+    for (const auto& [id, item] : _actions)
+    {
+        if (item.action && item.action->isVisible() && item.registration.role != Action::Role::Create
+            && item.registration.terminalType == _terminals.at(terminalId)->type)
+        {
+            ids.append(id);
+        }
+    }
+    const auto rank = [this](const QString& id) {
+        const auto role = _actions.at(id).registration.role;
+        return role == Action::Role::Close ? 100 : role == Action::Role::Additional ? 90 : static_cast<int>(role);
+    };
+    std::sort(ids.begin(), ids.end(), [&](const QString& left, const QString& right) {
+        return rank(left) == rank(right) ? left < right : rank(left) < rank(right);
+    });
+    QString previousGroup;
+    for (const auto& id : ids)
+    {
+        const auto& item = _actions.at(id);
+        if (!previousGroup.isEmpty() && previousGroup != item.registration.group)
+        {
+            menu->addSeparator();
+        }
+        previousGroup                  = item.registration.group;
+        const QPointer<QAction> source = item.action;
+        auto*                   proxy  = menu->addAction(source->icon(), source->text());
+        proxy->setObjectName(id);
+        proxy->setToolTip(source->toolTip());
+        proxy->setEnabled(source->isEnabled());
+        connect(source, &QAction::changed, proxy, [source, proxy] {
+            if (source)
+            {
+                proxy->setEnabled(source->isEnabled());
+                proxy->setVisible(source->isVisible());
+            }
+        });
+        connect(source, &QObject::destroyed, proxy, [proxy] { proxy->setEnabled(false); });
+        connect(proxy, &QAction::triggered, this, [this, id, source, terminalId] {
+            // Revalidate identity and registration; a tab index may have moved or disappeared.
+            const auto terminal = _terminals.find(terminalId);
+            const auto action   = _actions.find(id);
+            if (!source || terminal == _terminals.end() || action == _actions.end() || action->second.action != source)
+            {
+                return;
+            }
+            _window.terminalTabs().setCurrentWidget(terminal->second->panel);
+            refreshTerminalActions();
+            if (source->isVisible() && source->isEnabled())
+            {
+                source->trigger();
+            }
+        });
+    }
+    connect(this, &TerminalController::selectionChanged, menu, [this, menu, terminalId] {
+        if (selectedTerminal() != terminalId)
+        {
+            menu->close();
+        }
+    });
+    if (menu->actions().isEmpty())
+    {
+        delete menu;
+        return;
+    }
+    menu->popup(tabs.tabBar()->mapToGlobal(position));
 }
 
 void TerminalController::_attemptConnection(const QString& id)

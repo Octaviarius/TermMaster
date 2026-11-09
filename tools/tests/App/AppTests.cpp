@@ -15,6 +15,7 @@
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QMap>
+#include <QMenu>
 #include <QMimeData>
 #include <QPainter>
 #include <QPlainTextEdit>
@@ -1151,6 +1152,160 @@ content:
         QCOMPARE(device->state(), SerialDevice::State::Closed);
         QVERIFY(!host.connectionRequested("socket"));
     }
+    Q_SLOT void consistentTerminalControls()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        QString     error;
+        QStringList files;
+        const auto  originalSize = _app.mainWindow().size();
+        const auto  cleanup      = qScopeGuard([&] {
+            for (const auto* id : {"SerialTerminal", "ConsoleTerminal", "SocketTerminal"})
+            {
+                _app.plugins().setEnabled(id, false);
+            }
+            _app.closeWorkspace();
+            for (const auto& file : files)
+            {
+                QFile::remove(file);
+            }
+            _app.plugins().rescan();
+            _app.mainWindow().resize(originalSize);
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        });
+        QVERIFY(QDir().mkpath(_app.plugins().directory()));
+        for (const auto* source :
+             {TERMASTER_SOCKET_PLUGIN_FILE, TERMASTER_SERIAL_PLUGIN_FILE, TERMASTER_CONSOLE_PLUGIN_FILE})
+        {
+            const auto file = QDir(_app.plugins().directory()).filePath(QFileInfo(source).fileName());
+            QVERIFY(QFile::copy(source, file));
+            files.append(file);
+        }
+        QVERIFY2(_app.plugins().rescan(&error), qPrintable(error));
+        // Deliberately load in a different order from the toolbar's semantic ordering.
+        for (const auto* id : {"SocketTerminal", "SerialTerminal", "ConsoleTerminal"})
+        {
+            QVERIFY2(_app.plugins().setEnabled(id, true, &error), qPrintable(error));
+        }
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("controls.termaster")), "Controls", &error));
+        QVERIFY(_app.createSession("Controls", &error));
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        QVERIFY(tabs);
+        _app.mainWindow().resize(1280, 800);
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        QStringList terminalIds;
+        for (const auto* type : {"serial", "socket", "console"})
+        {
+            QVariantMap transport;
+            if (QString(type) == "serial")
+            {
+                transport.insert("portName", "COM_TERMASTER_TEST_UNUSED");
+            }
+            else if (QString(type) == "socket")
+            {
+                transport.insert("host", "127.0.0.1");
+            }
+            QVERIFY2(_app.createTerminal(type,
+                                         {
+                                             {"transport", transport}
+            },
+                                         QString(type),
+                                         &error),
+                     qPrintable(error));
+            terminalIds.append(_app.selectedTerminal());
+            QVERIFY(qobject_cast<TerminalDisplay*>(tabs->currentWidget()));
+            auto* display = qobject_cast<TerminalDisplay*>(tabs->currentWidget());
+            display->receive(QByteArray("KEEP ") + type);
+            _app.pluginHost().refreshTerminalActions();
+            QStringList visible;
+            for (const auto* action : _app.toolbar().toolbar()->actions())
+            {
+                if (action->isVisible() && !action->isSeparator())
+                {
+                    visible.append(action->text());
+                }
+            }
+            const bool console = QString(type) == "console";
+            QCOMPARE(visible,
+                     QStringList({"New console",
+                                  "New serial",
+                                  "New socket",
+                                  console ? "Start" : "Connect",
+                                  console ? "Stop" : "Disconnect",
+                                  console ? "Restart" : "Reconnect",
+                                  "Clear screen",
+                                  "Settings..."}));
+            QVERIFY(!visible.contains("Close"));
+            QCOMPARE(_app.pluginHost().selectedDevice(type)->state(), SerialDevice::State::Closed);
+            const auto capture = qEnvironmentVariable("TERMASTER_CONTROLS_CAPTURE");
+            if (!capture.isEmpty())
+            {
+                QVERIFY(QDir().mkpath(capture));
+                QCoreApplication::processEvents();
+                QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath(QString(type) + ".png")));
+            }
+        }
+        auto* bar      = tabs->tabBar();
+        auto  openMenu = [&](int index) {
+            const auto point = bar->tabRect(index).center();
+            QMetaObject::invokeMethod(bar, "customContextMenuRequested", Qt::DirectConnection, Q_ARG(QPoint, point));
+            return _app.mainWindow().findChild<QMenu*>("terminalTabMenu");
+        };
+        auto* menu = openMenu(0); // Right-click an inactive serial tab.
+        QVERIFY(menu);
+        QCOMPARE(_app.selectedTerminal(), terminalIds.at(0));
+        QVERIFY(menu->findChild<QAction*>("Serial.Close"));
+        QVERIFY(!menu->findChild<QAction*>("Serial.New"));
+        QVERIFY(!menu->findChild<QAction*>("Console.Environment.Refresh"));
+        QVERIFY(menu->findChild<QAction*>("Serial.Connect")->isEnabled());
+        QVERIFY(!menu->findChild<QAction*>("Serial.Disconnect")->isEnabled());
+        QVERIFY(!menu->findChild<QAction*>("Serial.Reconnect")->isEnabled());
+        const auto capture = qEnvironmentVariable("TERMASTER_CONTROLS_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QTest::qWait(100);
+            auto     canvas = _app.mainWindow().grab();
+            QPainter painter(&canvas);
+            painter.drawPixmap(_app.mainWindow().mapFromGlobal(menu->pos()), menu->grab());
+            painter.end();
+            QVERIFY(canvas.save(QDir(capture).filePath("TabContextMenu.png")));
+        }
+        // Moving tabs must not redirect an already offered command to another terminal.
+        bar->moveTab(0, 2);
+        menu->findChild<QAction*>("Serial.Clear")->trigger();
+        QVERIFY(qobject_cast<TerminalDisplay*>(tabs->currentWidget())->text().trimmed().isEmpty());
+        QVERIFY(qobject_cast<TerminalDisplay*>(tabs->widget(0))->text().contains("KEEP socket"));
+        menu->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        menu = openMenu(2);
+        QVERIFY(menu);
+        QPointer<QAction> close = menu->findChild<QAction*>("Serial.Close");
+        QVERIFY(close);
+        _app.pluginHost().closeSelectedTerminal();
+        close->trigger(); // A stale menu cannot close the newly selected terminal.
+        QCOMPARE(tabs->count(), 2);
+        QCOMPARE(_app.terminalIds().size(), 2);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        menu = openMenu(0);
+        QVERIFY(menu);
+        QPointer<QAction> stale = menu->findChild<QAction*>("Socket.Close");
+        QVERIFY(stale);
+        QVERIFY(_app.plugins().setEnabled("SocketTerminal", false, &error));
+        QVERIFY(!stale->isEnabled());
+        stale->trigger();
+        QCOMPARE(tabs->count(), 1);
+        QVERIFY(_app.pluginHost().hasSelectedTerminal("console"));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        const auto count = _app.mainWindow().findChildren<QMenu*>("terminalTabMenu").size();
+        QMetaObject::invokeMethod(bar,
+                                  "customContextMenuRequested",
+                                  Qt::DirectConnection,
+                                  Q_ARG(QPoint, QPoint(bar->width() - 1, bar->height() - 1)));
+        QCOMPARE(_app.mainWindow().findChildren<QMenu*>("terminalTabMenu").size(), count);
+    }
+
     Q_SLOT void consolePluginTerminalLifecycle()
     {
         QTemporaryDir temporary;
@@ -1356,7 +1511,8 @@ content:
             QVERIFY(!action->icon().isNull());
             QVERIFY(!action->toolTip().isEmpty());
             QVERIFY(terminalMenu->actions(it.value()).contains(action));
-            QVERIFY(_app.toolbar().actions(it.value() == "create" ? "terminalCreation" : "terminal").contains(action));
+            QCOMPARE(_app.toolbar().actions(it.value() == "create" ? "terminalCreation" : "terminal").contains(action),
+                     it.key() != "Serial.Close");
         }
         QVERIFY(!_app.commands().find("Serial.New")->actions().first()->isEnabled());
         QVERIFY(_app.settings().setValue("settings/appearance/fontSize", 15));

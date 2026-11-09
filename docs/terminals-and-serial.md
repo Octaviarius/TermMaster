@@ -12,7 +12,8 @@ App's TerminalController owns runtime devices, terminal tabs, selected-target
 routing and layered settings. Core's TerminalScreen owns decoded screen state;
 TerminalDisplay draws cached QTextLayout lines and handles selection and input.
 The SerialTerminal SHARED plugin owns QSerialPort transport, the port selector,
-its presentation model, connection descriptor, panel and action registrations.
+its presentation model, connection descriptor and action registrations. The shared
+terminal display fills the tab directly; no extra port/baud information strip is added.
 It links Qt and the packaged PluginApi, without linking another static Core.
 The public SDK and plugin headers are copied into their isolated build folders.
 The selected MSVC build uses auto-export, without per-function export macros.
@@ -55,15 +56,15 @@ Settings pages use the approved two-level navigation and search. Existing previe
 pages remain isolated and explicitly identified as previews.
 
 The Terminal menu provides create, connection, management, output and settings
-groups. Serial actions are New, Connect, Disconnect, Close, Clear and Settings.
+groups. Serial actions are New, Connect, Disconnect, Reconnect, Close, Clear and Settings.
 Creation labels name only the type: New console, New serial and New socket.
 Selected-object labels use Connect/Disconnect or Start/Stop/Restart, Close,
 Clear screen and Settings without repeating the surrounding Terminal menu name.
 The toolbar contains exactly two ordered groups: terminalCreation, then terminal.
-All plugin actions registered in the create menu group go into terminalCreation;
-connection, management, output and settings actions go into terminal. Workspace,
-session and application/plugin management actions remain in their menus and do
-not occupy the terminal toolbar. Empty groups do not leave redundant separators.
+Explicit action roles order connection, disconnection, restart/reconnect, clear
+and settings consistently. Close and additional backend commands are menu-only.
+Workspace, session and application/plugin management actions remain in menus.
+See [contextual actions](contextual-actions.md) for placement and tab-menu behavior.
 Menu and toolbar share icon-bearing terminal actions. Visibility and eligibility depend
 on the active window, session, selected terminal type and connection state;
 execution resolves and validates the current target again.
@@ -254,8 +255,8 @@ title. All dynamic text is escaped before Qt rich-text display. Successful
 connection clears the old error. The amber retry clock also uses Flowgate's
 connection-status glyph geometry.
 
-The hosted-plugin capability IID is version 3 after extending PluginHost with
-workspace settings, requested-connection queries and optional default descriptors. Hosted plugins must be
+The hosted-plugin capability IID is version 5 after adding semantic action roles
+to PluginHost::Action. Hosted plugins must be
 rebuilt against this SDK; no old host-vtable alias is supplied. Base non-hosted
 plugin lifecycle interfaces remain unchanged.
 

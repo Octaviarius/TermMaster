@@ -2,7 +2,7 @@
 
 ## Consistent terminal toolbar
 
-Status: requested; implementation deferred until an explicit start instruction.
+Status: implemented in stage P1; see [roadmap](roadmap.md).
 
 Use the same control layout and ordering for all terminal types. Remove the Close
 action from the toolbar to prevent accidental terminal closure. This requirement
@@ -11,13 +11,15 @@ capability and state checks when applying the shared layout.
 
 ## Terminal tab context menu
 
-Status: requested; implementation deferred until an explicit start instruction.
+Status: implemented in stage P1; see [roadmap](roadmap.md).
 
-Add a context menu to terminal tabs. Its action list remains to be specified.
+Right-clicking a tab selects it and shows its applicable connection, clear,
+settings and additional backend actions, with Close separated at the end.
+Creation actions are excluded. Commands revalidate the target terminal identity.
 
 ## Remove the terminal information strip
 
-Status: requested; implementation deferred until an explicit start instruction.
+Status: implemented in stage P1; see [roadmap](roadmap.md).
 
 Remove the extra information strip above the terminal display, such as
 `COM1 / 9600 baud`, to reduce window clutter.
@@ -89,3 +91,13 @@ These features extend the buffered input and terminator requirements above.
 Keep queued data and file transfer bounded, respect transport backpressure and
 cancel timers/pending sends when their owner shuts down. Keep command history
 and favorites out of routine logs; persistence details remain to be designed.
+
+## Global keyboard shortcut editor
+
+Status: requested for the settings stage; not part of stage P1.
+
+Add a keyboard shortcut editor to application-wide settings. Use the supplied
+Qt Creator reference for a searchable command list showing command identity,
+human-readable label and assigned shortcut. Allow editing command shortcuts and
+persist the assignments in the global application configuration. Further reset,
+conflict handling and import/export behavior remains to be designed.

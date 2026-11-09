@@ -214,33 +214,41 @@ bool ConsolePlugin::_refreshEnvironment(bool restart)
 
 void ConsolePlugin::_registerActions()
 {
+    using Role = PluginHost::Action::Role;
     struct Description
     {
         QString id;
         QString title;
         QString group;
         QString icon;
+        Role    role;
     };
     const QList<Description> descriptions {
-        {                       "Console.New",                              "New console",     "create",    "square-terminal"},
-        {                     "Console.Start",                                    "Start", "connection",               "play"},
-        {                      "Console.Stop",                                     "Stop", "connection",             "square"},
-        {                   "Console.Restart",                                  "Restart", "connection",          "rotate-cw"},
-        {                     "Console.Close",                                    "Close", "management",                  "x"},
-        {                     "Console.Clear",                             "Clear screen",     "output",             "eraser"},
-        {                  "Console.Settings",                              "Settings...",   "settings", "sliders-horizontal"},
-        {       "Console.Environment.Refresh", "Refresh user environment for next launch",   "settings",         "refresh-cw"},
-        {"Console.Environment.RefreshRestart",     "Refresh user environment and restart",   "settings",          "rotate-cw"}
+        Description {                       "Console.New","New console",     "create","square-terminal",     Role::Create                                                                                        },
+        Description {                     "Console.Start",        "Start", "connection",               "play",    Role::Connect},
+        Description {                      "Console.Stop",         "Stop", "connection",             "square", Role::Disconnect},
+        Description {                   "Console.Restart",      "Restart", "connection",          "rotate-cw",    Role::Restart},
+        Description {                     "Console.Close",        "Close", "management",                  "x",      Role::Close},
+        Description {                     "Console.Clear", "Clear screen",     "output",             "eraser",      Role::Clear},
+        Description {                  "Console.Settings",  "Settings...",   "settings", "sliders-horizontal",   Role::Settings},
+        Description {       "Console.Environment.Refresh",
+                     "Refresh user environment for next launch",   "settings",
+                     "refresh-cw", Role::Additional                                                                            },
+        Description {"Console.Environment.RefreshRestart",
+                     "Refresh user environment and restart",   "settings",
+                     "rotate-cw", Role::Additional                                                                             }
     };
     _actionsRegistered.reserve(descriptions.size());
     for (const auto& item : descriptions)
     {
         PluginHost::Action action;
-        action.id       = item.id;
-        action.title    = item.title;
-        action.group    = item.group;
-        action.iconName = item.icon;
-        action.visible  = [this, id = item.id] {
+        action.terminalType = "console";
+        action.role         = item.role;
+        action.id           = item.id;
+        action.title        = item.title;
+        action.group        = item.group;
+        action.iconName     = item.icon;
+        action.visible      = [this, id = item.id] {
             return _host
                 && (id == "Console.New" || id == "Console.Environment.Refresh"
                     || _host->hasSelectedTerminal("console"));
