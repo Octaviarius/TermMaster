@@ -31,6 +31,8 @@ qt_add_library(App STATIC
     src/Gui/Session/SessionPicker.cpp
     src/Gui/Terminal/CommandEditor.h
     src/Gui/Terminal/CommandEditor.cpp
+    src/Gui/Terminal/TerminalProcessingPanel.h
+    src/Gui/Terminal/TerminalProcessingPanel.cpp
     src/Gui/Terminal/TerminalController.h
     src/Gui/Terminal/TerminalController.cpp
     src/Gui/Workspace/WorkspacePage.h

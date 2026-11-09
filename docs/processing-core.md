@@ -12,7 +12,7 @@ through the catalog; it does not instantiate processing runtimes.
 
 ```mermaid
 flowchart LR
-    W[Workspace processorDefinitions] --> R[Host processor registry]
+    W[Workspace processor files] --> R[Host processor registry]
     R --> P[Validated immutable preparation]
     P --> RX[Independent Lineflow instance]
     P --> TX[Independent Lineflow instance]
@@ -98,36 +98,35 @@ sequenceDiagram
 
 ## Workspace definitions and preparation
 
-Workspace content contains an optional `processorDefinitions` map. Keys are stable
-IDs independent of mutable names. Each definition contains matching `id`, `name`,
-`kind` and a `source` map. Lineflow source contains ordered `nodes`; other providers
-own their source format. Optional defaults, settings schema, editor metadata and
-explicit references share the same descriptor contract. Unknown metadata remains
-owned by the settings document.
+Saved definitions live in individual versioned YAML documents under
+`<workspace-file>.d/processors/`. The file name is the SHA-256 of the stable catalog
+ID, followed by `.yaml`; mutable display names and groups remain inside `content`.
+The workspace YAML contains no processor payload. Unknown descriptor and envelope
+metadata is preserved. See [workspace storage](workspaces-and-sessions.md).
 
 ```yaml
-processorDefinitions:
-  receive-lines:
-    id: receive-lines
-    name: Receive lines
-    kind: lineflow
-    source:
-      nodes:
-        - name: frame
-          type: native.framer
-          configuration: {}
-  receive:
-    id: receive
-    name: Receive processing
-    kind: lineflow
-    source:
-      nodes:
-        - name: framing
-          reference: receive-lines
-        - name: output
-          type: native.gate
-          configuration: {}
+version: 1
+type: "termaster.processor-definition"
+description: "Workspace processor definition"
+content:
+  id: "receive-lines"
+  name: "Receive lines"
+  kind: "lineflow"
+  group: "Framing"
+  source:
+    nodes:
+      - name: "frame"
+        type: "native.framer"
+        configuration: {}
+      - name: "output"
+        type: "native.gate"
+        configuration: {}
 ```
+
+Each definition contains `id`, `name`, `kind` and a `source` map. Lineflow source
+contains ordered `nodes`; other providers own their source format. Optional
+defaults, settings schema, editor metadata and explicit references share the same
+descriptor contract.
 
 Each node has a unique `name` within its composition; the name is its identity.
 Node type/reference IDs resolve through the unified catalog, so compositions can
@@ -158,7 +157,7 @@ workspace definitions.
 Private overrides are a map keyed by leaf occurrence paths. Paths join
 reference-node names and the leaf-node name with `/`; they do not use positional indexes
 or processor type IDs. Reordering a node preserves its address. Renaming changes identity: old override
-paths are rejected, and a future editor must update affected references atomically. Two references
+paths are rejected, and the editor updates affected references atomically. Two references
 to the same definition have separate paths and independent live instances.
 `ProcessorRegistry::Prepared::instantiate(overrides, error)` validates exact addresses and
 creates a fresh runtime. The prepared common configuration remains immutable.
@@ -351,9 +350,8 @@ the subsequent [Lineflow editor](lineflow-editor.md) delivers workspace editing.
 ## Follow-up delivery order
 
 The single implementation checklist is in [the roadmap](roadmap.md#flow-3-unified-processor-registration).
-The remaining steps are compact terminal selectors/private properties and Codeflow.
-Routing requires an explicit receive backpressure and outgoing-kind contract;
-the current core alone does not establish transport integration.
+Terminal selectors, private properties and routing are described in
+[terminal processing](terminal-processing.md). Codeflow remains future work.
 
 ```mermaid
 flowchart LR

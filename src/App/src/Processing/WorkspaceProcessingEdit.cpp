@@ -11,6 +11,7 @@
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Workspace.h>
+#include <Termaster/Core/WorkspaceFileTransaction.h>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -18,13 +19,7 @@
 namespace
 {
 constexpr qint64 MaximumDocument = 4 * 1024 * 1024;
-constexpr qint64 MaximumJournal  = 32 * 1024 * 1024;
-struct Change
-{
-    QString    path;
-    QByteArray original;
-    QByteArray replacement;
-};
+using Change                     = WorkspaceFileTransaction::Change;
 void reject(const QString& text)
 {
     throw std::runtime_error(text.toStdString());
@@ -55,75 +50,14 @@ QString canonical(const QString& path)
 }
 QString journalPath(const Path& workspace)
 {
-    const auto file          = QFileInfo(workspace.absolute().toString());
-    const auto canonicalPath = file.canonicalFilePath();
-    return (canonicalPath.isEmpty() ? file.absoluteFilePath() : canonicalPath) + ".processing-journal.json";
+    return WorkspaceFileTransaction::journalPath(workspace);
 }
 bool confined(const QString& path, const QString& workspace)
 {
-    if (path == workspace)
-    {
-        return true;
-    }
     const auto root     = QFileInfo(QFileInfo(workspace).dir().filePath("sessions")).canonicalFilePath();
     const auto relative = QDir(root).relativeFilePath(path);
     return !root.isEmpty() && QFileInfo(path).fileName() == "session.yaml" && relative != ".."
         && !relative.startsWith("../") && !QDir::isAbsolutePath(relative);
-}
-std::unique_ptr<QSaveFile> stage(const QString& path, const QByteArray& bytes, bool journal = false)
-{
-    auto file = std::make_unique<QSaveFile>(path);
-    file->setDirectWriteFallback(false);
-    if (!file->open(QIODevice::WriteOnly))
-    {
-        reject("Cannot stage " + path + ": " + file->errorString());
-    }
-    if (journal && !file->setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner))
-    {
-        reject("Cannot restrict processing transaction journal permissions");
-    }
-    if (file->write(bytes) != bytes.size())
-    {
-        reject("Cannot stage " + path + ": " + file->errorString());
-    }
-    return file;
-}
-QByteArray encodeJournal(const QString& workspace, const std::vector<Change>& changes)
-{
-    QJsonArray files;
-    for (const auto& change : changes)
-    {
-        files.append(QJsonObject {
-            {       "path",                                        change.path},
-            {   "original",    QString::fromLatin1(change.original.toBase64())},
-            {"replacement", QString::fromLatin1(change.replacement.toBase64())}
-        });
-    }
-    const auto bytes = QJsonDocument(QJsonObject {
-                                         {  "version",         1},
-                                         {"workspace", workspace},
-                                         {    "files",     files}
-    })
-                           .toJson(QJsonDocument::Compact);
-    if (changes.empty() || changes.size() > 4096 || bytes.size() > MaximumJournal)
-    {
-        reject("Processing transaction journal exceeds 32 MiB or 4096 files");
-    }
-    return bytes;
-}
-QByteArray decode(const QJsonValue& value)
-{
-    if (!value.isString() || value.toString().size() > MaximumDocument * 2)
-    {
-        reject("Invalid processing transaction journal payload");
-    }
-    const auto decoded = QByteArray::fromBase64Encoding(value.toString().toLatin1(),
-                                                        QByteArray::AbortOnBase64DecodingErrors);
-    if (!decoded || decoded.decoded.size() > MaximumDocument)
-    {
-        reject("Invalid bounded processing transaction journal payload");
-    }
-    return decoded.decoded;
 }
 QVariant merge(const QVariant& baseline,
                bool            hadBaseline,
@@ -189,89 +123,9 @@ QVariant merge(const QVariant& baseline,
 }
 } // namespace
 
-bool WorkspaceProcessingEdit::recover(const Path& workspacePath, QString* error)
+bool WorkspaceProcessingEdit::recover(const Path& workspace, QString* error)
 {
-    if (error)
-    {
-        error->clear();
-    }
-    try
-    {
-        const auto journal = journalPath(workspacePath);
-        if (!QFileInfo::exists(journal) && !QFileInfo(journal).isSymLink())
-        {
-            return true;
-        }
-        if (QFileInfo(journal).isSymLink())
-        {
-            reject("Processing journal must not be a symbolic link");
-        }
-        const auto      workspace = canonical(workspacePath.toString());
-        QJsonParseError parsing;
-        const auto      document = QJsonDocument::fromJson(read(journal, MaximumJournal), &parsing);
-        const auto      object   = document.object();
-        const auto      records  = object.value("files").toArray();
-        if (parsing.error != QJsonParseError::NoError || !document.isObject() || object.value("version").toInt() != 1
-            || object.value("workspace").toString() != workspace || records.isEmpty() || records.size() > 4096)
-        {
-            reject("Invalid processing transaction journal");
-        }
-        std::vector<Change> changes;
-        QSet<QString>       paths;
-        bool                hasWorkspace = false;
-        for (const auto& value : records)
-        {
-            const auto record = value.toObject();
-            const auto path   = record.value("path").toString();
-            if (path.isEmpty() || canonical(path) != path || !confined(path, workspace) || paths.contains(path))
-            {
-                reject("Processing journal contains an unconfined or duplicate document");
-            }
-            paths.insert(path);
-            hasWorkspace |= path == workspace;
-            Change     change {path, decode(record.value("original")), decode(record.value("replacement"))};
-            const auto current = read(path);
-            if (current != change.original && current != change.replacement)
-            {
-                reject("Processing recovery stopped because a document was externally changed: " + path);
-            }
-            changes.push_back(std::move(change));
-        }
-        if (!hasWorkspace)
-        {
-            reject("Processing journal does not include its workspace");
-        }
-        std::vector<std::unique_ptr<QSaveFile>> staged;
-        for (const auto& change : changes)
-        {
-            staged.push_back(stage(change.path, change.original));
-        }
-        for (size_t index = 0; index < changes.size(); ++index)
-        {
-            const auto current = read(changes[index].path);
-            if (current != changes[index].original && current != changes[index].replacement)
-            {
-                reject("Processing recovery encountered a concurrent document change: " + changes[index].path);
-            }
-            if (!staged[index]->commit())
-            {
-                reject("Cannot restore " + changes[index].path + ": " + staged[index]->errorString());
-            }
-        }
-        if (!QFile::remove(journal))
-        {
-            reject("Cannot remove recovered processing journal: " + journal);
-        }
-        return true;
-    }
-    catch (const std::exception& exception)
-    {
-        if (error)
-        {
-            *error = QString::fromUtf8(exception.what());
-        }
-        return false;
-    }
+    return WorkspaceFileTransaction::recover(workspace, error);
 }
 
 bool WorkspaceProcessingEdit::apply(Workspace&                                 workspace,
@@ -286,14 +140,16 @@ bool WorkspaceProcessingEdit::apply(Workspace&                                 w
     {
         error->clear();
     }
-    QString    journal;
-    bool       journalCommitted = false;
-    bool       activeAdopted    = false;
-    bool       workspaceAdopted = false;
-    QByteArray activeSnapshot;
-    QByteArray workspaceSnapshot;
-    const bool activeDirty    = active && active->isDirty();
-    const bool workspaceDirty = workspace.isDirty();
+    QString                   journal;
+    bool                      journalCommitted = false;
+    bool                      activeAdopted    = false;
+    bool                      workspaceAdopted = false;
+    QByteArray                activeSnapshot;
+    QByteArray                workspaceSnapshot;
+    QVariantMap               processorSnapshot;
+    Workspace::ProcessorFiles processorDiskSnapshot;
+    const bool                activeDirty    = active && active->isDirty();
+    const bool                workspaceDirty = workspace.isDirty();
     try
     {
         if (baselineDefinitions == draftDefinitions && renames.isEmpty())
@@ -328,6 +184,10 @@ bool WorkspaceProcessingEdit::apply(Workspace&                                 w
             return bytes;
         };
         reserveRead(QFileInfo(workspace.filePath().toString()).size());
+        for (const auto& bytes : workspace.processorDiskFiles())
+        {
+            reserveRead(bytes.size());
+        }
         if (active && !renames.isEmpty())
         {
             reserveRead(QFileInfo(active->filePath().toString()).size());
@@ -361,15 +221,19 @@ bool WorkspaceProcessingEdit::apply(Workspace&                                 w
         }
         const auto originalWorkspaceCache = workspace.prepareProcessorDefinitions(current, error);
         const auto replacementWorkspace   = workspace.prepareProcessorDefinitions(definitions, error);
-        if (!originalWorkspaceCache || !replacementWorkspace)
+        const auto replacementProcessors  = workspace.prepareProcessorFiles(definitions, error);
+        if (!originalWorkspaceCache || !replacementWorkspace || !replacementProcessors)
         {
             return false;
         }
-        workspaceSnapshot = *originalWorkspaceCache;
-        std::vector<Change> changes;
-        qint64              journalPayload = 0;
-        const auto          append         = [&](Change change) {
-            journalPayload += change.original.size() + change.replacement.size() + change.path.toUtf8().size();
+        workspaceSnapshot     = *originalWorkspaceCache;
+        processorSnapshot     = current;
+        processorDiskSnapshot = workspace.processorDiskFiles();
+        QList<Change> changes;
+        qint64        journalPayload = 0;
+        const auto    append         = [&](Change change) {
+            journalPayload += (change.original ? change.original->size() : 0)
+                            + (change.replacement ? change.replacement->size() : 0) + change.path.toUtf8().size();
             if (changes.size() >= 4096 || journalPayload > 20 * 1024 * 1024)
             {
                 reject("Processing transaction exceeds bounded journal capacity");
@@ -377,6 +241,25 @@ bool WorkspaceProcessingEdit::apply(Workspace&                                 w
             changes.push_back(std::move(change));
         };
         append({workspaceFile, preflightRead(workspaceFile), *replacementWorkspace});
+        QSet<QString> processorPaths;
+        for (const auto& path : processorDiskSnapshot.keys())
+        {
+            processorPaths.insert(path);
+        }
+        for (const auto& path : replacementProcessors->keys())
+        {
+            processorPaths.insert(path);
+        }
+        for (const auto& path : processorPaths)
+        {
+            const auto before = processorDiskSnapshot.contains(path) ?
+                                    std::optional<QByteArray>(processorDiskSnapshot.value(path)) :
+                                    std::nullopt;
+            const auto after  = replacementProcessors->contains(path) ?
+                                    std::optional<QByteArray>(replacementProcessors->value(path)) :
+                                    std::nullopt;
+            append({path, before, after});
+        }
         QByteArray    activeReplacement;
         QSet<QString> visited;
         qsizetype     inspected  = 0;
@@ -472,36 +355,11 @@ bool WorkspaceProcessingEdit::apply(Workspace&                                 w
             }
             addSession(*session, disk, false);
         }
-        const auto                              journalBytes = encodeJournal(workspaceFile, changes);
-        std::vector<std::unique_ptr<QSaveFile>> staged;
-        for (const auto& change : changes)
+        if (!WorkspaceFileTransaction::commit(workspace.filePath(), changes, error))
         {
-            staged.push_back(stage(change.path, change.replacement));
-        }
-        for (const auto& change : changes)
-        {
-            if (preflightRead(change.path) != change.original)
-            {
-                reject("Document changed during transaction preflight: " + change.path);
-            }
-        }
-        auto journalFile = stage(journal, journalBytes, true);
-        if (!journalFile->commit())
-        {
-            reject("Cannot persist processing transaction journal: " + journalFile->errorString());
+            return false;
         }
         journalCommitted = true;
-        for (size_t index = 0; index < changes.size(); ++index)
-        {
-            if (read(changes[index].path) != changes[index].original)
-            {
-                reject("Document changed during processing commit: " + changes[index].path);
-            }
-            if (!staged[index]->commit())
-            {
-                reject("Cannot commit " + changes[index].path + ": " + staged[index]->errorString());
-            }
-        }
         if (!activeReplacement.isEmpty())
         {
             if (!active->acceptPreparedDocument(activeReplacement, error))
@@ -515,9 +373,13 @@ bool WorkspaceProcessingEdit::apply(Workspace&                                 w
             reject(error ? *error : "Cannot adopt workspace transaction");
         }
         workspaceAdopted = true;
-        if (!QFile::remove(journal))
+        if (!workspace.acceptProcessorDefinitions(definitions, *replacementProcessors, error))
         {
-            reject("Cannot remove completed processing journal: " + journal);
+            reject(error ? *error : "Cannot adopt processor documents");
+        }
+        if (!WorkspaceFileTransaction::finish(workspace.filePath(), error))
+        {
+            reject(error ? *error : "Cannot finish processor transaction");
         }
         return true;
     }
@@ -538,6 +400,14 @@ bool WorkspaceProcessingEdit::apply(Workspace&                                 w
         if (workspaceAdopted && !workspace.acceptPreparedDocument(workspaceSnapshot, &rollback, workspaceDirty))
         {
             message += "; workspace cache rollback failed: " + rollback;
+        }
+        if (workspaceAdopted
+            && !workspace.acceptProcessorDefinitions(processorSnapshot,
+                                                     processorDiskSnapshot,
+                                                     &rollback,
+                                                     workspaceDirty))
+        {
+            message += "; processor cache rollback failed: " + rollback;
         }
         if (diskRestored && activeAdopted && !active->captureDiskBaseline(&rollback))
         {

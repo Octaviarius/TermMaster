@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QStringList>
 #include <Termaster/Core/Processing/Processor.h>
 #include <deque>
 #include <memory>
@@ -48,7 +49,8 @@ private:
     friend class ProcessorRegistry;
     static std::unique_ptr<Lineflow> compose(std::vector<std::shared_ptr<Processor>> nodes,
                                              QVariantMap                             configuration,
-                                             Limits                                  limits);
+                                             Limits                                  limits,
+                                             QStringList                             nodeNames = {});
 
     struct Work
     {
@@ -59,6 +61,7 @@ private:
     QVariantMap                             _configuration;
     Limits                                  _limits;
     std::vector<std::shared_ptr<Processor>> _nodes;
+    QStringList                             _nodeNames;
     std::deque<Work>                        _queue;
     Callbacks                               _callbacks;
     std::vector<std::function<void()>>      _cancelCallbacks;
@@ -78,10 +81,11 @@ private:
     QString                                 _failure;
 
     explicit Lineflow(const Prepared& prepared);
-    void _schedule();
-    void _pump();
-    void _finish(QString error);
-    void _fail(QString error);
-    void _cancelNodes();
-    void _cancelled();
+    void    _schedule();
+    void    _pump();
+    void    _finish(QString error);
+    void    _fail(QString error);
+    QString _nodeError(size_t stage, const QString& error) const;
+    void    _cancelNodes();
+    void    _cancelled();
 };

@@ -75,6 +75,10 @@ public:
 
     /** Serializes a validated patch without file I/O or cache mutation; preserves envelope metadata. */
     std::optional<QByteArray> serializedPatch(QVariantMap values, QStringList removed, QString* error = nullptr) const;
+    /** Replaces the complete content mapping in a serialized candidate. Keys are
+     * literal YAML keys; the existing envelope and its unknown fields are retained.
+     */
+    std::optional<QByteArray> serializedContent(const QVariantMap& values, QString* error = nullptr) const;
     /** Validates and adopts serialized content without I/O, retaining borrowed Nodes.
      * Normally marks clean; dirty=true restores a transaction's pending cache snapshot.
      */

@@ -1,6 +1,9 @@
+#include <QCryptographicHash>
+#include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <Termaster/Core/SettingsSchema.h>
 #include <Termaster/Core/Workspace.h>
 #include <filesystem>
 #include <memory>
@@ -590,6 +593,147 @@ private slots:
         QCOMPARE(changed.count(), 0);
         QVERIFY(workspace.load());
         QVERIFY(workspace.processorDefinitions().values().isEmpty());
+    }
+
+    void externalProcessorFilesPreserveLiteralKeysAndEnvelope()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Workspace     workspace(Path(temporary.filePath("workspace.yaml")), base.node(""));
+        QVERIFY(workspace.create("External processors"));
+        QString error;
+        for (const auto& id : QStringList {"CON", "con", "A", "a"})
+        {
+            const QVariantMap definition {
+                {          "id",                                                           id},
+                {        "name",                                                "Saved " + id},
+                {        "kind",                                            "future.provider"},
+                {      "source", QVariantMap {{"code", "return input; unique-source-marker"}}},
+                {"unknown/path",                          QVariantMap {{"literal/value", 23}}}
+            };
+            QVERIFY2(workspace.setProcessorDefinition(id, definition, &error), qPrintable(error));
+        }
+        QVERIFY2(workspace.sync(&error), qPrintable(error));
+        QCOMPARE(workspace.processorDiskFiles().size(), 4);
+        const auto main = readFile(workspace.filePath().toString());
+        QVERIFY(!main.contains("processorDefinitions"));
+        QVERIFY(!main.contains("unique-source-marker"));
+        const auto files = workspace.processorDiskFiles();
+        QString    path;
+        const auto filename = QString::fromLatin1(
+                                  QCryptographicHash::hash(QByteArray("CON"), QCryptographicHash::Sha256).toHex())
+                            + ".yaml";
+        for (auto it = files.cbegin(); it != files.cend(); ++it)
+        {
+            if (QFileInfo(it.key()).fileName() == filename)
+            {
+                path = it.key();
+            }
+        }
+        QVERIFY(!path.isEmpty());
+        QFile envelope(path);
+        QVERIFY(envelope.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QVERIFY(envelope.write("futureEnvelope: retained\n" + files.value(path)) > 0);
+        envelope.close();
+        QVERIFY2(workspace.load(&error), qPrintable(error));
+        auto definition = workspace.processorDefinitions().value("CON").toMap();
+        definition.insert("name", "Renamed display title");
+        QVERIFY(workspace.setProcessorDefinition("CON", definition));
+        QVERIFY2(workspace.sync(&error), qPrintable(error));
+        Settings stored(path, Settings::Info {"termaster.processor-definition", "Fixture"});
+        QVERIFY(stored.load(&error));
+        QCOMPARE(stored.values().value("unknown/path").toMap().value("literal/value").toInt(), 23);
+        QVERIFY(!stored.values().contains("unknown"));
+        QCOMPARE(SettingsSchema::parseValue(readFile(path)).toMap().value("futureEnvelope").toString(),
+                 QString("retained"));
+        for (auto it = files.cbegin(); it != files.cend(); ++it)
+        {
+            if (it.key() != path)
+            {
+                QCOMPARE(readFile(it.key()), it.value());
+            }
+        }
+        const auto note = workspace.processorsDirectory().join("notes.txt");
+        QFile      unrelated(note.toString());
+        QVERIFY(unrelated.open(QIODevice::WriteOnly));
+        unrelated.write("keep");
+        unrelated.close();
+        QVERIFY(workspace.removeProcessorDefinition("CON"));
+        QVERIFY(workspace.sync(&error));
+        QVERIFY(!QFileInfo::exists(path));
+        QCOMPARE(readFile(note.toString()), QByteArray("keep"));
+        Workspace opened(workspace.filePath(), base.node(""));
+        QVERIFY2(opened.load(&error), qPrintable(error));
+        QCOMPARE(opened.processorDefinitions().values(), workspace.processorDefinitions().values());
+        QVERIFY(!opened.processorDefinitions().contains("CON"));
+        QVERIFY(opened.processorDefinitions().contains("con"));
+    }
+
+    void externalProcessorCorruptionAndInventoryChangesRetainOwner()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Workspace     workspace(Path(temporary.filePath("workspace.yaml")), base.node(""));
+        QVERIFY(workspace.create("Original"));
+        const QVariantMap definition {
+            {    "id",                                   "root"},
+            {  "name",                                   "Root"},
+            {  "kind",                               "lineflow"},
+            {"source", QVariantMap {{"nodes", QVariantList {}}}}
+        };
+        QVERIFY(workspace.setProcessorDefinition("root", definition));
+        QString error;
+        QVERIFY2(workspace.sync(&error), qPrintable(error));
+        const auto files    = workspace.processorDiskFiles();
+        const auto path     = files.firstKey();
+        const auto original = workspace.processorDefinitions().values();
+        QVERIFY(workspace.setName("Pending"));
+        QSignalSpy changed(&workspace, &Workspace::processorsChanged);
+        QVERIFY(writeDocument(path,
+                              "id: root\nname: Broken\nkind: lineflow\nsource: {nodes: invalid}",
+                              "termaster.processor-definition"));
+        QVERIFY(!workspace.load(&error));
+        QCOMPARE(workspace.name(), QString("Pending"));
+        QCOMPARE(workspace.processorDefinitions().values(), original);
+        QCOMPARE(changed.count(), 0);
+        QVERIFY(workspace.isDirty());
+        QFile restore(path);
+        QVERIFY(restore.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QCOMPARE(restore.write(files.value(path)), files.value(path).size());
+        restore.close();
+        const auto extra = workspace.processorsDirectory().join(
+            QString::fromLatin1(QCryptographicHash::hash(QByteArray("extra"), QCryptographicHash::Sha256).toHex())
+            + ".yaml");
+        QVERIFY(writeDocument(extra.toString(),
+                              "id: extra\nname: Extra\nkind: future.provider\nsource: {}",
+                              "termaster.processor-definition"));
+        const auto before = readFile(workspace.filePath().toString());
+        QVERIFY(!workspace.sync(&error));
+        QVERIFY2(error.contains("externally changed"), qPrintable(error));
+        QCOMPARE(readFile(workspace.filePath().toString()), before);
+        QVERIFY(QFileInfo::exists(extra.toString()));
+        QCOMPARE(workspace.processorDefinitions().values(), original);
+        QVERIFY(workspace.load(&error));
+        QVERIFY(workspace.processorDefinitions().contains("extra"));
+        const auto wrong = workspace.processorsDirectory().join("not-a-hash.yaml");
+        QVERIFY(writeDocument(wrong.toString(),
+                              "id: wrong\nname: Wrong\nkind: future.provider\nsource: {}",
+                              "termaster.processor-definition"));
+        QVERIFY(!workspace.load(&error));
+        QVERIFY(error.contains("filename"));
+    }
+
+    void obsoleteInlineProcessorDefinitionsAreRejected()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        const Path    path(temporary.filePath("workspace.yaml"));
+        QVERIFY(writeDocument(path.toString(), "name: Obsolete\nsettings: {}\nsessions: {}\nprocessorDefinitions: {}"));
+        Workspace workspace(path, base.node(""));
+        QString   error;
+        QVERIFY(!workspace.load(&error));
+        QVERIFY(error.contains("Inline processorDefinitions"));
+        QVERIFY(!QFileInfo::exists(path.toString() + ".d"));
     }
 
     void workspaceViewLifetime()

@@ -4,7 +4,8 @@ The application opens the editor through **Tools > Lineflow editor** when a
 workspace is open. Core provides configurable Gate, Framer and HEX/Base64 encoder/decoder
 processors; plugins can add processors through the common catalog. The editor
 creates reusable workspace definitions and never creates processing runtimes.
-Terminal Rx/Tx selection and private property panels remain FLOW-5 work.
+Terminal Rx/Tx selection and private properties are available through the
+[terminal processing panel](terminal-processing.md).
 
 ## Draft model and presentation
 
@@ -48,20 +49,33 @@ and nested instance configuration overrides. Repeated nested occurrences each ke
 their own settings. Stale or ambiguous addressed nodes, malformed sessions and
 collisions stop preflight without changing files.
 
+Saved definitions occupy individual `termaster.processor-definition` YAML files
+under `<workspace filename>.d/processors/`; the workspace YAML contains no inline
+processor payload. Filenames derive from stable IDs rather than editable names.
+The [workspace storage contract](workspaces-and-sessions.md#reusable-processor-definitions)
+specifies the layout, envelope and collection bounds.
+
 Persistence serializes complete owner snapshots, including pending unrelated
-settings and unknown envelope fields. Borrowed settings views remain valid when
+settings and unknown envelope fields. Definition-file creation, update and deletion
+participate in the same transaction as occurrence refactoring. Borrowed settings views remain valid when
 committed snapshots are adopted. Disk baselines reject external changes before
 Apply as well as during commit. Each document is limited to 4 MiB. Rename preflight inspects at most 4096
 session entries and reads at most 32 MiB. The recovery journal is limited to
 32 MiB. Tree expansion is capped at 2048 visible rows; saved definition and runtime
-expansion limits remain enforced by the common catalog.
+expansion limits remain enforced by the common catalog. The external processor
+collection is bounded to 1024 documents and 4 MiB of YAML in total.
 
 All replacement files are staged before commit. A bounded owner-permission journal
 beside the workspace records recognized original/replacement bytes. Commit failure
 rolls back recognized files; opening a workspace first recovers an interrupted
 transaction. Recovery refuses unexpected external edits, symbolic journal paths
-and targets outside the workspace or its session root, leaving the journal for
-resolution. Configuration contents are never included in routine diagnostics. The journal is
+and targets outside the workspace file, session root or deterministic processor
+files, leaving the journal for resolution. The version 2 journal distinguishes
+absent files from present byte payloads; rollback removes newly created files and
+restores deleted files only when their current states are recognized. The complete
+processor inventory is checked, so unexpected YAML files are preserved and stop
+recovery. An atomic exclusive journal reservation prevents competing transactions
+from replacing one another's recovery record. Configuration contents are never included in routine diagnostics. The journal is
 an internal bounded recovery record rather than a user settings document; its
 original/replacement payloads are Base64 encoded inside JSON.
 

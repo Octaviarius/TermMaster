@@ -31,6 +31,24 @@ public:
         int       eventBudget = 64;
         int       retryMs     = 5;
     };
+    enum class State
+    {
+        Bypass,
+        Idle,
+        Busy,
+        Cancelling,
+        Failed
+    };
+    struct Diagnostics
+    {
+        State     state          = State::Bypass;
+        qsizetype pendingBytes   = 0;
+        qsizetype pendingChunks  = 0;
+        quint64   acceptedBytes  = 0;
+        quint64   forwardedBytes = 0;
+        quint64   failures       = 0;
+        QString   lastError;
+    };
     using Output = std::function<
         Processor::AcceptResult(const Processor::Chunk&, const TerminalSendQueue::Options&, QString*)>;
 
@@ -44,11 +62,12 @@ public:
                                    Processor::Chunk                  chunk,
                                    const TerminalSendQueue::Options& options = {},
                                    QString*                          error   = nullptr);
-    void      replace(Direction direction, std::shared_ptr<Processor> processor, std::function<void()> ready = {});
-    void      cancel(Direction direction, std::function<void()> ready = {});
-    void      wake(Direction direction);
-    qsizetype pendingBytes(Direction direction) const;
-    qsizetype pendingSubmissions(Direction direction) const;
+    void        replace(Direction direction, std::shared_ptr<Processor> processor, std::function<void()> ready = {});
+    void        cancel(Direction direction, std::function<void()> ready = {});
+    void        wake(Direction direction);
+    Diagnostics diagnostics(Direction direction) const;
+    qsizetype   pendingBytes(Direction direction) const;
+    qsizetype   pendingSubmissions(Direction direction) const;
 
     Q_SIGNAL void error(Direction direction, const QString& message);
     Q_SIGNAL void capacityAvailable(Direction direction);
@@ -68,13 +87,17 @@ private:
         QQueue<Item>                 outputs;
         Output                       output;
         TerminalSendQueue::Options   activeOptions;
-        qsizetype                    inputBytes  = 0;
-        qsizetype                    outputBytes = 0;
-        qsizetype                    activeBytes = 0;
-        quint64                      generation  = 0;
-        bool                         active      = false;
-        bool                         replacing   = false;
-        bool                         failed      = false;
+        qsizetype                    inputBytes     = 0;
+        qsizetype                    outputBytes    = 0;
+        qsizetype                    activeBytes    = 0;
+        quint64                      generation     = 0;
+        quint64                      acceptedBytes  = 0;
+        quint64                      forwardedBytes = 0;
+        quint64                      failures       = 0;
+        QString                      lastError;
+        bool                         active    = false;
+        bool                         replacing = false;
+        bool                         failed    = false;
     };
     Limits              _limits;
     std::array<Lane, 2> _lanes;

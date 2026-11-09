@@ -942,6 +942,239 @@ bool ProcessorRegistry::validateConfiguration(const QString& id, const QVariantM
     return resolveConfiguration(id, configuration, {}, error).has_value();
 }
 
+std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::properties(
+    const QString&     id,
+    const QVariantMap& storedConfiguration,
+    const QVariantMap& overrides,
+    QString*           error) const
+{
+    if (error)
+    {
+        error->clear();
+    }
+    try
+    {
+        qsizetype                                 values  = 0;
+        std::function<bool(const QVariant&, int)> bounded = [&](const QVariant& value, int depth) {
+            if (++values > 65536 || depth > 64)
+            {
+                return false;
+            }
+            if (value.typeId() == QMetaType::QVariantMap)
+            {
+                for (const auto& child : value.toMap())
+                {
+                    if (!bounded(child, depth + 1))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else if (value.typeId() == QMetaType::QVariantList || value.typeId() == QMetaType::QStringList)
+            {
+                for (const auto& child : value.toList())
+                {
+                    if (!bounded(child, depth + 1))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                const auto type = value.typeId();
+                return !value.isValid() || type == QMetaType::QString || type == QMetaType::QByteArray
+                    || type == QMetaType::Bool || type == QMetaType::Int || type == QMetaType::UInt
+                    || type == QMetaType::LongLong || type == QMetaType::ULongLong || type == QMetaType::Double;
+            }
+            return true;
+        };
+        if (!bounded(storedConfiguration, 0) || !bounded(overrides, 0)
+            || QJsonDocument::fromVariant(storedConfiguration).toJson(QJsonDocument::Compact).size()
+                       + QJsonDocument::fromVariant(overrides).toJson(QJsonDocument::Compact).size()
+                   > 4 * 1024 * 1024)
+        {
+            fail(error, "Processor property configuration exceeds bounds");
+            return std::nullopt;
+        }
+        struct Tree
+        {
+            std::shared_ptr<Entry> entry;
+            QString                name;
+            QVariantMap            base;
+            QStringList            paths;
+            std::vector<Tree>      children;
+            bool                   composite = false;
+        };
+        qsizetype                                                                   expandedBytes = 0;
+        QSet<QString>                                                               visiting;
+        int                                                                         count = 0;
+        std::function<std::optional<Tree>(const QString&, const QVariantMap&, int)> expand;
+        expand = [&](const QString& target, const QVariantMap& stored, int depth) -> std::optional<Tree> {
+            if (++count > 256 || depth > 16)
+            {
+                fail(error, "Processor property expansion exceeds 256 nodes or depth 16");
+                return std::nullopt;
+            }
+            if (visiting.contains(target))
+            {
+                fail(error, "Processor property reference cycle: " + target);
+                return std::nullopt;
+            }
+            const auto entry = _entries.value(target);
+            if (!entry)
+            {
+                fail(error, "Unavailable processor property type: " + target);
+                return std::nullopt;
+            }
+            const auto base = resolveConfiguration(target, stored, {}, error);
+            if (!base)
+            {
+                return std::nullopt;
+            }
+            expandedBytes += QJsonDocument::fromVariant(*base).toJson(QJsonDocument::Compact).size();
+            if (expandedBytes > 4 * 1024 * 1024)
+            {
+                fail(error, "Processor expanded property configuration exceeds 4 MiB");
+                return std::nullopt;
+            }
+            Tree tree;
+            tree.entry     = entry;
+            tree.base      = *base;
+            tree.composite = entry->saved && entry->type.kind == "lineflow";
+            if (!tree.composite)
+            {
+                return tree;
+            }
+            visiting.insert(target);
+            const auto leave = qScopeGuard([&] { visiting.remove(target); });
+            for (const auto& value : entry->type.definition.value("nodes").toList())
+            {
+                const auto node    = value.toMap();
+                const auto childId = node.value(node.contains("type") ? "type" : "reference").toString();
+                auto       child   = expand(childId, node.value("configuration").toMap(), depth + 1);
+                if (!child)
+                {
+                    return std::nullopt;
+                }
+                child->name = node.value("name").toString();
+                if (child->composite)
+                {
+                    for (const auto& path : child->paths)
+                    {
+                        tree.paths.append(child->name + '/' + path);
+                    }
+                }
+                else
+                {
+                    tree.paths.append(child->name);
+                }
+                tree.children.push_back(std::move(*child));
+            }
+            return tree;
+        };
+        const auto tree = expand(id, storedConfiguration, 1);
+        if (!tree)
+        {
+            return std::nullopt;
+        }
+        QList<PropertyNode>                                                                      result;
+        qsizetype                                                                                bytes = 0;
+        std::function<bool(const Tree&, const QString&, const QVariantMap&, const QVariantMap&)> collect;
+        collect = [&](const Tree&        node,
+                      const QString&     path,
+                      const QVariantMap& inheritedOverrides,
+                      const QVariantMap& effectiveOverrides) {
+            if (!node.composite)
+            {
+                const auto inherited = merged(node.base, inheritedOverrides);
+                const auto effective = merged(node.base, effectiveOverrides);
+                for (const auto& configuration : {inherited, effective})
+                {
+                    const auto errors = node.entry->schema->validate(configuration);
+                    if (!errors.isEmpty())
+                    {
+                        return fail(error,
+                                    "Invalid processor property configuration at " + path + ": "
+                                        + errors.first().message);
+                    }
+                }
+                bytes += node.entry->type.settingsSchema.size()
+                       + QJsonDocument::fromVariant(inherited).toJson(QJsonDocument::Compact).size()
+                       + QJsonDocument::fromVariant(effective).toJson(QJsonDocument::Compact).size()
+                       + path.size() * qsizetype(sizeof(QChar));
+                if (bytes > 4 * 1024 * 1024)
+                {
+                    return fail(error, "Processor property metadata exceeds 4 MiB");
+                }
+                result.append(
+                    {owned(path),
+                     owned(node.entry->type.id),
+                     owned(node.entry->type.title),
+                     QByteArray(node.entry->type.settingsSchema.constData(), node.entry->type.settingsSchema.size()),
+                     inherited,
+                     effective});
+                return true;
+            }
+            const auto defaults  = node.base.value("overrides").toMap();
+            const auto inherited = merged(defaults, inheritedOverrides);
+            const auto effective = merged(defaults, effectiveOverrides);
+            for (const auto& values : {inherited, effective})
+            {
+                for (auto it = values.cbegin(); it != values.cend(); ++it)
+                {
+                    if (!node.paths.contains(it.key()) || it.value().typeId() != QMetaType::QVariantMap)
+                    {
+                        return fail(error, "Unknown processor occurrence or invalid override map: " + it.key());
+                    }
+                }
+                auto configuration = node.base;
+                configuration.insert("overrides", values);
+                const auto errors = node.entry->schema->validate(configuration);
+                if (!errors.isEmpty())
+                {
+                    return fail(error, "Invalid composite processor property configuration: " + errors.first().message);
+                }
+            }
+            const auto childOverrides = [](const Tree& child, const QVariantMap& values) {
+                if (!child.composite)
+                {
+                    return values.value(child.name).toMap();
+                }
+                QVariantMap result;
+                const auto  prefix = child.name + '/';
+                for (auto it = values.cbegin(); it != values.cend(); ++it)
+                {
+                    if (it.key().startsWith(prefix))
+                    {
+                        result.insert(it.key().mid(prefix.size()), it.value());
+                    }
+                }
+                return result;
+            };
+            for (const auto& child : node.children)
+            {
+                const auto childPath = path.isEmpty() ? child.name : path + '/' + child.name;
+                if (!collect(child, childPath, childOverrides(child, inherited), childOverrides(child, effective)))
+                {
+                    return false;
+                }
+            }
+            return true;
+        };
+        if (!collect(*tree, {}, {}, overrides))
+        {
+            return std::nullopt;
+        }
+        return result;
+    }
+    catch (const std::exception& exception)
+    {
+        fail(error, "Processor property expansion failed: " + QString::fromUtf8(exception.what()));
+        return std::nullopt;
+    }
+}
+
 QVariantMap ProcessorRegistry::Prepared::configuration() const
 {
     return _configuration;
@@ -1199,10 +1432,16 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
             }
             auto configuration = snapshot;
             configuration.insert("overrides", values);
-            Type::Factory factory = [nodes = std::move(nodes)](const QVariantMap&       config,
-                                                               const Processor::Limits& limits,
-                                                               QString*) mutable -> std::unique_ptr<Processor> {
-                return Lineflow::compose(std::move(nodes), config, limits);
+            QStringList nodeNames;
+            for (const auto& child : children)
+            {
+                nodeNames.append(child.name);
+            }
+            Type::Factory factory = [nodes     = std::move(nodes),
+                                     nodeNames = std::move(nodeNames)](const QVariantMap&       config,
+                                                                       const Processor::Limits& limits,
+                                                                       QString*) mutable -> std::unique_ptr<Processor> {
+                return Lineflow::compose(std::move(nodes), config, limits, std::move(nodeNames));
             };
             return _create(factory, configuration, limits, lease, error);
         };

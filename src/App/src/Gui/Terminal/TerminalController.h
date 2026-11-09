@@ -3,8 +3,11 @@
 #include <QObject>
 #include <QPointer>
 #include <Termaster/Core/Plugin/PluginHost.h>
+#include <Termaster/Core/Processing/Processor.h>
 #include <Termaster/Core/SettingsOverlay.h>
+#include <array>
 #include <map>
+#include <optional>
 
 class MainWindow;
 class ProcessorRegistry;
@@ -96,10 +99,17 @@ private:
     std::map<QString, RegisteredAction>         _actions;
     QPointer<SettingsDialog>                    _creation;
 
-    Runtime*                               _current() const;
-    bool                                   _activeWindow() const;
-    bool                                   _materialize(const QString& id, QString* error);
-    void                                   _restore();
+    Runtime*                                                 _current() const;
+    bool                                                     _activeWindow() const;
+    bool                                                     _materialize(const QString& id, QString* error);
+    void                                                     _restore();
+    std::optional<std::array<std::shared_ptr<Processor>, 2>> _prepareProcessing(const QVariantMap& configuration,
+                                                                                QString*           error,
+                                                                                bool               txOnly = false);
+    bool                                                     _applyProcessing(const QString&     id,
+                                                                              const QVariantMap& baseline,
+                                                                              const QVariantMap& configuration,
+                                                                              QString*           error);
     bool                                   _configureProcessing(Runtime& terminal, QString* error, bool txOnly = false);
     void                                   _close(const QString& id);
     void                                   _showTabMenu(const QPoint& position);

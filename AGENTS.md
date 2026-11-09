@@ -194,6 +194,11 @@ changing behavior. These rules apply repository-wide.
   workspace settings override base settings and own session history. Keep recent
   histories unique and limited to ten entries. Workspace plugin/script paths are
   metadata until discovery/execution is explicitly implemented.
+- Store reusable processor definitions as separate versioned YAML documents under
+  `<workspace-file>.d/processors/`, never inside workspace content. Derive safe,
+  stable filenames from catalog IDs; display names and groups remain metadata.
+  Preserve the shared bounded transaction and recovery contract for create/edit/delete
+  and session occurrence refactoring.
 - Use the existing settings owner rather than reading and writing settings
   independently from every widget.
 - Configuration overlays are live borrowed application/workspace/session layers.

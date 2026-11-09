@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QMap>
 #include <QObject>
 #include <QStringList>
 #include <Termaster/Core/Path.h>
@@ -7,7 +8,7 @@
 #include <functional>
 #include <memory>
 
-/** Owns one workspace YAML file. Views borrow this owner and use its thread. */
+/** Owns the workspace document and external processor collection. Views use this owner's thread. */
 class Workspace : public QObject
 {
     Q_OBJECT
@@ -22,6 +23,14 @@ public:
     bool sync(QString* error = nullptr);
     /** Validates and serializes a transaction candidate without changing files or borrowed views. */
     std::optional<QByteArray> prepareProcessorDefinitions(const QVariantMap& values, QString* error = nullptr) const;
+    using ProcessorFiles = QMap<QString, QByteArray>;
+    std::optional<ProcessorFiles> prepareProcessorFiles(const QVariantMap& values, QString* error = nullptr) const;
+    ProcessorFiles                processorDiskFiles() const;
+    Path                          processorsDirectory() const;
+    bool                          acceptProcessorDefinitions(const QVariantMap&    values,
+                                                             const ProcessorFiles& files,
+                                                             QString*              error = nullptr,
+                                                             bool                  dirty = false);
     /** Adopts an already persisted candidate without I/O, retaining borrowed settings views. */
     bool acceptPreparedDocument(const QByteArray& bytes, QString* error = nullptr, bool dirty = false);
     /** Verifies persisted bytes before an application transaction. */
@@ -57,10 +66,14 @@ private:
     Path                                              _file;
     SettingsOverlay                                   _baseSettings;
     std::unique_ptr<Settings>                         _settings;
+    std::unique_ptr<Settings>                         _processors;
+    ProcessorFiles                                    _processorDisk;
     QVariantMap                                       _publishedProcessors;
     bool                                              _processorsPublished = false;
     std::function<bool(const QVariantMap&, QString*)> _processorValidator;
-    bool                _validate(const Settings& settings, const Path& file, QString* error) const;
-    void                _publishProcessors();
+    bool _validate(const Settings& settings, const Path& file, QString* error) const;
+    bool _readProcessorFiles(const Path& file, QVariantMap& values, ProcessorFiles& files, QString* error) const;
+    bool _validateProcessors(const QVariantMap& values, QString* error) const;
+    void _publishProcessors();
     std::optional<Path> _directory(const QString& key) const;
 };

@@ -68,6 +68,45 @@ class ProcessingRoutingTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void diagnosticsTrackAsyncReplacementAndFailure()
+    {
+        ProcessingRouter router;
+        const auto       direction = ProcessingRouter::Direction::Rx;
+        QCOMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Bypass);
+        router.setOutput(direction, [](const Processor::Chunk&, const TerminalSendQueue::Options&, QString*) {
+            return Processor::AcceptResult::Accepted;
+        });
+        auto processor = std::make_shared<DelayedProcessor>();
+        router.replace(direction, processor);
+        QTRY_COMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Idle);
+        QCOMPARE(router.submit(direction, {QByteArray("abc"), Processor::Boundary::StreamChunk}),
+                 Processor::AcceptResult::Accepted);
+        QTRY_VERIFY(bool(processor->callbacks.completed));
+        QCOMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Busy);
+        QCOMPARE(router.diagnostics(direction).acceptedBytes, quint64(3));
+        QCOMPARE(router.diagnostics(direction).pendingBytes, qsizetype(3));
+        processor->callbacks.output({QByteArray("ABCDE"), Processor::Boundary::Packet});
+        processor->callbacks.completed({});
+        QTRY_COMPARE(router.diagnostics(direction).forwardedBytes, quint64(5));
+        QCOMPARE(router.diagnostics(direction).pendingChunks, qsizetype(0));
+        router.cancel(direction);
+        QCOMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Cancelling);
+        QVERIFY(bool(processor->acknowledgement));
+        processor->acknowledgement();
+        QTRY_COMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Bypass);
+        auto failed = std::make_shared<DelayedProcessor>();
+        router.replace(direction, failed);
+        QTRY_COMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Idle);
+        QCOMPARE(router.submit(direction, {QByteArray("x"), Processor::Boundary::StreamChunk}),
+                 Processor::AcceptResult::Accepted);
+        QTRY_VERIFY(bool(failed->callbacks.completed));
+        failed->callbacks.completed("nested/node: synthetic failure");
+        QCOMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Failed);
+        QCOMPARE(router.diagnostics(direction).failures, quint64(1));
+        QCOMPARE(router.diagnostics(direction).lastError, QString("nested/node: synthetic failure"));
+        failed->acknowledgement();
+    }
+
     void packetsAndOptions()
     {
         ProcessingRouter router;

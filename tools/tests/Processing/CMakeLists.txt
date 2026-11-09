@@ -78,3 +78,12 @@ target_link_libraries(GateProcessorTests PRIVATE
     Qt6::Test
 )
 add_test(NAME GateProcessorTests COMMAND GateProcessorTests)
+
+qt_add_executable(ProcessorPropertiesTests
+    ProcessorPropertiesTests.cpp
+)
+target_link_libraries(ProcessorPropertiesTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME ProcessorPropertiesTests COMMAND ProcessorPropertiesTests)

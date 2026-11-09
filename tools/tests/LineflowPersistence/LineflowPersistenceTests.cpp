@@ -1,5 +1,6 @@
 #include "Processing/WorkspaceProcessingEdit.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -11,6 +12,7 @@
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Workspace.h>
+#include <Termaster/Core/WorkspaceFileTransaction.h>
 
 namespace
 {
@@ -121,6 +123,31 @@ struct Fixture
         return workspace.filePath().toString() + ".processing-journal.json";
     }
 };
+QList<WorkspaceFileTransaction::Change> processorChanges(Workspace&                       workspace,
+                                                         const Workspace::ProcessorFiles& replacement)
+{
+    const auto                              main = read(workspace.filePath());
+    QList<WorkspaceFileTransaction::Change> result {
+        {QFileInfo(workspace.filePath().toString()).canonicalFilePath(), main, main}
+    };
+    const auto    original = workspace.processorDiskFiles();
+    QSet<QString> paths;
+    for (const auto& path : original.keys())
+    {
+        paths.insert(path);
+    }
+    for (const auto& path : replacement.keys())
+    {
+        paths.insert(path);
+    }
+    for (const auto& path : paths)
+    {
+        result.append({path,
+                       original.contains(path) ? std::optional<QByteArray>(original.value(path)) : std::nullopt,
+                       replacement.contains(path) ? std::optional<QByteArray>(replacement.value(path)) : std::nullopt});
+    }
+    return result;
+}
 bool journal(Fixture&          fixture,
              const QByteArray& workspaceOriginal,
              const QByteArray& workspaceReplacement,
@@ -129,19 +156,48 @@ bool journal(Fixture&          fixture,
 {
     QJsonArray entries;
     entries.append(QJsonObject {
-        {       "path", QFileInfo(fixture.workspace.filePath().toString()).canonicalFilePath()},
-        {   "original",                      QString::fromLatin1(workspaceOriginal.toBase64())},
-        {"replacement",                   QString::fromLatin1(workspaceReplacement.toBase64())}
+        {             "path", QFileInfo(fixture.workspace.filePath().toString()).canonicalFilePath()},
+        {   "originalExists",                                                                   true},
+        {"replacementExists",                                                                   true},
+        {         "original",                      QString::fromLatin1(workspaceOriginal.toBase64())},
+        {      "replacement",                   QString::fromLatin1(workspaceReplacement.toBase64())}
     });
     entries.append(QJsonObject {
-        {       "path", QFileInfo(fixture.closed.filePath().toString()).canonicalFilePath()},
-        {   "original",                     QString::fromLatin1(sessionOriginal.toBase64())},
-        {"replacement",                  QString::fromLatin1(sessionReplacement.toBase64())}
+        {             "path", QFileInfo(fixture.closed.filePath().toString()).canonicalFilePath()},
+        {   "originalExists",                                                                true},
+        {"replacementExists",                                                                true},
+        {         "original",                     QString::fromLatin1(sessionOriginal.toBase64())},
+        {      "replacement",                  QString::fromLatin1(sessionReplacement.toBase64())}
     });
+    const auto processorAfter = fixture.workspace.prepareProcessorFiles(fixture.draft());
+    if (!processorAfter)
+    {
+        return false;
+    }
+    const auto    processorBefore = fixture.workspace.processorDiskFiles();
+    QSet<QString> processorPaths;
+    for (const auto& path : processorBefore.keys())
+    {
+        processorPaths.insert(path);
+    }
+    for (const auto& path : processorAfter->keys())
+    {
+        processorPaths.insert(path);
+    }
+    for (const auto& path : processorPaths)
+    {
+        entries.append(QJsonObject {
+            {             "path",                                                        path},
+            {   "originalExists",                              processorBefore.contains(path)},
+            {"replacementExists",                              processorAfter->contains(path)},
+            {         "original", QString::fromLatin1(processorBefore.value(path).toBase64())},
+            {      "replacement", QString::fromLatin1(processorAfter->value(path).toBase64())}
+        });
+    }
     return write(fixture.journal(),
                  QJsonDocument(
                      QJsonObject {
-                         {  "version",                                                                      1},
+                         {  "version",                                                                      2},
                          {"workspace", QFileInfo(fixture.workspace.filePath().toString()).canonicalFilePath()},
                          {    "files",                                                                entries}
     })
@@ -333,9 +389,22 @@ private slots:
         QVERIFY(fixture.active.settings().setValue("pending", 61));
         const auto workspaceBefore = read(fixture.workspace.filePath());
         const auto activeBefore    = read(fixture.active.filePath());
+        QString    processorPath;
+        const auto preparedFiles = fixture.workspace.prepareProcessorFiles(fixture.draft());
+        QVERIFY(preparedFiles);
+        const auto diskFiles = fixture.workspace.processorDiskFiles();
+        for (auto it = diskFiles.cbegin(); it != diskFiles.cend(); ++it)
+        {
+            if (preparedFiles->value(it.key()) != it.value())
+            {
+                processorPath = it.key();
+            }
+        }
+        QVERIFY(!processorPath.isEmpty());
+        const auto processorBefore = read(Path(processorPath));
         fixture.workspace.setProcessorValidator([&](const QVariantMap&, QString* error) {
             // Simulate a validator becoming unavailable after commit, before adoption.
-            if (read(fixture.workspace.filePath()) != workspaceBefore)
+            if (read(Path(processorPath)) != processorBefore)
             {
                 if (error)
                 {
@@ -424,12 +493,141 @@ private slots:
             document.insert("files", records);
             QVERIFY(write(fixture.journal(), QJsonDocument(document).toJson()));
             QVERIFY(!WorkspaceProcessingEdit::recover(fixture.workspace.filePath(), &fixture.error));
-            QVERIFY2(fixture.error.contains("unconfined or duplicate"), qPrintable(fixture.error));
+            QVERIFY2(fixture.error.contains("escapes") || fixture.error.contains("Duplicate"),
+                     qPrintable(fixture.error));
             QCOMPARE(read(fixture.workspace.filePath()), workspaceBefore);
             QCOMPARE(read(fixture.closed.filePath()), sessionBefore);
             QCOMPARE(read(foreign), QByteArray("untouched"));
             QVERIFY(QFileInfo::exists(fixture.journal()));
         }
+    }
+
+    void externalDefinitionCreateDeleteAdoptsBorrowedCache()
+    {
+        Fixture fixture;
+        QVERIFY(fixture.initialize());
+        auto       borrowed      = fixture.workspace.processorDefinitions();
+        const auto originalFiles = fixture.workspace.processorDiskFiles();
+        auto       draft         = fixture.baseline;
+        draft.remove("leaf");
+        draft.insert("new", definition("new", {}));
+        const auto sessionBefore = read(fixture.active.filePath());
+        QVERIFY2(WorkspaceProcessingEdit::apply(fixture.workspace,
+                                                &fixture.active,
+                                                fixture.registry,
+                                                fixture.baseline,
+                                                draft,
+                                                {},
+                                                &fixture.error),
+                 qPrintable(fixture.error));
+        QVERIFY(borrowed.isValid());
+        QCOMPARE(borrowed.values(), draft);
+        QCOMPARE(read(fixture.active.filePath()), sessionBefore);
+        const auto currentFiles = fixture.workspace.processorDiskFiles();
+        QCOMPARE(currentFiles.size(), 2);
+        int removed = 0;
+        for (const auto& path : originalFiles.keys())
+        {
+            if (!currentFiles.contains(path))
+            {
+                ++removed;
+                QVERIFY(!QFileInfo::exists(path));
+            }
+        }
+        QCOMPARE(removed, 1);
+        QVERIFY(!read(fixture.workspace.filePath()).contains("processorDefinitions"));
+        Workspace reopened(fixture.workspace.filePath(), fixture.base.node(""));
+        QVERIFY2(reopened.load(&fixture.error), qPrintable(fixture.error));
+        QCOMPARE(reopened.processorDefinitions().values(), draft);
+    }
+
+    void interruptedCreateDeleteRestoresExactInventory()
+    {
+        Fixture fixture;
+        QVERIFY(fixture.initialize());
+        const auto originals = fixture.workspace.processorDiskFiles();
+        auto       draft     = fixture.baseline;
+        draft.remove("leaf");
+        draft.insert("new", definition("new", {}));
+        const auto replacements = fixture.workspace.prepareProcessorFiles(draft, &fixture.error);
+        QVERIFY(replacements);
+        const auto changes = processorChanges(fixture.workspace, *replacements);
+        const auto note    = fixture.workspace.processorsDirectory().join("notes.txt");
+        QVERIFY(write(note.toString(), "keep"));
+        QVERIFY2(WorkspaceFileTransaction::commit(fixture.workspace.filePath(), changes, &fixture.error),
+                 qPrintable(fixture.error));
+        QVERIFY(QFileInfo::exists(fixture.journal()));
+        for (const auto& path : originals.keys())
+        {
+            if (!replacements->contains(path))
+            {
+                QVERIFY(!QFileInfo::exists(path));
+            }
+        }
+        // Core load recovers the durable journal before publishing any definitions.
+        QVERIFY2(fixture.workspace.load(&fixture.error), qPrintable(fixture.error));
+        QCOMPARE(fixture.workspace.processorDefinitions().values(), fixture.baseline);
+        QCOMPARE(fixture.workspace.processorDiskFiles(), originals);
+        for (auto it = originals.cbegin(); it != originals.cend(); ++it)
+        {
+            QCOMPARE(read(Path(it.key())), it.value());
+        }
+        for (const auto& path : replacements->keys())
+        {
+            if (!originals.contains(path))
+            {
+                QVERIFY(!QFileInfo::exists(path));
+            }
+        }
+        QCOMPARE(read(note), QByteArray("keep"));
+        QVERIFY(!QFileInfo::exists(fixture.journal()));
+    }
+
+    void recoveryRejectsExtraProcessorFilesWithoutMutatingAnyTarget()
+    {
+        Fixture fixture;
+        QVERIFY(fixture.initialize());
+        const auto replacements = fixture.workspace.prepareProcessorFiles(fixture.draft());
+        QVERIFY(replacements);
+        QVERIFY(WorkspaceFileTransaction::commit(fixture.workspace.filePath(),
+                                                 processorChanges(fixture.workspace, *replacements),
+                                                 &fixture.error));
+        const auto extra = fixture.workspace.processorsDirectory().join(
+            QString::fromLatin1(QCryptographicHash::hash(QByteArray("external"), QCryptographicHash::Sha256).toHex())
+            + ".yaml");
+        QVERIFY(write(extra.toString(), "external document"));
+        QVERIFY(!WorkspaceProcessingEdit::recover(fixture.workspace.filePath(), &fixture.error));
+        QVERIFY2(fixture.error.contains("inventory"), qPrintable(fixture.error));
+        QCOMPARE(read(extra), QByteArray("external document"));
+        for (auto it = replacements->cbegin(); it != replacements->cend(); ++it)
+        {
+            QCOMPARE(read(Path(it.key())), it.value());
+        }
+        QVERIFY(QFileInfo::exists(fixture.journal()));
+        QVERIFY(QFile::remove(extra.toString()));
+        QVERIFY2(WorkspaceProcessingEdit::recover(fixture.workspace.filePath(), &fixture.error),
+                 qPrintable(fixture.error));
+    }
+
+    void emptyFileStateIsDistinctFromAbsentFile()
+    {
+        Fixture fixture;
+        QVERIFY(fixture.initialize());
+        const auto path = QDir::fromNativeSeparators(
+            fixture.workspace.processorsDirectory()
+                .join(QString::fromLatin1(
+                          QCryptographicHash::hash(QByteArray("empty"), QCryptographicHash::Sha256).toHex())
+                      + ".yaml")
+                .toString());
+        QVERIFY(write(path, {}));
+        auto changes = processorChanges(fixture.workspace, fixture.workspace.processorDiskFiles());
+        changes.append({path, QByteArray {}, QByteArray("replacement")});
+        QVERIFY2(WorkspaceFileTransaction::commit(fixture.workspace.filePath(), changes, &fixture.error),
+                 qPrintable(fixture.error));
+        QCOMPARE(read(Path(path)), QByteArray("replacement"));
+        QVERIFY(WorkspaceProcessingEdit::recover(fixture.workspace.filePath(), &fixture.error));
+        QVERIFY(QFileInfo::exists(path));
+        QCOMPARE(QFileInfo(path).size(), qint64(0));
     }
 
     void journalWriteFailureRetainsOriginalData()

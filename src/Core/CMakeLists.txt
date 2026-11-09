@@ -79,6 +79,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/Base64Decoder.h
     src/Processing/Nodes/Base64Decoder.cpp
     src/Processing/Nodes/SyncProcessorNode.h
+    inc/Termaster/Core/WorkspaceFileTransaction.h
+    src/WorkspaceFileTransaction.cpp
     inc/Termaster/Core/Workspace.h
     src/Workspace.cpp
     inc/Termaster/Core/Session.h

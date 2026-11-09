@@ -182,15 +182,19 @@ Configuration and byte-boundary contracts are specified in
 
 ## FLOW-5: Terminal selection and private properties
 
-- [ ] Add compact independent Rx/Tx selectors for a block, elementary processor or bypass.
-- [ ] Persist selections and private configuration in each terminal's session settings.
-- [ ] Show properties in a side table, grouped by node name in expanded Lineflow order;
+- [x] Add compact independent Rx/Tx selectors for a block, elementary processor or bypass.
+- [x] Persist selections and private configuration in each terminal's session settings.
+- [x] Show properties in a side table, grouped by node name in expanded Lineflow order;
       distinguish repeated nested occurrences and expose the default/inherited value.
-- [ ] Reset individual overrides without modifying the shared workspace definition.
-- [ ] Apply changes through a prepared replacement plan; do not mutate an active runtime.
-- [ ] Show node-path errors, busy/cancelling state and bounded diagnostic counters
+- [x] Reset individual overrides without modifying the shared workspace definition.
+- [x] Apply changes through a prepared replacement plan; do not mutate an active runtime.
+- [x] Show node-path errors, busy/cancelling state and bounded diagnostic counters
       without recording payloads by default.
 
+- [x] Store reusable definitions in individual workspace-owned YAML files with
+      bounded create/edit/delete transactions and recovery.
+
+See [terminal processing](terminal-processing.md) for UI and acceptance details.
 Private values resolve over workspace node configuration and processor defaults.
 Rx/Tx and different terminals must remain independent even when sharing a block.
 
@@ -210,7 +214,7 @@ Rx/Tx and different terminals must remain independent even when sharing a block.
 Codeflow can be selected on Rx/Tx or used inside Lineflow through the common
 Processor contract. It does not add ControlFlow nodes to the Lineflow editor.
 
-FLOW-2 routing, FLOW-3 registration and FLOW-4 workspace editing are delivered.
-The remaining processing order is FLOW-5 and FLOW-6. Editors depend on the unified catalog definition registration
+FLOW-2 routing, FLOW-3 registration, FLOW-4 workspace editing and FLOW-5 terminal properties are delivered.
+The remaining processing stage is FLOW-6. Editors depend on the unified catalog definition registration
 and update contracts. Python execution remains part of P7/FLOW-6.
 The earlier unrelated P5/P6 milestones do not block this processing sequence.
