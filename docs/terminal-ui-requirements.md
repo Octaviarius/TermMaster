@@ -14,3 +14,10 @@ capability and state checks when applying the shared layout.
 Status: requested; implementation deferred until an explicit start instruction.
 
 Add a context menu to terminal tabs. Its action list remains to be specified.
+
+## Remove the terminal information strip
+
+Status: requested; implementation deferred until an explicit start instruction.
+
+Remove the extra information strip above the terminal display, such as
+`COM1 / 9600 baud`, to reduce window clutter.
