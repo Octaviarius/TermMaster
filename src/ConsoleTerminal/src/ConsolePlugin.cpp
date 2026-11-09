@@ -2,6 +2,7 @@
 
 #include "ConsoleEnvironment.h"
 #include "Gui/Environment/EnvironmentEditor.h"
+#include "Gui/Launch/ShellSelector.h"
 
 #include <QApplication>
 #include <QFile>
@@ -60,6 +61,10 @@ bool ConsolePlugin::startup(QString* error)
             return editor;
         });
         _editorsRegistered.append("consoleEnvironment");
+        _host->registerEditor("consoleShellSelector", [](const QVariantMap&, QWidget* parent) {
+            return std::make_unique<ShellSelector>(parent);
+        });
+        _editorsRegistered.append("consoleShellSelector");
         PluginHost::TerminalType type;
         type.id                    = "console";
         type.title                 = "Local console";

@@ -21,7 +21,7 @@ content:
       default: ''
       maxLength: 32767
       x-settings-path: transport/program
-      x-widget: stringLineEdit
+      x-widget: consoleShellSelector
       x-group: launch
       x-order: 0
     arguments:
@@ -63,3 +63,12 @@ content:
       x-widget: consoleEnvironment
       x-group: environment
       x-order: 0
+    runAsAdministrator:
+      title: Run as administrator
+      description: Windows only. Launch this shell through a separate UAC-approved helper; Termaster keeps its current privileges.
+      type: boolean
+      default: false
+      x-settings-path: transport/runAsAdministrator
+      x-widget: boolCheckBox
+      x-group: launch
+      x-order: 3

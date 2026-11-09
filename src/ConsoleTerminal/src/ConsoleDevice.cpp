@@ -1,6 +1,9 @@
 #include "ConsoleDevice.h"
 
 #include "ConsoleEnvironment.h"
+#if defined(Q_OS_WIN) && !defined(TERMASTER_CONSOLE_HOST)
+#include "Elevation/ElevatedConsoleDevice.h"
+#endif
 
 #include <QDir>
 #include <QFile>
@@ -758,6 +761,10 @@ ConsoleDevice::ConsoleDevice()
 ConsoleDevice::~ConsoleDevice()
 {
     _callbacks = {};
+    if (_elevated)
+    {
+        _elevated->setCallbacks({});
+    }
     close();
 }
 
@@ -767,11 +774,15 @@ QObject* ConsoleDevice::object()
 }
 SerialDevice::State ConsoleDevice::state() const
 {
-    return _state;
+    return _elevated ? _elevated->state() : _state;
 }
 void ConsoleDevice::setCallbacks(Callbacks callbacks)
 {
     _callbacks = std::move(callbacks);
+    if (_elevated)
+    {
+        _elevated->setCallbacks(_callbacks);
+    }
 }
 bool ConsoleDevice::autoReconnect() const
 {
@@ -780,6 +791,11 @@ bool ConsoleDevice::autoReconnect() const
 
 bool ConsoleDevice::validate(const QVariantMap& configuration, QString* error)
 {
+    const auto administrator = configuration.value("runAsAdministrator");
+    if (administrator.isValid() && administrator.metaType().id() != QMetaType::Bool)
+    {
+        return reject(error, "runAsAdministrator must be a boolean");
+    }
     qsizetype aggregateSize = 0;
     for (const auto& key : {QStringLiteral("program"), QStringLiteral("workingDirectory")})
     {
@@ -842,6 +858,19 @@ bool ConsoleDevice::open(const QVariantMap& configuration, QString* error)
     if (!validate(configuration, &message))
     {
         return reject(error, message);
+    }
+    _readPaused = false;
+    if (configuration.value("runAsAdministrator", false).toBool())
+    {
+#if defined(Q_OS_WIN) && !defined(TERMASTER_CONSOLE_HOST)
+        auto elevated = std::make_shared<ElevatedConsoleDevice>();
+        elevated->setCallbacks(_callbacks);
+        elevated->resize(_columns, _rows);
+        _elevated = std::move(elevated);
+        return _elevated->open(configuration, error);
+#else
+        return reject(error, "Administrator consoles are supported only by the Windows application");
+#endif
     }
     auto environment = ConsoleEnvironment::userEnvironment(&message);
     if (!message.isEmpty())
@@ -907,6 +936,12 @@ bool ConsoleDevice::open(const QVariantMap& configuration, QString* error)
 void ConsoleDevice::close()
 {
     _timer.stop();
+    if (_elevated)
+    {
+        auto elevated = std::move(_elevated);
+        elevated->close();
+        return;
+    }
     if (_native)
     {
         _setState(State::Closing);
@@ -917,6 +952,10 @@ void ConsoleDevice::close()
 
 qint64 ConsoleDevice::write(const QByteArray& data, QString* error)
 {
+    if (_elevated)
+    {
+        return _elevated->write(data, error);
+    }
     if (!_native || _state != State::Open)
     {
         reject(error, "Console is not open");
@@ -939,6 +978,10 @@ qint64 ConsoleDevice::write(const QByteArray& data, QString* error)
 
 qint64 ConsoleDevice::pendingBytes() const
 {
+    if (_elevated)
+    {
+        return _elevated->pendingBytes();
+    }
     if (!_native)
     {
         return 0;
@@ -951,6 +994,10 @@ void ConsoleDevice::resize(int columns, int rows)
 {
     _columns = std::clamp(columns, 1, 32767);
     _rows    = std::clamp(rows, 1, 32767);
+    if (_elevated)
+    {
+        _elevated->resize(_columns, _rows);
+    }
     if (!_native)
     {
         return;
@@ -968,6 +1015,15 @@ void ConsoleDevice::resize(int columns, int rows)
         _native->fail(QString("Resizing pseudoterminal: %1").arg(QString::fromLocal8Bit(strerror(errno))));
     }
 #endif
+}
+
+void ConsoleDevice::setReadPaused(bool paused)
+{
+    _readPaused = paused;
+    if (!paused)
+    {
+        _pump();
+    }
 }
 
 void ConsoleDevice::_setState(State state)
@@ -998,7 +1054,10 @@ void ConsoleDevice::_pump()
     int        exitCode = 0;
     {
         std::lock_guard lock(native->mutex);
-        input.swap(native->input);
+        if (!_readPaused)
+        {
+            input.swap(native->input);
+        }
         written  = std::exchange(native->written, 0);
         failure  = native->failure;
         exited   = native->exited && native->readEnded && native->input.isEmpty();

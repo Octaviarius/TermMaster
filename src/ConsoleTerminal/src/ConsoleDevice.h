@@ -13,26 +13,30 @@ class ConsoleDevice final : public QObject, public SerialDevice
 public:
     explicit ConsoleDevice();
     ~ConsoleDevice() override;
-    QObject*    object() override;
-    State       state() const override;
-    void        setCallbacks(Callbacks callbacks) override;
-    bool        open(const QVariantMap& configuration, QString* error = nullptr) override;
-    void        close() override;
-    qint64      write(const QByteArray& data, QString* error = nullptr) override;
-    qint64      pendingBytes() const override;
-    void        resize(int columns, int rows) override;
-    bool        autoReconnect() const override;
+    QObject* object() override;
+    State    state() const override;
+    void     setCallbacks(Callbacks callbacks) override;
+    bool     open(const QVariantMap& configuration, QString* error = nullptr) override;
+    void     close() override;
+    qint64   write(const QByteArray& data, QString* error = nullptr) override;
+    qint64   pendingBytes() const override;
+    void     resize(int columns, int rows) override;
+    bool     autoReconnect() const override;
+    /** Pause GUI delivery while retaining bounded native backpressure. */
+    void        setReadPaused(bool paused);
     static bool validate(const QVariantMap& configuration, QString* error = nullptr);
 
 private:
     struct Native;
-    std::unique_ptr<Native> _native;
-    Callbacks               _callbacks;
-    State                   _state = State::Closed;
-    QTimer                  _timer;
-    int                     _columns = 80;
-    int                     _rows    = 24;
-    bool                    _pumping = false;
-    void                    _setState(State state);
-    void                    _pump();
+    std::unique_ptr<Native>       _native;
+    std::shared_ptr<SerialDevice> _elevated;
+    Callbacks                     _callbacks;
+    State                         _state = State::Closed;
+    QTimer                        _timer;
+    int                           _columns    = 80;
+    int                           _rows       = 24;
+    bool                          _pumping    = false;
+    bool                          _readPaused = false;
+    void                          _setState(State state);
+    void                          _pump();
 };
