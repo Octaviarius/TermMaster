@@ -10,7 +10,7 @@
 class QComboBox;
 class QLabel;
 class QLineEdit;
-class QListWidget;
+class QTreeWidget;
 class QPushButton;
 class QTreeView;
 class QVBoxLayout;
@@ -47,6 +47,9 @@ public:
     void                 releaseEditors();
     void                 setVisible(bool visible) override;
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     struct Draft
     {
@@ -67,8 +70,9 @@ private:
     Apply                                     _apply;
     LineflowEditorModel*                      _model;
     QComboBox*                                _blocks;
+    QComboBox*                                _groups;
     QTreeView*                                _tree;
-    QListWidget*                              _catalog;
+    QTreeWidget*                              _catalog;
     QLineEdit*                                _search;
     QLineEdit*                                _name;
     QLabel*                                   _error;
@@ -82,6 +86,10 @@ private:
 
     bool _geometryInitialized = false;
 
+    int  _processorColumnWidth = 150;
+    bool _restoringColumns     = false;
+
+    void _sizeColumns();
     void _refreshBlocks();
     void _refreshCatalog();
     void _select();

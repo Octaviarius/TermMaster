@@ -25,7 +25,7 @@ private slots:
             {"source",
              QVariantMap {{"nodes",
              QVariantList {QVariantMap {{"name", "leaf"},
-             {"type", "native.identity"},
+             {"type", "native.gate"},
              {"configuration", QVariantMap {{"label", "shared"}}}}}}}                                         }
         };
         const QVariantMap root {

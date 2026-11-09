@@ -2196,7 +2196,7 @@ content:
         QVERIFY(editor);
         const auto block = editor->model().createBlock("Receive", &error);
         QVERIFY2(!block.isEmpty(), qPrintable(error));
-        const auto name = editor->model().insertNode(block, 0, "native.identity", &error);
+        const auto name = editor->model().insertNode(block, 0, "native.gate", &error);
         QVERIFY2(!name.isEmpty(), qPrintable(error));
         QVERIFY(editor->model().renameNode(block, name, "Pass through", &error));
         QVERIFY(_app.workspace()->processorDefinitions().values().isEmpty());
@@ -2268,9 +2268,9 @@ content:
 
         // Publication preflight rejects collisions before changing the saved draft.
         auto collision = definition;
-        collision.insert("id", "native.identity");
+        collision.insert("id", "native.gate");
         const auto original = _app.workspace()->processorDefinitions().values();
-        QVERIFY(!_app.workspace()->setProcessorDefinition("native.identity", collision, &error));
+        QVERIFY(!_app.workspace()->setProcessorDefinition("native.gate", collision, &error));
         QVERIFY(!error.isEmpty());
         QCOMPARE(_app.workspace()->processorDefinitions().values(), original);
         QVERIFY(_app.createSession("Publication state", &error));
@@ -2278,7 +2278,7 @@ content:
         Settings  emptyBase(QString {});
         Workspace conflicting(Path(temporary.filePath("Conflict.termaster")), emptyBase.node(""));
         QVERIFY(conflicting.create("Conflict", &error));
-        QVERIFY(conflicting.setProcessorDefinition("native.identity", collision, &error));
+        QVERIFY(conflicting.setProcessorDefinition("native.gate", collision, &error));
         QVERIFY(conflicting.sync(&error));
         QVERIFY(!_app.openWorkspace(conflicting.filePath(), &error));
         QCOMPARE(_app.workspace()->filePath(), first.absolute());
@@ -2346,19 +2346,19 @@ content:
         QTRY_COMPARE(probe->output, QByteArray("B"));
 
         // A workspace block is selectable through the same controller boundary.
-        QVERIFY(_app.workspace()->setProcessorDefinition("identity",
-                                                         {
-                                                             {    "id","identity"                                                                       },
-                                                             {  "name",                                  "Identity"},
-                                                             {  "kind",                                  "lineflow"},
-                                                             {"source",
-                                                              QVariantMap {
-                                                              {"nodes",
-                                                              QVariantList {
-                                                              QVariantMap {{"name", "pass"},
-                                                              {"type", "native.identity"}}}}}                      }
+        QVERIFY(
+            _app.workspace()->setProcessorDefinition("identity",
+                                                     {
+                                                         {    "id","identity"                                                                   },
+                                                         {  "name",                                        "Identity"},
+                                                         {  "kind",                                        "lineflow"},
+                                                         {"source",
+                                                          QVariantMap {
+                                                          {"nodes",
+                                                          QVariantList {QVariantMap {{"name", "pass"},
+                                                          {"type", "native.gate"}}}}}                                }
         },
-                                                         &error));
+                                                     &error));
         auto&             controller = static_cast<TerminalController&>(host);
         const QVariantMap identity {
             {"type", "identity"}

@@ -6,12 +6,15 @@
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMimeData>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QTreeView>
+#include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 #include <QtTest>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
@@ -45,7 +48,7 @@ QVariantMap fixtureDefinitions()
          "Device protocol", {operation("decode", "native.hex-decoder"),
  QVariantMap {{"name", "framing"}, {"reference", "shared"}},
  operation("future", "unavailable.processor")})                                                  },
-        {"shared", definition("shared", "Shared framing",                          {operation("frame", "native.cr-framer")})}
+        {"shared", definition("shared", "Shared framing",                             {operation("frame", "native.framer")})}
     };
 }
 class CustomEditor final : public SettingsFieldEditor
@@ -148,7 +151,7 @@ private slots:
         QCOMPARE(model.renames()[0].from, QString("frame"));
         QCOMPARE(model.renames()[1].to, QString("two"));
         const auto block = model.createBlock("New block");
-        const auto node  = model.insertNode(block, 0, "native.identity");
+        const auto node  = model.insertNode(block, 0, "native.gate");
         QVERIFY(!node.isEmpty());
         QVERIFY(model.renameNode(block, node, "newName"));
         QCOMPARE(model.renames().size(), 2);
@@ -166,7 +169,7 @@ private slots:
         const QVariantMap definitions {
             {"root",
              definition("root",
-             "Swap sequence", {operation("first", "native.identity"), operation("second", "native.identity")})}
+             "Swap sequence", {operation("first", "native.gate"), operation("second", "native.gate")})}
         };
         LineflowEditorModel model(definitions, registry);
         QVERIFY(model.renameNode("root", "first", "temporary"));
@@ -238,7 +241,7 @@ private slots:
         QVERIFY(drop(reorder.get(), Qt::MoveAction));
         QCOMPARE(dialog.model().index(2, 0).data(LineflowEditorModel::NodeRole).toString(), QString("decode"));
         QMimeData catalog;
-        catalog.setData("application/x-termaster-processor", "native.identity");
+        catalog.setData("application/x-termaster-processor", "native.gate");
         QVERIFY(drop(&catalog, Qt::CopyAction));
         QCOMPARE(dialog.model().rowCount(), 4);
         const auto before = dialog.model().definitions();
@@ -461,7 +464,7 @@ private slots:
         ProcessorRegistry      registry;
         SettingsWidgetRegistry widgets;
         registerNativeProcessors(registry, "native");
-        auto root = definition("root", "Canonical sequence", {operation("first", "native.identity")});
+        auto root = definition("root", "Canonical sequence", {operation("first", "native.gate")});
         root.insert("defaults",
                     QVariantMap {
                         {"overrides", QVariantMap {{"first", QVariantMap {{"marker", 7}}}}}
@@ -583,6 +586,120 @@ private slots:
         QVERIFY(dialog.height() <= available.height());
     }
 
+    void catalogOriginsGroupsAndParameterizedForms()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        auto definitions = fixtureDefinitions();
+        auto root        = definitions.value("root").toMap();
+        root.insert("group", "Protocols");
+        definitions.insert("root", root);
+        LineflowEditorDialog dialog(definitions,
+                                    registry,
+                                    widgets,
+                                    [](const auto&, const auto&, const auto&, QString*) { return true; });
+        auto*                catalog = dialog.findChild<QTreeWidget*>("processorCatalog");
+        QVERIFY(catalog);
+        QCOMPARE(catalog->topLevelItemCount(), 2);
+        QCOMPARE(catalog->topLevelItem(0)->text(0), QString("Native"));
+        QCOMPARE(catalog->topLevelItem(1)->text(0), QString("Workspace"));
+        const auto findGroup = [](QTreeWidgetItem* origin, const QString& name) {
+            for (int row = 0; row < origin->childCount(); ++row)
+            {
+                if (origin->child(row)->text(0) == name)
+                {
+                    return origin->child(row);
+                }
+            }
+            return static_cast<QTreeWidgetItem*>(nullptr);
+        };
+        auto* codecs = findGroup(catalog->topLevelItem(0), "Codecs");
+        QVERIFY(codecs);
+        QCOMPARE(codecs->childCount(), 4);
+        QVERIFY(!codecs->isExpanded());
+        QVERIFY(!(codecs->flags() & Qt::ItemIsDragEnabled));
+        QVERIFY(!(catalog->topLevelItem(0)->flags() & Qt::ItemIsSelectable));
+        QVERIFY(findGroup(catalog->topLevelItem(1), "Protocols"));
+        QVERIFY(dialog.model().setBlockGroup("root", "Devices"));
+        QVERIFY(findGroup(catalog->topLevelItem(1), "Devices"));
+        QCOMPARE(dialog.findChild<QComboBox*>("blockGroup")->currentText(), QString("Devices"));
+        auto* search = dialog.findChild<QLineEdit*>("catalogSearch");
+        search->setText("base64");
+        codecs = findGroup(catalog->topLevelItem(0), "Codecs");
+        QVERIFY(codecs);
+        QCOMPARE(codecs->childCount(), 2);
+        QVERIFY(catalog->topLevelItem(1)->isHidden());
+        search->clear();
+
+        const auto block = dialog.model().createBlock("Codec example");
+        const auto node  = dialog.model().insertNode(block, 0, "native.hex-encoder");
+        QVERIFY(!node.isEmpty());
+        dialog.model().setSelectedBlock(block);
+        auto* tree = dialog.findChild<QTreeView*>("nodeTree");
+        dialog.show();
+        tree->setCurrentIndex(dialog.model().index(0, 0));
+        auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(form);
+        QVERIFY(form->editor("letterCase"));
+        QVERIFY(form->editor("separator"));
+        const auto gateName = dialog.model().insertNode(block, 1, "native.gate");
+        QVERIFY(!gateName.isEmpty());
+        tree->setCurrentIndex(dialog.model().index(1, 0));
+        form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(form && form->editor("enabled"));
+        QCOMPARE(form->editor("enabled")->value().toBool(), true);
+    }
+
+    void groupDraftMustValidateBeforeApply()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        int                  applies = 0;
+        LineflowEditorDialog dialog(fixtureDefinitions(),
+                                    registry,
+                                    widgets,
+                                    [&](const auto&, const auto&, const auto&, QString*) {
+                                        ++applies;
+                                        return true;
+                                    });
+        auto*                group = dialog.findChild<QComboBox*>("blockGroup");
+        group->setEditText(" padded ");
+        QString error;
+        QVERIFY(!dialog.applyDraft(&error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(applies, 0);
+        group->setEditText("Protocols");
+        QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+        QCOMPARE(applies, 1);
+        QCOMPARE(dialog.model().blockGroup("root"), QString("Protocols"));
+    }
+
+    void nodeNamesKeepMostTableSpaceAcrossModelResets()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        LineflowEditorDialog dialog(fixtureDefinitions(),
+                                    registry,
+                                    widgets,
+                                    [](const auto&, const auto&, const auto&, QString*) { return true; });
+        dialog.setFixedSize(1100, 760);
+        dialog.show();
+        auto* tree = dialog.findChild<QTreeView*>("nodeTree");
+        QTRY_VERIFY(tree->columnWidth(0) > tree->columnWidth(1));
+        tree->header()->resizeSection(1, 110);
+        QCOMPARE(tree->columnWidth(1), 110);
+        dialog.model().setSelectedBlock("shared");
+        QTRY_COMPARE(tree->columnWidth(1), 110);
+        QVERIFY(tree->columnWidth(0) > tree->columnWidth(1));
+        QVERIFY(dialog.model().renameNode("shared", "frame", "Readable operation name ending with an identity"));
+        QTRY_COMPARE(tree->columnWidth(1), 110);
+        QVERIFY(tree->columnWidth(0) > tree->columnWidth(1));
+        QVERIFY(dialog.model().index(0, 0).data(Qt::ToolTipRole).toString().contains("Readable operation name"));
+    }
+
     void visualCapture()
     {
         const auto destination = qEnvironmentVariable("TERMASTER_LINEFLOW_CAPTURE");
@@ -593,14 +710,14 @@ private slots:
         ProcessorRegistry      registry;
         SettingsWidgetRegistry widgets;
         registerNativeProcessors(registry, "native");
-        registerCustom(registry, widgets);
         auto definitions = fixtureDefinitions();
         auto root        = definitions.value("root").toMap();
         auto source      = root.value("source").toMap();
         auto list        = source.value("nodes").toList();
-        list.prepend(operation("configure", "fixture.configured"));
+        list.prepend(operation("encode", "native.hex-encoder"));
         source.insert("nodes", list);
         root.insert("source", source);
+        root.insert("group", "Protocols");
         definitions.insert("root", root);
         LineflowEditorDialog dialog(definitions,
                                     registry,
@@ -616,6 +733,14 @@ private slots:
                               .filePath(dialog.devicePixelRatioF() > 1.5 ? QString("Editor2x.png") :
                                                                            QString("Editor.png"));
         QVERIFY(dialog.grab().save(path));
+        auto* selector = dialog.findChild<QComboBox*>("blockSelector");
+        selector->setCurrentIndex(selector->findData("shared"));
+        tree->setCurrentIndex(dialog.model().index(0, 0));
+        QTest::qWait(50);
+        const auto framerPath = QDir(destination)
+                                    .filePath(dialog.devicePixelRatioF() > 1.5 ? QString("Framer2x.png") :
+                                                                                 QString("Framer.png"));
+        QVERIFY(dialog.grab().save(framerPath));
         QCOMPARE(dialog.size(), QSize(1100, 760));
     }
 };

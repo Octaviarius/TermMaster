@@ -25,6 +25,8 @@ public:
     QList<Rename>   renames() const;
     QStringList     blockIds() const;
     QString         blockName(const QString& id) const;
+    QString         blockGroup(const QString& id) const;
+    bool            setBlockGroup(const QString& id, const QString& group, QString* error = nullptr);
     QString         selectedBlock() const;
     QString         unavailableReason(const QString& id);
     void            setSelectedBlock(const QString& id);

@@ -39,3 +39,42 @@ target_link_libraries(ProcessorRefactoringTests PRIVATE
     Qt6::Test
 )
 add_test(NAME ProcessorRefactoringTests COMMAND ProcessorRefactoringTests)
+
+qt_add_executable(FramerProcessorTests
+    FramerProcessorTests.cpp
+)
+
+target_include_directories(FramerProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+target_link_libraries(FramerProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME FramerProcessorTests COMMAND FramerProcessorTests)
+
+qt_add_executable(CodecProcessorTests
+    CodecProcessorTests.cpp
+)
+
+target_include_directories(CodecProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+target_link_libraries(CodecProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME CodecProcessorTests COMMAND CodecProcessorTests)
+
+qt_add_executable(GateProcessorTests
+    GateProcessorTests.cpp
+)
+
+target_include_directories(GateProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+target_link_libraries(GateProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME GateProcessorTests COMMAND GateProcessorTests)
