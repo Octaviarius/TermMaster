@@ -60,3 +60,11 @@ Represent terminators as bytes so embedded NUL is preserved. The chosen
 terminator completes the submitted command; coordinate this with outgoing
 newline conversion to avoid appending or converting it twice. Buffered input and
 terminator selection are separate options.
+
+## Reset button height
+
+Status: requested; implementation deferred until an explicit start instruction.
+
+The value reset button must have the same height as its adjacent settings
+control, with aligned top and bottom edges. Apply this consistently to the
+shared settings editor layout.
