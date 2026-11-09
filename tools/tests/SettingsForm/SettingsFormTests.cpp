@@ -45,7 +45,7 @@ public:
         layout->addWidget(combo);
         auto* model = new QStandardItemModel(combo);
         auto* item  = new QStandardItem(QApplication::style()->standardIcon(QStyle::SP_ComputerIcon),
-                                        "Synthetic COM fixture");
+                                       "Synthetic COM fixture");
         item->setData(QString("COM_TEST"), Qt::UserRole);
         model->appendRow(item);
         combo->setModel(model);
@@ -77,27 +77,31 @@ private:
         Settings      local(directory.filePath("local.yaml"));
         QVERIFY(base.setValue("fg", "#112233"));
         SettingsFormModel      model(schema("fg: {type: string, x-widget: color}"),
-                                     SettingsOverlay(base.node(""), local.node("")));
+                                SettingsOverlay(base.node(""), local.node("")));
         SettingsWidgetRegistry registry;
         SettingsFormWidget     form(model, registry);
         auto*                  editor = form.editor("fg");
-        auto*                  input  = editor->findChild<QLineEdit*>();
-        auto*                  swatch = editor->findChild<QLabel*>("settingsColorSwatch");
-        QVERIFY(input);
-        QVERIFY(swatch);
-        QCOMPARE(swatch->palette().color(QPalette::Window), QColor("#112233"));
+        auto*                  picker = editor->findChild<QToolButton*>("settingsPicker");
+        QVERIFY(picker);
+        QVERIFY(!editor->findChild<QLineEdit*>());
+        QVERIFY(!editor->findChild<QLabel*>("settingsColorSwatch"));
+        QCOMPARE(editor->findChildren<QToolButton*>().size(), 1);
+        QCOMPARE(picker->text(), QString("#112233"));
+        QVERIFY(!picker->icon().isNull());
+        QCOMPARE(picker->icon().pixmap(picker->iconSize()).toImage().pixelColor(10, 8), QColor("#112233"));
         QVERIFY(!model.isDirty());
-        input->setText("#abcdef");
-        QCOMPARE(swatch->palette().color(QPalette::Window), QColor("#abcdef"));
-        QCOMPARE(model.value("fg").toString(), QString("#abcdef"));
-        input->setText("invalid");
-        QCOMPARE(swatch->text(), QString("?"));
-        QCOMPARE(model.value("fg").toString(), QString("invalid"));
+        model.setValue("fg", "#abcdef");
+        QCOMPARE(picker->text(), QString("#abcdef"));
+        QCOMPARE(picker->icon().pixmap(picker->iconSize()).toImage().pixelColor(10, 8), QColor("#abcdef"));
+        model.setValue("fg", "invalid");
+        QCOMPARE(picker->text(), QString("invalid"));
+        QCOMPARE(editor->value().toString(), QString("invalid"));
         form.findChild<QToolButton*>("reset_fg")->click();
-        QCOMPARE(input->text(), QString("#112233"));
-        QCOMPARE(swatch->palette().color(QPalette::Window), QColor("#112233"));
-        QVERIFY(swatch->text().isEmpty());
+        QCOMPARE(picker->text(), QString("#112233"));
         QVERIFY(!local.contains("fg"));
+        editor->setValue(42);
+        QCOMPARE(editor->value().typeId(), QMetaType::Int);
+        QCOMPARE(picker->text(), QString("42"));
     }
 
     Q_SLOT void acceptingInheritedColorCreatesExplicitOverride()
@@ -156,7 +160,7 @@ private:
         QTemporaryDir     directory;
         Settings          owner(directory.filePath("settings.yaml"));
         auto              descriptor = schema("size: {type: number, default: 12, x-settings-path: appearance/fontSize}",
-                                              "  x-widget: terminalPreview\n");
+                                 "  x-widget: terminalPreview\n");
         SettingsFormModel model(descriptor, owner.node(""));
         SettingsWidgetRegistry registry;
         SettingsFormWidget     form(model, registry);
@@ -206,9 +210,9 @@ private:
         SettingsOverlay overlay(base.node(""), local.node(""));
         auto            descriptor = schema(
             "family: {type: string, default: Consolas, x-widget: fontFamily, x-settings-path: appearance/fontFamily}\n"
-            "size: {type: number, default: 12, x-settings-path: appearance/fontSize}\n"
-            "fg: {type: string, default: '#eeeeee', x-widget: color, x-settings-path: appearance/foreground}\n"
-            "bg: {type: string, default: '#111111', x-widget: color, x-settings-path: appearance/background}",
+                       "size: {type: number, default: 12, x-settings-path: appearance/fontSize}\n"
+                       "fg: {type: string, default: '#eeeeee', x-widget: color, x-settings-path: appearance/foreground}\n"
+                       "bg: {type: string, default: '#111111', x-widget: color, x-settings-path: appearance/background}",
             "  x-widget: terminalPreview\n  x-widget-options: {title: Draft preview}\n");
         QCOMPARE(descriptor->widget(), QString("terminalPreview"));
         QCOMPARE(descriptor->presentation().value("title").toString(), QString("Draft preview"));
@@ -237,6 +241,9 @@ private:
         {
             auto*      editor = form.editor(key);
             const auto before = model.value(key);
+            QVERIFY(!editor->findChild<QLineEdit*>());
+            QCOMPARE(editor->findChildren<QToolButton*>().size(), 1);
+            QCOMPARE(editor->findChild<QToolButton*>("settingsPicker")->text(), before.toString());
             QTimer::singleShot(0, &form, [] {
                 auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
                 QVERIFY(dialog);
@@ -369,12 +376,12 @@ private:
         QVERIFY(owner.setValue("wide", qlonglong(9007199254740991LL)));
         QVERIFY(owner.setValue("fraction", 0.12345678901234566));
         QVERIFY(owner.setValue("invalid", QString("unavailable")));
-        auto descriptor = schema("small: {type: integer, minimum: -2.5, maximum: 4.5, default: 2}\n"
-                                 "wide: {type: integer}\n"
-                                 "fraction: {type: number, minimum: -1, maximum: 1}\n"
-                                 "invalid: {type: integer, minimum: 1, maximum: 9}\n"
-                                 "choice: {type: integer, enum: [1, 2], default: 1}\n"
-                                 "exclusive: {type: integer, exclusiveMinimum: 2, exclusiveMaximum: 6, default: 3}");
+        auto                   descriptor = schema("small: {type: integer, minimum: -2.5, maximum: 4.5, default: 2}\n"
+                                                   "wide: {type: integer}\n"
+                                                   "fraction: {type: number, minimum: -1, maximum: 1}\n"
+                                                   "invalid: {type: integer, minimum: 1, maximum: 9}\n"
+                                                   "choice: {type: integer, enum: [1, 2], default: 1}\n"
+                                                   "exclusive: {type: integer, exclusiveMinimum: 2, exclusiveMaximum: 6, default: 3}");
         SettingsFormModel      model(descriptor, owner.node(""));
         SettingsWidgetRegistry registry;
         SettingsFormWidget     form(model, registry);
@@ -756,8 +763,8 @@ private:
         Settings      owner(directory.filePath("settings.yaml"));
         auto          descriptor = schema(
             "count: {type: integer, default: 3, title: Quantity, x-group: connection, x-settings-path: serial/rate}\n"
-            "name: {type: string, default: initial, title: Display, description: Unicode Ωμέγα, x-group: connection}\n"
-            "other: {type: string, default: other, x-group: appearance}",
+                     "name: {type: string, default: initial, title: Display, description: Unicode Ωμέγα, x-group: connection}\n"
+                     "other: {type: string, default: other, x-group: appearance}",
             "  x-groups:\n    - {id: connection, title: Transport}\n    - {id: appearance, title: Appearance}\n");
         SettingsFormModel      model(descriptor, owner.node(""));
         SettingsWidgetRegistry registry;

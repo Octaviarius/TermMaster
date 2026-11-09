@@ -83,6 +83,12 @@ and `enum` can also select standard controls automatically. These flat annotatio
 are presentation hints; JSON Schema remains authoritative for validation. The old
 nested `x-ui` annotations are rejected and are not aliases for the flat names.
 
+The `fontFamily` and `color` editors each use one compact button showing the current
+family or color code. The color button includes an inline swatch. Selecting a button
+opens its picker; cancellation preserves the draft, while acceptance creates an
+explicit override even when the selected value equals the inherited value. Loaded
+unknown values remain unchanged until a selection is accepted.
+
 Object and array fields use a YAML value editor. This is also available as the
 `yaml` hint. The form does not recursively lay out nested `properties`; complex
 structures use the YAML editor or a custom field editor. Register custom editor
@@ -436,3 +442,17 @@ Only five pinned upstream icon files were downloaded, through the physical
 Ethernet adapter with destination routes verified. No serial hardware was opened,
 no external endpoint acceptance was performed, and no elevation was requested.
 Release was not rebuilt.
+
+### Compact picker button verification
+
+Verified on 2026-11-09 with Windows x64, MSVC 19.44, Qt 6.12.0 and Ninja Debug.
+The full Debug build, including Termaster.exe, and all 28 configured CTest tests
+passed. Native Windows picker checks passed at scale factors 1 and 2, covering
+acceptance, cancellation, same-value inherited overrides, draft previews and
+form destruction during a picker loop. Loaded unknown values retain their original
+QVariant until explicitly replaced. Formatting and `git diff --check` passed.
+
+The 1100 × 760 logical-pixel captures were visually checked at
+[scale 1](images/preferences/PickerButtons1x/Appearance.png) and
+[scale 2](images/preferences/PickerButtons2x/Appearance.png). Both show a single
+font-family button and single color-code buttons with inline swatches.
