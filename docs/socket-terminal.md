@@ -9,8 +9,8 @@ unchanged. Future processing chains remain outside the byte transport.
 
 ## Settings
 
-Terminal в†’ New socket terminal opens the standard settings layout. Existing socket
-terminals use Terminal в†’ Socket terminal settings. Application, workspace and
+Terminal в†’ New socket opens the standard settings layout. Existing socket
+terminals use Terminal в†’ Settings.... Application, workspace and
 session defaults inherit through the normal overlay; editing creates an override
 and Reset restores the lower layer. Connection changes apply on the next attempt.
 Descriptors use the version/type/description/content YAML envelope and existing

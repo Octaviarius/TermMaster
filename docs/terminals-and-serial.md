@@ -56,7 +56,15 @@ pages remain isolated and explicitly identified as previews.
 
 The Terminal menu provides create, connection, management, output and settings
 groups. Serial actions are New, Connect, Disconnect, Close, Clear and Settings.
-Menu and toolbar share icon-bearing actions. Visibility and eligibility depend
+Creation labels name only the type: New console, New serial and New socket.
+Selected-object labels use Connect/Disconnect or Start/Stop/Restart, Close,
+Clear screen and Settings without repeating the surrounding Terminal menu name.
+The toolbar contains exactly two ordered groups: terminalCreation, then terminal.
+All plugin actions registered in the create menu group go into terminalCreation;
+connection, management, output and settings actions go into terminal. Workspace,
+session and application/plugin management actions remain in their menus and do
+not occupy the terminal toolbar. Empty groups do not leave redundant separators.
+Menu and toolbar share icon-bearing terminal actions. Visibility and eligibility depend
 on the active window, session, selected terminal type and connection state;
 execution resolves and validates the current target again.
 
@@ -277,3 +285,10 @@ and unselected metadata presentation; application checks verify the same editor
 in defaults and actual terminal settings.
 
 ![Rich port identity, synthetic inventory](images/preferences/RichSerialPorts.png)
+
+Terminal menu captions and the two-group toolbar were checked in the native Windows
+GUI with disconnected synthetic terminals. The Debug application and affected
+plugin/application suites passed.
+
+Native 1280 × 800 references: [Terminal menu](images/TerminalMenu.png) and
+[terminal toolbar](images/TerminalToolbar.png).

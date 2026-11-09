@@ -131,12 +131,12 @@ void SocketPlugin::_registerActions()
         QStyle::StandardPixmap icon;
     };
     const QList<Description> descriptions {
-        {       "Socket.New",      "New socket terminal",     "create",               QStyle::SP_FileIcon},
-        {   "Socket.Connect",           "Connect socket", "connection",              QStyle::SP_MediaPlay},
-        {"Socket.Disconnect",        "Disconnect socket", "connection",              QStyle::SP_MediaStop},
-        {     "Socket.Close",    "Close socket terminal", "management",      QStyle::SP_DialogCloseButton},
-        {     "Socket.Clear",   "Clear terminal display",     "output",      QStyle::SP_DialogResetButton},
-        {  "Socket.Settings", "Socket terminal settings",   "settings", QStyle::SP_FileDialogDetailedView}
+        {       "Socket.New",   "New socket",     "create",               QStyle::SP_FileIcon},
+        {   "Socket.Connect",      "Connect", "connection",              QStyle::SP_MediaPlay},
+        {"Socket.Disconnect",   "Disconnect", "connection",              QStyle::SP_MediaStop},
+        {     "Socket.Close",        "Close", "management",      QStyle::SP_DialogCloseButton},
+        {     "Socket.Clear", "Clear screen",     "output",      QStyle::SP_DialogResetButton},
+        {  "Socket.Settings",  "Settings...",   "settings", QStyle::SP_FileDialogDetailedView}
     };
     for (const auto& item : descriptions)
     {

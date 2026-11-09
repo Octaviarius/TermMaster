@@ -336,7 +336,7 @@ void TerminalController::registerAction(Action action)
         presentation = command->newAction(&_window);
         presentation->setToolTip(action.title);
         menu->addAction(presentation, action.group);
-        _window.toolbar().addAction(presentation, "terminal");
+        _window.toolbar().addAction(presentation, action.group == "create" ? "terminalCreation" : "terminal");
         _actions.emplace(id, RegisteredAction {std::move(action), presentation});
     }
     catch (...)

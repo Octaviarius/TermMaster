@@ -112,6 +112,5 @@ private:
                         const QIcon&        icon,
                         const QKeySequence& shortcut,
                         const QString&      menu,
-                        const QString&      group,
-                        const QString&      toolbarGroup = {});
+                        const QString&      group);
 };

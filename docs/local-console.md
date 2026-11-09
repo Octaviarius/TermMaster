@@ -7,7 +7,7 @@ introduce another terminal emulator or a background service.
 
 ## Launch and lifecycle
 
-Terminal РІвЂ вЂ™ New local console creates a disconnected session object. Start launches
+Terminal РІвЂ вЂ™ New console creates a disconnected session object. Start launches
 the configured executable; Stop terminates the owned process tree; Restart closes
 and launches it again. Terminal settings contain the executable, a YAML argument
 array, working directory and environment overrides. An empty executable selects

@@ -88,7 +88,7 @@ void MainWindow::_createMenus()
     menu("terminal", tr("&Terminal"), {"create", "connection", "management", "output", "settings"});
     menu("tools", tr("&Tools"), {"management"});
     menu("help", tr("&Help"), {"about"});
-    for (const auto& group : QStringList {"application", "workspace", "session", "terminal"})
+    for (const auto& group : QStringList {"terminalCreation", "terminal"})
     {
         _toolbar.addGroup(group);
     }
