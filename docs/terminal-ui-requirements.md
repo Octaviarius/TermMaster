@@ -9,3 +9,8 @@ action from the toolbar to prevent accidental terminal closure. This requirement
 does not request removal of terminal closing from other UI locations. Preserve
 capability and state checks when applying the shared layout.
 
+## Terminal tab context menu
+
+Status: requested; implementation deferred until an explicit start instruction.
+
+Add a context menu to terminal tabs. Its action list remains to be specified.
