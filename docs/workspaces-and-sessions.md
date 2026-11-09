@@ -177,9 +177,11 @@ used. Release was not rebuilt for this feature.
 
 ## Reusable processor definitions
 
-Workspace `content/processorBlocks` stores reusable named processing definitions.
+Workspace `content/processorDefinitions` stores reusable named processing definitions
+with a kind, source, defaults, schema and editor metadata. App publishes them into
+the common processor registry when opening or changing a workspace.
 Each node's unique `name` is its identity within the block. A session terminal's
-`settings/processing` map stores its private Rx/Tx block selection and occurrence
+`settings/processing` map stores its private Rx/Tx catalog selection and occurrence
 configuration overrides; saving definitions does not require their native plugins
 to be loaded. The [processing core](processing-core.md) specifies defaults,
 occurrence paths, validation and independent runtime lifetimes.

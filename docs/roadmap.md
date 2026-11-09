@@ -133,16 +133,16 @@ silently change protocol reply, paste, keyboard, packet or local-echo semantics.
 
 ## FLOW-3: Unified processor registration
 
-- [ ] Extend the common catalog to include native processors, saved workspace
+- [x] Extend the common catalog to include native processors, saved workspace
       Lineflow blocks and saved code processors through the same registration contract.
-- [ ] Register a validated definition when an editor saves it and repopulate workspace
+- [x] Register a validated definition when an editor saves it and repopulate workspace
       entries when opening a workspace; expose catalog changes to selectors and editors.
-- [ ] Provide a stable identifier, display name, defaults, configuration schema,
+- [x] Provide a stable identifier, display name, defaults, configuration schema,
       editor metadata and an instance factory for each entry, independently of origin.
-- [ ] Create independent Processor instances on demand; registration must not execute
+- [x] Create independent Processor instances on demand; registration must not execute
       user code or create a running processing chain.
-- [ ] Resolve nested entries through the catalog and reject cyclic compositions.
-- [ ] Define update/removal and provider shutdown: preserve unavailable references,
+- [x] Resolve nested entries through the catalog and reject cyclic compositions.
+- [x] Define update/removal and provider shutdown: preserve unavailable references,
       keep active instances safe and apply definition changes through explicit replacement.
 
 No dedicated processor plugin is required. Any plugin may register processors;
@@ -196,7 +196,7 @@ Rx/Tx and different terminals must remain independent even when sharing a block.
 Codeflow can be selected on Rx/Tx or used inside Lineflow through the common
 Processor contract. It does not add ControlFlow nodes to the Lineflow editor.
 
-FLOW-2 routing is delivered. The remaining processing order is FLOW-3, FLOW-4,
-FLOW-5 and FLOW-6. Editors depend on the unified catalog definition registration
+FLOW-2 routing and FLOW-3 registration are delivered. The remaining processing
+order is FLOW-4, FLOW-5 and FLOW-6. Editors depend on the unified catalog definition registration
 and update contracts. Python execution remains part of P7/FLOW-6.
 The earlier unrelated P5/P6 milestones do not block this processing sequence.
