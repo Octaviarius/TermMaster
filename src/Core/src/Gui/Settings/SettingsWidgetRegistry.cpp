@@ -9,6 +9,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPainter>
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QRegularExpression>
@@ -332,6 +333,51 @@ public:
             (_integer ? static_cast<QAbstractSpinBox*>(_integer) : _number)->installEventFilter(this);
             connect(_line, &QLineEdit::textChanged, this, [this] { _changed(); });
         }
+        else if (hint == "fontFamily" || hint == "color")
+        {
+            _picker = new QToolButton(this);
+            _picker->setObjectName("settingsPicker");
+            _picker->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+            _picker->setToolTip(hint == "fontFamily" ? tr("Choose font family") : tr("Choose color"));
+            _picker->setAccessibleName(_picker->toolTip());
+            setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Preferred);
+            layout->addWidget(_picker);
+            connect(_picker, &QToolButton::clicked, this, [this, hint] {
+                const QPointer<BuiltinEditor> editor(this);
+                if (hint == "fontFamily")
+                {
+                    QFont initial;
+                    initial.setFamily(_value.toString());
+                    QPointer<QFontDialog> dialog = new QFontDialog(initial, this);
+                    dialog->setOption(QFontDialog::DontUseNativeDialog);
+                    dialog->setWindowTitle(tr("Choose font family"));
+                    dialog->adjustSize();
+                    const int result = dialog->exec();
+                    if (editor && dialog && result == QDialog::Accepted)
+                    {
+                        const auto selected = dialog->selectedFont().family();
+                        editor->_value      = selected;
+                        editor->_changed();
+                    }
+                    delete dialog.data();
+                }
+                else
+                {
+                    QPointer<QColorDialog> dialog = new QColorDialog(QColor(_value.toString()), this);
+                    dialog->setOption(QColorDialog::DontUseNativeDialog);
+                    dialog->setWindowTitle(tr("Choose color"));
+                    dialog->adjustSize();
+                    const int result = dialog->exec();
+                    if (editor && dialog && result == QDialog::Accepted && dialog->selectedColor().isValid())
+                    {
+                        const auto selected = dialog->selectedColor().name(QColor::HexRgb);
+                        editor->_value      = selected;
+                        editor->_changed();
+                    }
+                    delete dialog.data();
+                }
+            });
+        }
         else
         {
             _line = new QLineEdit(this);
@@ -341,78 +387,12 @@ public:
             }
             layout->addWidget(_line);
             connect(_line, &QLineEdit::textChanged, this, [this] { _changed(); });
-            if (hint == "color")
-            {
-                _swatch = new QLabel(this);
-                _swatch->setObjectName("settingsColorSwatch");
-                _swatch->setAccessibleName(tr("Color preview"));
-                _swatch->setFixedWidth(24);
-                _swatch->setFrameStyle(QFrame::Box | QFrame::Plain);
-                _swatch->setAlignment(Qt::AlignCenter);
-                _swatch->setAutoFillBackground(true);
-                layout->addWidget(_swatch);
-            }
-            if (hint == "fontFamily" || hint == "color")
-            {
-                auto* picker = new QToolButton(this);
-                picker->setObjectName("settingsPicker");
-                picker->setText(tr("Choose…"));
-                picker->setToolTip(hint == "fontFamily" ? tr("Choose font family") : tr("Choose color"));
-                layout->addWidget(picker);
-                connect(picker, &QToolButton::clicked, this, [this, hint] {
-                    const QPointer<BuiltinEditor> editor(this);
-                    if (hint == "fontFamily")
-                    {
-                        QFont initial;
-                        initial.setFamily(_line->text());
-                        QPointer<QFontDialog> dialog = new QFontDialog(initial, this);
-                        dialog->setOption(QFontDialog::DontUseNativeDialog);
-                        dialog->setWindowTitle(tr("Choose font family"));
-                        dialog->adjustSize();
-                        const int result = dialog->exec();
-                        if (editor && dialog && result == QDialog::Accepted)
-                        {
-                            const auto selected = dialog->selectedFont().family();
-                            if (editor->_line->text() == selected)
-                            {
-                                editor->_changed();
-                            }
-                            else
-                            {
-                                editor->_line->setText(selected);
-                            }
-                        }
-                        delete dialog.data();
-                    }
-                    else
-                    {
-                        QPointer<QColorDialog> dialog = new QColorDialog(QColor(_line->text()), this);
-                        dialog->setOption(QColorDialog::DontUseNativeDialog);
-                        dialog->setWindowTitle(tr("Choose color"));
-                        dialog->adjustSize();
-                        const int result = dialog->exec();
-                        if (editor && dialog && result == QDialog::Accepted && dialog->selectedColor().isValid())
-                        {
-                            const auto selected = dialog->selectedColor().name(QColor::HexRgb);
-                            if (editor->_line->text() == selected)
-                            {
-                                editor->_changed();
-                            }
-                            else
-                            {
-                                editor->_line->setText(selected);
-                            }
-                        }
-                        delete dialog.data();
-                    }
-                });
-            }
         }
     }
 
     QVariant value() const override
     {
-        if (_untouched)
+        if (_untouched || _picker)
         {
             return _value;
         }
@@ -512,7 +492,7 @@ public:
             _line->setText(value.typeId() == QMetaType::Double ? QString::number(value.toDouble(), 'g', 17) :
                                                                  value.toString());
         }
-        _refreshSwatch();
+        _refreshPicker();
         if (_text)
         {
             const QSignalBlocker blocker(_text);
@@ -554,6 +534,16 @@ public:
     }
 
 protected:
+    bool event(QEvent* event) override
+    {
+        const bool result = SettingsFieldEditor::event(event);
+        if (event->type() == QEvent::PaletteChange || event->type() == QEvent::DevicePixelRatioChange)
+        {
+            _refreshPicker();
+        }
+        return result;
+    }
+
     bool eventFilter(QObject* watched, QEvent* event) override
     {
         if (_untouched && _line && (_integer || _number) && !_line->hasAcceptableInput())
@@ -579,7 +569,7 @@ private:
     QPlainTextEdit*           _text    = nullptr;
     QComboBox*                _combo   = nullptr;
     QCheckBox*                _check   = nullptr;
-    QLabel*                   _swatch  = nullptr;
+    QToolButton*              _picker  = nullptr;
     QVariant                  _value;
     bool                      _untouched = true;
     bool                      _yaml() const
@@ -587,23 +577,39 @@ private:
         return _field.widget == "yaml" || _field.type == "object" || _field.type == "array"
             || (_field.widget.isEmpty() && (_field.type.isEmpty() || _field.type == "null"));
     }
-    void _refreshSwatch()
+    void _refreshPicker()
     {
-        if (!_swatch)
+        if (!_picker)
         {
             return;
         }
-        const QColor color(_line->text());
-        auto         palette = _swatch->palette();
-        palette.setColor(QPalette::Window, color.isValid() ? color : this->palette().color(QPalette::Base));
-        palette.setColor(QPalette::WindowText, this->palette().color(QPalette::Text));
-        _swatch->setPalette(palette);
-        _swatch->setText(color.isValid() ? QString() : QStringLiteral("?"));
-        _swatch->setToolTip(color.isValid() ? color.name(QColor::HexRgb) : tr("Invalid color"));
+        _picker->setText(_value.toString());
+        if (_field.widget != "color")
+        {
+            return;
+        }
+        const QColor color(_value.toString());
+        const QSize  size(20, 16);
+        const qreal  ratio = _picker->devicePixelRatioF();
+        QPixmap      swatch(size * ratio);
+        swatch.setDevicePixelRatio(ratio);
+        swatch.fill(Qt::transparent);
+        QPainter painter(&swatch);
+        painter.setPen(_picker->palette().color(QPalette::ButtonText));
+        painter.setBrush(color.isValid() ? color : _picker->palette().color(QPalette::Base));
+        painter.drawRect(QRect(QPoint(0, 0), size - QSize(1, 1)));
+        if (!color.isValid())
+        {
+            painter.drawText(QRect(QPoint(0, 0), size), Qt::AlignCenter, QStringLiteral("?"));
+        }
+        painter.end();
+        _picker->setIcon(QIcon(swatch));
+        _picker->setIconSize(size);
     }
+
     void _changed()
     {
-        _refreshSwatch();
+        _refreshPicker();
         _untouched = false;
         emit valueChanged();
     }
