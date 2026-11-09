@@ -68,3 +68,24 @@ Status: requested; implementation deferred until an explicit start instruction.
 The value reset button must have the same height as its adjacent settings
 control, with aligned top and bottom edges. Apply this consistently to the
 shared settings editor layout.
+
+## Additional command input features
+
+Status: requested; implementation deferred until an explicit start instruction.
+
+- Command history with Up/Down navigation and search.
+- Editing before submission through a dedicated single-line or multiline editor.
+- Extend terminator choices with CR (`\r`), no terminator and a custom sequence.
+- HEX input mode for sending explicit bytes, for example `41 54 0D`.
+- Named favorite commands, each with its own terminator.
+- File sending as raw bytes or line by line, with cancellation.
+- Configurable delays between characters and between lines for slow receivers.
+- Periodic command sending with a visible active indicator and a stop button.
+- Paste policy: send immediately or retain for editing; confirm multiline sending.
+- Explicit disconnected-send policy: reject sending or retain a bounded queue
+  until reconnection. Never silently discard or replay pending commands.
+
+These features extend the buffered input and terminator requirements above.
+Keep queued data and file transfer bounded, respect transport backpressure and
+cancel timers/pending sends when their owner shuts down. Keep command history
+and favorites out of routine logs; persistence details remain to be designed.
