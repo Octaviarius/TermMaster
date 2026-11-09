@@ -169,12 +169,12 @@ void SerialPlugin::_registerActions()
         QStyle::StandardPixmap icon;
     };
     const QList<Description> descriptions {
-        {       "Serial.New",      "New serial terminal",     "create",               QStyle::SP_FileIcon},
-        {   "Serial.Connect",      "Connect serial port", "connection",              QStyle::SP_MediaPlay},
-        {"Serial.Disconnect",   "Disconnect serial port", "connection",              QStyle::SP_MediaStop},
-        {     "Serial.Close",    "Close serial terminal", "management",      QStyle::SP_DialogCloseButton},
-        {     "Serial.Clear",   "Clear terminal display",     "output",      QStyle::SP_DialogResetButton},
-        {  "Serial.Settings", "Serial terminal settings",   "settings", QStyle::SP_FileDialogDetailedView}
+        {       "Serial.New",   "New serial",     "create",               QStyle::SP_FileIcon},
+        {   "Serial.Connect",      "Connect", "connection",              QStyle::SP_MediaPlay},
+        {"Serial.Disconnect",   "Disconnect", "connection",              QStyle::SP_MediaStop},
+        {     "Serial.Close",        "Close", "management",      QStyle::SP_DialogCloseButton},
+        {     "Serial.Clear", "Clear screen",     "output",      QStyle::SP_DialogResetButton},
+        {  "Serial.Settings",  "Settings...",   "settings", QStyle::SP_FileDialogDetailedView}
     };
     for (const auto& item : descriptions)
     {

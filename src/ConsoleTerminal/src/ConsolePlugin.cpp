@@ -224,19 +224,19 @@ void ConsolePlugin::_registerActions()
         QStyle::StandardPixmap icon;
     };
     const QList<Description> descriptions {
-        {                       "Console.New","New local console",     "create",QStyle::SP_FileIcon                                                                                      },
-        {                     "Console.Start",          "Start console", "connection",              QStyle::SP_MediaPlay},
-        {                      "Console.Stop",           "Stop console", "connection",              QStyle::SP_MediaStop},
-        {                   "Console.Restart",        "Restart console", "connection",          QStyle::SP_BrowserReload},
-        {                     "Console.Close",          "Close console", "management",      QStyle::SP_DialogCloseButton},
-        {                     "Console.Clear", "Clear terminal display",     "output",      QStyle::SP_DialogResetButton},
-        {                  "Console.Settings",       "Console settings",   "settings", QStyle::SP_FileDialogDetailedView},
+        {                       "Console.New","New console",     "create",QStyle::SP_FileIcon                                                                            },
+        {                     "Console.Start",        "Start", "connection",              QStyle::SP_MediaPlay},
+        {                      "Console.Stop",         "Stop", "connection",              QStyle::SP_MediaStop},
+        {                   "Console.Restart",      "Restart", "connection",          QStyle::SP_BrowserReload},
+        {                     "Console.Close",        "Close", "management",      QStyle::SP_DialogCloseButton},
+        {                     "Console.Clear", "Clear screen",     "output",      QStyle::SP_DialogResetButton},
+        {                  "Console.Settings",  "Settings...",   "settings", QStyle::SP_FileDialogDetailedView},
         {       "Console.Environment.Refresh",
          "Refresh user environment for next launch",   "settings",
-         QStyle::SP_BrowserReload                                                                                       },
+         QStyle::SP_BrowserReload                                                                             },
         {"Console.Environment.RefreshRestart",
-         "Refresh user environment and restart console",   "settings",
-         QStyle::SP_BrowserReload                                                                                       }
+         "Refresh user environment and restart",   "settings",
+         QStyle::SP_BrowserReload                                                                             }
     };
     _actionsRegistered.reserve(descriptions.size());
     for (const auto& item : descriptions)
