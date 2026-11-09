@@ -32,10 +32,9 @@ public:
     void paint(QPainter* painter, const QRect& rect, QIcon::Mode mode, QIcon::State) override
     {
         const auto palette = QApplication::palette();
-        const auto group   = mode == QIcon::Disabled ? QPalette::Disabled : QPalette::Active;
         const auto role    = mode == QIcon::Selected ? QPalette::HighlightedText : QPalette::ButtonText;
         auto       svg     = _svg;
-        const auto color   = _color.isValid() ? _color : palette.color(group, role);
+        const auto color   = _color.isValid() ? _color : palette.color(QPalette::Active, role);
         svg.replace("currentColor", color.name(QColor::HexRgb).toUtf8());
         QSvgRenderer renderer(svg);
         const auto   side = qMin(rect.width(), rect.height());
@@ -44,9 +43,9 @@ public:
                             side,
                             side);
         painter->save();
-        if (_color.isValid() && mode == QIcon::Disabled)
+        if (mode == QIcon::Disabled)
         {
-            painter->setOpacity(painter->opacity() * 0.5);
+            painter->setOpacity(painter->opacity() * 0.15);
         }
         painter->setRenderHint(QPainter::Antialiasing);
         renderer.render(painter, target);

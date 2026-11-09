@@ -1376,7 +1376,40 @@ content:
             {
                 QVERIFY(QDir().mkpath(capture));
                 QCoreApplication::processEvents();
+                const auto originalMinimum = _app.mainWindow().minimumSize();
+                const auto originalMaximum = _app.mainWindow().maximumSize();
+                const auto restoreSize     = qScopeGuard([&] {
+                    _app.mainWindow().setMinimumSize(originalMinimum);
+                    _app.mainWindow().setMaximumSize(originalMaximum);
+                });
+                _app.mainWindow().setFixedSize(1280, 800);
+                QCoreApplication::processEvents();
                 QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath(QString(type) + ".png")));
+                const auto originalScheme  = QApplication::styleHints()->colorScheme();
+                const auto originalPalette = QApplication::palette();
+                const auto restorePalette  = qScopeGuard([&] {
+                    QApplication::styleHints()->setColorScheme(originalScheme);
+                    QApplication::setPalette(originalPalette);
+                });
+                for (const auto scheme : {Qt::ColorScheme::Light, Qt::ColorScheme::Dark})
+                {
+                    QApplication::styleHints()->setColorScheme(scheme);
+                    auto palette = originalPalette;
+                    if (scheme == Qt::ColorScheme::Dark)
+                    {
+                        palette.setColor(QPalette::Window, QColor("#202020"));
+                        palette.setColor(QPalette::WindowText, QColor("#eeeeee"));
+                        palette.setColor(QPalette::Base, QColor("#161616"));
+                        palette.setColor(QPalette::Button, QColor("#303030"));
+                        palette.setColor(QPalette::ButtonText, QColor("#eeeeee"));
+                        palette.setColor(QPalette::Highlight, QColor("#4aa3ff"));
+                        palette.setColor(QPalette::HighlightedText, QColor("#000000"));
+                    }
+                    QApplication::setPalette(palette);
+                    QCoreApplication::processEvents();
+                    const auto suffix = scheme == Qt::ColorScheme::Dark ? "Dark.png" : "Light.png";
+                    QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath(QString(type) + suffix)));
+                }
             }
         }
         const auto menuCapture = qEnvironmentVariable("TERMASTER_CONTROLS_CAPTURE");
