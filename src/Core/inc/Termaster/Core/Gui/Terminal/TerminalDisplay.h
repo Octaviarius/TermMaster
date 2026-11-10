@@ -6,6 +6,7 @@
 #include <QVariantMap>
 #include <Termaster/Core/Terminal/TerminalGraphics.h>
 #include <Termaster/Core/Terminal/TerminalScreen.h>
+#include <array>
 #include <map>
 #include <memory>
 #include <vector>
@@ -80,6 +81,12 @@ private:
         bool             blinking = false;
         std::vector<Run> runs;
     };
+    bool                      _appearanceInitialized = false;
+    QFont                     _metricsFont;
+    int                       _metricsDpiX = 0;
+    int                       _metricsDpiY = 0;
+    qreal                     _metricsDpr  = 0;
+    std::array<bool, 128>     _fixedAscii {};
     TerminalScreen            _screen;
     TerminalGraphics          _graphics;
     std::map<int, CachedLine> _cache;

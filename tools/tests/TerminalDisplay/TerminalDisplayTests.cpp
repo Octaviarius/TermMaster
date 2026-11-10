@@ -4,6 +4,7 @@
 #include <QTest>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 #include <Termaster/Core/Terminal/TerminalScreen.h>
+#include <cmath>
 
 class TerminalDisplayTests : public QObject
 {
@@ -205,6 +206,111 @@ private:
         QTest::qWait(20);
         pixel = display.viewport()->grab().toImage().pixelColor(4, 4);
         QCOMPARE(pixel, QColor(Qt::red));
+    }
+    Q_SLOT void partialRepaintMatchesFullRendering()
+    {
+        TerminalDisplay display;
+        display.setAppearance({
+            {"fontFamily", "Courier New"},
+            {  "fontSize",            12}
+        });
+        display.resize(803, 353);
+        display.show();
+        display.clearFocus();
+        display.receive(QString::fromUtf8("ASCII\r\n\x1b[1;31;44mStyled 日本 é 😀\x1b[0m\r\nlast").toUtf8());
+        QCoreApplication::processEvents();
+        const auto full = display.viewport()->grab().toImage();
+        QImage     partial(full.size(), full.format());
+        partial.setDevicePixelRatio(full.devicePixelRatio());
+        partial.fill(Qt::transparent);
+        const int   lineHeight = qCeil(QFontMetricsF(display.font(), display.viewport()).height());
+        const QRect strip(0, lineHeight, display.viewport()->width(), lineHeight);
+        display.viewport()->render(&partial, strip.topLeft(), QRegion(strip));
+        const qreal dpr = full.devicePixelRatio();
+        const QRect pixels(0, qRound(strip.top() * dpr), qRound(strip.width() * dpr), qRound(strip.height() * dpr));
+        QCOMPARE(partial.copy(pixels), full.copy(pixels));
+    }
+    Q_SLOT void fontAndDeviceEventsRefreshGeometryWithoutResize()
+    {
+        TerminalDisplay display;
+        display.setAppearance({
+            {"fontFamily", "Courier New"},
+            {  "fontSize",            12}
+        });
+        display.resize(803, 353);
+        display.show();
+        QTest::qWait(20);
+        display.clearFocus();
+        display.receive(QString::fromUtf8("ASCII 日本 é 😀").toUtf8());
+        display.selectAll();
+        const auto pixelSize   = display.size();
+        const auto initialGrid = display.terminalSize();
+        QSignalSpy sizes(&display, &TerminalDisplay::terminalSizeChanged);
+
+        auto font = display.font();
+        font.setPointSizeF(18);
+        display.setFont(font);
+        QCOMPARE(display.size(), pixelSize);
+        QVERIFY(display.terminalSize() != initialGrid);
+        QVERIFY(!display.hasSelection());
+        QVERIFY(!sizes.isEmpty());
+        const QFontMetricsF metrics(font, display.viewport());
+        QCOMPARE(display.terminalSize().width(),
+                 int(display.viewport()->width() / metrics.horizontalAdvance(QLatin1Char('M'))));
+        QCOMPARE(display.terminalSize().height(), int(display.viewport()->height() / std::ceil(metrics.height())));
+
+        display.selectAll();
+        const auto grid   = display.terminalSize();
+        const auto pixels = display.viewport()->grab().toImage();
+        QEvent     deviceChange(QEvent::DevicePixelRatioChange);
+        QCoreApplication::sendEvent(&display, &deviceChange);
+        QCOMPARE(display.terminalSize(), grid);
+        QVERIFY(display.hasSelection());
+        QCOMPARE(display.viewport()->grab().toImage(), pixels);
+        QEvent screenChange(QEvent::ScreenChangeInternal);
+        QCoreApplication::sendEvent(&display, &screenChange);
+        QCOMPARE(display.terminalSize(), grid);
+        QVERIFY(display.hasSelection());
+    }
+    Q_SLOT void unchangedAppearanceAndSubcellResizePreserveSelection()
+    {
+        TerminalDisplay   display;
+        const QVariantMap appearance {
+            {"fontFamily", "Courier New"},
+            {  "fontSize",            12}
+        };
+        display.setAppearance(appearance);
+        display.resize(803, 353);
+        display.show();
+        QTest::qWait(20);
+        display.clearFocus();
+        display.receive(QString::fromUtf8("ASCII \x1b[1;31mstyled\x1b[0m 日本 é 😀").toUtf8());
+        display.selectAll();
+        QVERIFY(display.hasSelection());
+        display.copy();
+        const auto selectedText = QApplication::clipboard()->text();
+        const auto before       = display.viewport()->grab().toImage();
+        const auto revision     = display.screen().lines()[0].revision;
+        const auto size         = display.terminalSize();
+
+        display.setAppearance(appearance);
+        QVERIFY(display.hasSelection());
+        QCOMPARE(display.screen().lines()[0].revision, revision);
+        QCOMPARE(display.viewport()->grab().toImage(), before);
+        display.resize(display.width() + 1, display.height());
+        QCoreApplication::processEvents();
+        QCOMPARE(display.terminalSize(), size);
+        QVERIFY(display.hasSelection());
+        QCOMPARE(display.screen().lines()[0].revision, revision);
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text(), selectedText);
+
+        display.setAppearance({
+            {"fontFamily", "Courier New"},
+            {  "fontSize",            14}
+        });
+        QVERIFY(!display.hasSelection());
+        QVERIFY(display.terminalSize() != size);
     }
     Q_SLOT void keyboardAndAppearance()
     {

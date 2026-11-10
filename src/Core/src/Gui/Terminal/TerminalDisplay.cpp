@@ -5,6 +5,7 @@
 #include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
+#include <QPaintEvent>
 #include <QPainter>
 #include <QScrollBar>
 #include <QUrl>
@@ -144,13 +145,23 @@ void TerminalDisplay::setAppearance(const QVariantMap& appearance)
     bool        ok   = false;
     const qreal size = appearance.value("fontSize", 12).toDouble(&ok);
     selected.setPointSizeF(ok && std::isfinite(size) ? std::clamp(size, 6.0, 72.0) : 12.0);
-    setFont(selected);
     QColor foreground(appearance.value("foreground", "#e5e7eb").toString());
     QColor background(appearance.value("background", "#15191f").toString());
-    _foreground       = foreground.isValid() ? foreground : QColor("#e5e7eb");
-    _background       = background.isValid() ? background : QColor("#15191f");
-    const int history = appearance.value("scrollbackLines", 10000).toInt(&ok);
-    _history          = ok ? std::clamp(history, 1, 100000) : 10000;
+    foreground                 = foreground.isValid() ? foreground : QColor("#e5e7eb");
+    background                 = background.isValid() ? background : QColor("#15191f");
+    const int requestedHistory = appearance.value("scrollbackLines", 10000).toInt(&ok);
+    const int history          = ok ? std::clamp(requestedHistory, 1, 100000) : 10000;
+    if (_appearanceInitialized && selected == font() && foreground == _foreground && background == _background
+        && history == _history)
+    {
+        return;
+    }
+
+    _appearanceInitialized = true;
+    setFont(selected);
+    _foreground = foreground;
+    _background = background;
+    _history    = history;
     _screen.setColors(_foreground, _background);
     _anchor = _selection = QPoint(-1, -1);
     _selecting           = false;
@@ -291,7 +302,17 @@ bool TerminalDisplay::event(QEvent* event)
             return true;
         }
     }
-    return QAbstractScrollArea::event(event);
+    const bool handled = QAbstractScrollArea::event(event);
+    if (_appearanceInitialized
+        && (event->type() == QEvent::FontChange || event->type() == QEvent::ApplicationFontChange
+            || event->type() == QEvent::DevicePixelRatioChange || event->type() == QEvent::ScreenChangeInternal))
+    {
+        // Screen/font notifications need not be accompanied by a pixel resize.
+        _metricsDpr = 0;
+        _updateGeometry();
+        viewport()->update();
+    }
+    return handled;
 }
 
 bool TerminalDisplay::focusNextPrevChild(bool)
@@ -299,7 +320,7 @@ bool TerminalDisplay::focusNextPrevChild(bool)
     return false;
 }
 
-void TerminalDisplay::paintEvent(QPaintEvent*)
+void TerminalDisplay::paintEvent(QPaintEvent* event)
 {
     if (_screen.mode(2026) && !_syncTimedOut)
     {
@@ -321,7 +342,10 @@ void TerminalDisplay::paintEvent(QPaintEvent*)
             ++it;
         }
     }
-    for (int row = first; row < last; ++row)
+    const QRect dirty      = event->rect();
+    const int   paintFirst = std::max(first, first + static_cast<int>(dirty.top() / _lineHeight));
+    const int   paintLast  = std::min(last, first + static_cast<int>(dirty.bottom() / _lineHeight) + 1);
+    for (int row = paintFirst; row < paintLast; ++row)
     {
         for (const auto& run : _layout(row).runs)
         {
@@ -339,7 +363,7 @@ void TerminalDisplay::paintEvent(QPaintEvent*)
     {
         std::swap(a, b);
     }
-    for (int row = first; row < last; ++row)
+    for (int row = paintFirst; row < paintLast; ++row)
     {
         auto&       cached = _layout(row);
         const qreal y      = (row - first) * _lineHeight;
@@ -409,9 +433,6 @@ void TerminalDisplay::paintEvent(QPaintEvent*)
 void TerminalDisplay::resizeEvent(QResizeEvent* event)
 {
     QAbstractScrollArea::resizeEvent(event);
-    _anchor = _selection = QPoint(-1, -1);
-    _selecting           = false;
-    _cache.clear();
     _updateGeometry();
 }
 
@@ -608,9 +629,22 @@ QVariant TerminalDisplay::inputMethodQuery(Qt::InputMethodQuery query) const
 
 void TerminalDisplay::_updateGeometry()
 {
-    const QFontMetricsF metrics(font(), viewport());
-    _lineHeight       = std::max(1.0, std::ceil(metrics.height()));
-    _cellWidth        = std::max(1.0, metrics.horizontalAdvance(QLatin1Char('M')));
+    if (_metricsFont != font() || _metricsDpiX != viewport()->logicalDpiX() || _metricsDpiY != viewport()->logicalDpiY()
+        || _metricsDpr != viewport()->devicePixelRatioF())
+    {
+        _metricsFont = font();
+        _metricsDpiX = viewport()->logicalDpiX();
+        _metricsDpiY = viewport()->logicalDpiY();
+        _metricsDpr  = viewport()->devicePixelRatioF();
+        const QFontMetricsF metrics(font(), viewport());
+        _lineHeight = std::max(1.0, std::ceil(metrics.height()));
+        _cellWidth  = std::max(1.0, metrics.horizontalAdvance(QLatin1Char('M')));
+        for (int character = 0; character < 128; ++character)
+        {
+            _fixedAscii[character] = std::abs(metrics.horizontalAdvance(QChar(character)) - _cellWidth) < 0.02;
+        }
+        _cache.clear();
+    }
     const int rows    = std::clamp(static_cast<int>(viewport()->height() / _lineHeight), 1, 256);
     const int columns = std::clamp(static_cast<int>(viewport()->width() / _cellWidth), 1, 4096);
     _screen.setLimits(columns, rows, _history);
@@ -622,6 +656,8 @@ void TerminalDisplay::_updateGeometry()
     verticalScrollBar()->setPageStep(rows);
     if (sizeChanged)
     {
+        _anchor = _selection = QPoint(-1, -1);
+        _selecting           = false;
         emit terminalSizeChanged(columns, rows);
     }
 }
@@ -690,7 +726,6 @@ TerminalDisplay::CachedLine& TerminalDisplay::_layout(int index)
     }
     cached.runs.clear();
     cached.blinking = false;
-    const QFontMetricsF baseMetrics(font(), viewport());
     for (int column = 0; column < row.cells.size();)
     {
         const auto& cell = row.cells[column];
@@ -725,7 +760,7 @@ TerminalDisplay::CachedLine& TerminalDisplay::_layout(int index)
         // independent of fallback-font metrics and QTextLayout's Unicode shaping.
         auto fixedAscii   = [&](const TerminalScreen::Cell& item) {
             return item.width == 1 && item.text.size() == 1 && item.text[0].unicode() < 0x7f
-                && std::abs(baseMetrics.horizontalAdvance(item.text) - _cellWidth) < 0.02;
+                && _fixedAscii[item.text[0].unicode()];
         };
         if (fixedAscii(cell))
         {

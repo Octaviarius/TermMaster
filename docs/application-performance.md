@@ -266,3 +266,40 @@ terminal payloads and large-catalog scaling. These are not established by the
 current fixture. Further system-wide CPU sampling requires an environment where
 Windows performance tracing is permitted. Reproduction commands and safe
 instrumentation restoration are in the probe README.
+
+## Renderer and resize remediation
+
+Fixed-width ASCII eligibility is cached per font and paint-device DPI/DPR rather
+than querying a glyph advance for every cell during row construction. Non-ASCII
+and multi-code-point graphemes keep the existing individually positioned shaping
+path. Row layouts remain revision-checked and bounded to visible rows; pixel
+resizes retain them, and partial paint events only visit intersecting text rows.
+Font/device metric changes invalidate the cache, including font, application-font,
+screen and DPR notifications without a pixel resize. A normalized unchanged appearance
+is a no-op, preserving selection and screen revisions. Grid-size changes retain
+the existing selection-clearing behavior; subcell pixel changes preserve selection.
+
+Height-only screen changes retain the cells and revisions of surviving rows.
+History trimming, cursor/saved-cursor adjustment, alternate-screen resizing and
+resource bounds still execute. Width changes retain the existing resize and
+wide-cell repair path, including trimming before widening allocations.
+
+Verification used an isolated Release Qt 6.12/MSVC worktree build and local
+vendored sources, without downloads or device connections. All five terminal
+suites passed: TerminalDisplayTests, TerminalScreenTests, TerminalInputTests,
+TerminalGraphicsTests and VtParserTests. Added regression coverage checks retained
+selection/copy output and revisions after unchanged appearance/subcell resize,
+partial versus full row pixels containing styled ASCII and Unicode, and retained
+wide/styled history plus hidden primary-screen restoration across height changes.
+Direct font changes without a pixel resize update the grid and clear selection;
+synthetic DPR/screen events preserve selection when the grid is unchanged.
+The 16-case display suite also passed on native Windows at scale factors 1 and
+1.25. Synthetic native captures were inspected at both scales; the isolated
+keyboard/appearance capture matched the pre-change Release executable pixel for
+pixel in RGB at each scale when run with the same test sequence. The full-suite
+capture additionally exercised the focused cursor. clang-format and whitespace
+checks passed.
+
+Integrated performance remeasurement remains separate. These checks establish
+render/model contracts for the covered fixtures, not a measured application-wide
+speedup or exhaustive multi-monitor DPI-transition acceptance.
