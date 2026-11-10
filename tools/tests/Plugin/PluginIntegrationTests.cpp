@@ -161,7 +161,7 @@ private:
         QCOMPARE(processor->configuration().value("label").toString(), QString("saved"));
         QList<QByteArray> outputs;
         int               completions = 0;
-        Processor::Chunk  input {QByteArray("A\0B", 3), Processor::Boundary::Packet};
+        Processor::Chunk  input {QByteArray("A\0B", 3)};
         auto callbacks = Processor::Callbacks {[&](Processor::Chunk output) { outputs.append(output.bytes); },
                                                [&](QString cause) {
                                                    QVERIFY(cause.isEmpty());

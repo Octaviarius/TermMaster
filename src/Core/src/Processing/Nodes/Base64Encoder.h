@@ -4,7 +4,7 @@
 #include <array>
 #include <memory>
 
-/** Emits complete quanta while streaming; only a packet boundary flushes its tail. */
+/** Encodes each complete packet independently, including its tail and padding. */
 class Base64Encoder final : public SyncProcessorNode
 {
 public:

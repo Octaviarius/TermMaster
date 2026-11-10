@@ -4,7 +4,7 @@
 
 /** Synchronous processing-node lifecycle. An invocation prepares bounded output
  * before any callback, so an error suppresses its complete output. Derived nodes
- * own stream state and clear it at packet boundaries, failure and cancellation.
+ * reset packet state after each invocation unless buffering is explicitly enabled.
  */
 class SyncProcessorNode : public Processor
 {
@@ -15,7 +15,7 @@ public:
     }
     AcceptResult accept(Chunk input, Callbacks callbacks) final
     {
-        if (_stopped || input.bytes.size() > _limits.maxBytes)
+        if (_stopped || input.port != 0 || input.bytes.size() > _limits.maxBytes)
         {
             return AcceptResult::Rejected;
         }
@@ -31,15 +31,14 @@ public:
         {
             _stopped = true;
         }
-        if (_stopped || input.boundary == Boundary::Packet)
+        if (_stopped || !_retainPacketState())
         {
             _reset();
         }
         QPointer<SyncProcessorNode> guard(this);
-        if (error.isEmpty() && (!output.isEmpty() || (input.boundary == Boundary::Packet && _emitEmptyPacket()))
-            && callbacks.output)
+        if (error.isEmpty() && (!output.isEmpty() || _emitEmptyPacket()) && callbacks.output)
         {
-            callbacks.output({std::move(output), input.boundary});
+            callbacks.output({std::move(output), input.port});
             if (!guard || guard->_stopped)
             {
                 return AcceptResult::Accepted;
@@ -67,6 +66,10 @@ protected:
     SyncProcessorNode(QVariantMap configuration, Limits limits) :
         _configuration(std::move(configuration)), _limits(limits)
     {
+    }
+    virtual bool _retainPacketState() const
+    {
+        return false;
     }
     virtual bool _emitEmptyPacket() const
     {
@@ -142,7 +145,7 @@ protected:
     static QByteArray _schema(const QByteArray& fields)
     {
         return QByteArray(
-                   "version: 1\ntype: termaster.settings-schema\ndescription: Incremental byte processing settings\ncontent:\n  type: object\n  properties:\n")
+                   "version: 1\ntype: termaster.settings-schema\ndescription: Packet byte processing settings\ncontent:\n  type: object\n  properties:\n")
              + fields;
     }
 

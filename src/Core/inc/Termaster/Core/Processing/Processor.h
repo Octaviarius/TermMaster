@@ -7,10 +7,10 @@
 #include <functional>
 
 /** Header-only native processing ABI. All calls and callbacks use the owning QObject thread.
- * Instances are independent stream state. A caller must retain the instance until cancel's
- * acknowledgement; discarding callbacks or advancing a generation does not stop worker work.
- * Worker callbacks must post to this QObject's thread with a context-bound connection.
- * cancel acknowledgement means no worker or future callback can use the instance.
+ * Instances own independent state. Each invocation receives one whole packet. A caller must retain the instance until
+ * cancel's acknowledgement; discarding callbacks or advancing a generation does not stop worker work. Worker callbacks
+ * must post to this QObject's thread with a context-bound connection. cancel acknowledgement means no worker or future
+ * callback can use the instance.
  */
 class Processor : public QObject
 {
@@ -22,17 +22,11 @@ public:
         Rejected
     };
 
-    enum class Boundary
-    {
-        StreamChunk,
-        Packet
-    };
-
+    /** One complete owned byte packet. Buffering across calls belongs to the node. */
     struct Chunk
     {
         QByteArray bytes;
-        Boundary   boundary = Boundary::StreamChunk;
-        int        port     = 0;
+        int        port = 0;
     };
 
     struct Limits
@@ -99,10 +93,10 @@ public:
     }
 
     /** Owned input. WouldBlock/Rejected consume nothing and must not invoke callbacks.
-     * Accepted owns one invocation on input.port until completed. Different ports may run
-     * concurrently; a provider may return WouldBlock when that port cannot advance.
-     * Implementations may complete inline. Output port is independent of input port.
-     * Output expansion and persistent buffering must respect the supplied factory limits.
+     * Accepted owns one whole packet on input.port until completed; the executor must not split it. Different ports may
+     * run concurrently; a provider may return WouldBlock when that port cannot advance. Implementations may complete
+     * inline. Output port is independent of input port. Output expansion and persistent buffering must respect the
+     * supplied factory limits.
      */
     virtual AcceptResult accept(Chunk input, Callbacks callbacks) = 0;
 

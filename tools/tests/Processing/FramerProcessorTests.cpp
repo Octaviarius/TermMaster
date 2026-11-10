@@ -12,12 +12,10 @@ struct Invocation
     int                     completions = 0;
     QString                 error;
 };
-Invocation invoke(Processor&          processor,
-                  QByteArray          bytes,
-                  Processor::Boundary boundary = Processor::Boundary::StreamChunk)
+Invocation invoke(Processor& processor, QByteArray bytes)
 {
     Invocation result;
-    result.accepted = processor.accept({std::move(bytes), boundary},
+    result.accepted = processor.accept({std::move(bytes)},
                                        {[&](Processor::Chunk chunk) { result.outputs.append(std::move(chunk)); },
                                         [&](QString error) {
                                             ++result.completions;
@@ -55,7 +53,7 @@ private slots:
         QCOMPARE(payloads(invoke(*second, "b\r").outputs), QList<QByteArray>({"b"}));
         QCOMPARE(payloads(invoke(*first, "a\r").outputs), QList<QByteArray>({"partiala"}));
         // Incoming transport packets are ignored by the default boundary policy.
-        QVERIFY(invoke(*second, {}, Processor::Boundary::Packet).outputs.isEmpty());
+        QVERIFY(invoke(*second, {}).outputs.isEmpty());
     }
 
     void delimitersAtEverySplit_data()
@@ -98,10 +96,6 @@ private slots:
             QVERIFY(second.error.isEmpty());
             first.outputs.append(second.outputs);
             QCOMPARE(payloads(first.outputs), expected);
-            for (const auto& chunk : first.outputs)
-            {
-                QCOMPARE(chunk.boundary, Processor::Boundary::Packet);
-            }
         }
         auto processor = Framer::create(
             {
@@ -163,12 +157,12 @@ private slots:
             },
                 {});
             QVERIFY(processor);
-            const auto empty = invoke(*processor, {}, Processor::Boundary::Packet);
+            const auto empty = invoke(*processor, {});
             QCOMPARE(empty.outputs.size(), tail == QByteArray("emit") ? 1 : 0);
             QVERIFY(empty.error.isEmpty());
-            const auto complete = invoke(*processor, "a\r", Processor::Boundary::Packet);
+            const auto complete = invoke(*processor, "a\r");
             QCOMPARE(payloads(complete.outputs), QList<QByteArray>({"a"})); // No duplicate empty tail.
-            const auto partial = invoke(*processor, "x", Processor::Boundary::Packet);
+            const auto partial = invoke(*processor, "x");
             QCOMPARE(partial.completions, 1);
             if (tail == QByteArray("emit"))
             {
@@ -194,7 +188,7 @@ private slots:
                 {"packetTail", "emit"}
         },
             {});
-        QVERIFY(invoke(*noEmpty, {}, Processor::Boundary::Packet).outputs.isEmpty());
+        QVERIFY(invoke(*noEmpty, {}).outputs.isEmpty());
         QCOMPARE(payloads(invoke(*noEmpty, "\r\ra\r\r").outputs), QList<QByteArray>({"a"}));
         auto include = Framer::create(
             {
@@ -208,7 +202,7 @@ private slots:
                 {"packetTail", "error"}
         },
             {});
-        QVERIFY(invoke(*streamOnly, "stream tail").error.isEmpty());
+        QVERIFY(!invoke(*streamOnly, "packet tail").error.isEmpty());
     }
 
     void packetTailResetsPartialDelimiterState()
@@ -222,7 +216,7 @@ private slots:
             },
                 {});
             QVERIFY(processor);
-            const auto partial = invoke(*processor, "x\r", Processor::Boundary::Packet);
+            const auto partial = invoke(*processor, "x\r");
             QVERIFY(partial.error.isEmpty());
             const auto next = invoke(*processor, "\n\r\n");
             QVERIFY(next.error.isEmpty());
@@ -268,7 +262,7 @@ private slots:
                 {"packetTail", "error"}
         },
             limits);
-        const auto invalidTail = invoke(*tailError, "a\rz", Processor::Boundary::Packet);
+        const auto invalidTail = invoke(*tailError, "a\rz");
         QVERIFY(!invalidTail.error.isEmpty());
         QVERIFY(invalidTail.outputs.isEmpty());
         // Buffered state plus this invocation's outputs must remain within maxBytes.

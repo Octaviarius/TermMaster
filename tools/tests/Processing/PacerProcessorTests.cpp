@@ -23,12 +23,10 @@ struct Invocation
     }
 };
 
-std::shared_ptr<Invocation> invoke(Processor&          processor,
-                                   QByteArray          bytes,
-                                   Processor::Boundary boundary = Processor::Boundary::StreamChunk)
+std::shared_ptr<Invocation> invoke(Processor& processor, QByteArray bytes)
 {
     auto result      = std::make_shared<Invocation>();
-    result->accepted = processor.accept({std::move(bytes), boundary},
+    result->accepted = processor.accept({std::move(bytes)},
                                         {[result](Processor::Chunk chunk) {
                                              result->outputs.append(std::move(chunk));
                                              result->times.append(result->clock.elapsed());
@@ -78,14 +76,13 @@ private slots:
         QVERIFY(result->error.isEmpty());
         QCOMPARE(joined(result), data);
         QCOMPARE(result->outputs.size(), 1);
-        QCOMPARE(result->outputs.first().boundary, Processor::Boundary::StreamChunk);
+
         result = invoke(*pacer, {});
         QCOMPARE(result->completed, 1);
-        QVERIFY(result->outputs.isEmpty());
-        result = invoke(*pacer, {}, Processor::Boundary::Packet);
+        QCOMPARE(result->outputs.size(), 1);
+        result = invoke(*pacer, {});
         QCOMPARE(result->completed, 1);
         QCOMPARE(result->outputs.size(), 1);
-        QCOMPARE(result->outputs.first().boundary, Processor::Boundary::Packet);
     }
 
     void bytePacingOwnsInputAndBackpressures()
@@ -204,7 +201,7 @@ private slots:
         QCOMPARE(joined(idle), QByteArray("ghij"));
     }
 
-    void packetsStayAtomicIncludingEmptyAndRatePrecharge()
+    void configuredRateAndByteTimingSplitPackets()
     {
         auto pacer = Pacer::create(
             {
@@ -213,32 +210,30 @@ private slots:
         },
             {});
         QVERIFY(pacer);
-        const auto packet = invoke(*pacer, QByteArray("A\0BCD", 5), Processor::Boundary::Packet);
-        QVERIFY(packet->outputs.isEmpty());
-        QTRY_COMPARE_WITH_TIMEOUT(packet->completed, 1, 2500);
+        const auto packet = invoke(*pacer, QByteArray("A\0BCD", 5));
         QCOMPARE(packet->outputs.size(), 1);
-        QCOMPARE(packet->outputs.first().bytes, QByteArray("A\0BCD", 5));
-        QCOMPARE(packet->outputs.first().boundary, Processor::Boundary::Packet);
-        QVERIFY(packet->times.first() >= 250);
-        const auto empty = invoke(*pacer, {}, Processor::Boundary::Packet);
+        QTRY_COMPARE_WITH_TIMEOUT(packet->completed, 1, 2500);
+        QCOMPARE(packet->outputs.size(), 3);
+        QCOMPARE(joined(packet), QByteArray("A\0BCD", 5));
+        QVERIFY(packet->times.last() >= 250);
+        const auto empty = invoke(*pacer, {});
         QCOMPARE(empty->completed, 1);
         QCOMPARE(empty->outputs.size(), 1);
         QVERIFY(empty->outputs.first().bytes.isEmpty());
-
         pacer = Pacer::create(
             {
                 {"byteDelayMs", 10}
         },
             {});
-        const auto unsupported = invoke(*pacer, "abc", Processor::Boundary::Packet);
-        QCOMPARE(unsupported->accepted, Processor::AcceptResult::Accepted);
-        QCOMPARE(unsupported->completed, 1);
-        QVERIFY(!unsupported->error.isEmpty());
-        QVERIFY(unsupported->outputs.isEmpty());
-        QCOMPARE(invoke(*pacer, "late")->accepted, Processor::AcceptResult::Rejected);
+        const auto spaced = invoke(*pacer, "abc");
+        QCOMPARE(spaced->accepted, Processor::AcceptResult::Accepted);
+        QTRY_COMPARE_WITH_TIMEOUT(spaced->completed, 1, 1000);
+        QVERIFY(spaced->error.isEmpty());
+        QCOMPARE(spaced->outputs.size(), 3);
+        QCOMPARE(joined(spaced), QByteArray("abc"));
     }
 
-    void packetLinesAggregateAfterPacketAndDoNotMatchAcrossPackets()
+    void configuredLineTimingSplitsPacketsAndMatchesAcrossInputs()
     {
         auto pacer = Pacer::create(
             {
@@ -247,17 +242,20 @@ private slots:
         },
             {});
         QVERIFY(pacer);
-        QCOMPARE(invoke(*pacer, "\r", Processor::Boundary::Packet)->completed, 1);
-        const auto unmatched = invoke(*pacer, "\nX", Processor::Boundary::Packet);
-        QCOMPARE(unmatched->completed, 1);
-        const auto lines = invoke(*pacer, "A\r\nB\r\n", Processor::Boundary::Packet);
-        QCOMPARE(lines->completed, 1);
-        QCOMPARE(lines->outputs.size(), 1);
-        const auto next = invoke(*pacer, "C", Processor::Boundary::Packet);
+        QCOMPARE(invoke(*pacer, "\r")->completed, 1);
+        const auto split = invoke(*pacer, "\nX");
+        QCOMPARE(joined(split), QByteArray("\n"));
+        QTRY_COMPARE_WITH_TIMEOUT(split->completed, 1, 1000);
+        QCOMPARE(joined(split), QByteArray("\nX"));
+        QVERIFY(split->times.last() >= 65);
+        const auto lines = invoke(*pacer, "A\r\nB\r\n");
+        QTRY_COMPARE_WITH_TIMEOUT(lines->completed, 1, 1500);
+        QCOMPARE(lines->outputs.size(), 2);
+        QCOMPARE(joined(lines), QByteArray("A\r\nB\r\n"));
+        const auto next = invoke(*pacer, "C");
         QCOMPARE(next->completed, 0);
-        QTRY_COMPARE_WITH_TIMEOUT(next->completed, 1, 2000);
-        QVERIFY(next->times.first() >= 145);
-        QCOMPARE(next->outputs.size(), 1);
+        QTRY_COMPARE_WITH_TIMEOUT(next->completed, 1, 1000);
+        QVERIFY(next->times.first() >= 65);
     }
 
     void limitsBoundOwnedBytesAndResidentChunks()
@@ -369,11 +367,10 @@ private slots:
         int  outputs      = 0;
         int  completed    = 0;
         bool acknowledged = false;
-        QCOMPARE(pacer->accept({"abc", Processor::Boundary::StreamChunk},
+        QCOMPARE(pacer->accept({"abc"},
                                {[&](Processor::Chunk) {
                                     ++outputs;
-                                    QCOMPARE(pacer->accept({"x", Processor::Boundary::StreamChunk}, {}),
-                                             Processor::AcceptResult::WouldBlock);
+                                    QCOMPARE(pacer->accept({"x"}, {}), Processor::AcceptResult::WouldBlock);
                                     pacer->cancel([&] { acknowledged = true; });
                                 },
                                 [&](QString) { ++completed; }}),
@@ -385,7 +382,7 @@ private slots:
 
         pacer         = Pacer::create({}, {});
         int reentries = 0;
-        QCOMPARE(pacer->accept({"a", Processor::Boundary::StreamChunk},
+        QCOMPARE(pacer->accept({"a"},
                                {{},
                                 [&](QString) {
                                     ++reentries;
@@ -401,7 +398,7 @@ private slots:
             {});
         QPointer<Processor> guard(pacer.get());
         outputs = 0;
-        QCOMPARE(pacer->accept({"ab", Processor::Boundary::StreamChunk},
+        QCOMPARE(pacer->accept({"ab"},
                                {[&](Processor::Chunk) {
                                     if (++outputs == 2)
                                     {
@@ -416,8 +413,7 @@ private slots:
 
         pacer = Pacer::create({}, {});
         guard = pacer.get();
-        QCOMPARE(pacer->accept({"x", Processor::Boundary::StreamChunk}, {{}, [&](QString) { pacer.reset(); }}),
-                 Processor::AcceptResult::Accepted);
+        QCOMPARE(pacer->accept({"x"}, {{}, [&](QString) { pacer.reset(); }}), Processor::AcceptResult::Accepted);
         QVERIFY(guard.isNull());
     }
 

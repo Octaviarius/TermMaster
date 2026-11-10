@@ -24,12 +24,15 @@ flowchart LR
 
 ## Contract and ownership
 
-`Processor::Chunk` owns a `QByteArray`, a stream-chunk or packet boundary and a
-zero-based `port` index. Processor input/output counts are immutable for an instance
+`Processor::Chunk` owns one complete `QByteArray` packet and a zero-based `port`
+index. There is no stream-chunk flag. Executors preserve each packet as one
+invocation, including empty packets. Buffering and deliberate packet splitting
+belong to individual configured nodes. Processor input/output counts are immutable for an instance
 and described in catalog metadata without creating a runtime. Native and provider
 processors support 1 to 32 ports on each side; Lineflow supports 1x1 and 2x2. NUL
-bytes remain bytes; an empty packet is an explicit output. Stream chunks do not
-imply complete messages. An accepted invocation can produce zero, one or many
+bytes remain bytes; an empty packet is an explicit output. Transport read chunks
+become input packets but do not imply protocol-message boundaries. Framer explicitly
+accumulates those packets into protocol frames. An accepted invocation can produce zero, one or many
 outputs followed by exactly one completion. A stateful framer completes an input
 that only extends its buffer without producing output. `WouldBlock` and `Rejected`
 consume nothing and do not invoke callbacks. Input acceptance is not delivery to
@@ -245,8 +248,9 @@ registered native, Lineflow or provider-defined processor. Elementary selections
 absent or empty selection uses direct pass-through. The terminal selectors and
 private property drafts are described in [terminal processing](terminal-processing.md).
 
-Rx consumes transport chunks before display decoding. UDP receives carry packet
-boundaries, including empty datagrams. On orderly transport closure, already
+Rx wraps each transport callback as one packet before display decoding. UDP
+receives preserve whole datagrams, including empty ones. Each keyboard event and
+command submission likewise becomes one Tx packet. On orderly transport closure, already
 received independent Rx work may finish and display final output. A shared duplex
 flow cancels both directions together. Reconnection recreates selected instances
 and discards unfinished state from the previous connection.
@@ -263,13 +267,14 @@ asynchronous processing cannot create overlapping periodic submissions. Only the
 disconnected retention policy accompanies transport submissions; timing is owned
 by a selected Pacer processor. Each output is a separate atomic datagram for UDP;
 stream output uses the existing partial-write queue. UDP payload limits are
-validated independently; Pacer rejects byte spacing on packet input.
+validated independently. Configured Pacer timing can intentionally split a packet,
+so each emitted piece becomes a separate UDP datagram.
 
 Each direction bounds queued plus active input to 4 MiB / 4096 resident chunks,
-and bounds pending output separately to the same limits. A stream submission is
-copied into invocations of at most 1024 bytes; packet submissions remain whole,
-including empty packets. The router preflights every fragment and its byte budget
-before accepting any of a submission. A request exceeding the total byte or chunk
+and bounds pending output separately to the same limits. Every submission is
+copied into one whole invocation, including empty packets. Admission counts
+queued and active input before accepting a packet; no implicit 1024-byte
+fragmentation is performed. A request exceeding the total byte or chunk
 limit is rejected; temporary remaining-capacity shortages return WouldBlock without
 consuming bytes. Counters count the original accepted bytes once, while pending
 submission counts include fragments. Processing uses a per-turn event

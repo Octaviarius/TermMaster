@@ -30,7 +30,7 @@ by Lineflow and terminal Rx/Tx selectors; unavailable favorite IDs remain saved.
 ## Gate
 
 `native.gate`, group Control, has `enabled: true` by default. Enabled input is
-forwarded with its bytes and packet/stream boundary unchanged. Disabled input
+forwarded as one unchanged packet. Disabled input
 completes successfully with zero outputs: traffic is dropped, never queued for
 later release. It therefore does not stall a Lineflow. Limits still apply while
 disabled. Cancellation stops acceptance. Configuration changes follow the common
@@ -38,8 +38,8 @@ prepared-instance replacement contract rather than mutating another instance.
 
 ## Framer
 
-`native.framer`, group Framing, accumulates arbitrary byte chunks and emits zero,
-one or many complete Packet frames. A stream read is never a frame boundary.
+`native.framer`, group Framing, explicitly accumulates input packets and emits zero,
+one or many complete frame packets. A stream read is never a frame boundary.
 State survives split delimiters and UTF-8 is not decoded from incoming data.
 
 | Parameter | Default | Behavior |
@@ -62,7 +62,7 @@ The emit tail policy explicitly emits remaining bytes there; an entirely empty
 packet emits an empty frame only in that policy with emitEmpty enabled. It does
 not add a duplicate empty frame after a rule already emitted during the same call.
 Discard clears the residual and partial delimiter match; error rejects a nonempty
-residual. Stream chunks do not apply tail policy. Cancellation discards residual
+residual. This policy applies after every input packet. Cancellation discards residual
 state; the Processor contract has no implicit end-of-stream flush.
 
 ## Pacer
@@ -73,7 +73,7 @@ and values, including NUL; byte spacing may split a UTF-8 character.
 
 | Parameter | Default | Behavior |
 |---|---|---|
-| byteDelayMs | 0 | Minimum delay between stream-byte emissions, 0 to 60,000 ms |
+| byteDelayMs | 0 | Minimum delay between byte emissions, 0 to 60,000 ms |
 | lineDelayMs | 0 | Pause after a matched ending, 0 to 60,000 ms |
 | ending | `\n` | Escaped byte pattern, decoded length 1 to 256 bytes |
 | bytesPerSecond | 0 | Byte-rate limit, 0 disables it; maximum 1,000,000,000 |
@@ -86,11 +86,11 @@ invocation completion. Concurrent byte, ending and rate constraints use the late
 required emission time, rather than adding independent sleeps. A bounded rate
 burst does not accumulate unlimited credit while idle.
 
-Packets remain whole, including empty packets. A nonzero byte delay on packet
-input completes with an error before emitting anything. Rate limiting can delay
-an entire packet larger than the burst allowance before emitting it atomically;
-matched ending pauses apply after the packet. Packet boundaries reset partial
-ending matching. Cancel stops timers and suppresses pending output immediately.
+With timing disabled, packets remain whole, including empty packets. Explicit byte
+spacing emits byte packets, line timing emits at ending boundaries, and rate
+limiting emits bounded bursts. These are deliberate node transformations; the
+executor never splits packets. Ending matching and timing fences survive input
+calls. Cancellation stops timers and suppresses pending output immediately.
 
 These times govern Processor output emission into the next stage. They do not
 establish physical transport timing or receiver delivery: downstream processors,
@@ -102,11 +102,12 @@ Its resident queue limits and bounded cumulative emission counters also apply.
 
 - `native.hex-encoder`: letterCase is upper (default) or lower; separator defaults
   to one space and accepts at most 16 Unicode characters of literal UTF-8 text.
-  Separators occur between bytes across StreamChunk calls, never at the beginning
-  or end of a packet. Packet completion resets separator state.
+  Separators occur only between bytes within one packet. Each invocation resets
+  separator state.
 - `native.hex-decoder`: ignoreWhitespace defaults to true and ignores ASCII
   space, TAB, CR, LF, VT and FF. Both letter cases decode. Non-hex bytes are errors;
-  a split nibble survives stream reads but an odd nibble at Packet end is rejected.
+  an odd nibble at packet end is rejected by default. `accumulate: true` explicitly
+  retains one nibble across calls until a pair is complete. It defaults to false.
 
 Both entries belong to Codecs. Non-whitespace encoder separators require a
 separate transformation before the strict HEX decoder.
@@ -115,11 +116,12 @@ separate transformation before the strict HEX decoder.
 
 - `native.base64-encoder`: alphabet is standard or url, padding defaults true,
   lineLength defaults zero (no wrapping) or a multiple of four up to 4096, and
-  lineEnding is lf or crlf. Stream reads emit complete three-byte units and retain
-  at most two trailing bytes. Packet completion emits the final unit and optional
-  padding, then resets wrapping and accumulation state.
+  lineEnding is lf or crlf. Each packet is encoded independently, including its
+  final one/two-byte unit and optional padding. For example, separate packets
+  `f`, `o`, `o` produce `Zg==`, `bw==`, `bw==`, rather than `Zm9v`.
 - `native.base64-decoder`: alphabet is standard or url, ignoreWhitespace defaults
-  true and requirePadding defaults true. Parsing preserves quartets across reads.
+  true and requirePadding defaults true. Each packet must contain complete encoded
+  data; quartets are not accumulated across calls.
   Invalid alphabet bytes, misplaced/incomplete padding, data after padding and
   noncanonical unused bits are errors. With requirePadding false, a two/three-digit
   tail may finish at Packet end; a one-digit tail is always invalid.
@@ -138,13 +140,13 @@ Settings are flat fields grouped into Decode and Encode in the generated form:
 
 | Node | Decode defaults | Encode defaults |
 |---|---|---|
-| HEX Codec | `decodeIgnoreWhitespace: true` | `encodeLetterCase: upper`, `encodeSeparator: ' '` |
+| HEX Codec | `decodeIgnoreWhitespace: true`, `decodeAccumulate: false` | `encodeLetterCase: upper`, `encodeSeparator: ' '` |
 | Base64 Codec | `decodeAlphabet: standard`, `decodeIgnoreWhitespace: true`, `decodeRequirePadding: true` | `encodeAlphabet: standard`, `encodePadding: true`, `encodeLineLength: 0`, `encodeLineEnding: lf` |
 
 The algorithms reuse the corresponding unary implementations and their validation,
-expansion limits and incremental state. A packet boundary resets only its own
-direction. Base64 stream tails still need an explicit Packet boundary to flush;
-there is no implicit flush on transport closure. Configuration snapshots include
+expansion limits and independent directional state. Every packet is finalized
+independently; only explicitly enabled HEX accumulation retains a partial pair.
+There is no implicit flush on transport closure. Configuration snapshots include
 resolved defaults and preserve unrelated fields. Non-whitespace HEX separators
 remain invalid input to the strict decoder without an additional transformation.
 
@@ -179,9 +181,8 @@ external endpoint or elevation was used. Release was not rebuilt.
 - [HEX Codec at scale 2](images/duplex-lineflow/HexCodec2x.png)
 - [Base64 Codec at scale 2](images/duplex-lineflow/Base64Codec2x.png)
 
-Both entries belong to Codecs. A padded Base64 value terminates that packet stream;
-data after padding requires a new packet boundary. An empty valid Packet is
-preserved. Stream chunks never imply padding or finalization. Put a Framer before
+Both entries belong to Codecs. Data after Base64 padding within the same packet
+is invalid. An empty valid packet is preserved. Put a Framer before
 an encoder/decoder when input is a continuous transport stream requiring explicit
 message boundaries. Cancellation is not a request to flush or encode a tail.
 
@@ -199,7 +200,7 @@ Schemas are consumed by the existing generated settings forms and `x-widget`
 registry. Numeric settings persist as numbers and booleans as booleans. Unknown
 configuration is preserved. Current development IDs are native.gate and
 native.framer; Identity and the fixed CR-only node are removed without aliases.
-HostedPlugin IID 10 includes descriptor port counts and lifecycle output/error handlers; native modules must be
+HostedPlugin IID 11 uses packet-only Chunk layout with descriptor port counts and lifecycle output/error handlers; native modules must be
 rebuilt against the generated SDK.
 
 ## Verification
@@ -230,3 +231,19 @@ checks passed. No real-device or external endpoint acceptance was performed.
 - [HEX encoder and grouped catalog](images/lineflow-editor/Editor.png)
 - [Framer settings](images/lineflow-editor/Framer.png)
 - [Framer at scale 2](images/lineflow-editor/Framer2x.png)
+
+## FLOW-12 packet acceptance
+
+The complete Qt 6.12/MSVC Debug build includes the application, hosted modules
+and test fixtures rebuilt against HostedPlugin IID 11. All 47 configured test
+executables were verified: the full run passed 46; its remaining AppTests failure
+was an obsolete Base64 fragment in a fixture intentionally testing explicit HEX
+accumulation. After correcting the fixture, AppTests passed in 43.24 seconds;
+production code was unchanged. Packet codec tests cover every byte and split,
+explicit HEX accumulation, malformed tails, empty packets, independent ports,
+bounds, reentry and cancellation. Router tests verify whole-packet admission,
+borrowed-byte ownership and absence of automatic 1024-byte fragmentation.
+
+Native Windows editor captures at scales 1 and 2 passed without skips and show
+the default-disabled HEX accumulation option. No serial hardware, external
+network endpoint or elevated shell was used. Release was not built.

@@ -122,6 +122,8 @@ changing behavior. These rules apply repository-wide.
 
 - Treat transport data as bytes. Use QByteArray or appropriate byte views,
   not QString, until the encoding boundary.
+- Processing invocations carry whole byte packets. Executors must preserve packet
+  boundaries; buffering or packet splitting belongs to explicitly configured nodes.
 - Input may contain arbitrary bytes, including NUL. Reads are stream chunks,
   not complete messages or escape sequences.
 - Preserve parser and decoder state across reads. UTF-8 characters and terminal

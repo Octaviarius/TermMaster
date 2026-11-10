@@ -232,7 +232,7 @@ TerminalController::TerminalController(MainWindow&                 window,
     _actions.at("Terminal.LocalEcho").action->setCheckable(true);
 
     const QStringList ids {"Terminal.BufferedInput", "Terminal.SendFile", "Terminal.Processing"};
-    const QStringList titles {tr("Buffered input"), tr("Send file…"), tr("Processing")};
+    const QStringList titles {tr("Buffered input"), tr("Send fileвЂ¦"), tr("Processing")};
     const QStringList icons {"panel-bottom", "file-plus", "sliders-horizontal"};
     for (int index = 0; index < ids.size(); ++index)
     {
@@ -770,10 +770,8 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                 runtime.display->receive(bytes);
                 return;
             }
-            QString    error;
-            const auto boundary = runtime.device->atomicWrites() ? Processor::Boundary::Packet :
-                                                                   Processor::Boundary::StreamChunk;
-            if (runtime.processing->submit(ProcessingRouter::Direction::Rx, {bytes, boundary}, {}, &error)
+            QString error;
+            if (runtime.processing->submit(ProcessingRouter::Direction::Rx, {bytes}, {}, &error)
                 != Processor::AcceptResult::Accepted)
             {
                 if (runtime.processing->diagnostics(ProcessingRouter::Direction::Rx).state
@@ -1076,10 +1074,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                                                    .contains("duplex") ?
                                           it->second->sender->enqueue(data, &error) :
                                           it->second->processing->submit(ProcessingRouter::Direction::Tx,
-                                                                         {data,
-                                                                          it->second->device->atomicWrites() ?
-                                                                              Processor::Boundary::Packet :
-                                                                              Processor::Boundary::StreamChunk},
+                                                                         {data},
                                                                          {},
                                                                          &error)
                                               == Processor::AcceptResult::Accepted;

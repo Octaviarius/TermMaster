@@ -43,11 +43,11 @@ private slots:
         {
             auto processor = registry.create(id, {}, {}, &error);
             QVERIFY2(processor, qPrintable(error));
-            for (const auto boundary : {Processor::Boundary::StreamChunk, Processor::Boundary::Packet})
+            for (int iteration = 0; iteration < 2; ++iteration)
             {
                 for (const auto& bytes : {QByteArray("A\0B", 3), QByteArray {}})
                 {
-                    const auto result = invoke(*processor, {bytes, boundary});
+                    const auto result = invoke(*processor, {bytes});
                     QCOMPARE(result.accepted, Processor::AcceptResult::Accepted);
                     QCOMPARE(result.completed, 1);
                     QVERIFY(result.error.isEmpty());
@@ -55,19 +55,17 @@ private slots:
                     {
                         QVERIFY(result.output.isEmpty());
                     }
-                    else if (!bytes.isEmpty() || boundary == Processor::Boundary::Packet)
+                    else
                     {
                         QCOMPARE(result.output.size(), 1);
                         QCOMPARE(result.output.first().bytes, bytes);
-                        QCOMPARE(result.output.first().boundary, boundary);
                     }
                 }
             }
             bool stopped = false;
             processor->cancel([&] { stopped = true; });
             QTRY_VERIFY(stopped);
-            QCOMPARE(invoke(*processor, {"late", Processor::Boundary::Packet}).accepted,
-                     Processor::AcceptResult::Rejected);
+            QCOMPARE(invoke(*processor, {"late"}).accepted, Processor::AcceptResult::Rejected);
         }
     }
 
@@ -80,7 +78,7 @@ private slots:
         SettingsSchema schema(Gate::schema());
         QVERIFY(schema.validate(gate->configuration()).isEmpty());
         char source[] {'a', 0, char(255)};
-        auto result = invoke(*gate, {QByteArray::fromRawData(source, 3), Processor::Boundary::Packet});
+        auto result = invoke(*gate, {QByteArray::fromRawData(source, 3)});
         QCOMPARE(result.accepted, Processor::AcceptResult::Accepted);
         QCOMPARE(result.completed, 1);
         QVERIFY(result.error.isEmpty());
@@ -88,14 +86,13 @@ private slots:
         source[0] = 'z';
         const char expected[] {'a', 0, char(255)};
         QCOMPARE(result.output[0].bytes, QByteArray(expected, 3));
-        QCOMPARE(result.output[0].boundary, Processor::Boundary::Packet);
-        for (const auto boundary : {Processor::Boundary::StreamChunk, Processor::Boundary::Packet})
+
+        for (int iteration = 0; iteration < 2; ++iteration)
         {
-            result = invoke(*gate, {{}, boundary});
+            result = invoke(*gate, {{}});
             QCOMPARE(result.completed, 1);
             QCOMPARE(result.output.size(), 1);
             QVERIFY(result.output[0].bytes.isEmpty());
-            QCOMPARE(result.output[0].boundary, boundary);
         }
     }
 
@@ -109,15 +106,13 @@ private slots:
         QVERIFY(gate);
         for (int index = 0; index < 20; ++index)
         {
-            const auto result = invoke(*gate,
-                                       {QByteArray(index, 'x'),
-                                        index % 2 ? Processor::Boundary::Packet : Processor::Boundary::StreamChunk});
+            const auto result = invoke(*gate, {QByteArray(index, 'x')});
             QCOMPARE(result.accepted, Processor::AcceptResult::Accepted);
             QCOMPARE(result.completed, 1);
             QVERIFY(result.output.isEmpty());
             QVERIFY(result.error.isEmpty());
         }
-        const auto empty = invoke(*gate, {{}, Processor::Boundary::Packet});
+        const auto empty = invoke(*gate, {{}});
         QCOMPARE(empty.accepted, Processor::AcceptResult::Accepted);
         QCOMPARE(empty.completed, 1);
         QVERIFY(empty.output.isEmpty());
@@ -288,7 +283,7 @@ private slots:
         int completions = 0;
         for (int index = 0; index < 5; ++index)
         {
-            QCOMPARE(blocked->accept({"AB", Processor::Boundary::Packet},
+            QCOMPARE(blocked->accept({"AB"},
                                      {[&](Processor::Chunk) { ++outputs; },
                                       [&](QString message) {
                                           QVERIFY(message.isEmpty());
@@ -306,7 +301,7 @@ private slots:
         QVERIFY2(enabled, qPrintable(error));
         QByteArray encoded;
         bool       done = false;
-        QCOMPARE(enabled->accept({"AB", Processor::Boundary::Packet},
+        QCOMPARE(enabled->accept({"AB"},
                                  {[&](Processor::Chunk output) { encoded.append(output.bytes); },
                                   [&](QString message) {
                                       QVERIFY(message.isEmpty());

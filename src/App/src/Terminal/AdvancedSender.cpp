@@ -58,8 +58,7 @@ bool AdvancedSender::_enqueue(const QByteArray& bytes, const TerminalSendQueue::
         }
         return false;
     }
-    const auto boundary = _device.atomicWrites() ? Processor::Boundary::Packet : Processor::Boundary::StreamChunk;
-    return _router->submit(ProcessingRouter::Direction::Tx, {bytes, boundary}, options, error)
+    return _router->submit(ProcessingRouter::Direction::Tx, {bytes}, options, error)
         == Processor::AcceptResult::Accepted;
 }
 
@@ -338,9 +337,9 @@ void AdvancedSender::_pump()
 
 void AdvancedSender::_publish()
 {
-    const QString status = _fileActive     ? tr("Sending file · %1 bytes queued").arg(_queue.pendingBytes()) :
+    const QString status = _fileActive     ? tr("Sending file В· %1 bytes queued").arg(_queue.pendingBytes()) :
                            _periodicActive ? tr("Periodic sending active") :
-                           _queue.pendingSubmissions() ? tr("%1 submissions queued · %2 bytes")
+                           _queue.pendingSubmissions() ? tr("%1 submissions queued В· %2 bytes")
                                                              .arg(_queue.pendingSubmissions())
                                                              .arg(_queue.pendingBytes()) :
                                                          QString {};

@@ -144,7 +144,7 @@ QVariantMap Framer::configuration() const
 
 Processor::AcceptResult Framer::accept(Chunk input, Callbacks callbacks)
 {
-    if (_stopped)
+    if (_stopped || input.port != 0)
     {
         return AcceptResult::Rejected;
     }
@@ -180,7 +180,7 @@ Processor::AcceptResult Framer::accept(Chunk input, Callbacks callbacks)
             return;
         }
         outputBytes += bytes.size();
-        outputs.append({std::move(bytes), Boundary::Packet});
+        outputs.append({std::move(bytes), input.port});
     };
     for (const char byte : input.bytes)
     {
@@ -215,7 +215,7 @@ Processor::AcceptResult Framer::accept(Chunk input, Callbacks callbacks)
             }
         }
     }
-    if (error.isEmpty() && input.boundary == Boundary::Packet)
+    if (error.isEmpty())
     {
         if (!_buffer.isEmpty())
         {

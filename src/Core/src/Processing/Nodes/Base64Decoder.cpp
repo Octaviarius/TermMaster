@@ -110,7 +110,6 @@ void Base64Decoder::_process(const Chunk& input, QByteArray& output, QString& er
             return;
         }
     }
-    if (input.boundary == Boundary::Packet)
     {
         if (_paddingNeeded != 0)
         {

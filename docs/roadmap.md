@@ -279,3 +279,11 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Show sending controls only for file or periodic production.
 - [x] Add a checkable per-terminal Local echo toolbar/menu action.
 - [x] Verify failure isolation, recovery, selection state and native Windows controls.
+
+## FLOW-12: Packet processing contract
+
+- [x] Use whole byte packets for all processor invocations and remove boundary modes.
+- [x] Preserve packets through ingress, routers and compositions without implicit splitting.
+- [x] Finalize codecs per packet and make HEX pair accumulation explicitly optional.
+- [x] Keep Framer as an explicitly buffering stage and Pacer as configured timing transformation.
+- [x] Rebuild hosted modules and verify packet boundaries, lifecycle and affected application tests.

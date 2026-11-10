@@ -128,8 +128,8 @@ patterns, so a line-file logical boundary with an empty or different terminator
 does not imply a Pacer pause. There are no legacy delay readers or aliases.
 Datagram submissions stay atomic. Raw file sending uses explicit datagrams of up
 to 65,507 bytes on UDP; line files use one datagram per logical line and reject
-oversized datagrams. A Pacer byte delay reports an error for packet input rather
-than splitting its boundary.
+oversized datagrams. Explicit Pacer timing can split a logical packet; each
+emitted piece then becomes its own datagram.
 
 File sending requires an explicit file chooser followed by confirmation of raw or
 line mode. Raw mode sends unchanged bytes without a terminator. Line mode does not
@@ -185,8 +185,8 @@ external network target, download, elevation or installed service change was use
 
 ## FLOW-7 verification scope
 
-Synthetic router coverage exercises 1024-byte stream fragmentation, atomic whole-
-submission admission, exact 4 MiB capacity, packet preservation and borrowed-byte
+Synthetic router coverage exercises whole-packet admission without hidden
+fragmentation, exact 4 MiB capacity, packet preservation and borrowed-byte
 ownership. Real Pacer fixtures cover periodic backpressure, cancellation during a
 4 KiB raw file and a 2 MiB line with embedded NUL and a binary terminator. Widget
 fixtures cover compact controls, popup tools, draft preservation and the properties

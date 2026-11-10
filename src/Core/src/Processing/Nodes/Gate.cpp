@@ -54,7 +54,7 @@ QVariantMap Gate::configuration() const
 
 Processor::AcceptResult Gate::accept(Chunk input, Callbacks callbacks)
 {
-    if (_stopped || input.bytes.size() > _limits.maxBytes)
+    if (_stopped || input.port != 0 || input.bytes.size() > _limits.maxBytes)
     {
         return AcceptResult::Rejected;
     }

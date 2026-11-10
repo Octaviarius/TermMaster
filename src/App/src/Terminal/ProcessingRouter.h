@@ -12,8 +12,7 @@
  * buffered state, and starts the replacement only after cancellation quiescence.
  * Overlapping replacements coalesce; all ready callbacks run once the latest
  * replacement becomes active. Each supplied instance must be fresh and independent.
- * Stream submissions are copied into at most 1024-byte invocations, with atomic ingress
- * admission of every fragment. Packet submissions preserve their whole boundary.
+ * Each submission is copied and admitted as one whole packet without fragmentation.
  * Output sinks consume a whole chunk or return WouldBlock without consuming it.
  */
 class ProcessingRouter final : public QObject
