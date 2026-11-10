@@ -167,3 +167,30 @@ implementation and test sources were unchanged in FLOW-8. Review identified a
 possible existing socket/event-dispatch lifetime hazard when a received callback
 releases the device owner, but no crash dump establishes that as the cause.
 No console source change is included with the processing/editor feature.
+## Socket notification lifetime fix (2026-11-10)
+
+A debugger reproduction of `ConsoleElevationTests::ownerReleaseInCallback`
+detected a freed heap block modified before `ElevatedConsoleDevice::_cleanup`
+returned from socket shutdown. Direct local-socket/server notification handlers
+could invoke application callbacks that released the last device owner. Its
+QObject child socket was then destroyed while Qt's native notification stack
+still used it; calling `deleteLater()` did not protect a child whose parent was
+being destroyed.
+
+Server acceptance, socket reads and disconnect handling now use context-bound
+queued connections. Device ownership remains valid through protocol dispatch;
+generation guards ignore stale socket notifications after close/reopen.
+Disconnect handling drains complete final frames before reporting unexpected
+closure. Child ownership and synchronous transport shutdown remain intact, so no
+socket or plugin callback is left alive after its owning device is destroyed.
+
+Regression coverage includes replacing the device from Open, received, Closed
+and Failed callbacks, plus application-process exit with an active console and
+an open duplex Inplace editor containing a Pattern Framer draft. These use an
+isolated workspace and the existing-privilege helper path, without UAC or real
+serial/network endpoints. Ten repeated owner-release runs passed all four
+callback scenarios after the fix.
+Acceptance: the complete Qt 6.12.0 / MSVC x64 Debug build and all 49 CTest suites
+passed. A repeat of the original debugger owner-release reproduction passed
+without the earlier freed-block modification report. Release and actual elevated
+UAC acceptance were not run.
