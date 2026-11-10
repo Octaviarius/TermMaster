@@ -276,3 +276,24 @@ remain distinguishable by stable UUID item data. Native application checks passe
 at scale factors 1 and 2. See [settings acceptance](settings-forms.md#contextual-settings-acceptance).
 
 ![Muted session identity](images/preferences/SessionPicker.png)
+
+## Main-window shutdown
+
+An accepted close of the main window ends the application event loop even when
+auxiliary windows remain visible or Qt's last-window auto-quit is disabled.
+App first saves pending state. A persistence failure rejects the close and keeps
+the application usable. A context-bound queued callback checks that the main
+window actually became hidden before requesting quit; normal App destruction
+then shuts down plugins, terminals and owned resources.
+
+APP-12 subprocess regression fixtures cover the empty shell, visible auxiliary
+windows, disabled last-window auto-quit, failed-save veto followed by retry, and
+an open local console. Markers distinguish event-loop exit from completed App
+destruction; watchdog expiry fails the test instead of forcing a successful exit.
+The console fixture starts an ordinary shell without sending commands.
+
+APP-12 verification: Qt 6.12/MSVC Debug AppTests and ConsoleDeviceTests passed.
+All five close scenarios also passed on the native Windows platform, including
+completed destruction with a live cmd.exe console. Before the fix, auxiliary
+windows and disabled auto-quit reached the event-loop watchdog after main close.
+Release, elevated shells and real-device shutdown were not exercised.
