@@ -123,3 +123,8 @@ message("All project options table:")
 show_all_options()
 message("")
 
+
+option(TERMASTER_BUILD_APPLICATION_PROFILE "Build synthetic application performance probes" OFF)
+if(TERMASTER_BUILD_APPLICATION_PROFILE)
+    add_subdirectory(tools/benchmarks/ApplicationProfile)
+endif()
