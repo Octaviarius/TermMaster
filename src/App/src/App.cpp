@@ -793,9 +793,6 @@ void App::_setupActions()
         _data->thirdPartyWindow->raise();
         _data->thirdPartyWindow->activateWindow();
     });
-    auto* aboutQt = _addAction("Help.AboutQt", tr("About &Qt"), {}, {}, "help", "about");
-    aboutQt->setMenuRole(QAction::AboutQtRole);
-    connect(aboutQt, &QAction::triggered, this, [this]() { QMessageBox::aboutQt(_data->window.get()); });
 }
 
 void App::_showPluginManager()
