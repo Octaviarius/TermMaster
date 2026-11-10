@@ -2,7 +2,7 @@
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
 Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder, Base64Decoder and Pacer. NativeProcessors only registers the
+HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec and Pacer. NativeProcessors only registers the
 catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
@@ -123,6 +123,61 @@ separate transformation before the strict HEX decoder.
   Invalid alphabet bytes, misplaced/incomplete padding, data after padding and
   noncanonical unused bits are errors. With requirePadding false, a two/three-digit
   tail may finish at Packet end; a one-digit tail is always invalid.
+
+## Duplex codecs
+
+`native.hex-codec` (HEX Codec) and `native.base64-codec` (Base64 Codec) are elementary
+native 2x2 processors in Codecs. Each owns a decoder on input/output port 0 and an
+encoder on input/output port 1. The default vertical orientation decodes device Rx
+downward into terminal bytes and encodes terminal Tx upward into wire text. Port
+names are HEX/Bytes or Base64/Bytes on input and Bytes/HEX or Bytes/Base64 on output.
+Rotating the occurrence uses the existing 180-degree Lineflow port mapping; it does
+not change either algorithm or its settings.
+
+Settings are flat fields grouped into Decode and Encode in the generated form:
+
+| Node | Decode defaults | Encode defaults |
+|---|---|---|
+| HEX Codec | `decodeIgnoreWhitespace: true` | `encodeLetterCase: upper`, `encodeSeparator: ' '` |
+| Base64 Codec | `decodeAlphabet: standard`, `decodeIgnoreWhitespace: true`, `decodeRequirePadding: true` | `encodeAlphabet: standard`, `encodePadding: true`, `encodeLineLength: 0`, `encodeLineEnding: lf` |
+
+The algorithms reuse the corresponding unary implementations and their validation,
+expansion limits and incremental state. A packet boundary resets only its own
+direction. Base64 stream tails still need an explicit Packet boundary to flush;
+there is no implicit flush on transport closure. Configuration snapshots include
+resolved defaults and preserve unrelated fields. Non-whitespace HEX separators
+remain invalid input to the strict decoder without an additional transformation.
+
+Invalid ports and oversized input are rejected without consuming state or invoking
+callbacks. A processing error stops new acceptance on both directions and suppresses
+subsequent output; every invocation already accepted still completes with the
+failure, including opposite-port reentry from an output callback. Explicit cancel
+instead clears both unary states and suppresses pending callbacks before its
+quiescence acknowledgement. Instances, state and callbacks stay on the owning
+QObject thread. No new transport or background worker is introduced.
+
+### Duplex codec verification
+
+Verified on 2026-11-10 with Qt 6.12.0 / MSVC2022 x64 Debug; the application,
+bundled modules and tests built successfully. The complete CTest run passed 46
+of 47 executables in 113.64 seconds; its editor failure was an outdated filtered
+catalog count after adding the new entries. After correcting that expectation,
+LineflowEditorTests passed in 11.73 seconds, completing verification of all 47
+configured executables. Production code was unchanged after the full run.
+
+Codec coverage includes all 256 byte values, bytewise interleaved streams,
+independent packet resets, defaults and invalid options, invalid port rejection,
+output bounds, malformed tails, cross-port/same-port reentry, error completion of
+in-flight peers, cancellation, destruction from output callbacks and both 2x2
+Lineflow orientations. Native Windows captures at scales 1 and 2 each passed three
+QtTest checks without skips; both real settings forms and named ports were inspected.
+Changed C++ files were clang-formatted and `git diff --check` passed. No real device,
+external endpoint or elevation was used. Release was not rebuilt.
+
+- [HEX Codec](images/duplex-lineflow/HexCodec.png)
+- [Base64 Codec](images/duplex-lineflow/Base64Codec.png)
+- [HEX Codec at scale 2](images/duplex-lineflow/HexCodec2x.png)
+- [Base64 Codec at scale 2](images/duplex-lineflow/Base64Codec2x.png)
 
 Both entries belong to Codecs. A padded Base64 value terminates that packet stream;
 data after padding requires a new packet boundary. An empty valid Packet is

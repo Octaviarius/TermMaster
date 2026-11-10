@@ -1,8 +1,10 @@
+#include "Nodes/Base64Codec.h"
 #include "Nodes/Base64Decoder.h"
 #include "Nodes/Base64Encoder.h"
 #include "Nodes/Bypass.h"
 #include "Nodes/Framer.h"
 #include "Nodes/Gate.h"
+#include "Nodes/HexCodec.h"
 #include "Nodes/HexDecoder.h"
 #include "Nodes/HexEncoder.h"
 #include "Nodes/Pacer.h"
@@ -22,8 +24,18 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
         ProcessorCatalog::Type::Factory create;
         QString                         inputName;
         QString                         outputName;
+        int                             channels = 1;
     };
     const QList<Definition> definitions {
+        Definition("native.hex-codec", "HEX Codec", "Codecs", HexCodec::schema(), HexCodec::create, "HEX", "Bytes", 2),
+        Definition("native.base64-codec",
+                   "Base64 Codec",
+                   "Codecs",
+                   Base64Codec::schema(),
+                   Base64Codec::create,
+                   "Base64",
+                   "Bytes",
+                   2),
         Definition("native.bypass", "Bypass", "Control", Bypass::schema(), Bypass::create, "Data", "Data"),
         Definition("native.stub", "Stub", "Control", Stub::schema(), Stub::create, "Data", "Data"),
         Definition("native.gate", "Gate", "Control", Gate::schema(), Gate::create, "Data", "Data"),
@@ -71,6 +83,13 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
             type.create         = definition.create;
             type.inputNames     = {definition.inputName};
             type.outputNames    = {definition.outputName};
+            type.inputCount     = definition.channels;
+            type.outputCount    = definition.channels;
+            if (definition.channels == 2)
+            {
+                type.inputNames.append(definition.outputName);
+                type.outputNames.append(definition.inputName);
+            }
             catalog.registerType(owner, std::move(type));
             registered.append(definition.id);
         }
