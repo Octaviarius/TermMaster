@@ -78,6 +78,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/Framer.cpp
     src/Processing/Nodes/TimedFramer.h
     src/Processing/Nodes/TimedFramer.cpp
+    src/Processing/Nodes/PatternFramer.h
+    src/Processing/Nodes/PatternFramer.cpp
     src/Processing/Nodes/HexEncoder.h
     src/Processing/Nodes/HexEncoder.cpp
     src/Processing/Nodes/HexDecoder.h
@@ -142,6 +144,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Svg
     yaml-cpp
     valijson
+    pcre2-8-static
+)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    PCRE2_STATIC
+    PCRE2_CODE_UNIT_WIDTH=8
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

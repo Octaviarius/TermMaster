@@ -17,6 +17,7 @@ qt_standard_project_setup()
 
 include(cmake/PluginApi.cmake)
 include(cmake/Valijson.cmake)
+include(cmake/Pcre2.cmake)
 
 add_subdirectory(src)
 add_subdirectory(components/yaml-cpp)

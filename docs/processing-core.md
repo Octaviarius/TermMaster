@@ -31,7 +31,7 @@ belong to individual configured nodes. Processor input/output counts are immutab
 and described in catalog metadata without creating a runtime. Native and provider
 processors support 1 to 32 ports on each side; Lineflow supports 1x1 and 2x2. NUL
 bytes remain bytes; an empty packet is an explicit output. Transport read chunks
-become input packets but do not imply protocol-message boundaries. Delimiter Framer and Timed Framer explicitly
+become input packets but do not imply protocol-message boundaries. Delimiter Framer, Timed Framer and Pattern Framer explicitly
 accumulate those packets into protocol frames. An accepted invocation can produce zero, one or many
 outputs followed by exactly one completion. A stateful framer completes an input
 that only extends its buffer without producing output. `WouldBlock` and `Rejected`

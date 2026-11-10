@@ -8,6 +8,7 @@
 #include "Nodes/HexDecoder.h"
 #include "Nodes/HexEncoder.h"
 #include "Nodes/Pacer.h"
+#include "Nodes/PatternFramer.h"
 #include "Nodes/Stub.h"
 #include "Nodes/TimedFramer.h"
 
@@ -53,6 +54,13 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
                    "Framing",
                    TimedFramer::schema(),
                    TimedFramer::create,
+                   "Stream",
+                   "Frames"),
+        Definition("native.pattern-framer",
+                   "Pattern Framer",
+                   "Framing",
+                   PatternFramer::schema(),
+                   PatternFramer::create,
                    "Stream",
                    "Frames"),
         Definition("native.hex-encoder",

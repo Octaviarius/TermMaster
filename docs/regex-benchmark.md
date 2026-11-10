@@ -168,3 +168,8 @@ Durable data: [summary CSV](benchmarks/regex/Summary.csv),
 Primary references: [PCRE2 segmented matching](https://www.pcre.org/current/doc/html/pcre2partial.html),
 [PCRE2 DFA API](https://www.pcre.org/current/doc/html/pcre2_dfa_match.html),
 [Vectorscan 5.4.14](https://github.com/VectorCamp/vectorscan/tree/vectorscan/5.4.14).
+
+Subsequent implementation decision: PCRE2 JIT was explicitly selected for
+[Pattern Framer](processing-nodes.md#pattern-framer), with binary captures and
+output templates. The benchmark remains a record of alternatives rather than
+an automatic engine selector.

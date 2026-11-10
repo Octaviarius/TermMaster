@@ -4,3 +4,6 @@
 [submodule "components/valijson"]
 	path = components/valijson
 	url = https://github.com/tristanpenman/valijson.git
+[submodule "components/pcre2"]
+	path = components/pcre2
+	url = https://github.com/PCRE2Project/pcre2.git

@@ -302,3 +302,10 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Validate binary packet boundaries and group extraction, including DFA continuation.
 - [x] Measure repeated isolated throughput, component memory, process memory and compilation.
 - [x] Record reproducible scripts, raw data and decision limitations without selecting a production engine.
+
+## FLOW-15: Pattern framing and output templates
+
+- [x] Pin PCRE2-8/JIT and its SLJIT dependency as submodules without configure-time downloads.
+- [x] Add binary Pattern Framer with hard-partial matching and bounded cancellation-safe state.
+- [x] Compose frames from nested numeric/named captures, byte literals and an empty/full-match default.
+- [x] Verify template validation, packet boundaries, terminal routing and native generated settings.
