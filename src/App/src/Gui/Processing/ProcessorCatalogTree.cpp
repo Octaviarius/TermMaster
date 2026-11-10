@@ -43,6 +43,8 @@ private:
 
 ProcessorCatalogTree::ProcessorCatalogTree(QWidget* parent) : QTreeWidget(parent)
 {
+    setIndentation(12);
+
     setItemDelegate(new CatalogDelegate(this));
     setContextMenuPolicy(Qt::CustomContextMenu);
     connect(this, &QWidget::customContextMenuRequested, this, &ProcessorCatalogTree::_menu);
