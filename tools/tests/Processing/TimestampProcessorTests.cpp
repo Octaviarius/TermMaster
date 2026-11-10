@@ -2,12 +2,20 @@
 
 #include <QDateTime>
 #include <QTest>
+#include <QTimeZone>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/SettingsSchema.h>
+#include <chrono>
 
 namespace
 {
+qint64 wallMilliseconds()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
+
 struct Result
 {
     QList<Processor::Chunk> output;
@@ -51,7 +59,7 @@ private slots:
         QVERIFY(schema.validate(node->configuration()).isEmpty());
         QCOMPARE(node->configuration().value("format").toString(), QString("yyyy-MM-dd HH:mm:ss.zzz"));
         QCOMPARE(node->configuration().value("timeZone").toString(), QString("local"));
-        QCOMPARE(node->configuration().value("template").toString(), QString("[${timestamp}] ${packet}"));
+        QCOMPARE(node->configuration().value("template").toString(), QString("[{datetime}] {packet}"));
     }
 
     void packetBoundariesAndBinaryOwnership()
@@ -60,9 +68,9 @@ private slots:
         {
             auto node = Timestamp::create(
                 {
-                    {  "format",                                                               "'stamp:'"},
-                    {"template", position == "prefix" ? "${timestamp}${packet}" : "${packet}${timestamp}"},
-                    {   "extra",                                                                       42}
+                    {  "format",                                                         "'stamp:'"},
+                    {"template", position == "prefix" ? "{datetime}{packet}" : "{packet}{datetime}"},
+                    {   "extra",                                                                 42}
             },
                 {});
             QVERIFY(node);
@@ -92,7 +100,7 @@ private slots:
         auto unicode = Timestamp::create(
             {
                 {  "format", QString::fromUtf8("'Время: 'Щ")},
-                {"template",         "${timestamp}${packet}"}
+                {"template",            "{datetime}{packet}"}
         },
             {});
         QVERIFY(unicode);
@@ -103,7 +111,7 @@ private slots:
     {
         auto raw = Timestamp::create(
             {
-                {"template", "${packet}"}
+                {"template", "{packet}"}
         },
             {});
         char       source[] {'x', '\0', char(255)};
@@ -113,8 +121,8 @@ private slots:
 
         auto node = Timestamp::create(
             {
-                {  "format",                                                         "'TIME'"},
-                {"template", R"(\e[90m${timestamp}\x1b[0m ${packet}|${packet}\r\n\0\xFF\\$$)"}
+                {  "format",                                                    "'TIME'"},
+                {"template", R"(\e[90m{datetime}\x1b[0m {packet}|{packet}\r\n\0\xFF\\$)"}
         },
             {});
         QVERIFY(node);
@@ -127,8 +135,8 @@ private slots:
 
         auto repeat = Timestamp::create(
             {
-                {  "format",              "HH:mm:ss.zzz"},
-                {"template", "${timestamp}|${timestamp}"}
+                {  "format",          "HH:mm:ss.zzz"},
+                {"template", "{datetime}|{datetime}"}
         },
             {});
         const auto repeated = invoke(*repeat, {}).output.first().bytes.split('|');
@@ -139,7 +147,7 @@ private slots:
         limits.maxBytes = 4;
         auto bounded    = Timestamp::create(
             {
-                {"template", "${packet}${packet}${packet}"}
+                {"template", "{packet}{packet}{packet}"}
         },
             limits);
         const auto oversized = invoke(*bounded, "AB");
@@ -153,12 +161,12 @@ private slots:
             {
                 {  "format", "yyyy-MM-dd'T'HH:mm:ss.zzz'Z'"},
                 {"timeZone",                          "utc"},
-                {"template",        "${timestamp}${packet}"}
+                {"template",           "{datetime}{packet}"}
         },
             {});
-        const auto before = QDateTime::currentDateTimeUtc();
+        const auto before = QDateTime::fromMSecsSinceEpoch(wallMilliseconds(), QTimeZone::UTC);
         const auto result = invoke(*node, "DATA");
-        const auto after  = QDateTime::currentDateTimeUtc();
+        const auto after  = QDateTime::fromMSecsSinceEpoch(wallMilliseconds(), QTimeZone::UTC);
         QVERIFY(result.error.isEmpty());
         QCOMPARE(result.output.size(), 1);
         QVERIFY(result.output.first().bytes.endsWith("DATA"));
@@ -169,6 +177,43 @@ private slots:
         QVERIFY(stamp <= after);
     }
 
+    void clocksAndPacketIndex()
+    {
+        auto node = Timestamp::create(
+            {
+                {"template", "{unix_ms}|{unix_us}|{unix_ns}|{index:03}|{steady_ns}|{index:04X}"}
+        },
+            {});
+        QVERIFY(node);
+        const auto before = wallMilliseconds();
+        const auto first  = invoke(*node, {}).output.first().bytes.split('|');
+        const auto after  = wallMilliseconds();
+        QCOMPARE(first.size(), 6);
+        QVERIFY(first[0].toLongLong() >= before && first[0].toLongLong() <= after);
+        QCOMPARE(first[0].toLongLong(), first[2].toLongLong() / 1000000);
+        QCOMPARE(first[1].toLongLong(), first[2].toLongLong() / 1000);
+        QCOMPARE(first[3], QByteArray("001"));
+        QCOMPARE(first[5], QByteArray("0001"));
+        QVERIFY(first[4].toLongLong() > 0);
+        const auto second = invoke(*node, "another packet").output.first().bytes.split('|');
+        QCOMPARE(second[3], QByteArray("002"));
+        QVERIFY(second[4].toLongLong() >= first[4].toLongLong());
+
+        auto fresh = Timestamp::create(
+            {
+                {"template", "{index}|{index:03}"}
+        },
+            {});
+        QCOMPARE(invoke(*fresh, {}).output.first().bytes, QByteArray("1|001"));
+        auto fractional = Timestamp::create(
+            {
+                {"template", "{unix:.6f}"}
+        },
+            {});
+        const auto number = invoke(*fractional, {}).output.first().bytes;
+        QCOMPARE(number.size() - number.indexOf('.') - 1, 6);
+    }
+
     void validationLimitsAndCancellation()
     {
         QString error;
@@ -176,8 +221,8 @@ private slots:
                                     QVariantMap {{"format", QString(513, 'x')}},
                                     QVariantMap {{"timeZone", "wrong"}},
                                     QVariantMap {{"template", 12}},
-                                    QVariantMap {{"template", "${unknown}"}},
-                                    QVariantMap {{"template", "${packet"}},
+                                    QVariantMap {{"template", "{unknown}"}},
+                                    QVariantMap {{"template", "{packet"}},
                                     QVariantMap {{"template", "\\q"}},
                                     QVariantMap {{"template", "\\xG0"}},
                                     QVariantMap {{"template", QString(4097, 'x')}}})

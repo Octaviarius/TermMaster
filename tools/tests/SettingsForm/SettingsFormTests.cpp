@@ -113,15 +113,15 @@ private:
         QVERIFY(timer->interval() >= 100 && timer->interval() <= 1000);
         QVERIFY(!settings.contains("template"));
 
-        model.setValue("template", R"(\e[38;2;18;52;86m${timestamp}\e[0m ${packet})");
+        model.setValue("template", R"(\e[38;2;18;52;86m{datetime}\e[0m {packet})");
         QTRY_VERIFY(display->text().startsWith("FIXED PAYLOAD"));
         QCOMPARE(display->screen().lines().first().cells.first().foreground, QColor("#123456"));
         QVERIFY(display->screen().lines().first().cells.at(6).defaultForeground);
 
-        model.setValue("template", "${unknown}");
+        model.setValue("template", "{unknown}");
         QVERIFY(!error->text().isEmpty());
         QVERIFY(!timer->isActive());
-        model.setValue("template", "${timestamp} ${packet}");
+        model.setValue("template", "{datetime} {packet}");
         model.setValue("format", "HH:mm:ss.zzz");
         const auto initial = display->text();
         QTRY_VERIFY_WITH_TIMEOUT(display->text() != initial, 2500);

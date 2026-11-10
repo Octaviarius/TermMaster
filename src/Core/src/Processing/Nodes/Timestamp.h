@@ -2,7 +2,10 @@
 
 #include "SyncProcessorNode.h"
 
-/** Adds one formatted wall-clock timestamp to each packet without decoding its bytes. */
+#include <Termaster/Core/Formatting/CompiledFormat.h>
+#include <optional>
+
+/** Per-packet clocks and index supplied lazily to a prepared byte format. */
 class Timestamp final : public SyncProcessorNode
 {
 public:
@@ -12,24 +15,26 @@ public:
                                              QString*           error = nullptr);
 
 private:
-    struct Part
-    {
-        enum class Kind
-        {
-            Literal,
-            Timestamp,
-            Packet
-        };
-        Kind       kind = Kind::Literal;
-        QByteArray literal;
-    };
+    FormatSchema                          _schema;
+    FormatSchema::Slot<QString>           _datetime = _schema.add<QString>("datetime");
+    FormatSchema::Slot<double>            _unix     = _schema.add<double>("unix");
+    FormatSchema::Slot<qint64>            _unixMs   = _schema.add<qint64>("unix_ms");
+    FormatSchema::Slot<qint64>            _unixUs   = _schema.add<qint64>("unix_us");
+    FormatSchema::Slot<qint64>            _unixNs   = _schema.add<qint64>("unix_ns");
+    FormatSchema::Slot<double>            _steady   = _schema.add<double>("steady");
+    FormatSchema::Slot<qint64>            _steadyMs = _schema.add<qint64>("steady_ms");
+    FormatSchema::Slot<qint64>            _steadyUs = _schema.add<qint64>("steady_us");
+    FormatSchema::Slot<qint64>            _steadyNs = _schema.add<qint64>("steady_ns");
+    FormatSchema::Slot<quint64>           _index    = _schema.add<quint64>("index");
+    FormatSchema::Slot<QByteArrayView>    _packet   = _schema.add<QByteArrayView>("packet");
+    std::shared_ptr<const CompiledFormat> _compiled;
+    std::optional<FormatSchema::Values>   _values;
+    QString                               _format;
+    bool                                  _utc         = false;
+    quint64                               _packetIndex = 0;
 
-    QString     _format;
-    QList<Part> _parts;
-    bool        _utc = false;
-
-    Timestamp(QVariantMap configuration, Limits limits, QList<Part> parts);
-    static bool _parseTemplate(const QString& text, QList<Part>& parts, QString* error);
-    void        _process(const Chunk& input, QByteArray& output, QString& error) override;
-    void        _reset() override;
+    Timestamp(QVariantMap configuration, Limits limits);
+    static qint64 _bootNanoseconds(QString& error);
+    void          _process(const Chunk& input, QByteArray& output, QString& error) override;
+    void          _reset() override;
 };

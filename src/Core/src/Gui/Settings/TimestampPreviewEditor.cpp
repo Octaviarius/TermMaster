@@ -80,8 +80,13 @@ void TimestampPreviewEditor::setValue(const QVariant&)
 
 void TimestampPreviewEditor::setContext(const QVariantMap& context)
 {
+    if (_configuration == context && _processor)
+    {
+        return;
+    }
     _timer.stop();
     _configuration = context;
+    _processor.reset();
     _render();
     _schedule();
 }
@@ -105,22 +110,32 @@ void TimestampPreviewEditor::_render()
     Processor::Limits limits;
     limits.maxBytes = 8192;
     QString error;
-    auto    processor = Timestamp::create(_configuration, limits, &error);
+    if (!_processor)
+    {
+        _processor = Timestamp::create(_configuration, limits, &error);
+    }
     _error->setText(error);
     _error->setVisible(!error.isEmpty());
-    if (!processor)
+    if (!_processor)
     {
         return;
     }
-    processor->accept({_sample->text().toUtf8()},
-                      {[this](Processor::Chunk chunk) {
-                           _display->receive(chunk.bytes);
-                           _display->receive("\x1b[?25l");
-                       },
-                       [this](QString error) {
-                           _error->setText(error);
-                           _error->setVisible(!error.isEmpty());
-                       }});
+    const auto accepted = _processor->accept({_sample->text().toUtf8()},
+                                             {[this](Processor::Chunk chunk) {
+                                                  _display->receive(chunk.bytes);
+                                                  _display->receive("\x1b[?25l");
+                                              },
+                                              [&error](QString message) { error = std::move(message); }});
+    if (accepted != Processor::AcceptResult::Accepted && error.isEmpty())
+    {
+        error = tr("Preview processor rejected the sample packet");
+    }
+    _error->setText(error);
+    _error->setVisible(!error.isEmpty());
+    if (!error.isEmpty())
+    {
+        _processor.reset();
+    }
 }
 
 void TimestampPreviewEditor::_schedule()

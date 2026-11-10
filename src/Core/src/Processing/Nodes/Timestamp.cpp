@@ -1,10 +1,22 @@
 #include "Timestamp.h"
 
 #include <QDateTime>
+#include <QTimeZone>
+#include <chrono>
+#include <limits>
 
-Timestamp::Timestamp(QVariantMap configuration, Limits limits, QList<Part> parts) :
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#elif defined(Q_OS_LINUX)
+#include <time.h>
+#endif
+
+Timestamp::Timestamp(QVariantMap configuration, Limits limits) :
     SyncProcessorNode(configuration, limits), _format(configuration.value("format").toString()),
-    _parts(std::move(parts)), _utc(configuration.value("timeZone").toString() == "utc")
+    _utc(configuration.value("timeZone").toString() == "utc")
 {
 }
 
@@ -19,8 +31,8 @@ content:
   properties:
     format:
       type: string
-      title: Time format
-      description: "Qt date/time format: yyyy-MM-dd HH:mm:ss.zzz. Enclose literal words in single quotes. Timestamp text is UTF-8; packet bytes remain unchanged."
+      title: Datetime format
+      description: "Qt date/time format for {datetime}: yyyy-MM-dd HH:mm:ss.zzz. Single-quoted words are literal. Unused variables are not evaluated."
       maxLength: 512
       default: 'yyyy-MM-dd HH:mm:ss.zzz'
       x-group: timestamp
@@ -28,6 +40,7 @@ content:
     timeZone:
       type: string
       title: Time zone
+      description: 'Local or UTC for {datetime}. Unix and boot-relative clocks are unaffected.'
       enum: [local, utc]
       default: local
       x-group: timestamp
@@ -35,9 +48,9 @@ content:
     template:
       type: string
       title: Output template
-      description: 'Use ${timestamp} and ${packet} in any order; $$ is a literal dollar. Byte escapes: \r \n \t \0 \e \\ \xHH. ANSI colors may surround any part, for example \e[90m${timestamp}\e[0m ${packet}.'
+      description: 'Fields: {datetime}, {unix:.6f}, {unix_ms}, {unix_us}, {unix_ns}, {steady:.6f}, {steady_ms}, {steady_us}, {steady_ns}, {index:03}, {packet}. steady measures boot-relative time including sleep. Braces: {{ }}. Byte escapes: \e \r \n \t \0 \\ \xHH. ANSI example: \e[90m[{datetime}]\e[0m {packet}.'
       maxLength: 4096
-      default: '[${timestamp}] ${packet}'
+      default: '[{datetime}] {packet}'
       x-group: timestamp
       x-order: 3
   x-groups:
@@ -65,13 +78,12 @@ std::unique_ptr<Processor> Timestamp::create(const QVariantMap& input, const Lim
     const auto format = configuration.value("format");
     if (format.typeId() != QMetaType::QString || format.toString().size() > 512)
     {
-        _fail(error, QStringLiteral("Timestamp format must be a string of at most 512 characters"));
+        _fail(error, QStringLiteral("Datetime format must be a string of at most 512 characters"));
         return {};
     }
-
     if (!configuration.contains("template"))
     {
-        configuration.insert("template", QStringLiteral("[${timestamp}] ${packet}"));
+        configuration.insert("template", QStringLiteral("[{datetime}] {packet}"));
     }
     const auto text = configuration.value("template");
     if (text.typeId() != QMetaType::QString || text.toString().size() > 4096)
@@ -79,154 +91,117 @@ std::unique_ptr<Processor> Timestamp::create(const QVariantMap& input, const Lim
         _fail(error, QStringLiteral("Timestamp template must be a string of at most 4096 characters"));
         return {};
     }
-    QList<Part> parts;
-    if (!_parseTemplate(text.toString(), parts, error))
+
+    auto result       = std::unique_ptr<Timestamp>(new Timestamp(configuration, limits));
+    result->_compiled = CompiledFormat::compile(text.toString(), result->_schema, error);
+    if (!result->_compiled)
     {
         return {};
     }
+    result->_values.emplace(result->_schema.createValues());
+    return result;
+}
 
-    return std::unique_ptr<Processor>(new Timestamp(std::move(configuration), limits, std::move(parts)));
+qint64 Timestamp::_bootNanoseconds(QString& error)
+{
+#ifdef Q_OS_WIN
+    ULONGLONG ticks = 0;
+    QueryInterruptTimePrecise(&ticks);
+    if (ticks <= quint64(std::numeric_limits<qint64>::max() / 100))
+    {
+        return qint64(ticks * 100);
+    }
+#elif defined(Q_OS_LINUX)
+    timespec value {};
+    if (clock_gettime(CLOCK_BOOTTIME, &value) == 0 && value.tv_sec >= 0
+        && value.tv_sec <= (std::numeric_limits<qint64>::max() - value.tv_nsec) / 1000000000)
+    {
+        return qint64(value.tv_sec) * 1000000000 + value.tv_nsec;
+    }
+#endif
+    error = QStringLiteral("Boot-relative clock is unavailable or outside its supported range");
+    return -1;
 }
 
 void Timestamp::_process(const Chunk& input, QByteArray& output, QString& error)
 {
-    const auto now   = _utc ? QDateTime::currentDateTimeUtc() : QDateTime::currentDateTime();
-    const auto stamp = now.toString(_format).toUtf8();
-
-    for (const auto& part : _parts)
+    if (_packetIndex == std::numeric_limits<quint64>::max())
     {
-        if (part.kind == Part::Kind::Packet)
-        {
-            if (input.bytes.size() > _maximumBytes() - output.size())
-            {
-                _fail(&error, QStringLiteral("Processing node output exceeds byte limit"));
-                return;
-            }
-            // Avoid sharing borrowed fromRawData storage when output is empty.
-            output.append(input.bytes.constData(), input.bytes.size());
-            continue;
-        }
+        error = QStringLiteral("Timestamp packet index exhausted");
+        return;
+    }
+    _values->set(_index, ++_packetIndex);
+    if (_compiled->uses(_packet))
+    {
+        _values->set(_packet, QByteArrayView(input.bytes));
+    }
 
-        const auto& bytes = part.kind == Part::Kind::Timestamp ? stamp : part.literal;
-        if (!_append(output, bytes, error))
+    using namespace std::chrono;
+    if (_compiled->uses(_datetime) || _compiled->uses(_unix) || _compiled->uses(_unixMs) || _compiled->uses(_unixUs)
+        || _compiled->uses(_unixNs))
+    {
+        const auto wall = system_clock::now().time_since_epoch();
+        if (_compiled->uses(_datetime))
         {
-            return;
+            auto date = QDateTime::fromMSecsSinceEpoch(duration_cast<milliseconds>(wall).count(), QTimeZone::UTC);
+            if (!_utc)
+            {
+                date = date.toLocalTime();
+            }
+            _values->set(_datetime, date.toString(_format));
+        }
+        if (_compiled->uses(_unix))
+        {
+            _values->set(_unix, duration<double>(wall).count());
+        }
+        if (_compiled->uses(_unixMs))
+        {
+            _values->set(_unixMs, qint64(duration_cast<milliseconds>(wall).count()));
+        }
+        if (_compiled->uses(_unixUs))
+        {
+            _values->set(_unixUs, qint64(duration_cast<microseconds>(wall).count()));
+        }
+        if (_compiled->uses(_unixNs))
+        {
+            _values->set(_unixNs, qint64(duration_cast<nanoseconds>(wall).count()));
         }
     }
+    if (_compiled->uses(_steady) || _compiled->uses(_steadyMs) || _compiled->uses(_steadyUs)
+        || _compiled->uses(_steadyNs))
+    {
+        const auto ns = _bootNanoseconds(error);
+        if (!error.isEmpty())
+        {
+            _values->clear();
+            return;
+        }
+        if (_compiled->uses(_steady))
+        {
+            _values->set(_steady, double(ns) / 1000000000.0);
+        }
+        if (_compiled->uses(_steadyMs))
+        {
+            _values->set(_steadyMs, ns / 1000000);
+        }
+        if (_compiled->uses(_steadyUs))
+        {
+            _values->set(_steadyUs, ns / 1000);
+        }
+        if (_compiled->uses(_steadyNs))
+        {
+            _values->set(_steadyNs, ns);
+        }
+    }
+
+    _compiled->render(*_values, output, _maximumBytes(), &error);
+    _values->clear();
 }
 
 void Timestamp::_reset()
 {
-}
-
-bool Timestamp::_parseTemplate(const QString& text, QList<Part>& parts, QString* error)
-{
-    QString    literal;
-    const auto flush = [&] {
-        if (!literal.isEmpty())
-        {
-            parts.append({Part::Kind::Literal, literal.toUtf8()});
-            literal.clear();
-        }
-    };
-    const auto hex = [](QChar c) {
-        const auto ch = c.unicode();
-        if (ch >= '0' && ch <= '9')
-        {
-            return int(ch - '0');
-        }
-        if (ch >= 'a' && ch <= 'f')
-        {
-            return int(ch - 'a' + 10);
-        }
-        if (ch >= 'A' && ch <= 'F')
-        {
-            return int(ch - 'A' + 10);
-        }
-        return -1;
-    };
-
-    for (qsizetype i = 0; i < text.size(); ++i)
+    if (_values)
     {
-        const auto ch = text.at(i);
-        if (ch == '$')
-        {
-            if (i + 1 < text.size() && text.at(i + 1) == '$')
-            {
-                literal.append('$');
-                ++i;
-                continue;
-            }
-            if (i + 1 >= text.size() || text.at(i + 1) != '{')
-            {
-                return _fail(error, QStringLiteral("Timestamp template dollar must use $$ or ${timestamp}/${packet}"));
-            }
-            const auto end = text.indexOf('}', i + 2);
-            if (end < 0)
-            {
-                return _fail(error, QStringLiteral("Timestamp template has an incomplete placeholder"));
-            }
-            const auto name = text.mid(i + 2, end - i - 2);
-            if (name != "timestamp" && name != "packet")
-            {
-                return _fail(error, QStringLiteral("Unknown Timestamp template placeholder: ") + name);
-            }
-            flush();
-            parts.append({name == "packet" ? Part::Kind::Packet : Part::Kind::Timestamp, {}});
-            i = end;
-        }
-        else if (ch == '\\')
-        {
-            if (++i == text.size())
-            {
-                return _fail(error, QStringLiteral("Timestamp template ends with an incomplete escape"));
-            }
-            const auto escaped = text.at(i);
-            if (escaped == 'r')
-            {
-                literal.append('\r');
-            }
-            else if (escaped == 'n')
-            {
-                literal.append('\n');
-            }
-            else if (escaped == 't')
-            {
-                literal.append('\t');
-            }
-            else if (escaped == '0')
-            {
-                literal.append(QChar(0));
-            }
-            else if (escaped == 'e')
-            {
-                literal.append(QChar(27));
-            }
-            else if (escaped == '\\')
-            {
-                literal.append('\\');
-            }
-            else if (escaped == 'x')
-            {
-                if (i + 2 >= text.size() || hex(text.at(i + 1)) < 0 || hex(text.at(i + 2)) < 0)
-                {
-                    return _fail(error, QStringLiteral("Timestamp hexadecimal escape requires two digits"));
-                }
-                flush();
-                parts.append(
-                    {Part::Kind::Literal, QByteArray(1, char((hex(text.at(i + 1)) << 4) | hex(text.at(i + 2))))});
-                i += 2;
-            }
-            else
-            {
-                return _fail(error, QStringLiteral("Unsupported Timestamp template escape"));
-            }
-        }
-        else
-        {
-            literal.append(ch);
-        }
+        _values->clear();
     }
-    flush();
-    return true;
 }

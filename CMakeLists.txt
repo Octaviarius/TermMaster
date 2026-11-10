@@ -18,9 +18,15 @@ qt_standard_project_setup()
 include(cmake/PluginApi.cmake)
 include(cmake/Valijson.cmake)
 include(cmake/Pcre2.cmake)
+include(cmake/Fmt.cmake)
 
 add_subdirectory(src)
 add_subdirectory(components/yaml-cpp)
+
+option(TERMASTER_BUILD_FORMAT_BENCHMARKS "Build formatting benchmarks" OFF)
+if(TERMASTER_BUILD_FORMAT_BENCHMARKS)
+    add_subdirectory(tools/benchmarks/Formatting)
+endif()
 
 option(TERMASTER_BUILD_PLUGIN_TESTS "Build plugin lifecycle integration tests" OFF)
 if(TERMASTER_BUILD_PLUGIN_TESTS)
@@ -106,6 +112,7 @@ option(TERMASTER_BUILD_PROCESSING_TESTS "Build processor and Lineflow tests" OFF
 if(TERMASTER_BUILD_PROCESSING_TESTS)
     enable_testing()
     add_subdirectory(tools/tests/Processing)
+    add_subdirectory(tools/tests/Formatting)
     add_subdirectory(tools/tests/ProcessingRouting)
     add_subdirectory(tools/tests/LineflowPersistence)
     add_subdirectory(tools/tests/LineflowEditor)

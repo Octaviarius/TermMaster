@@ -3,6 +3,8 @@
 #include <QTimer>
 #include <QVariantMap>
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
+#include <Termaster/Core/Processing/Processor.h>
+#include <memory>
 
 class QLabel;
 class QLineEdit;
@@ -22,11 +24,12 @@ protected:
     void hideEvent(QHideEvent* event) override;
 
 private:
-    TerminalDisplay* _display = nullptr;
-    QLineEdit*       _sample  = nullptr;
-    QLabel*          _error   = nullptr;
-    QVariantMap      _configuration;
-    QTimer           _timer;
+    TerminalDisplay*           _display = nullptr;
+    QLineEdit*                 _sample  = nullptr;
+    QLabel*                    _error   = nullptr;
+    QVariantMap                _configuration;
+    std::unique_ptr<Processor> _processor;
+    QTimer                     _timer;
 
     void _render();
     void _schedule();
