@@ -10,8 +10,7 @@ class ChecksumField final
 public:
     explicit ChecksumField(const QVariantMap& configuration);
 
-    static QByteArray schema();
-    static bool       validate(QVariantMap& configuration, QString* error);
+    static bool validate(QVariantMap& configuration, QString* error);
 
     int        width() const;
     bool       prefix() const;

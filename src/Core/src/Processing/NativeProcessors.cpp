@@ -1,25 +1,17 @@
-#include "Nodes/Base64Codec.h"
-#include "Nodes/Base64Decoder.h"
-#include "Nodes/Base64Encoder.h"
+#include "Nodes/Base64.h"
 #include "Nodes/Bypass.h"
-#include "Nodes/ChecksumUnwrap.h"
-#include "Nodes/ChecksumWrap.h"
-#include "Nodes/Compress.h"
+#include "Nodes/Checksum.h"
+#include "Nodes/Compression.h"
 #include "Nodes/Framer.h"
 #include "Nodes/Gate.h"
-#include "Nodes/HexCodec.h"
-#include "Nodes/HexDecoder.h"
-#include "Nodes/HexEncoder.h"
-#include "Nodes/LengthUnwrap.h"
-#include "Nodes/LengthWrap.h"
+#include "Nodes/Hex.h"
+#include "Nodes/Length.h"
 #include "Nodes/Pacer.h"
 #include "Nodes/PatternFramer.h"
 #include "Nodes/Stub.h"
-#include "Nodes/StuffingUnwrap.h"
-#include "Nodes/StuffingWrap.h"
+#include "Nodes/Stuffing.h"
 #include "Nodes/TimedFramer.h"
 #include "Nodes/Timestamp.h"
-#include "Nodes/Uncompress.h"
 
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorCatalog.h>
@@ -37,76 +29,11 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
         QString                         outputName;
         int                             channels = 1;
     };
-    const QList<Definition> definitions {
-        Definition("native.hex-codec", "HEX Codec", "Codecs", HexCodec::schema(), HexCodec::create, "HEX", "Bytes", 2),
-        Definition("native.base64-codec",
-                   "Base64 Codec",
-                   "Codecs",
-                   Base64Codec::schema(),
-                   Base64Codec::create,
-                   "Base64",
-                   "Bytes",
-                   2),
+    QList<Definition> definitions {
         Definition("native.bypass", "Bypass", "Control", Bypass::schema(), Bypass::create, "Data", "Data"),
         Definition("native.stub", "Stub", "Control", Stub::schema(), Stub::create, "Data", "Data"),
         Definition("native.gate", "Gate", "Control", Gate::schema(), Gate::create, "Data", "Data"),
         Definition("native.timestamp", "Timestamp", "Timing", Timestamp::schema(), Timestamp::create, "Data", "Data"),
-        Definition("native.compress",
-                   "Compress",
-                   "Compression",
-                   Compress::schema(),
-                   Compress::create,
-                   "Bytes",
-                   "Compressed"),
-        Definition("native.uncompress",
-                   "Uncompress",
-                   "Compression",
-                   Uncompress::schema(),
-                   Uncompress::create,
-                   "Compressed",
-                   "Bytes"),
-        Definition("native.length-wrap",
-                   "Length Wrap",
-                   "Framing",
-                   LengthWrap::schema(),
-                   LengthWrap::create,
-                   "Payload",
-                   "Packet"),
-        Definition("native.length-unwrap",
-                   "Length Unwrap",
-                   "Framing",
-                   LengthUnwrap::schema(),
-                   LengthUnwrap::create,
-                   "Packet",
-                   "Payload"),
-        Definition("native.stuffing-wrap",
-                   "Stuffing Wrap",
-                   "Framing",
-                   StuffingWrap::schema(),
-                   StuffingWrap::create,
-                   "Payload",
-                   "Packet"),
-        Definition("native.stuffing-unwrap",
-                   "Stuffing Unwrap",
-                   "Framing",
-                   StuffingUnwrap::schema(),
-                   StuffingUnwrap::create,
-                   "Packet",
-                   "Payload"),
-        Definition("native.checksum-wrap",
-                   "Checksum Wrap",
-                   "Integrity",
-                   ChecksumWrap::schema(),
-                   ChecksumWrap::create,
-                   "Payload",
-                   "Packet"),
-        Definition("native.checksum-unwrap",
-                   "Checksum Unwrap",
-                   "Integrity",
-                   ChecksumUnwrap::schema(),
-                   ChecksumUnwrap::create,
-                   "Packet",
-                   "Payload"),
         Definition("native.pacer", "Pacer", "Timing", Pacer::schema(), Pacer::create, "Data", "Data"),
         Definition("native.framer",
                    "Delimiter Framer",
@@ -129,35 +56,96 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
                    PatternFramer::create,
                    "Stream",
                    "Frames"),
-        Definition("native.hex-encoder",
-                   "HEX Encoder",
-                   "Codecs",
-                   HexEncoder::schema(),
-                   HexEncoder::create,
-                   "Bytes",
-                   "HEX"),
-        Definition("native.hex-decoder",
-                   "HEX Decoder",
-                   "Codecs",
-                   HexDecoder::schema(),
-                   HexDecoder::create,
-                   "HEX",
-                   "Bytes"),
-        Definition("native.base64-encoder",
-                   "Base64 Encoder",
-                   "Codecs",
-                   Base64Encoder::schema(),
-                   Base64Encoder::create,
-                   "Bytes",
-                   "Base64"),
-        Definition("native.base64-decoder",
-                   "Base64 Decoder",
-                   "Codecs",
-                   Base64Decoder::schema(),
-                   Base64Decoder::create,
-                   "Base64",
-                   "Bytes"),
+
     };
+    auto addFamily = [&](const Codec::Definition& family,
+                         const QString&           group,
+                         const QString&           directId,
+                         const QString&           directTitle,
+                         const QString&           inverseId,
+                         const QString&           inverseTitle,
+                         const QString&           codecId,
+                         const QString&           codecTitle,
+                         const QString&           wire,
+                         const QString&           payload) {
+        auto add = [&](Codec::Mode variant, const QString& id, const QString& title) {
+            const bool direct = variant == Codec::Mode::Direct;
+            definitions.append(
+                {"native." + id,
+                 title,
+                 group,
+                 family.schema(variant),
+                 [family, variant](const QVariantMap& configuration, const Processor::Limits& limits, QString* error) {
+                     return family.create(variant, configuration, limits, error);
+                 },
+                 direct ? payload : wire,
+                 direct ? wire : payload,
+                 variant == Codec::Mode::Duplex ? 2 : 1});
+        };
+        add(Codec::Mode::Direct, directId, directTitle);
+        add(Codec::Mode::Inverse, inverseId, inverseTitle);
+        add(Codec::Mode::Duplex, codecId, codecTitle);
+    };
+    addFamily(Hex::descriptor(),
+              "Codecs",
+              "hex-encoder",
+              "HEX Encoder",
+              "hex-decoder",
+              "HEX Decoder",
+              "hex-codec",
+              "HEX Codec",
+              "HEX",
+              "Bytes");
+    addFamily(Base64::descriptor(),
+              "Codecs",
+              "base64-encoder",
+              "Base64 Encoder",
+              "base64-decoder",
+              "Base64 Decoder",
+              "base64-codec",
+              "Base64 Codec",
+              "Base64",
+              "Bytes");
+    addFamily(Length::descriptor(),
+              "Framing",
+              "length-wrap",
+              "Length Wrap",
+              "length-unwrap",
+              "Length Unwrap",
+              "length-codec",
+              "Length Codec",
+              "Packet",
+              "Payload");
+    addFamily(Checksum::descriptor(),
+              "Integrity",
+              "checksum-wrap",
+              "Checksum Wrap",
+              "checksum-unwrap",
+              "Checksum Unwrap",
+              "checksum-codec",
+              "Checksum Codec",
+              "Packet",
+              "Payload");
+    addFamily(Stuffing::descriptor(),
+              "Framing",
+              "stuffing-wrap",
+              "Stuffing Wrap",
+              "stuffing-unwrap",
+              "Stuffing Unwrap",
+              "stuffing-codec",
+              "Stuffing Codec",
+              "Packet",
+              "Payload");
+    addFamily(Compression::descriptor(),
+              "Compression",
+              "compress",
+              "Compress",
+              "uncompress",
+              "Uncompress",
+              "compression-codec",
+              "Compression Codec",
+              "Compressed",
+              "Bytes");
     QStringList registered;
     try
     {

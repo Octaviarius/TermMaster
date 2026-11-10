@@ -1,5 +1,7 @@
 #include "LengthWrap.h"
 
+#include "Length.h"
+
 LengthWrap::LengthWrap(QVariantMap configuration, Limits limits) :
     SyncProcessorNode(configuration, limits), _field(configuration), _maxSteps(limits.maxSteps)
 {
@@ -7,7 +9,7 @@ LengthWrap::LengthWrap(QVariantMap configuration, Limits limits) :
 
 QByteArray LengthWrap::schema()
 {
-    return LengthField::schema();
+    return Length::descriptor().schema(Codec::Mode::Direct);
 }
 
 std::unique_ptr<Processor> LengthWrap::create(const QVariantMap& input, const Limits& limits, QString* error)

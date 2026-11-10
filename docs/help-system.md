@@ -79,3 +79,11 @@ and project-authored icons should be distinguished from copied third-party asset
 
 This inventory is source evidence and pending packaging work, not a declaration
 that every redistribution obligation has already been fulfilled.
+
+
+FLOW-27 paired families keep help topics associated with the fixed catalog choice.
+Parameter reference generation must consume the assembled descriptor for that
+choice: unary pages include only common and selected-direction parameters; Codec
+pages include common parameters once and both directional groups. The separate
+family owners provide the source definitions. HELP-1 remains the next scheduled
+implementation stage after FLOW-27.

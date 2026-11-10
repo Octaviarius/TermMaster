@@ -204,3 +204,16 @@ add_test(NAME StuffingProcessorTests COMMAND StuffingProcessorTests)
 set_tests_properties(StuffingProcessorTests PROPERTIES
     ENVIRONMENT "QT_FORCE_STDERR_LOGGING=1"
 )
+
+qt_add_executable(ProcessorFamilyTests
+    ProcessorFamilyTests.cpp
+)
+target_include_directories(ProcessorFamilyTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+target_link_libraries(ProcessorFamilyTests PRIVATE
+    Core
+    Qt6::Test
+    Qt6::Widgets
+)
+add_test(NAME ProcessorFamilyTests COMMAND ProcessorFamilyTests)

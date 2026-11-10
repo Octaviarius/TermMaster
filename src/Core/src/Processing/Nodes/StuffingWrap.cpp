@@ -1,5 +1,7 @@
 #include "StuffingWrap.h"
 
+#include "Stuffing.h"
+
 #include <limits>
 
 StuffingWrap::StuffingWrap(QVariantMap configuration, Limits limits) :
@@ -9,7 +11,7 @@ StuffingWrap::StuffingWrap(QVariantMap configuration, Limits limits) :
 
 QByteArray StuffingWrap::schema()
 {
-    return StuffingSettings::schema();
+    return Stuffing::descriptor().schema(Codec::Mode::Direct);
 }
 
 std::unique_ptr<Processor> StuffingWrap::create(const QVariantMap& input, const Limits& limits, QString* error)

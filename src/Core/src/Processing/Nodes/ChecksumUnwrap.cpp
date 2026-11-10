@@ -1,5 +1,7 @@
 #include "ChecksumUnwrap.h"
 
+#include "Checksum.h"
+
 ChecksumUnwrap::ChecksumUnwrap(QVariantMap configuration, Limits limits) :
     SyncProcessorNode(configuration, limits), _field(configuration), _maxSteps(limits.maxSteps)
 {
@@ -7,7 +9,7 @@ ChecksumUnwrap::ChecksumUnwrap(QVariantMap configuration, Limits limits) :
 
 QByteArray ChecksumUnwrap::schema()
 {
-    return ChecksumField::schema();
+    return Checksum::descriptor().schema(Codec::Mode::Inverse);
 }
 
 std::unique_ptr<Processor> ChecksumUnwrap::create(const QVariantMap& input, const Limits& limits, QString* error)

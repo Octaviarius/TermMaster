@@ -1,5 +1,7 @@
 #include "Base64Encoder.h"
 
+#include "Base64.h"
+
 #include <cmath>
 
 Base64Encoder::Base64Encoder(QVariantMap configuration, Limits limits) :
@@ -11,9 +13,9 @@ Base64Encoder::Base64Encoder(QVariantMap configuration, Limits limits) :
 }
 QByteArray Base64Encoder::schema()
 {
-    return _schema(
-        "    alphabet: {type: string, title: Alphabet, enum: [standard, url], default: standard}\n    padding: {type: boolean, title: Emit padding, default: true}\n    lineLength: {type: integer, title: Line length, minimum: 0, maximum: 4096, multipleOf: 4, default: 0}\n    lineEnding: {type: string, title: Line ending, enum: [lf, crlf], default: lf}\n");
+    return Base64::descriptor().schema(Codec::Mode::Direct);
 }
+
 std::unique_ptr<Processor> Base64Encoder::create(const QVariantMap& input, const Limits& limits, QString* error)
 {
     if (!_validLimits(limits, error))

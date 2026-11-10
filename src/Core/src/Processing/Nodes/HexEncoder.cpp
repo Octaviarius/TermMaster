@@ -1,5 +1,7 @@
 #include "HexEncoder.h"
 
+#include "Hex.h"
+
 HexEncoder::HexEncoder(QVariantMap configuration, Limits limits) :
     SyncProcessorNode(configuration, limits), _separator(configuration.value("separator").toString().toUtf8()),
     _lower(configuration.value("letterCase").toString() == "lower")
@@ -7,9 +9,9 @@ HexEncoder::HexEncoder(QVariantMap configuration, Limits limits) :
 }
 QByteArray HexEncoder::schema()
 {
-    return _schema(
-        "    letterCase: {type: string, title: Letter case, enum: [upper, lower], default: upper}\n    separator: {type: string, title: Byte separator, maxLength: 16, default: ' ', description: 'Literal UTF-8 separator, at most 16 characters.'}\n");
+    return Hex::descriptor().schema(Codec::Mode::Direct);
 }
+
 std::unique_ptr<Processor> HexEncoder::create(const QVariantMap& input, const Limits& limits, QString* error)
 {
     if (!_validLimits(limits, error))

@@ -1,5 +1,7 @@
 #include "HexDecoder.h"
 
+#include "Hex.h"
+
 HexDecoder::HexDecoder(QVariantMap configuration, Limits limits) :
     SyncProcessorNode(configuration, limits), _ignoreWhitespace(configuration.value("ignoreWhitespace").toBool()),
     _accumulate(configuration.value("accumulate").toBool())
@@ -7,9 +9,9 @@ HexDecoder::HexDecoder(QVariantMap configuration, Limits limits) :
 }
 QByteArray HexDecoder::schema()
 {
-    return _schema(
-        "    ignoreWhitespace: {type: boolean, title: Ignore ASCII whitespace, default: true}\n    accumulate: {type: boolean, title: Accumulate incomplete HEX byte, default: false}\n");
+    return Hex::descriptor().schema(Codec::Mode::Inverse);
 }
+
 std::unique_ptr<Processor> HexDecoder::create(const QVariantMap& input, const Limits& limits, QString* error)
 {
     if (!_validLimits(limits, error))

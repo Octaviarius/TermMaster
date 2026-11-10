@@ -1,5 +1,7 @@
 #include "Base64Decoder.h"
 
+#include "Base64.h"
+
 Base64Decoder::Base64Decoder(QVariantMap configuration, Limits limits) :
     SyncProcessorNode(configuration, limits), _url(configuration.value("alphabet").toString() == "url"),
     _ignoreWhitespace(configuration.value("ignoreWhitespace").toBool()),
@@ -8,9 +10,9 @@ Base64Decoder::Base64Decoder(QVariantMap configuration, Limits limits) :
 }
 QByteArray Base64Decoder::schema()
 {
-    return _schema(
-        "    alphabet: {type: string, title: Alphabet, enum: [standard, url], default: standard}\n    ignoreWhitespace: {type: boolean, title: Ignore ASCII whitespace, default: true}\n    requirePadding: {type: boolean, title: Require padding, default: true}\n");
+    return Base64::descriptor().schema(Codec::Mode::Inverse);
 }
+
 std::unique_ptr<Processor> Base64Decoder::create(const QVariantMap& input, const Limits& limits, QString* error)
 {
     if (!_validLimits(limits, error))

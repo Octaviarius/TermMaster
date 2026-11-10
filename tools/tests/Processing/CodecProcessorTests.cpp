@@ -399,11 +399,10 @@ private slots:
                                                  {"decodeIgnoreWhitespace",    true},
                                                  {      "decodeAccumulate",   false}
             } :
-                                             QVariantMap {{"encodeAlphabet", "standard"},
+                                             QVariantMap {{"alphabet", "standard"},
                                                           {"encodePadding", true},
                                                           {"encodeLineLength", 0},
                                                           {"encodeLineEnding", "lf"},
-                                                          {"decodeAlphabet", "standard"},
                                                           {"decodeIgnoreWhitespace", true},
                                                           {"decodeRequirePadding", true}};
             const auto        resolved = registry.resolveConfiguration(id, {}, {}, &error);
@@ -425,7 +424,7 @@ private slots:
             },
                                                    {},
                                                    &error));
-            const auto key = format == "hex" ? "encodeLetterCase" : "encodeAlphabet";
+            const auto key = format == "hex" ? "encodeLetterCase" : "alphabet";
             QVERIFY(!registry.resolveConfiguration(id,
                                                    {
                                                        {key, "invalid"}
@@ -444,9 +443,8 @@ private slots:
         QCOMPARE(invoke(*hex, QByteArray::fromHex("ab00"), 1).bytes(), QByteArray("ab:00"));
         auto base64 = registry.create("native.base64-codec",
                                       {
-                                          {      "encodeAlphabet", "url"},
+                                          {            "alphabet", "url"},
                                           {       "encodePadding", false},
-                                          {      "decodeAlphabet", "url"},
                                           {"decodeRequirePadding", false}
         },
                                       {},
