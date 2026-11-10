@@ -463,6 +463,7 @@ size_t Lineflow::_nextStage(int from, int direction) const
 void Lineflow::_connectOutputs()
 {
     _stages.resize(_nodes.size());
+    _blocked.resize(_nodes.size());
     QPointer<Lineflow> guard(this);
     for (size_t index = 0; index < _nodes.size(); ++index)
     {
@@ -526,7 +527,7 @@ void Lineflow::_enqueueOutput(size_t index, Chunk chunk, int origin, int inputPo
 
 void Lineflow::_schedule()
 {
-    if (_scheduled || _stopped)
+    if (_scheduled || _pumping || _stopped)
     {
         return;
     }
@@ -544,16 +545,16 @@ void Lineflow::_pump()
         return;
     }
     _pumping = true;
-    QPointer<Lineflow>               guard(this);
-    std::vector<std::array<bool, 2>> blocked(_nodes.size());
-    bool                             retry  = false;
-    int                              budget = _limits.eventBudget;
+    QPointer<Lineflow> guard(this);
+    std::fill(_blocked.begin(), _blocked.end(), std::array<bool, 2> {});
+    bool retry  = false;
+    int  budget = _limits.eventBudget;
     while (!_stopped && budget-- > 0)
     {
         auto position = std::find_if(_queue.begin(), _queue.end(), [&](const Work& work) {
             return work.stage == _nodes.size()
                 || (!_stages[work.stage].inputs[size_t(work.chunk.port)].pending
-                    && !blocked[work.stage][size_t(work.chunk.port)]);
+                    && !_blocked[work.stage][size_t(work.chunk.port)]);
         });
         if (position == _queue.end())
         {
@@ -658,8 +659,8 @@ void Lineflow::_pump()
             _queuedBytes  += retryInput.bytes.size();
             ++work.budget->remaining;
             _queue.insert(_queue.begin() + positionIndex, {work.stage, retryInput, work.root, work.budget});
-            blocked[work.stage][size_t(inputPort)] = true;
-            retry                                  = true;
+            _blocked[work.stage][size_t(inputPort)] = true;
+            retry                                   = true;
         }
         else if (status == AcceptResult::Rejected)
         {

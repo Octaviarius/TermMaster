@@ -172,6 +172,71 @@ class ProcessingTests : public QObject
 {
     Q_OBJECT
 private slots:
+    void repeatedCompletionProducerYieldsAndKeepsPackets()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        Processor::Limits limits;
+        limits.eventBudget = 1;
+        QString    error;
+        const auto plan = Lineflow::prepare(blocks({native("native.bypass"), native("native.gate")}),
+                                            "root",
+                                            registry,
+                                            limits,
+                                            &error);
+        QVERIFY2(plan, qPrintable(error));
+        auto runtime = plan->instantiate(registry, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        int    completed           = 0;
+        int    outputs             = 0;
+        int    heartbeatCount      = 0;
+        int    progressOnHeartbeat = 0;
+        bool   accepting           = false;
+        QTimer heartbeat;
+        heartbeat.setInterval(0);
+        connect(&heartbeat, &QTimer::timeout, this, [&] {
+            ++heartbeatCount;
+            if (completed > 0 && completed < 64)
+            {
+                ++progressOnHeartbeat;
+            }
+        });
+        heartbeat.start();
+        std::function<void()> produce;
+        produce = [&] {
+            const QByteArray packet = completed % 2 == 0 ? QByteArray("a\0b", 3) : QByteArray {};
+            accepting               = true;
+            const auto status       = runtime->accept({packet},
+                                                      {[&, packet](Processor::Chunk chunk) {
+                                                     QVERIFY(!accepting);
+                                                     QCOMPARE(chunk.bytes, packet);
+                                                     QCOMPARE(chunk.port, 0);
+                                                     ++outputs;
+                                                       },
+                                                       [&](QString failure) {
+                                                     QVERIFY(!accepting);
+                                                     QVERIFY2(failure.isEmpty(), qPrintable(failure));
+                                                     ++completed;
+                                                     if (completed < 64)
+                                                     {
+                                                         produce();
+                                                     }
+                                                       }});
+            accepting               = false;
+            QCOMPARE(status, Processor::AcceptResult::Accepted);
+        };
+        produce();
+        QCOMPARE(completed, 0);
+        QTRY_COMPARE(completed, 64);
+        heartbeat.stop();
+        QCOMPARE(outputs, 64);
+        QVERIFY(heartbeatCount > 0);
+        QVERIFY(progressOnHeartbeat > 0);
+        bool cancelled = false;
+        runtime->cancel([&] { cancelled = true; });
+        QTRY_VERIFY(cancelled);
+    }
+
     void timedFramerContinuesAfterInvocationCompletion()
     {
         ProcessorRegistry registry;
