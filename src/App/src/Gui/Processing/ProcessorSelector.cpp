@@ -42,7 +42,7 @@ ProcessorSelector::ProcessorSelector(QWidget* parent, ProcessorFavorites* favori
     _tree->installEventFilter(this);
     _tree->viewport()->installEventFilter(this);
     _search->installEventFilter(this);
-    connect(_search, &QLineEdit::textChanged, this, [this] { _rebuild(); });
+    connect(_search, &QLineEdit::textChanged, this, [this] { _filter(); });
     connect(_tree, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem* item) {
         if (item->data(0, Qt::UserRole).isValid())
         {
@@ -145,7 +145,7 @@ void ProcessorSelector::showPopup()
         return;
     }
     _search->clear();
-    _rebuild();
+    _filter();
     const auto point  = mapToGlobal(QPoint(0, height()));
     auto*      screen = QGuiApplication::screenAt(point);
     if (!screen)
@@ -223,7 +223,6 @@ void ProcessorSelector::_rebuild()
 {
     _tree->clear();
     const auto                      selected = currentData().toString();
-    const auto                      query    = _search->text().trimmed();
     QTreeWidgetItem*                current  = nullptr;
     QMap<QString, QTreeWidgetItem*> roots;
     QMap<QString, QTreeWidgetItem*> groups;
@@ -245,22 +244,21 @@ void ProcessorSelector::_rebuild()
         }
         const auto origin = type.origin == "workspace" ? QStringLiteral("Workspace") : QStringLiteral("Native");
         const auto group  = type.group.isEmpty() ? tr("General") : type.group;
-        if (!(origin + ' ' + group + ' ' + type.title + ' ' + type.id).contains(query, Qt::CaseInsensitive))
-        {
-            continue;
-        }
         const auto key    = origin + QChar::Null + group;
         auto*      parent = groups.value(key);
         if (!parent)
         {
             parent = new QTreeWidgetItem(roots.value(origin), {group});
             parent->setFlags(Qt::ItemIsEnabled);
-            parent->setExpanded(!query.isEmpty());
+            parent->setExpanded(false);
             groups.insert(key, parent);
         }
         auto* item = new QTreeWidgetItem(parent, {type.title});
         item->setData(0, Qt::UserRole, type.id);
-        item->setIcon(0, itemIcon(findData(type.id)));
+        item->setData(0, SearchRole, origin + ' ' + group + ' ' + type.title + ' ' + type.id);
+        item->setIcon(0,
+                      !type.available ? Icons::icon("triangle-exclamation-point") :
+                                        Icons::processorBlock(type.kind != "native", _channels == 2));
         item->setToolTip(0, type.available ? type.id : type.unavailableReason);
         if (type.id == selected)
         {
@@ -302,8 +300,8 @@ void ProcessorSelector::_rebuild()
             excluded.append(type.id);
         }
     }
-    _tree->prependFavorites(query, excluded);
-    if (_inplaceAvailable && QStringLiteral("Inplace @inplace").contains(query, Qt::CaseInsensitive))
+    _tree->prependFavorites({}, excluded);
+    if (_inplaceAvailable)
     {
         auto* item = new QTreeWidgetItem(QStringList {tr("Inplace")});
         item->setData(0, Qt::UserRole, QStringLiteral("@inplace"));
@@ -329,6 +327,104 @@ void ProcessorSelector::_rebuild()
             separator->setData(0, ProcessorCatalogTree::SeparatorRole, true);
             _tree->insertTopLevelItem(1, separator);
         }
+    }
+    _filtering = false;
+    _filter();
+}
+
+void ProcessorSelector::_filter()
+{
+    const auto       query      = _search->text().trimmed();
+    const bool       filtering  = !query.isEmpty();
+    const auto       selectedId = currentData().toString();
+    QTreeWidgetItem* first      = nullptr;
+    QTreeWidgetItem* selected   = nullptr;
+    bool             shortcuts  = false;
+    // Leaf visibility uses the same origin/group/title/ID metadata as catalog creation.
+    for (QTreeWidgetItemIterator it(_tree); *it; ++it)
+    {
+        auto* item = *it;
+        if (!item->data(0, Qt::UserRole).isValid())
+        {
+            continue;
+        }
+        const auto id     = item->data(0, Qt::UserRole).toString();
+        const auto search = item->data(0, SearchRole).isValid() ? item->data(0, SearchRole).toString() :
+                            item->data(0, ProcessorCatalogTree::FavoriteRole).toBool() ? id :
+                                                                                         item->text(0) + ' ' + id;
+        item->setHidden(!search.contains(query, Qt::CaseInsensitive));
+        if (!item->isHidden())
+        {
+            if (!first)
+            {
+                first = item;
+            }
+            if (!selected && id == selectedId)
+            {
+                selected = item;
+            }
+            shortcuts |= !item->parent()
+                      && (item->data(0, ProcessorCatalogTree::FavoriteRole).toBool() || id == "@inplace");
+        }
+    }
+    for (int row = 0; row < _tree->topLevelItemCount(); ++row)
+    {
+        auto* root = _tree->topLevelItem(row);
+        if (root->data(0, ProcessorCatalogTree::SeparatorRole).toBool())
+        {
+            root->setHidden(!shortcuts);
+            continue;
+        }
+        if (root->data(0, Qt::UserRole).isValid())
+        {
+            continue;
+        }
+        bool visible = false;
+        for (int groupIndex = 0; groupIndex < root->childCount(); ++groupIndex)
+        {
+            auto* group    = root->child(groupIndex);
+            bool  matching = false;
+            for (int child = 0; child < group->childCount(); ++child)
+            {
+                matching |= !group->child(child)->isHidden();
+            }
+            if (filtering && !_filtering)
+            {
+                group->setData(0, ExpandedRole, group->isExpanded());
+            }
+            if (filtering)
+            {
+                group->setExpanded(matching);
+            }
+            else if (_filtering)
+            {
+                group->setExpanded(group->data(0, ExpandedRole).toBool());
+            }
+            group->setHidden(!matching);
+            visible |= matching;
+        }
+        if (filtering && !_filtering)
+        {
+            root->setData(0, ExpandedRole, root->isExpanded());
+        }
+        if (filtering)
+        {
+            root->setExpanded(visible);
+        }
+        else if (_filtering)
+        {
+            root->setExpanded(root->data(0, ExpandedRole).toBool());
+        }
+        root->setHidden(!visible);
+    }
+    _filtering = filtering;
+    if (!filtering && selected)
+    {
+        _tree->setCurrentItem(selected);
+    }
+    else if (!_tree->currentItem() || _tree->currentItem()->isHidden())
+    {
+        _tree->setCurrentItem(first);
     }
     if (_tree->currentItem())
     {
