@@ -98,6 +98,7 @@ private:
     ProcessorRegistry*                          _processors = nullptr;
     QPointer<ProcessorFavorites>                _processorFavorites;
     Session*                                    _session = nullptr;
+    std::shared_ptr<SettingsSchema>             _appearance;
     std::map<QString, Type>                     _types;
     std::map<QString, std::unique_ptr<Runtime>> _terminals;
     std::map<QString, RegisteredAction>         _actions;
@@ -115,16 +116,16 @@ private:
                                                                               const QVariantMap& baseline,
                                                                               const QVariantMap& configuration,
                                                                               QString*           error);
-    bool                                   _configureProcessing(Runtime& terminal, QString* error, bool txOnly = false);
-    void                                   _close(const QString& id);
-    void                                   _showTabMenu(const QPoint& position);
-    bool                                   _canSetAllConnections(bool requested) const;
-    void                                   _setAllConnections(bool requested);
-    void                                   _setConnectionRequested(QString id, bool requested);
-    void                                   _changed(const QString& id);
-    QString                                _mainParameter(const Runtime& terminal) const;
-    void                                   _attemptConnection(const QString& id);
-    QVariantMap                            _effective(const Type& type, SettingsOverlay settings) const;
-    bool                                   _validate(const Type& type, SettingsOverlay settings, QString* error) const;
-    static std::shared_ptr<SettingsSchema> _appearanceSchema();
+    bool                            _configureProcessing(Runtime& terminal, QString* error, bool txOnly = false);
+    void                            _close(const QString& id);
+    void                            _showTabMenu(const QPoint& position);
+    bool                            _canSetAllConnections(bool requested) const;
+    void                            _setAllConnections(bool requested);
+    void                            _setConnectionRequested(QString id, bool requested);
+    void                            _changed(const QString& id);
+    QString                         _mainParameter(const Runtime& terminal) const;
+    void                            _attemptConnection(const QString& id);
+    QVariantMap                     _effective(const Type& type, SettingsOverlay settings) const;
+    bool                            _validate(const Type& type, SettingsOverlay settings, QString* error) const;
+    std::shared_ptr<SettingsSchema> _appearanceSchema();
 };

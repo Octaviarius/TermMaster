@@ -65,8 +65,9 @@ private:
     QLabel*                                 _status;
     QPushButton*                            _applyButton;
     std::vector<std::unique_ptr<NodeDraft>> _nodes;
-    bool                                    _updating       = false;
-    int                                     _shownDirection = 0;
+    bool                                    _propertiesPending = true;
+    bool                                    _updating          = false;
+    int                                     _shownDirection    = 0;
     void                                    _catalog();
     void                                    _mode(const QString& mode);
     void                                    _editInplace(int direction);

@@ -55,6 +55,52 @@ class TerminalProcessingTests : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void hiddenPropertiesArePreparedFromLatestConfigurationOnShow()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        SettingsWidgetRegistry editors;
+        ProcessingRouter       router;
+        const QVariantMap      initial {
+            {"mode",                             "simplex"},
+            {  "rx", QVariantMap {{"type", "native.gate"}}}
+        };
+        QVariantMap             applied;
+        TerminalProcessingPanel panel(registry,
+                                      editors,
+                                      router,
+                                      initial,
+                                      [&](const QVariantMap&, const QVariantMap& value, QString*) {
+                                          applied = value;
+                                          return true;
+                                      });
+        auto*                   properties = panel.propertiesWidget();
+        QVERIFY(properties->findChildren<SettingsFieldEditor*>().isEmpty());
+        auto changed   = initial;
+        auto selection = changed.value("rx").toMap();
+        selection.insert("overrides",
+                         QVariantMap {
+                             {"enabled", false},
+                             {"unknown",    17}
+        });
+        changed.insert("rx", selection);
+        panel.setConfiguration(changed);
+        QVERIFY(properties->findChildren<SettingsFieldEditor*>().isEmpty());
+        properties->show();
+        auto* editor = properties->findChild<SettingsFieldEditor*>("/enabled");
+        QVERIFY(editor);
+        QCOMPARE(editor->value(), QVariant(false));
+        properties->hide();
+        editor->setValue(true);
+        emit editor->valueChanged();
+        properties->show();
+        QCOMPARE(properties->findChild<SettingsFieldEditor*>("/enabled"), editor);
+        QCOMPARE(editor->value(), QVariant(true));
+        QVERIFY(panel.applyDraft());
+        QCOMPARE(applied.value("rx").toMap().value("overrides").toMap().value("unknown"), QVariant(17));
+        panel.releaseEditors();
+        QVERIFY(properties->findChildren<SettingsFieldEditor*>().isEmpty());
+    }
     Q_SLOT void sharedSelectionFiltersShapesAndPersistsOneInstanceConfiguration()
     {
         ProcessorRegistry registry;
@@ -187,6 +233,7 @@ private:
         select(mode, "bypass");
         QCOMPARE(calls, 3);
         QCOMPARE(applied, committed);
+        panel.propertiesWidget()->show();
         QVERIFY(panel.propertiesWidget()->findChild<QLabel*>("processingError")->text().contains("Synthetic"));
         panel.propertiesWidget()->findChild<QPushButton*>("revertProcessing")->click();
         QCOMPARE(mode->currentData().toString(), QString("duplex"));
@@ -320,6 +367,7 @@ private:
         QVERIFY(rx && tx);
         QCOMPARE(rx->currentData().toString(), QString("native.bypass"));
         select(rx, "test.protocol");
+        panel.propertiesWidget()->show();
         auto* table = panel.propertiesWidget()->findChild<QTableWidget*>("processingPropertyTable");
         QVERIFY(table);
         QCOMPARE(table->item(0, 0)->text(), QString("Traffic gate"));
@@ -358,7 +406,8 @@ private:
                                           applied = value;
                                           return true;
                                       });
-        auto*                   reset = panel.propertiesWidget()->findChild<QToolButton*>("reset_/enabled");
+        panel.propertiesWidget()->show();
+        auto* reset = panel.propertiesWidget()->findChild<QToolButton*>("reset_/enabled");
         QVERIFY(reset);
         reset->click();
         QVERIFY(reset->isHidden());
@@ -383,6 +432,7 @@ private:
                                       initial,
                                       [](const QVariantMap&, const QVariantMap&, QString*) { return false; });
         QCOMPARE(panel.findChild<QComboBox*>("rxProcessor")->currentData().toString(), QString("missing.plugin"));
+        panel.propertiesWidget()->show();
         QVERIFY(!panel.propertiesWidget()->findChild<QLabel*>("processingError")->text().isEmpty());
     }
     Q_SLOT void reselectAndExternalRevertPreserveScope()
@@ -412,6 +462,7 @@ private:
         select(panel.findChild<QComboBox*>("rxProcessor"), "native.gate");
         QVERIFY(panel.applyDraft());
         QCOMPARE(calls, 0);
+        panel.propertiesWidget()->show();
         auto* editor = panel.propertiesWidget()->findChild<SettingsFieldEditor*>("/enabled");
         QVERIFY(editor);
         editor->setValue(true);
@@ -468,15 +519,16 @@ private:
             };
             return new Editor(parent);
         });
-        ProcessingRouter              router;
-        TerminalProcessingPanel       panel(registry,
-                                            editors,
-                                            router,
-                                            {
-                                                {"mode",                        "simplex"},
-                                                {  "rx", QVariantMap {{"type", "custom"}}}
+        ProcessingRouter        router;
+        TerminalProcessingPanel panel(registry,
+                                      editors,
+                                      router,
+                                      {
+                                          {"mode",                        "simplex"},
+                                          {  "rx", QVariantMap {{"type", "custom"}}}
         },
-                                            [](const QVariantMap&, const QVariantMap&, QString*) { return true; });
+                                      [](const QVariantMap&, const QVariantMap&, QString*) { return true; });
+        panel.propertiesWidget()->show();
         QPointer<SettingsFieldEditor> editor = panel.propertiesWidget()->findChild<SettingsFieldEditor*>("/value");
         QVERIFY(editor);
         panel.releaseEditors();

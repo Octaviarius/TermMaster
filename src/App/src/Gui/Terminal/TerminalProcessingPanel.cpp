@@ -152,8 +152,8 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
         QString error;
         if (!_flush(&error))
         {
-            _error->setText(error);
             _properties->show();
+            _error->setText(error);
             const QSignalBlocker blocker(_modeSelector);
             _modeSelector->setCurrentIndex(_modeSelector->findData(TerminalProcessing::mode(_draft)));
             return;
@@ -253,9 +253,10 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
     buttons->addWidget(_applyButton);
     layout->addLayout(buttons);
     _properties->hide();
+    _properties->installEventFilter(this);
     connect(toggle, &QToolButton::toggled, _properties, &QWidget::setVisible);
     connect(toggle, &QToolButton::toggled, this, [this](bool visible) {
-        if (visible && _nodes.empty())
+        if (visible && _propertiesPending)
         {
             _showProperties();
         }
@@ -367,6 +368,7 @@ void TerminalProcessingPanel::releaseEditors()
     }
     _clearRows();
     _nodes.clear();
+    _propertiesPending = true;
 }
 
 bool TerminalProcessingPanel::applyDraft(QString* error)
@@ -407,8 +409,8 @@ bool TerminalProcessingPanel::applyDraft(QString* error)
     }
     if (!message.isEmpty())
     {
-        _error->setText(message);
         _properties->show();
+        _error->setText(message);
         if (error)
         {
             *error = message;
@@ -424,6 +426,11 @@ bool TerminalProcessingPanel::applyDraft(QString* error)
 
 bool TerminalProcessingPanel::eventFilter(QObject* watched, QEvent* event)
 {
+    if (watched == _properties && event->type() == QEvent::Show && _propertiesPending)
+    {
+        _showProperties();
+    }
+
     if (event->type() == QEvent::Resize || event->type() == QEvent::Show || event->type() == QEvent::StyleChange
         || event->type() == QEvent::FontChange)
     {
@@ -673,6 +680,12 @@ void TerminalProcessingPanel::_showProperties()
     const QPointer<TerminalProcessingPanel> self(this);
     _clearRows();
     _nodes.clear();
+    _propertiesPending = true;
+    if (_properties->isHidden())
+    {
+        return;
+    }
+    _propertiesPending = false;
     _error->clear();
     const auto selection = _draft.value(directionKey(_shownDirection)).toMap();
     auto       id        = selection.value("type").toString();

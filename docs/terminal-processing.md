@@ -293,3 +293,32 @@ both captures show the retained Gate and successful Apply and were visually insp
 Changed C++ files were clang-formatted; local documentation links and
 `git diff --check` passed. The full CTest suite and Release were not rerun. No real
 serial device, external endpoint or elevation was used.
+
+## Deferred terminal property editors
+
+The terminal processing selector bar and properties container retain their existing
+lifetimes. Property schemas, settings drafts and custom field editors are prepared
+only when the properties container is shown. Hidden configuration and clean catalog
+updates invalidate preparation without constructing editors. Hiding an already
+prepared panel retains its draft; showing it again preserves unsaved edits. Editor
+release remains synchronous before plugin factory removal.
+
+Terminal configuration projection reads one merged overlay snapshot per projection,
+then resolves schema fields from that snapshot. Application, terminal creation and
+connection paths reuse an effective projection within their operation. These
+snapshots are local to the operation, so subsequent application/workspace/session
+changes are read afresh. Unknown values stay in the merged configuration. Connection
+schemas remain owned by the registered terminal type, while the built-in appearance
+schema is retained by the controller.
+
+The isolated Qt 6.12.0 / MSVC2022 x64 Debug build and TerminalProcessingTests
+passed on 2026-11-10 (14 active cases; two opt-in capture cases skipped by CTest).
+Coverage includes hidden preparation, latest configuration, hide/show draft
+retention, unknown override preservation, synchronous editor release and failed
+Apply diagnostics. The native Windows visual capture passed separately and was
+inspected for selector/property alignment and retained reset controls. The integrated
+Release AppTests, LineflowEditorTests and TerminalProcessingTests also passed.
+One copied real-workspace quick run measured session reopen at 174.62 ms, clean
+App save at 4.31 ms and disconnected terminal addition at 30.88 ms; these are
+exploratory single-cycle figures, not statistical performance guarantees. Raw
+records are under `docs/benchmarks/application-profile/after-settings/`.
