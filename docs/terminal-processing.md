@@ -346,3 +346,6 @@ selection, aligned tab controls and intact terminal/status presentation. Scoped
 restoration and QPointer guards protect batch finalization across GUI callbacks.
 Changed C++ files were clang-formatted and `git diff --check` passed. Tests used
 synthetic disconnected backends; no real device or external endpoint was opened.
+
+The integrated Release AppTests run also passed after combining the catalog,
+regex, persistence and shutdown changes (22.59 seconds).
