@@ -157,3 +157,18 @@ target_link_libraries(PacerProcessorTests PRIVATE
     Qt6::Test
 )
 add_test(NAME PacerProcessorTests COMMAND PacerProcessorTests)
+
+qt_add_executable(LengthProcessorTests
+    LengthProcessorTests.cpp
+)
+
+target_include_directories(LengthProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+
+target_link_libraries(LengthProcessorTests PRIVATE
+    Core
+    Qt6::Test
+    Qt6::Widgets
+)
+add_test(NAME LengthProcessorTests COMMAND LengthProcessorTests)

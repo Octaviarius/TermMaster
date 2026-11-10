@@ -85,6 +85,12 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/Uncompress.h
     src/Processing/Nodes/Uncompress.cpp
     src/Processing/Nodes/CompressionSettings.h
+    src/Processing/Nodes/LengthField.h
+    src/Processing/Nodes/LengthField.cpp
+    src/Processing/Nodes/LengthWrap.h
+    src/Processing/Nodes/LengthWrap.cpp
+    src/Processing/Nodes/LengthUnwrap.h
+    src/Processing/Nodes/LengthUnwrap.cpp
     inc/Termaster/Core/Formatting/FormatSchema.h
     inc/Termaster/Core/Formatting/CompiledFormat.h
     src/Formatting/FormatSchema.cpp

@@ -335,9 +335,16 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Enforce strict complete streams, checksums, output limits, bounded work and optional concatenated members.
 - [x] Verify independent fixtures, packet composition, native forms and Python zlib interoperability.
 
+## FLOW-23: Binary packet lengths
+
+- [x] Register native Length Wrap/Length Unwrap nodes with generated settings.
+- [x] Support prefix/suffix, 1/2/4/8-byte fields, byte order, field counting and signed adjustment.
+- [x] Preserve whole packets and reject length mismatch, underflow, overflow and host-limit violations atomically.
+- [x] Verify independent vectors, packet/configuration boundaries, lifecycle and native settings forms.
+
 ## HELP-1: Contextual module documentation
 
-Next scheduled stage after FLOW-21 packet compression.
+Next scheduled stage after FLOW-23 binary packet lengths.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
 - [ ] Package module-owned help and generated parameter reference with stable context topics.
