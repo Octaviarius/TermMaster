@@ -443,7 +443,7 @@ bool App::saveWorkspace(QString* error)
     {
         return false;
     }
-    _updateSession();
+    _updateSessionPresentation();
     return true;
 }
 
@@ -1368,7 +1368,7 @@ bool App::saveSession(QString* error)
     {
         return false;
     }
-    _updateSession();
+    _updateSessionPresentation();
     return true;
 }
 
@@ -1503,7 +1503,7 @@ bool App::_activateSession(std::unique_ptr<Session> candidate, QString* error)
     return true;
 }
 
-void App::_updateSession()
+void App::_updateSessionPresentation()
 {
     const bool workspace = bool(_data->workspace);
     const bool session   = bool(_data->session);
@@ -1520,6 +1520,24 @@ void App::_updateSession()
                               session ? _data->session->filePath().toString() : QString {},
                               session ? _data->session->objects().values().size() : 0,
                               session ? _data->session->links().values().size() : 0);
+    if (_data->session)
+    {
+        const auto id    = _data->session->id();
+        const auto label = _data->session->name().replace('&', "&&");
+        for (std::size_t index = 0; index < _data->recentSessions.size(); ++index)
+        {
+            auto* action = _data->recentSessions[index].data();
+            if (action && action->data().toString() == id)
+            {
+                action->setText(QString("&%1 %2").arg((index + 1) % 10).arg(label));
+            }
+        }
+    }
+}
+
+void App::_updateSession()
+{
+    _updateSessionPresentation();
     _applyConfiguration();
     _data->terminals->applySettings();
     _updateRecent();
