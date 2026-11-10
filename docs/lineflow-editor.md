@@ -347,3 +347,45 @@ Integrated Release verification passed the three catalog/processing/favorites su
 (3.15 seconds). Catalog correctness checks assert retained tree identity and zero
 search resets, plus provider-validation counts for repeated and invalidated drops;
 actual commit validation remains mandatory.
+
+## Synthetic large-catalog timing
+
+An opt-in fixture in `LineflowEditorTests::largeCatalogTiming` measures a native
+Windows Release build with Qt 6.12/MSVC, recorded on 2026-11-11. It publishes 1000 synthetic metadata
+entries and creates a 1000-definition draft without preparing or executing any
+processor. No builds or other test runs were active during measurement. The
+selector is visible; each search sample includes the text change and a Qt event
+drain, including widget layout/painting but excluding final compositor display.
+Setup and five distinct cold drop probes each have small sample counts. This is
+after-change evidence, not a controlled before/after speedup comparison.
+
+The [raw timing record](benchmarks/catalog-filtering/Release.json) contains 30
+alternating search samples per catalog size. With 100 entries, selector setup was
+1.94 ms and median search was 2.13 ms (p95 2.99 ms). With 1000 entries, setup was
+15.54 ms and median search was 2.92 ms (p95 3.88 ms). Both sizes had zero tree
+model resets during search and retained item identity and processor selection.
+The query mix includes group, title, exact ID, no-match and empty searches; these
+figures describe that mixed fixture rather than an individual query class.
+
+Five distinct, uncached `canDropAt` probes against the 1000-definition draft took
+1125.79–1137.85 ms, median 1129.03 ms, with 1001 static provider-validation calls
+per probe. The following 1000 identical probes took 0.4925 ms total and made no
+provider-validation calls. All probes accepted the expected synthetic insertion
+and left the draft unchanged. These results establish bounded cache reuse and
+also expose substantial first-probe validation latency for a large draft; moving
+the pointer to a different placement can still incur a full cold validation.
+No claim of complete large-catalog responsiveness follows from the warm result.
+
+Reproduce after building the Release `LineflowEditorTests` target:
+
+```powershell
+$env:QT_QPA_PLATFORM = 'windows'
+$env:TERMASTER_CATALOG_TIMING_OUTPUT = 'F:/TMP/CatalogTiming.json'
+Start-Process -FilePath ./build/Desktop_Qt_6_12_0_MSVC2022_64bit-Release/LineflowEditorTests.exe `
+    -ArgumentList 'largeCatalogTiming', '-o', 'F:/TMP/CatalogTimingTests.txt,txt' `
+    -Wait -WindowStyle Hidden
+```
+
+The output directory must exist. The timing fixture skips ordinary test runs
+unless its output variable is set. Toolchain initialization follows the project
+build environment. Keep other builds and tests idle during measurement.

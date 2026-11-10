@@ -15,6 +15,9 @@
 #include <QDragLeaveEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QElapsedTimer>
+#include <QFile>
+#include <QJsonDocument>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
@@ -237,6 +240,131 @@ private slots:
                                    .toMap();
         QCOMPARE(overrides.value("first").toMap().value("marker").toInt(), 2);
         QCOMPARE(overrides.value("second").toMap().value("marker").toInt(), 1);
+    }
+
+    void largeCatalogTiming()
+    {
+        const auto output = qEnvironmentVariable("TERMASTER_CATALOG_TIMING_OUTPUT");
+        if (output.isEmpty())
+        {
+            QSKIP("Opt-in synthetic catalog timing");
+        }
+        ProcessorRegistry          registry;
+        int                        validations = 0;
+        ProcessorCatalog::Provider provider;
+        provider.validate = [&](const auto&, QString*) {
+            ++validations;
+            return true;
+        };
+        provider.prepare = [](const auto&, const auto&, const auto&, const auto&, QString*) {
+            qFatal("Catalog timing must not prepare executable processors");
+            return ProcessorCatalog::Type::Factory {};
+        };
+        registry.registerProvider("fixture", "timing", std::move(provider));
+        QVariantMap definitions {
+            {"root", definition("root", "Root", {})}
+        };
+        for (int entry = 1; entry < 1000; ++entry)
+        {
+            const auto id = QString("entry.%1").arg(entry, 4, 10, QLatin1Char('0'));
+            definitions.insert(id,
+                               QVariantMap {
+                                   {"id", id},
+                                   {"name", QString("Processor %1").arg(entry, 4, 10, QLatin1Char('0'))},
+                                   {"group", QString("Group %1").arg(entry % 10)},
+                                   {"kind", "timing"},
+                                   {"source", QVariantMap {}}
+            });
+        }
+        QString    error;
+        const auto parsed = ProcessorRegistry::parseDefinitions(definitions, &error);
+        QVERIFY2(parsed, qPrintable(error));
+        QVERIFY2(registry.publishDefinitions("workspace", *parsed, &error), qPrintable(error));
+        const auto types = registry.types();
+        QCOMPARE(types.size(), 1000);
+        QVariantList selectors;
+        for (const int size : {100, 1000})
+        {
+            ProcessorSelector selector;
+            selector.resize(440, 28);
+            QElapsedTimer timer;
+            timer.start();
+            selector.setCatalog(types.first(size), "entry.0001");
+            const double setupMs = timer.nsecsElapsed() / 1e6;
+            selector.show();
+            selector.showPopup();
+            QCoreApplication::processEvents();
+            auto*                       tree     = selector.findChild<QTreeWidget*>("processorSelectorTree");
+            auto*                       search   = selector.findChild<QLineEdit*>("processorSelectorSearch");
+            const QPersistentModelIndex identity = tree->indexFromItem(tree->currentItem());
+            QSignalSpy                  resets(tree->model(), &QAbstractItemModel::modelReset);
+            const auto                  before = selector.currentData();
+            const QStringList           queries {"Group 3", "Processor 00", "no matching entry", "entry.0001", ""};
+            QVariantList                searchMs;
+            for (int change = 0; change < 30; ++change)
+            {
+                timer.start();
+                search->setText(queries[change % queries.size()]);
+                QCoreApplication::processEvents();
+                searchMs.append(timer.nsecsElapsed() / 1e6);
+            }
+            QCOMPARE(resets.count(), 0);
+            QVERIFY(identity.isValid());
+            QCOMPARE(selector.currentData(), before);
+            selectors.append(QVariantMap {
+                {         "entries",               size},
+                {         "setupMs",            setupMs},
+                {        "searchMs",           searchMs},
+                {     "modelResets",     resets.count()},
+                {"identityRetained", identity.isValid()}
+            });
+            selector.hidePopup();
+        }
+        LineflowEditorModel model(definitions, registry);
+        model.setSelectedBlock("root");
+        QMimeData     palette;
+        QVariantList  coldMs;
+        QVariantList  coldValidations;
+        QElapsedTimer timer;
+        for (int probe = 1; probe <= 5; ++probe)
+        {
+            palette.setData("application/x-termaster-processor",
+                            QString("entry.%1").arg(probe, 4, 10, QLatin1Char('0')).toUtf8());
+            const int before = validations;
+            timer.start();
+            QVERIFY(model.canDropAt(&palette, 0, "rx"));
+            coldMs.append(timer.nsecsElapsed() / 1e6);
+            coldValidations.append(validations - before);
+            QVERIFY(validations > before);
+        }
+        const int before = validations;
+        timer.start();
+        for (int probe = 0; probe < 1000; ++probe)
+        {
+            QVERIFY(model.canDropAt(&palette, 0, "rx"));
+        }
+        const double repeatedMs = timer.nsecsElapsed() / 1e6;
+        QCOMPARE(validations, before);
+        QCOMPARE(model.definitions(), definitions);
+        const QVariantMap report {
+            {            "qt",QString::fromLatin1(qVersion())                              },
+            {      "platform", QGuiApplication::platformName()},
+            {"catalogEntries",                    types.size()},
+            {     "selectors",                       selectors},
+            {          "drop",
+             QVariantMap {{"draftDefinitions", definitions.size()},
+             {"coldMs", coldMs},
+             {"coldValidationCalls", coldValidations},
+             {"repetitions", 1000},
+             {"repeatedMs", repeatedMs},
+             {"repeatedValidationCalls", validations - before},
+             {"draftUnchanged", true}}                        }
+        };
+        QFile file(output);
+        QVERIFY2(file.open(QIODevice::WriteOnly | QIODevice::Truncate), qPrintable(file.errorString()));
+        const auto json = QJsonDocument::fromVariant(report).toJson(QJsonDocument::Indented);
+        QCOMPARE(file.write(json), json.size());
+        file.close();
     }
 
     void dropProbesOwnAndValidateExactMimeSnapshot()
