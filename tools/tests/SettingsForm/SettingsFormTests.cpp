@@ -21,6 +21,8 @@
 #include <QtTest>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
+#include <Termaster/Core/Processing/NativeProcessors.h>
+#include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <stdexcept>
 
 namespace
@@ -84,6 +86,48 @@ private:
             QVERIFY(QFontDatabase::addApplicationFont(root + "/Fonts/arial.ttf") >= 0);
         }
 #endif
+    }
+
+    Q_SLOT void timestampPreviewFollowsDraftAndVisibility()
+    {
+        ProcessorRegistry processors;
+        registerNativeProcessors(processors, "native");
+        auto descriptor = std::make_shared<const SettingsSchema>(processors.type("native.timestamp")->settingsSchema);
+        Settings               settings(QString {});
+        SettingsFormModel      model(descriptor, settings.node(""));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        form.resize(640, 480);
+        form.show();
+        auto* sample  = form.findChild<QLineEdit*>("timestampSamplePacket");
+        auto* display = form.findChild<TerminalDisplay*>("timestampPreviewDisplay");
+        auto* timer   = form.findChild<QTimer*>("timestampPreviewTimer");
+        auto* error   = form.findChild<QLabel*>("timestampPreviewError");
+        QVERIFY(sample && display && timer && error);
+        sample->setText("PAYLOAD");
+        model.setValue("format", "'FIXED'");
+        QTRY_VERIFY(display->text().startsWith("[FIXED] PAYLOAD"));
+        QVERIFY(display->screen().lines().first().cells.first().defaultForeground);
+        QCOMPARE(display->screen().lines().first().cells.first().attributes, quint32(0));
+        QVERIFY(timer->isActive());
+        QVERIFY(timer->interval() >= 100 && timer->interval() <= 1000);
+        QVERIFY(!settings.contains("template"));
+
+        model.setValue("template", R"(\e[38;2;18;52;86m${timestamp}\e[0m ${packet})");
+        QTRY_VERIFY(display->text().startsWith("FIXED PAYLOAD"));
+        QCOMPARE(display->screen().lines().first().cells.first().foreground, QColor("#123456"));
+        QVERIFY(display->screen().lines().first().cells.at(6).defaultForeground);
+
+        model.setValue("template", "${unknown}");
+        QVERIFY(!error->text().isEmpty());
+        QVERIFY(!timer->isActive());
+        model.setValue("template", "${timestamp} ${packet}");
+        model.setValue("format", "HH:mm:ss.zzz");
+        const auto initial = display->text();
+        QTRY_VERIFY_WITH_TIMEOUT(display->text() != initial, 2500);
+        QVERIFY(error->text().isEmpty());
+        form.hide();
+        QVERIFY(!timer->isActive());
     }
 
     Q_SLOT void colorSwatchTracksDraftAndReset()

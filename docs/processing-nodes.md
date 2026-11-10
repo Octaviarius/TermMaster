@@ -78,6 +78,20 @@ Processing and LineflowEditor suites passed again. Native Windows form capture
 verified the time format, time zone and output template controls. Release and
 real-device acceptance were not run.
 
+Timestamp's schema selects the `timestampPreview` auxiliary settings widget through
+`x-widget`. The preview runs the actual node against editable synthetic UTF-8
+packet text and renders its output through TerminalDisplay. It adds no syntax
+coloring; only ANSI sequences produced by the configured template affect colors.
+Draft format, zone and template changes render immediately without Apply. Sample
+text belongs only to the widget and is neither persisted nor sent to a transport.
+While visible, a single-shot precise timer samples a fresh interval from 100 to
+1000 ms inclusive after each update. Hiding or destroying the widget stops it.
+Invalid templates show a local diagnostic; preview output is bounded to 8192 bytes.
+FLOW-19 acceptance passed all 50 MSVC x64 Debug CTest suites. Native Windows
+captures verified plain output and template-provided true-color ANSI output.
+Form tests verified immediate draft updates, sampled timer intervals, hidden-state
+cancellation and that sample text never writes settings. Release was not tested.
+
 ## Framers
 
 Both framers belong to Framing and explicitly accumulate bytes across input

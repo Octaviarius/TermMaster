@@ -15,6 +15,7 @@ type: termaster.settings-schema
 description: Per-packet timestamp settings
 content:
   type: object
+  x-widget: timestampPreview
   properties:
     format:
       type: string

@@ -1,3 +1,5 @@
+#include "TimestampPreviewEditor.h"
+
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QCheckBox>
@@ -757,7 +759,8 @@ const QStringList builtins {"boolCheckBox",
                             "yaml",
                             "fontFamily",
                             "color",
-                            "terminalPreview"};
+                            "terminalPreview",
+                            "timestampPreview"};
 } // namespace
 
 SettingsWidgetRegistry::SettingsWidgetRegistry(QObject* parent) : QObject(parent)
@@ -803,6 +806,10 @@ SettingsFieldEditor* SettingsWidgetRegistry::create(const SettingsSchema::Field&
     if (!field.widget.isEmpty() && !builtins.contains(field.widget))
     {
         throw std::invalid_argument(("Unknown settings widget: " + field.widget).toStdString());
+    }
+    if (field.widget == "timestampPreview")
+    {
+        return new TimestampPreviewEditor(parent);
     }
     if (field.widget == "terminalPreview")
     {
