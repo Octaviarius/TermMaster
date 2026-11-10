@@ -255,3 +255,20 @@ separator and the usual Native/Workspace branches. Context-menu edits save throu
 the active workspace owner; persistence failures restore the previous preference
 and display the concrete cause. No application-global or session-specific copy is
 written. Workspace replacement binds a new shared model after previous views close.
+
+## Save commands and runtime application
+
+Session and workspace Save commands persist the current owners and refresh only
+session presentation (title, counts, action availability and the current recent
+entry). They do not apply terminal/application configuration or reload inactive
+recent-session documents. Rename still refreshes the visible current label.
+Settings-dialog Apply and session activation remain explicit runtime-application
+paths. Direct mutations through borrowed settings views can be persisted without
+implicitly reconfiguring a running terminal; apply them through the runtime owner
+when that is intended.
+
+PERF-5 verification: the integrated Release application and performance probe
+compiled, and the full AppTests suite passed. Regression coverage persists a
+pending input-mode change through both Save commands, verifies it has not changed
+the running editor, verifies rename presentation, then explicitly applies the
+configuration and verifies the new mode.

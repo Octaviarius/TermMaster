@@ -62,13 +62,15 @@ public:
     bool                    restoreLastWorkspace(QString* error = nullptr);
     bool                    openWorkspace(const Path& file, QString* error = nullptr);
     bool                    createWorkspace(const Path& file, const QString& name, QString* error = nullptr);
-    bool                    saveWorkspace(QString* error = nullptr);
-    bool                    closeWorkspace(QString* error = nullptr);
-    Q_SIGNAL void           workspaceChanged();
+    /** Persists workspace/session state without reapplying runtime configuration. */
+    bool          saveWorkspace(QString* error = nullptr);
+    bool          closeWorkspace(QString* error = nullptr);
+    Q_SIGNAL void workspaceChanged();
 
-    Session*      session() const;
-    bool          createSession(const QString& name, QString* error = nullptr);
-    bool          openSession(const QString& id, QString* error = nullptr);
+    Session* session() const;
+    bool     createSession(const QString& name, QString* error = nullptr);
+    bool     openSession(const QString& id, QString* error = nullptr);
+    /** Persists session state without reapplying runtime configuration. */
     bool          saveSession(QString* error = nullptr);
     bool          renameSession(const QString& name, QString* error = nullptr);
     bool          closeSession(QString* error = nullptr);
@@ -102,6 +104,7 @@ private:
     void     _bindWorkspaceProcessors();
     void     _applyConfiguration();
     void     _updateRecent();
+    void     _updateSessionPresentation();
     bool     _activateSession(std::unique_ptr<Session> candidate, QString* error);
     void     _updateSession();
     void     _restoreLastSession();

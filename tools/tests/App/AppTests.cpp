@@ -620,6 +620,49 @@ private:
         QVERIFY(_app.closeWorkspace(&error));
     }
 
+    Q_SLOT void savingDoesNotApplyPendingRuntimeConfiguration()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Save.termaster")), "Save", &error));
+        QVERIFY(_app.createSession("Save", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        auto                     probe      = std::make_shared<ReconnectDevice::Probe>();
+        const auto               cleanup    = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("saveFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "saveFixture";
+        type.title  = "Save fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Save fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        QVERIFY(_app.createTerminal("saveFixture", {}, "Saved", &error));
+        auto* editor = _app.mainWindow().findChild<CommandEditor*>();
+        QVERIFY(editor);
+        QVERIFY(!editor->buffered());
+        QVERIFY(controller.selectedSettings().setValue("input/mode", "buffered", &error));
+
+        QVERIFY(_app.saveSession(&error));
+        QVERIFY(!editor->buffered());
+        QVERIFY(_app.saveWorkspace(&error));
+        QVERIFY(!editor->buffered());
+        Settings persisted(_app.session()->filePath(), {"termaster.session", "Termaster session"});
+        QVERIFY(persisted.load(&error));
+        QCOMPARE(persisted.value("objects/" + _app.selectedTerminal() + "/settings/input/mode").toString(),
+                 QString("buffered"));
+        QVERIFY(_app.renameSession("Save renamed", &error));
+        QVERIFY(_app.mainWindow().findChild<QLabel*>("sessionTitle")->text().contains("Save renamed"));
+        QVERIFY(!editor->buffered());
+
+        controller.applySettings();
+        QVERIFY(editor->buffered());
+    }
+
     Q_SLOT void sessionLifecycleAndPersistence()
     {
         QTemporaryDir temporary;
