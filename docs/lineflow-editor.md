@@ -342,3 +342,8 @@ passed at scales 1 and 2; filtered/unfiltered popup captures were inspected for
 icons, grouping, selection and clipping. Formatting and whitespace checks passed.
 No devices or processing runtimes were opened. Large-catalog timing and integrated
 application performance remain separate acceptance work.
+
+Integrated Release verification passed the three catalog/processing/favorites suites
+(3.15 seconds). Catalog correctness checks assert retained tree identity and zero
+search resets, plus provider-validation counts for repeated and invalidated drops;
+actual commit validation remains mandatory.
