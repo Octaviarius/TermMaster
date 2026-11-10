@@ -328,3 +328,17 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Evaluate only requested Timestamp clocks/date text while always advancing accepted packet indices.
 - [x] Integrate datetime, Unix/boot units, standard number formatting and persistent live preview state.
 - [x] Verify Debug/Release behavior and record a reproducible Release formatting benchmark.
+## HELP-1: Contextual module documentation
+
+- [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
+- [ ] Package module-owned help and generated parameter reference with stable context topics.
+- [ ] Add offline Widgets navigation, search and selected-node Help/F1 integration.
+- [ ] Verify missing topics, plugin unload, resource paths, links and native rendering.
+
+## HELP-2: Third-party components and credits
+
+- [x] Inventory direct source dependencies, copied icons and available Qt deployment SBOMs.
+- [ ] Resolve copied Flowgate artwork provenance and selected Qt/third-party notices.
+- [ ] Package a versioned dependency manifest and verbatim license/NOTICE texts.
+- [ ] Add the Third-party components page with credits, source links and license viewing.
+- [ ] Verify packaged offline availability and exact notice coverage for shipped components.
