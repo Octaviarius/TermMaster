@@ -1,3 +1,4 @@
+#include "Gui/Help/ThirdPartyDialog.h"
 #include "Gui/Main/EditActions.h"
 #include "Gui/Main/MainWindow.h"
 #include "Gui/Processing/LineflowEditorDialog.h"
@@ -65,6 +66,7 @@ struct App::Data
     std::unique_ptr<TerminalController>             terminals;
     std::unique_ptr<EditActions>                    editing;
     QPointer<QDialog>                               pluginWindow;
+    QPointer<ThirdPartyDialog>                      thirdPartyWindow;
     QPointer<LineflowEditorDialog>                  lineflowWindow;
     QPointer<QAction>                               lineflowAction;
     QPointer<SettingsDialog>                        settingsWindow;
@@ -141,6 +143,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
     Q_INIT_RESOURCE(appIcons);
     Q_INIT_RESOURCE(connectionStatusIcons);
     Q_INIT_RESOURCE(appSettingsSchema);
+    Q_INIT_RESOURCE(thirdPartyNotices);
     setWindowIcon(QIcon(":/Termaster/App/IconOrange.png"));
 
     _data = std::make_unique<Data>(options);
@@ -774,6 +777,21 @@ void App::_setupActions()
     about->setMenuRole(QAction::AboutRole);
     connect(about, &QAction::triggered, this, [this]() {
         QMessageBox::about(_data->window.get(), tr("About Termaster"), tr("Termaster %1").arg(Version::shortVersion));
+    });
+    auto* thirdParty = _addAction("Help.ThirdParty",
+                                  tr("Third-party &components…"),
+                                  Icons::icon("blocks"),
+                                  {},
+                                  "help",
+                                  "about");
+    connect(thirdParty, &QAction::triggered, this, [this] {
+        if (!_data->thirdPartyWindow)
+        {
+            _data->thirdPartyWindow = new ThirdPartyDialog(_data->window.get());
+        }
+        _data->thirdPartyWindow->show();
+        _data->thirdPartyWindow->raise();
+        _data->thirdPartyWindow->activateWindow();
     });
     auto* aboutQt = _addAction("Help.AboutQt", tr("About &Qt"), {}, {}, "help", "about");
     aboutQt->setMenuRole(QAction::AboutQtRole);

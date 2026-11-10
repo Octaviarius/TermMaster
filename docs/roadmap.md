@@ -412,7 +412,10 @@ Next scheduled stage after FLOW-27 paired processor families.
 ## HELP-2: Third-party components and credits
 
 - [x] Inventory direct source dependencies, copied icons and available Qt deployment SBOMs.
-- [ ] Resolve copied Flowgate artwork provenance and selected Qt/third-party notices.
-- [ ] Package a versioned dependency manifest and verbatim license/NOTICE texts.
-- [ ] Add the Third-party components page with credits, source links and license viewing.
+- [x] Collect selected Qt module and bundled-component notices; exclude project-owned artwork.
+- [x] Package a versioned dependency manifest and verbatim license/NOTICE texts.
+- [x] Add the Third-party components page with credits, source links and license viewing.
 - [ ] Verify packaged offline availability and exact notice coverage for shipped components.
+
+HELP-2 compilation is performed without automated tests or native visual verification,
+as requested. Release deployment coverage remains a packaging acceptance task.

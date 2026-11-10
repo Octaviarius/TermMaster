@@ -99,14 +99,16 @@ compression and other notices; do not infer the deployment from optional upstrea
 features. The project may use system ZLIB or Qt's bundled ZlibPrivate depending
 on the configure result, so the manifest must record that choice.
 
-Connection-status SVG geometry is attributed in docs/terminals-and-serial.md to
-the adjacent Flowgate project's QML. That source project has no top-level license
-file in the current checkout. Record provenance and resolve its ownership/license
-explicitly before assigning it a third-party license. Project-generated artwork
-and project-authored icons should be distinguished from copied third-party assets.
+Project-owned artwork is excluded from the third-party inventory. Third-party
+icon notices are retained with the copied upstream assets.
 
-This inventory is source evidence and pending packaging work, not a declaration
-that every redistribution obligation has already been fulfilled.
+The Third-party components action now provides the offline manifest, credits,
+upstream links and full notices. Qt is one component with its bundled notices
+available in the license selector. The checked-in bundle is embedded in App and
+copied beside the executable; builds do not inspect or lock the installed kit.
+Dependency/deployment changes require refreshing the distribution notice inventory.
+See [third-party components](third-party-components.md) for maintenance and scope.
+This page does not itself fulfill source-availability or other redistribution terms.
 
 
 FLOW-27 paired families keep help topics associated with the fixed catalog choice.
