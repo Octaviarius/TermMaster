@@ -83,6 +83,7 @@ public:
     {
         bool             available = false;
         int              attempts  = 0;
+        int              closes    = 0;
         ReconnectDevice* device    = nullptr;
         QByteArray       output;
         QVariantMap      openConfiguration;
@@ -127,6 +128,7 @@ public:
     }
     void close() override
     {
+        ++_probe->closes;
         _setState(State::Closing);
         _setState(State::Closed);
     }
@@ -3136,6 +3138,140 @@ content:
         QCOMPARE(persisted.value("objects/" + _app.selectedTerminal() + "/settings/processing/marker").toString(),
                  QString("nested"));
         QVERIFY(panel->propertiesWidget()->findChild<QLabel*>("processingError")->text().contains("concurrently"));
+    }
+
+    Q_SLOT void liveInplaceNodeRemovalPreservesTransportAndRetriesAtomically()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Removal.termaster")), "Removal", &error));
+        QVERIFY(_app.createSession("Live removal", &error));
+        auto& host                       = _app.pluginHost();
+        auto& controller                 = static_cast<TerminalController&>(host);
+        auto  probe                      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                 = true;
+        probe->allowance                 = 1024;
+        const auto               cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("removalFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "removalFixture";
+        type.title  = "Removal fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Removal fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        const QString     root = "terminal.inplace.rx";
+        const QVariantMap definitions {
+            {root,
+             QVariantMap {{"id", root},
+                          {"name", "Inplace"},
+                          {"kind", "lineflow"},
+                          {"source",
+                           QVariantMap {
+                               {"nodes",
+                                QVariantList {QVariantMap {{"name", "HEX Encoder"}, {"type", "native.hex-encoder"}},
+                                              QVariantMap {{"name", "Gate"}, {"type", "native.gate"}}}}}}}}
+        };
+        const QVariantMap gateOverride {
+            {"enabled",       true},
+            {"unknown", "retained"}
+        };
+        const QVariantMap initial {
+            {   "mode",          "simplex"                       },
+            {     "rx",
+             QVariantMap {{"type", "@inplace"},
+             {"unknown", "selection metadata"},
+             {"overrides",
+             QVariantMap {{"HEX Encoder", QVariantMap {{"letterCase", "lower"}, {"separator", ""}}},
+             {"Gate", gateOverride}}}}                           },
+            {     "tx",     QVariantMap {{"type", "native.gate"}}},
+            {"inplace",         QVariantMap {{"rx", definitions}}},
+            {"unknown",                     "processing metadata"}
+        };
+        QVERIFY2(_app.createTerminal("removalFixture",
+                                     {
+                                         {"processing", initial}
+        },
+                                     "Live removal",
+                                     &error),
+                 qPrintable(error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        QVERIFY(probe->device);
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        const auto attempts = probe->attempts;
+        const auto closes   = probe->closes;
+        auto*      display  = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        auto*      panel    = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
+        QVERIFY(display && panel);
+        probe->device->injectReceive("A");
+        QTRY_COMPARE(display->text(), QString("41"));
+        panel->findChild<QToolButton*>("rxInplace")->click();
+        auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
+        QVERIFY(editor);
+        QVERIFY(editor->model().removeNode(root, "HEX Encoder", &error));
+        QVERIFY(editor->model().renameNode(root, "Gate", "Retained gate", &error));
+
+        // An external writer rejects the whole edit before runtime replacement.
+        QFile disk(_app.session()->filePath().toString());
+        QVERIFY(disk.open(QIODevice::ReadOnly));
+        const auto originalBytes = disk.readAll();
+        disk.close();
+        const auto externalBytes = originalBytes + "\n# concurrent removal writer\n";
+        QVERIFY(disk.open(QIODevice::WriteOnly));
+        QCOMPARE(disk.write(externalBytes), qint64(externalBytes.size()));
+        disk.close();
+        QVERIFY(!editor->applyDraft(&error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(controller.selectedSettings().value("processing").toMap(), initial);
+        QVERIFY(disk.open(QIODevice::ReadOnly));
+        QCOMPARE(disk.readAll(), externalBytes);
+        disk.close();
+        display->clear();
+        probe->device->injectReceive("B");
+        QTRY_COMPARE(display->text(), QString("42"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QCOMPARE(probe->attempts, attempts);
+        QCOMPARE(probe->closes, closes);
+
+        QVERIFY(disk.open(QIODevice::WriteOnly));
+        QCOMPARE(disk.write(originalBytes), qint64(originalBytes.size()));
+        disk.close();
+        QVERIFY2(editor->applyDraft(&error), qPrintable(error));
+        const auto committed = controller.selectedSettings().value("processing").toMap();
+        const auto selection = committed.value("rx").toMap();
+        QCOMPARE(selection.value("overrides").toMap(),
+                 QVariantMap({
+                     {"Retained gate", gateOverride}
+        }));
+        QCOMPARE(selection.value("unknown"), initial.value("rx").toMap().value("unknown"));
+        QCOMPARE(committed.value("tx"), initial.value("tx"));
+        QCOMPARE(committed.value("unknown"), initial.value("unknown"));
+        QCOMPARE(committed.value("inplace").toMap().value("rx").toMap(), editor->model().definitions());
+        display->clear();
+        probe->device->injectReceive("C");
+        QTRY_COMPARE(display->text(), QString("C"));
+        display->outputBytes("still open", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_COMPARE(probe->output, QByteArray("still open"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QCOMPARE(probe->attempts, attempts);
+        QCOMPARE(probe->closes, closes);
+        Settings persisted(_app.session()->filePath(), {"termaster.session", "Termaster session"});
+        QVERIFY(persisted.load(&error));
+        QCOMPARE(persisted.value("objects/" + _app.selectedTerminal() + "/settings/processing").toMap(), committed);
+        const auto capture = qEnvironmentVariable("TERMASTER_INPLACE_REMOVAL_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            editor->setFixedSize(1100, 760);
+            QApplication::processEvents();
+            QVERIFY(editor->grab().save(QDir(capture).filePath("AppliedNodeRemoval.png")));
+        }
+        editor->close();
     }
 
     Q_SLOT void terminalInplaceProcessingPersistenceAndAtomicity()

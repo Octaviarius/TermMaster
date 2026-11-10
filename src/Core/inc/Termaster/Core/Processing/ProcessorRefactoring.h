@@ -4,7 +4,7 @@
 #include <QVariantMap>
 #include <optional>
 
-/** Pure, bounded rename transaction. Inputs and files remain unchanged on failure. */
+/** Pure, bounded occurrence refactoring transaction. Inputs and files remain unchanged on failure. */
 class ProcessorRefactoring
 {
 public:
@@ -22,7 +22,8 @@ public:
 
     /** Rename records describe sequential edits to existing node identities.
      * Rewrites private occurrence paths, definition defaults and nested node overrides.
-     * Missing providers remain opaque; removal of an addressed occurrence is rejected.
+     * Missing providers remain opaque. Valid original paths to removed/replaced occurrences
+     * are pruned; malformed or stale original paths reject the complete transaction.
      */
     static std::optional<Result> transform(const QVariantMap&   originalDefinitions,
                                            const QVariantMap&   finalDraftDefinitions,

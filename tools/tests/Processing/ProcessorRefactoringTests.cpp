@@ -346,14 +346,138 @@ private slots:
                                                  &error));
         auto removed = old;
         removed.insert("root", definition("root", {node("b", "missing.native")}));
-        QVERIFY(!ProcessorRefactoring::transform(old, removed, {}, objects, &error));
-        QVERIFY(error.contains("removed"));
+        const auto pruned = ProcessorRefactoring::transform(old, removed, {}, objects, &error);
+        QVERIFY2(pruned, qPrintable(error));
+        QVERIFY(overrides(pruned->sessionObjects, "terminal").isEmpty());
         QCOMPARE(overrides(objects, "terminal").value("a").toMap().value("unknown").toInt(), 12);
         QVERIFY(ProcessorRefactoring::transform(old, removed, {}, {}));
         const QVariantMap stale {
             {"terminal", object("root", {{"stale", QVariantMap {}}})}
         };
         QVERIFY(!ProcessorRefactoring::transform(old, old, {}, stale, &error));
+    }
+
+    void removalReplacementAndRenamePruneOnlyValidatedOriginalPaths()
+    {
+        auto root = definition("root", {node("removed", "leaf"), node("replaced", "leaf"), node("kept", "leaf")});
+        const QVariantMap paths {
+            { "removed/old",                          QVariantMap {{"value", 1}}},
+            {"replaced/old",                          QVariantMap {{"value", 2}}},
+            {    "kept/old", QVariantMap {{"value", 3}, {"unknown", "retained"}}}
+        };
+        root.insert("defaults",
+                    QVariantMap {
+                        {"overrides", paths},
+                        {  "unknown",    42}
+        });
+        auto parent = node("nested", "root");
+        parent.insert("configuration",
+                      QVariantMap {
+                          {"overrides",  paths},
+                          {   "opaque", "kept"}
+        });
+        const QVariantMap before {
+            {"root", root},
+            {"leaf", definition("leaf", {node("old", "missing.provider")})},
+            {"parent", definition("parent", {parent})}
+        };
+        auto after   = before;
+        auto updated = root;
+        updated.insert("source",
+                       QVariantMap {
+                           {"nodes", QVariantList {node("replaced", "missing.other"), node("renamed", "leaf")}}
+        });
+        after.insert("root", updated);
+        after.insert("leaf", definition("leaf", {node("new", "missing.provider")}));
+        const QVariantMap objects {
+            { "terminal",    object("root",                                     paths)},
+            {"unrelated", object("missing", {{"opaque/path", QVariantMap {{"x", 9}}}})}
+        };
+        const QList<ProcessorRefactoring::Rename> renames {
+            {"root", "kept", "renamed"},
+            {"leaf",  "old",     "new"}
+        };
+        QString    error;
+        const auto result = ProcessorRefactoring::transform(before, after, renames, objects, &error);
+        QVERIFY2(result, qPrintable(error));
+        const QVariantMap expected {
+            {"renamed/new", paths.value("kept/old")}
+        };
+        QCOMPARE(overrides(result->sessionObjects, "terminal"), expected);
+        QCOMPARE(result->sessionObjects.value("unrelated"), objects.value("unrelated"));
+        const auto defaults = result->definitions.value("root").toMap().value("defaults").toMap();
+        QCOMPARE(defaults.value("overrides").toMap(), expected);
+        QCOMPARE(defaults.value("unknown"), QVariant(42));
+        const auto configuration = result->definitions.value("parent")
+                                       .toMap()
+                                       .value("source")
+                                       .toMap()
+                                       .value("nodes")
+                                       .toList()[0]
+                                       .toMap()
+                                       .value("configuration")
+                                       .toMap();
+        QCOMPARE(configuration.value("overrides").toMap(), expected);
+        QCOMPARE(configuration.value("opaque"), QVariant("kept"));
+        QCOMPARE(overrides(objects, "terminal"), paths);
+        QCOMPARE(before.value("root"), root);
+
+        // Removal cannot hide a stale nested path or an invalid payload.
+        for (const auto& path : {QString("removed/stale"), QString("replaced/stale"), QString("removed//old")})
+        {
+            auto invalid = objects;
+            invalid.insert("invalid",
+                           object("root",
+                                  {
+                                      {path, QVariantMap {}}
+            }));
+            QVERIFY(!ProcessorRefactoring::transform(before, after, renames, invalid, &error));
+            QVERIFY(error.contains("Stale") || error.contains("Invalid"));
+            QCOMPARE(overrides(objects, "terminal"), paths);
+        }
+        auto invalid = objects;
+        invalid.insert("invalid",
+                       object("root",
+                              {
+                                  {"removed/old", 7}
+        }));
+        QVERIFY(!ProcessorRefactoring::transform(before, after, renames, invalid, &error));
+        QVERIFY(error.contains("must be a map"));
+    }
+
+    void removedDefinitionsAndOpaqueProviders()
+    {
+        const QVariantMap before {
+            {"root", definition("root", {node("branch", "leaf"), node("unknown", "missing.provider")})},
+            {"leaf", definition("leaf",                             {node("old", "missing.provider")})}
+        };
+        auto after = before;
+        after.remove("leaf");
+        const QVariantMap paths {
+            {    "branch/old", QVariantMap {{"value", 1}}},
+            {"unknown/opaque", QVariantMap {{"value", 2}}}
+        };
+        const QVariantMap objects {
+            {"terminal", object("root", paths)}
+        };
+        QString    error;
+        const auto result = ProcessorRefactoring::transform(before, after, {}, objects, &error);
+        QVERIFY2(result, qPrintable(error));
+        QCOMPARE(overrides(result->sessionObjects, "terminal"),
+                 QVariantMap({
+                     {"unknown/opaque", paths.value("unknown/opaque")}
+        }));
+        after.remove("root");
+        const auto removed = ProcessorRefactoring::transform(before, after, {}, objects, &error);
+        QVERIFY2(removed, qPrintable(error));
+        QVERIFY(overrides(removed->sessionObjects, "terminal").isEmpty());
+        QVERIFY(!ProcessorRefactoring::transform(before,
+                                                 after,
+                                                 {
+        },
+                                                 {{"terminal", object("root", {{"branch/stale", QVariantMap {}}})}},
+                                                 &error));
+        QVERIFY(error.contains("Stale"));
     }
 
     void unavailableRootsAndBounds()

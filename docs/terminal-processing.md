@@ -190,7 +190,14 @@ can use the same local IDs without sharing state, source or private overrides.
 An editor draft can include additional local definitions and references to shared
 workspace/native processors. Apply persists the complete local map and selects
 Inplace through the terminal's normal atomic save callback. Cancel discards unapplied
-diagram edits. Local occurrence renames reuse bounded refactoring for private paths.
+diagram edits. Local occurrence edits reuse bounded refactoring for private paths.
+Removing a node or replacing its processor target prunes that occurrence's valid
+private overrides while preserving unrelated selections and settings. Original
+paths are fully validated before pruning, so a stale descendant cannot disappear
+silently with a deleted ancestor. Applying an active diagram prepares the replacement,
+commits the session and swaps the runtime without closing or reopening the transport.
+Preparation or persistence failure retains the saved settings and running graph;
+the editor draft remains available for retry.
 Workspace occurrence refactoring also visits all embedded graphs, including dormant
 profiles, with an isolated scope per terminal. Combined workspace/local refactoring
 validation retains the existing 1024-definition bound.
@@ -265,3 +272,24 @@ codecs finalize each packet independently; HEX pair accumulation is opt-in.
 Framer is the explicit buffering stage for assembling transport pieces into
 protocol frames. Transport atomic-write constraints remain separate from logical
 processing packets. Native hosted modules require a rebuild for HostedPlugin IID 11.
+
+## FLOW-22 live node removal verification
+
+On 2026-11-10 the Qt 6.12.0 / MSVC2022 x64 Debug application, bundled modules and
+configured tests built successfully. The affected App, ProcessorRefactoring,
+LineflowPersistence and TerminalProcessing CTest suites passed (4/4, 64.32 seconds).
+The active-terminal fixture removes a configured HEX Encoder and renames the
+remaining Gate while a synthetic transport stays open. It checks persisted private
+overrides and unknown settings, changed receive output, continued transmit traffic,
+and unchanged open/close counters. An external session-file edit rejects Apply,
+retains the original runtime and saved settings, and permits retry after the
+external conflict is resolved.
+
+Core fixtures cover simultaneous removal, replacement and nested renaming,
+definition defaults, linked-instance configuration, removed definitions, opaque
+missing-provider suffixes and stale descendants beneath removed/replaced nodes.
+Native Windows runs of the active-terminal fixture passed at display scales 1 and 2;
+both captures show the retained Gate and successful Apply and were visually inspected.
+Changed C++ files were clang-formatted; local documentation links and
+`git diff --check` passed. The full CTest suite and Release were not rerun. No real
+serial device, external endpoint or elevation was used.
