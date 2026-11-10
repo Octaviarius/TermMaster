@@ -8,8 +8,7 @@ class LengthField final
 public:
     explicit LengthField(const QVariantMap& configuration);
 
-    static QByteArray schema();
-    static bool       validate(QVariantMap& configuration, QString* error);
+    static bool validate(QVariantMap& configuration, QString* error);
 
     bool       prefix() const;
     bool       value(qsizetype payloadBytes, quint64& result, int& width, QString& error) const;

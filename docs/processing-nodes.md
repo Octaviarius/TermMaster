@@ -1,10 +1,13 @@
 # Configurable processing nodes
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
-Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp, Compress, Uncompress, LengthWrap, LengthUnwrap, ChecksumWrap, ChecksumUnwrap, StuffingWrap, StuffingUnwrap and Pacer. NativeProcessors only registers the
-catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
-an algorithm dispatcher or mutable state.
+Independent nodes own their algorithm, state, schema and factory. The six paired
+families Length, Checksum, Stuffing, HEX, Base64 and Compression own their parameter
+descriptors and direct/inverse factories in separate family source files. The shared
+`Codec::Definition` assembles only the requested fields before a form is created.
+Unary creation constructs only the selected implementation; duplex creation uses
+one generic `Codec` containing two independent implementations. NativeProcessors
+registers three distinct fixed-topology catalog entries for each family.
 
 Descriptors expose `group` as a trimmed optional string of at most 128 characters,
 with no NUL. Saved workspace definitions use the same field. An empty group is
@@ -64,7 +67,8 @@ Uncompress settings:
 
 | Field | Default | Values |
 | --- | --- | --- |
-| `format` | auto | auto detects zlib/gzip; raw requires explicit selection |
+| `format` | zlib | zlib, gzip, raw DEFLATE |
+| `autoDetect` | true | Accept either zlib or gzip for wrapped formats; raw remains explicit |
 | `windowBits` | 15 | 9–15, maximum decompression window |
 | `maxOutputBytes` | 1048576 | 1–67108864, additionally capped by the host limit |
 | `concatenated` | false | Accept multiple complete streams into one output packet |
@@ -637,24 +641,50 @@ separate transformation before the strict HEX decoder.
 
 ## Duplex codecs
 
-`native.hex-codec` (HEX Codec) and `native.base64-codec` (Base64 Codec) are elementary
-native 2x2 processors in Codecs. Each owns a decoder on input/output port 0 and an
-encoder on input/output port 1. The default vertical orientation decodes device Rx
-downward into terminal bytes and encodes terminal Tx upward into wire text. Port
-names are HEX/Bytes or Base64/Bytes on input and Bytes/HEX or Bytes/Base64 on output.
-Rotating the occurrence uses the existing 180-degree Lineflow port mapping; it does
-not change either algorithm or its settings.
+All six families expose direct and inverse unary entries plus one elementary
+native 2x2 Codec entry. Existing unary IDs/titles remain unchanged. Codec port 0
+runs the inverse operation from device wire data toward terminal payload; port 1
+runs the direct operation from payload toward the wire. Rotating a Lineflow
+occurrence changes its existing port mapping, without changing either operation.
 
-Settings are flat fields grouped into Decode and Encode in the generated form:
+| Family | Codec ID | Group | Wire / payload names |
+| --- | --- | --- | --- |
+| Length | `native.length-codec` | Framing | Packet / Payload |
+| Checksum | `native.checksum-codec` | Integrity | Packet / Payload |
+| Stuffing | `native.stuffing-codec` | Framing | Packet / Payload |
+| HEX | `native.hex-codec` | Codecs | HEX / Bytes |
+| Base64 | `native.base64-codec` | Codecs | Base64 / Bytes |
+| Compression | `native.compression-codec` | Compression | Compressed / Bytes |
 
-| Node | Decode defaults | Encode defaults |
-|---|---|---|
-| HEX Codec | `decodeIgnoreWhitespace: true`, `decodeAccumulate: false` | `encodeLetterCase: upper`, `encodeSeparator: ' '` |
-| Base64 Codec | `decodeAlphabet: standard`, `decodeIgnoreWhitespace: true`, `decodeRequirePadding: true` | `encodeAlphabet: standard`, `encodePadding: true`, `encodeLineLength: 0`, `encodeLineEnding: lf` |
+The creation choice belongs to the catalog. There is no Operation field. A unary
+schema contains common fields plus the chosen direction's fields; fields and
+editors for the unused direction are absent. A Codec contains common fields once
+and both directional groups. Length/checksum wire parameters are entirely common.
+Stuffing mapping and `boundaryMode` are common; `unwrapFraming: true` is inverse-only.
+
+| Codec | Common defaults | Inverse defaults | Direct defaults |
+| --- | --- | --- | --- |
+| HEX | None | `decodeIgnoreWhitespace: true`, `decodeAccumulate: false` | `encodeLetterCase: upper`, `encodeSeparator: ' '` |
+| Base64 | `alphabet: standard` | `decodeIgnoreWhitespace: true`, `decodeRequirePadding: true` | `encodePadding: true`, `encodeLineLength: 0`, `encodeLineEnding: lf` |
+| Compression | `format: zlib`, `windowBits: 15` | `uncompressAutoDetect: true`, `uncompressMaxOutputBytes: 1048576`, `uncompressConcatenated: false` | `compressLevel: -1`, `compressMemLevel: 8`, `compressStrategy: default` |
+
+Compression's shared `format` selects the direct wire wrapper. Inverse
+`autoDetect` accepts zlib/gzip wrappers when enabled, while raw DEFLATE always
+requires explicit raw format. Disabling detection enforces the shared wrapper.
+Independent per-direction compression contexts, pending framing state and host
+limits remain separate. Stuffing can accumulate split incoming frames while
+wrapping outgoing packets, and can emit several frames from one input.
+
+The current development format replaces Base64 Codec's duplicated directional
+alphabet fields with one `alphabet`. Uncompress replaces `format: auto` with
+`format: zlib` and `autoDetect: true`; Codec uses the directional prefix only for
+inverse-specific options. No compatibility reader or migration is provided.
+Existing local development fixtures must be recreated or explicitly edited;
+application and workspace files are not rewritten automatically.
 
 The algorithms reuse the corresponding unary implementations and their validation,
-expansion limits and independent directional state. Every packet is finalized
-independently; only explicitly enabled HEX accumulation retains a partial pair.
+expansion limits and independent directional state. Packet algorithms finalize each packet independently. Explicit HEX accumulation
+retains a partial pair; Stuffing framing retains bounded incomplete frames.
 There is no implicit flush on transport closure. Configuration snapshots include
 resolved defaults and preserve unrelated fields. Non-whitespace HEX separators
 remain invalid input to the strict decoder without an additional transformation.
@@ -664,7 +694,8 @@ callbacks. A processing error stops new acceptance on both directions and suppre
 subsequent output; every invocation already accepted still completes with the
 failure, including opposite-port reentry from an output callback. Explicit cancel
 instead clears both unary states and suppresses pending callbacks before its
-quiescence acknowledgement. Instances, state and callbacks stay on the owning
+quiescence acknowledgement after both children acknowledge cancellation. Repeated
+cancel callers wait for the same quiescent state. Instances, state and callbacks stay on the owning
 QObject thread. No new transport or background worker is introduced.
 
 ### Duplex codec verification
@@ -690,7 +721,7 @@ external endpoint or elevation was used. Release was not rebuilt.
 - [HEX Codec at scale 2](images/duplex-lineflow/HexCodec2x.png)
 - [Base64 Codec at scale 2](images/duplex-lineflow/Base64Codec2x.png)
 
-Both entries belong to Codecs. Data after Base64 padding within the same packet
+Data after Base64 padding within the same packet
 is invalid. An empty valid packet is preserved. Put a Framer before
 an encoder/decoder when input is a continuous transport stream requiring explicit
 message boundaries. Cancellation is not a request to flush or encode a tail.
@@ -805,3 +836,42 @@ this feature.
 
 - [Pattern Framer settings](images/framers/PatternFramer.png)
 - [Pattern Framer settings at scale 2](images/framers/PatternFramer2x.png)
+
+
+## FLOW-27 family acceptance
+
+The complete Qt 6.12.0 / MSVC x64 Debug build succeeded. All 54 configured CTest
+executables passed in 204.89 seconds after correcting common-field normalization
+to project the valid assembled descriptor. An earlier full run exposed that
+integration defect in App, Codec and Family tests; the exact App regression and
+both affected processor suites passed before the successful complete run.
+
+The final Base64/Compression presentation annotation places common wire settings
+in the first Format group. The complete incremental Debug build, including
+Termaster and hosted modules, and the four affected Codec, Compression, Family and
+Lineflow editor suites passed in 53.52 seconds after that annotation.
+
+ProcessorFamilyTests verifies all 18 schemas and generated editor counts, absence
+of unused direction editors, counted factories constructing one selected unary
+implementation or two Codec implementations, fixed topology/port metadata and all
+six bidirectional roundtrips. Lifecycle cases cover same-port backpressure,
+cross-port progress, bounds, malformed input, cancellation, callback-driven
+destruction and owned output. Deferred test children verify that repeated cancel
+callers wait for both child acknowledgements. Additional cases cover chunked
+Stuffing with simultaneous wrapping, shared compression wrapper/detection policy,
+known inactive common-field pruning with unknown-field retention and a duplex
+Lineflow chaining all six families in reverse directional order. Native selector
+checks verify 20 unary entries and six duplex entries; a duplex Lineflow catalog
+exposes all 26 native entries.
+
+Native Windows captures at scales 1 and 2 each passed three QtTest checks without
+skips. Visual inspection confirms two HEX Encoder controls, four HEX Codec
+controls, and one shared Base64 alphabet followed by the directional groups.
+Scale-2 captures remain temporary verification artifacts; scale-1 references are
+tracked below. Changed C++ files were clang-formatted; changed documentation file links and
+`git diff --check` passed. No real device, external endpoint or elevation was
+used. Release was not rebuilt.
+
+- [HEX Encoder](images/processor-families/HexEncoder.png)
+- [HEX Codec](images/processor-families/HexCodec.png)
+- [Base64 Codec](images/processor-families/Base64Codec.png)

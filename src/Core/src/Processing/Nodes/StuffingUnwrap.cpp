@@ -1,5 +1,7 @@
 #include "StuffingUnwrap.h"
 
+#include "Stuffing.h"
+
 #include <QPointer>
 
 StuffingUnwrap::StuffingUnwrap(QVariantMap configuration, Limits limits) :
@@ -10,14 +12,7 @@ StuffingUnwrap::StuffingUnwrap(QVariantMap configuration, Limits limits) :
 
 QByteArray StuffingUnwrap::schema()
 {
-    return StuffingSettings::schema() + R"SCHEMA(    framing:
-      type: boolean
-      title: Framing
-      description: Buffer stream chunks until each delimiter and decode complete frames; cancellation discards an incomplete frame. None and suffix consume the delimiter; both requires paired opening and closing delimiters.
-      default: true
-      x-group: stuffing
-      x-order: 5
-)SCHEMA";
+    return Stuffing::descriptor().schema(Codec::Mode::Inverse);
 }
 
 std::unique_ptr<Processor> StuffingUnwrap::create(const QVariantMap& input, const Limits& limits, QString* error)

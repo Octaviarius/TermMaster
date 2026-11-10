@@ -391,9 +391,17 @@ See [processing nodes](processing-nodes.md#checksum-wrap-and-checksum-unwrap).
 
 See [processing nodes](processing-nodes.md#stuffing-wrap-and-stuffing-unwrap).
 
+## FLOW-27: Paired processor families
+
+- [x] Give Length, Checksum, Stuffing, HEX, Base64 and Compression separate family descriptor owners.
+- [x] Assemble common plus selected-direction fields before unary form creation and construct only the selected implementation.
+- [x] Offer three fixed-topology catalog choices per family and one generic duplex Codec implementation.
+- [x] Share wire parameters once, retain independent direction state/limits and acknowledge both child cancellations.
+- [x] Verify exact descriptors/editors, counted factories, bidirectional compositions, lifecycle and native 1x/2x forms.
+
 ## HELP-1: Contextual module documentation
 
-Next scheduled stage after FLOW-26 configurable packet byte stuffing.
+Next scheduled stage after FLOW-27 paired processor families.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
 - [ ] Package module-owned help and generated parameter reference with stable context topics.

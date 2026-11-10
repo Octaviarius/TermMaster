@@ -22,6 +22,37 @@ flowchart LR
     F[Future Codeflow composition] -. same Processor contract .-> N
 ```
 
+## Paired native families
+
+Six separate family classes own shared and directional parameter descriptors:
+Length, Checksum, Stuffing, HEX, Base64 and Compression. `Codec::Definition` is a
+family-agnostic schema/factory helper. It assembles a direct, inverse or duplex
+schema before generated form construction. Only parameter-specific variants such
+as Length Fixed/Varint use form discriminators; the operation is a fixed catalog
+creation choice. The SDK and processor ABI are unchanged.
+
+```mermaid
+flowchart LR
+    F[Separate family descriptor] --> C[Common parameters]
+    F --> D[Direct parameters and factory]
+    F --> I[Inverse parameters and factory]
+    C --> H[Generic descriptor assembly]
+    D --> H
+    I --> H
+    H --> U[Unary catalog entry: selected fields and one implementation]
+    H --> B[Codec catalog entry: common plus both directional fields]
+    B --> R[Generic Codec]
+    R --> X[Inverse implementation on port 0]
+    R --> Y[Direct implementation on port 1]
+```
+
+The generic Codec owns independent children and remaps their local port zero to
+the selected Codec port. It forwards complete owned packets and preserves multiple
+outputs, per-port backpressure, same-port reentry rejection and cross-port progress.
+An error stops new input on both ports, while accepted peer invocations still
+complete. Cancellation immediately suppresses publication and waits for both child
+acknowledgements; it does not assume that all future children are synchronous.
+
 ## Contract and ownership
 
 `Processor::Chunk` owns one complete `QByteArray` packet and a zero-based `port`

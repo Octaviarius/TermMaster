@@ -1,5 +1,6 @@
 #include "Compress.h"
 
+#include "Compression.h"
 #include "CompressionSettings.h"
 
 #include <QScopeGuard>
@@ -31,59 +32,7 @@ Compress::~Compress() = default;
 
 QByteArray Compress::schema()
 {
-    return R"(version: 1
-type: termaster.settings-schema
-description: Independent packet DEFLATE compression settings
-content:
-  type: object
-  properties:
-    format:
-      type: string
-      title: Format
-      description: Wrapper for the DEFLATE stream in each whole packet.
-      enum: [zlib, gzip, raw]
-      default: zlib
-      x-group: compression
-      x-order: 1
-    level:
-      type: integer
-      title: Compression level
-      description: '-1 selects the zlib default; 0 stores bytes without compression.'
-      minimum: -1
-      maximum: 9
-      default: -1
-      x-group: compression
-      x-order: 2
-    windowBits:
-      type: integer
-      title: Window bits
-      description: Base-two logarithm of the DEFLATE window size.
-      minimum: 9
-      maximum: 15
-      default: 15
-      x-group: compression
-      x-order: 3
-    memLevel:
-      type: integer
-      title: Memory level
-      description: 'Memory/speed trade-off: 1 uses the least compression memory, 9 the most.'
-      minimum: 1
-      maximum: 9
-      default: 8
-      x-group: compression
-      x-order: 4
-    strategy:
-      type: string
-      title: Strategy
-      description: 'Default is general purpose; filtered favors filtered data, huffman skips LZ matching, rle favors runs, fixed uses fixed Huffman codes.'
-      enum: [default, filtered, huffman, rle, fixed]
-      default: default
-      x-group: compression
-      x-order: 5
-  x-groups:
-    - id: compression
-      title: Compression
-)";
+    return Compression::descriptor().schema(Codec::Mode::Direct);
 }
 
 std::unique_ptr<Processor> Compress::create(const QVariantMap& input, const Limits& limits, QString* error)

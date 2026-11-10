@@ -682,12 +682,26 @@ private slots:
             }
             return false;
         };
+        const auto nativeCount = [](QTreeWidget* tree) {
+            QSet<QString> ids;
+            for (QTreeWidgetItemIterator it(tree); *it; ++it)
+            {
+                const auto id = (*it)->data(0, Qt::UserRole).toString();
+                if (id.startsWith("native."))
+                {
+                    ids.insert(id);
+                }
+            }
+            return ids.size();
+        };
+        QCOMPARE(nativeCount(catalog), 20);
         QVERIFY(contains(catalog, "native.hex-encoder"));
         QVERIFY(!contains(catalog, "fixture.duplex"));
         const auto paired = dialog.model().createBlock("Paired", 2);
         dialog.model().setSelectedBlock(paired);
         QVERIFY(contains(catalog, "native.hex-encoder"));
         QVERIFY(contains(catalog, "fixture.duplex"));
+        QCOMPARE(nativeCount(catalog), 26);
         dialog.model().setSelectedBlock("root");
         QVERIFY(!contains(catalog, "fixture.duplex"));
 
@@ -706,6 +720,7 @@ private slots:
         QVERIFY(selector.currentText().contains("Unavailable"));
         QVERIFY(!contains(tree, "native.hex-encoder"));
         QVERIFY(contains(tree, "fixture.duplex"));
+        QCOMPARE(nativeCount(tree), 6);
         QCOMPARE(changed.count(), 0);
         selector.setInplaceAvailable(true);
         QCOMPARE(changed.count(), 0);
@@ -1830,6 +1845,76 @@ private slots:
         }
     }
 
+    void pairedFamilyFormsAndCapture()
+    {
+        const auto             destination = qEnvironmentVariable("TERMASTER_FAMILY_CAPTURE");
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        LineflowEditorDialog dialog(fixtureDefinitions(),
+                                    registry,
+                                    widgets,
+                                    [](const auto&, const auto&, const auto&, QString*) { return true; });
+        dialog.setFixedSize(1100, 760);
+        dialog.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+        auto* host = dialog.findChild<QMainWindow*>("lineflowDockHost");
+        auto* dock = dialog.findChild<QDockWidget*>("lineflowPropertiesDock");
+        QVERIFY(host && dock);
+        host->resizeDocks({dock}, {420}, Qt::Horizontal);
+        const auto block = dialog.model().createBlock("Processor families", 2);
+        QVERIFY(!dialog.model().insertNodeAt(block, 0, "native.hex-encoder", "rx").isEmpty());
+        QVERIFY(!dialog.model().insertNodeAt(block, 1, "native.hex-codec", "duplex").isEmpty());
+        QVERIFY(!dialog.model().insertNodeAt(block, 2, "native.base64-codec", "duplex").isEmpty());
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        QVERIFY(canvas);
+        if (!destination.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(destination));
+        }
+        for (int row = 0; row < 3; ++row)
+        {
+            canvas->setCurrentIndex(dialog.model().index(row, 0));
+            auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+            QVERIFY(form);
+            QVERIFY(!form->editor("operation"));
+            if (row == 0)
+            {
+                QVERIFY(form->editor("letterCase"));
+                QVERIFY(form->editor("separator"));
+                QVERIFY(!form->editor("ignoreWhitespace"));
+                QVERIFY(!form->editor("accumulate"));
+                QVERIFY(!form->editor("decodeIgnoreWhitespace"));
+                QCOMPARE(form->findChildren<SettingsFieldEditor*>().size(), 2);
+            }
+            else if (row == 1)
+            {
+                for (const auto* key :
+                     {"encodeLetterCase", "encodeSeparator", "decodeIgnoreWhitespace", "decodeAccumulate"})
+                {
+                    QVERIFY(form->editor(key));
+                }
+                QCOMPARE(form->findChildren<SettingsFieldEditor*>().size(), 4);
+            }
+            else
+            {
+                QVERIFY(form->editor("alphabet"));
+                QVERIFY(!form->editor("encodeAlphabet"));
+                QVERIFY(!form->editor("decodeAlphabet"));
+                QCOMPARE(form->findChildren<SettingsFieldEditor*>().size(), 6);
+            }
+            if (!destination.isEmpty())
+            {
+                QTest::qWait(100);
+                const auto        scale = dialog.devicePixelRatioF() > 1.5 ? "2x.png" : ".png";
+                const QStringList names {"HexEncoder", "HexCodec", "Base64Codec"};
+                QVERIFY(dialog.grab().save(QDir(destination).filePath(names[row] + scale)));
+            }
+        }
+        QString error;
+        QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+    }
+
     void visualCapture()
     {
         const auto destination = qEnvironmentVariable("TERMASTER_LINEFLOW_CAPTURE");
@@ -1950,7 +2035,7 @@ private slots:
         QTest::qWait(50);
         auto* uncompressForm = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
         QVERIFY(uncompressForm && uncompressForm->editor("maxOutputBytes"));
-        QCOMPARE(uncompressForm->editor("format")->value().toString(), QString("auto"));
+        QCOMPARE(uncompressForm->editor("format")->value().toString(), QString("zlib"));
         QVERIFY(dialog.grab().save(QDir(destination).filePath("Uncompress.png")));
 
         registerDuplex(registry);

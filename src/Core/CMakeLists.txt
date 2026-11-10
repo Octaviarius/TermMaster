@@ -120,13 +120,21 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/Base64Encoder.cpp
     src/Processing/Nodes/Base64Decoder.h
     src/Processing/Nodes/Base64Decoder.cpp
+    src/Processing/Nodes/Codec.h
+    src/Processing/Nodes/Codec.cpp
+    src/Processing/Nodes/Length.h
+    src/Processing/Nodes/Length.cpp
+    src/Processing/Nodes/Checksum.h
+    src/Processing/Nodes/Checksum.cpp
+    src/Processing/Nodes/Stuffing.h
+    src/Processing/Nodes/Stuffing.cpp
+    src/Processing/Nodes/Hex.h
+    src/Processing/Nodes/Hex.cpp
+    src/Processing/Nodes/Base64.h
+    src/Processing/Nodes/Base64.cpp
+    src/Processing/Nodes/Compression.h
+    src/Processing/Nodes/Compression.cpp
     src/Processing/Nodes/SyncProcessorNode.h
-    src/Processing/Nodes/DuplexCodecNode.h
-    src/Processing/Nodes/DuplexCodecNode.cpp
-    src/Processing/Nodes/HexCodec.h
-    src/Processing/Nodes/HexCodec.cpp
-    src/Processing/Nodes/Base64Codec.h
-    src/Processing/Nodes/Base64Codec.cpp
     inc/Termaster/Core/WorkspaceFileTransaction.h
     src/WorkspaceFileTransaction.cpp
     inc/Termaster/Core/Workspace.h

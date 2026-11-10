@@ -8,8 +8,7 @@ class StuffingSettings final
 public:
     explicit StuffingSettings(const QVariantMap& configuration);
 
-    static QByteArray schema();
-    static bool       validate(QVariantMap& configuration, QString* error);
+    static bool validate(QVariantMap& configuration, QString* error);
 
     unsigned char delimiter() const;
     unsigned char escape() const;

@@ -40,7 +40,7 @@ public:
         return true;
     }
 
-    static int wrappedWindowBits(const QVariantMap& configuration)
+    static int wrappedWindowBits(const QVariantMap& configuration, bool autoDetect = false)
     {
         const auto format = configuration.value("format").toString();
         const auto bits   = configuration.value("windowBits").toInt();
@@ -48,13 +48,13 @@ public:
         {
             return -bits;
         }
+        if (autoDetect)
+        {
+            return bits + 32;
+        }
         if (format == "gzip")
         {
             return bits + 16;
-        }
-        if (format == "auto")
-        {
-            return bits + 32;
         }
         return bits;
     }

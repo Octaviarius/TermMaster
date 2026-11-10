@@ -1,5 +1,6 @@
 #include "Uncompress.h"
 
+#include "Compression.h"
 #include "CompressionSettings.h"
 
 #include <QScopeGuard>
@@ -34,49 +35,7 @@ Uncompress::~Uncompress() = default;
 
 QByteArray Uncompress::schema()
 {
-    return R"(version: 1
-type: termaster.settings-schema
-description: Independent packet DEFLATE decompression settings
-content:
-  type: object
-  properties:
-    format:
-      type: string
-      title: Format
-      description: 'Auto detects zlib or gzip wrappers; raw DEFLATE requires explicit selection.'
-      enum: [auto, zlib, gzip, raw]
-      default: auto
-      x-group: decompression
-      x-order: 1
-    windowBits:
-      type: integer
-      title: Window bits
-      description: Maximum base-two logarithm of the DEFLATE window size.
-      minimum: 9
-      maximum: 15
-      default: 15
-      x-group: decompression
-      x-order: 2
-    maxOutputBytes:
-      type: integer
-      title: Maximum output bytes
-      description: 'Per-packet output limit, also bounded by the host byte limit.'
-      minimum: 1
-      maximum: 67108864
-      default: 1048576
-      x-group: decompression
-      x-order: 3
-    concatenated:
-      type: boolean
-      title: Accept concatenated streams
-      description: 'Decode every complete member into one packet. Trailing junk is always rejected.'
-      default: false
-      x-group: decompression
-      x-order: 4
-  x-groups:
-    - id: decompression
-      title: Decompression
-)";
+    return Compression::descriptor().schema(Codec::Mode::Inverse);
 }
 
 std::unique_ptr<Processor> Uncompress::create(const QVariantMap& input, const Limits& limits, QString* error)
@@ -88,7 +47,8 @@ std::unique_ptr<Processor> Uncompress::create(const QVariantMap& input, const Li
     }
 
     auto configuration = input;
-    if (!_stringOption(configuration, "format", "auto", {"auto", "zlib", "gzip", "raw"}, error)
+    if (!_stringOption(configuration, "format", "zlib", {"zlib", "gzip", "raw"}, error)
+        || !_boolOption(configuration, "autoDetect", true, error)
         || !_boolOption(configuration, "concatenated", false, error)
         || !CompressionSettings::integerOption(configuration, "windowBits", 15, 9, 15, error)
         || !CompressionSettings::integerOption(configuration, "maxOutputBytes", 1048576, 1, 67108864, error))
@@ -97,7 +57,10 @@ std::unique_ptr<Processor> Uncompress::create(const QVariantMap& input, const Li
     }
 
     auto       result = std::unique_ptr<Uncompress>(new Uncompress(configuration, limits));
-    const auto status = inflateInit2(&result->_data->stream, CompressionSettings::wrappedWindowBits(configuration));
+    const auto status = inflateInit2(&result->_data->stream,
+                                     CompressionSettings::wrappedWindowBits(configuration,
+                                                                            configuration.value("autoDetect")
+                                                                                .toBool()));
     if (status != Z_OK)
     {
         _fail(error, QStringLiteral("Cannot initialize packet decompression (zlib status %1)").arg(status));
