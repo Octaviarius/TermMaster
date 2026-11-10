@@ -12,10 +12,12 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPainter>
 #include <QPlainTextEdit>
 #include <QSpinBox>
 #include <QStandardItemModel>
 #include <QStyle>
+#include <QStyleOptionComboBox>
 #include <QStyleOptionViewItem>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -430,12 +432,12 @@ private:
         form.show();
         QTest::qWait(20);
         auto* reset = form.findChild<QToolButton*>("reset_family");
-        QCOMPARE(reset->height(), combo->height());
+        QCOMPARE(reset->height(), SettingsFieldEditor::controlVisualHeight(combo));
         QFont larger = combo->font();
         larger.setPointSize(18);
         combo->setFont(larger);
         QTest::qWait(20);
-        QCOMPARE(reset->height(), combo->height());
+        QCOMPARE(reset->height(), SettingsFieldEditor::controlVisualHeight(combo));
         QVERIFY(!QApplication::activeModalWidget());
     }
 
@@ -648,6 +650,176 @@ private:
         QVERIFY(model.isValid());
         form.editor("number")->findChild<QLineEdit*>()->setText("nan");
         QVERIFY(!model.isValid());
+    }
+
+    Q_SLOT void hexadecimalIntegerDraftsAndInheritance()
+    {
+        QTemporaryDir directory;
+        Settings      base(directory.filePath("base.yaml"));
+        Settings      local(directory.filePath("local.yaml"));
+        QVERIFY(base.setValue("hex", qulonglong(65535)));
+        QVERIFY(base.setValue("unknown", QString("unavailable")));
+        SettingsOverlay overlay(base.node(""), local.node(""));
+        auto            descriptor = schema(
+            "hex: {type: integer, minimum: 0, maximum: 4294967295, default: 0, x-widget: hexInteger}\n"
+            "unknown: {type: integer, minimum: 0, maximum: 255, x-widget: hexInteger}");
+        SettingsFormModel      model(descriptor, overlay);
+        SettingsWidgetRegistry registry;
+        QVERIFY_THROWS_EXCEPTION(std::invalid_argument,
+                                 registry.registerWidget("hexInteger",
+                                                         [](const auto&, QWidget*) -> SettingsFieldEditor* {
+                                                             return nullptr;
+                                                         }));
+        SettingsFormWidget form(model, registry);
+        form.resize(640, 260);
+        form.show();
+        QTest::qWait(30);
+        auto* editor  = form.editor("hex");
+        auto* input   = editor->findChild<QLineEdit*>();
+        auto* unknown = form.editor("unknown")->findChild<QLineEdit*>();
+        QCOMPARE(input->text(), QString("0xFFFF"));
+        QCOMPARE(unknown->text(), QString("unavailable"));
+        unknown->setFocus();
+        QTest::keyClick(unknown, Qt::Key_Return);
+        input->setFocus();
+        QCOMPARE(model.value("unknown"), QVariant(QString("unavailable")));
+        QVERIFY(!model.isDirty());
+        QVERIFY(!model.apply());
+        unknown->setText("0x7f");
+        QCOMPARE(model.value("unknown").toULongLong(), qulonglong(127));
+        for (const auto& text : {QString("0"), QString("0Xffffffff"), QString("ABCDEF"), QString("0xFFFFFFFF")})
+        {
+            input->setText(text);
+            QVERIFY(editor->hasAcceptableInput());
+            QCOMPARE(model.value("hex").typeId(), QMetaType::ULongLong);
+            bool ok = false;
+            QCOMPARE(model.value("hex").toULongLong(), text.toULongLong(&ok, 16));
+            QVERIFY(ok);
+        }
+        QVERIFY(!local.contains("hex"));
+        QVERIFY(model.apply());
+        QCOMPARE(local.value("hex").typeId(), QMetaType::LongLong);
+        QCOMPARE(local.value("hex").toULongLong(), qulonglong(4294967295));
+        QVERIFY(local.sync());
+        Settings reloaded(directory.filePath("local.yaml"));
+        QVERIFY(reloaded.load());
+        QCOMPARE(reloaded.value("hex").toULongLong(), qulonglong(4294967295));
+        for (const auto& invalid : {QString("0x100000000"), QString("0x"), QString("-1"), QString("0xGG"), QString()})
+        {
+            input->setText(invalid);
+            QVERIFY(!editor->hasAcceptableInput());
+            QVERIFY(!model.apply());
+            QCOMPARE(local.value("hex").toULongLong(), qulonglong(4294967295));
+        }
+        input->setText("abcd");
+        QTest::keyClick(input, Qt::Key_Return);
+        QCOMPARE(input->text(), QString("0xABCD"));
+        QCOMPARE(model.value("hex").toULongLong(), qulonglong(43981));
+        auto* reset = form.findChild<QToolButton*>("reset_hex");
+        reset->click();
+        QCOMPARE(input->text(), QString("0xFFFF"));
+        QVERIFY(!model.hasOverride("hex"));
+        QVERIFY(model.apply());
+        QVERIFY(!local.contains("hex"));
+        for (const QVariant& original :
+             {QVariant(-1), QVariant(4294967296LL), QVariant(1.5), QVariant(true), QVariant(QString("0xAA"))})
+        {
+            editor->setValue(original);
+            input->setFocus();
+            QTest::keyClick(input, Qt::Key_Return);
+            unknown->setFocus();
+            QCOMPARE(editor->value(), original);
+            QCOMPARE(editor->value().typeId(), original.typeId());
+        }
+    }
+
+    Q_SLOT void resetHeightsFollowVisibleFrames()
+    {
+        Settings        base(QString {});
+        Settings        local(QString {});
+        SettingsOverlay overlay(base.node(""), local.node(""));
+        auto            descriptor = schema(
+            "combo: {type: string, enum: [a, b], default: a}\n"
+            "line: {type: string, default: sample}\n"
+            "spin: {type: integer, minimum: 0, maximum: 100, default: 4}\n"
+            "check: {type: boolean, default: true}\n"
+            "hex: {type: integer, minimum: 0, maximum: 4294967295, default: 0, x-widget: hexInteger}");
+        SettingsFormModel      model(descriptor, overlay);
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        form.resize(640, 400);
+        form.show();
+        auto verify = [&] {
+            QTest::qWait(20);
+            for (const auto& key :
+                 {QString("combo"), QString("line"), QString("spin"), QString("check"), QString("hex")})
+            {
+                auto* control = form.editor(key)->primaryControl();
+                auto* reset   = form.findChild<QToolButton*>("reset_" + key);
+                QVERIFY(control && reset);
+                const int expected = SettingsFieldEditor::controlVisualHeight(control);
+                QCOMPARE(reset->height(), expected);
+                QVERIFY(reset->iconSize().height() <= expected - 4);
+                if (key == "check")
+                {
+                    QVERIFY(reset->height() <= control->height());
+                }
+                else if (control->style()->objectName() == "windows11")
+                {
+                    QCOMPARE(reset->height(), control->height() - 2);
+                }
+            }
+        };
+        verify();
+        auto* combo = form.editor("combo")->findChild<QComboBox*>();
+        if (combo->style()->objectName() == "windows11")
+        {
+            // The style's public frame rect includes margins: verify its actual alpha-painted frame.
+            QImage frame(combo->size(), QImage::Format_ARGB32_Premultiplied);
+            frame.fill(Qt::transparent);
+            QStyleOptionComboBox option;
+            option.initFrom(combo);
+            option.rect         = combo->rect();
+            option.frame        = true;
+            option.subControls  = QStyle::SC_ComboBoxFrame;
+            option.state       &= ~(QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange);
+            QPainter painter(&frame);
+            combo->style()->drawComplexControl(QStyle::CC_ComboBox, &option, &painter, combo);
+            painter.end();
+            int first = frame.height();
+            int last  = -1;
+            for (int y = 0; y < frame.height(); ++y)
+            {
+                if (qAlpha(frame.pixel(frame.width() / 2, y)) != 0)
+                {
+                    first = std::min(first, y);
+                    last  = y;
+                }
+            }
+            QCOMPARE(first, 1);
+            QCOMPARE(last, combo->height() - 2);
+            QCOMPARE(form.findChild<QToolButton*>("reset_combo")->height(), last - first + 1);
+        }
+        for (int repeat = 0; repeat < 3; ++repeat)
+        {
+            model.setValue("combo", QString("b"));
+            model.setValue("check", false);
+            model.setValue("hex", qulonglong(0xffffffff));
+            verify();
+            for (const auto* key : {"combo", "check", "hex"})
+            {
+                form.findChild<QToolButton*>("reset_" + QString(key))->click();
+            }
+            verify();
+        }
+        QFont font = form.font();
+        font.setPointSize(font.pointSize() + 6);
+        form.setFont(font);
+        form.resize(800, 500);
+        verify();
+        form.hide();
+        form.show();
+        verify();
     }
 
     Q_SLOT void numericSpinBoxesPreserveBoundsAndLoadedValues()
@@ -910,14 +1082,14 @@ private:
         QTest::qWait(30);
         auto* valueControl = form.editor("fontSize")->findChild<QAbstractSpinBox*>();
         QVERIFY(valueControl);
-        QCOMPARE(reset->height(), valueControl->height());
+        QCOMPARE(reset->height(), SettingsFieldEditor::controlVisualHeight(valueControl));
         QVERIFY(reset->styleSheet().contains("#f0a13b"));
         const int originalHeight = reset->height();
         QFont     largerFont     = form.font();
         largerFont.setPointSize(largerFont.pointSize() + 6);
         form.setFont(largerFont);
         QTest::qWait(30);
-        QCOMPARE(reset->height(), valueControl->height());
+        QCOMPARE(reset->height(), SettingsFieldEditor::controlVisualHeight(valueControl));
         QVERIFY(reset->height() > originalHeight);
         const auto controlGeometry = valueControl->geometry();
         reset->hide();

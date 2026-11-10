@@ -198,7 +198,7 @@ Root `x-groups` is an ordered sequence of `{id, title, order}` mappings. A field
 `x-widget` selects an editor hint. `x-widget-options` is a mapping forwarded in
 the field's presentation data for a custom editor. Missing groups are created using
 their IDs as titles. Built-in hints include `boolCheckBox`, `stringLineEdit`,
-`enumCombo`, `integer`, `number`, `password`, `multiline`, `yaml`, `fontFamily`, and `color`; field types
+`enumCombo`, `integer`, `hexInteger`, `number`, `password`, `multiline`, `yaml`, `fontFamily`, and `color`; field types
 and `enum` can also select standard controls automatically. These flat annotations
 are presentation hints; JSON Schema remains authoritative for validation. The old
 nested `x-ui` annotations are rejected and are not aliases for the flat names.
@@ -480,6 +480,51 @@ Loaded values retain their original QVariant and text until edited, including
 invalid inherited values. Focus changes and confirmation alone must not clamp
 such a value or create an override. Arrow stepping and explicit edits create
 drafts; Apply remains atomic and rejects invalid values.
+
+The `hexInteger` hint selects a reusable hexadecimal line editor for nonnegative
+exact integers. It displays uppercase digits with a `0x` prefix; input accepts either
+letter case with or without that prefix. Values remain numeric QVariants and YAML
+numbers, including the complete uint32 range. Schema inclusive/exclusive bounds
+remain authoritative, and the editor diagnoses invalid text and out-of-range input
+without clamping. Loaded values retain their original types until explicitly edited.
+Defaults, inherited values, branch drafts and reset use the same numeric model.
+
+Reset buttons align to the visible primary control rather than a compound editor's
+stretched height. Checkboxes use the style's indicator rectangle. Qt's Windows 11
+style paints combo, spin and line-edit frames inside the widget rectangle, while its
+public frame subrects still report the full rectangle. The shared editor helper
+accounts for this paint margin only for those unstyled Windows 11 controls; other
+styles keep their own geometry. See the upstream
+[Qt Windows 11 style implementation](https://github.com/qt/qtbase/blob/6.10/src/plugins/styles/modernwindows/qwindows11style.cpp).
+Form rows and terminal quick properties share this alignment, including initial
+show, branch changes, reset visibility and font/layout changes. Small checkbox
+reset icons shrink to fit their indicator-height buttons.
+
+### Hexadecimal editing and reset-frame verification
+
+Verified on 2026-11-10 with Windows x64, Qt 6.12.0 and MSVC 19.44 Debug.
+The complete Debug build passed. All seven affected CTest suites passed:
+SettingsSchemaTests, SettingsFormTests, AppTests, ChecksumProcessorTests,
+LineflowPersistenceTests, LineflowEditorTests and TerminalProcessingTests.
+The final serial run completed in 106.98 seconds. Other suites and Release were
+not rerun. A running workspace Termaster executable initially blocked linking;
+the verified build-path processes were closed and the complete build then passed.
+
+Native Windows SettingsFormTests passed all 30 results at scales 1 and 2, and
+the actual Lineflow checksum fixture passed at both scales. Checks cover zero,
+uint32 maximum, uppercase/lowercase and optional-prefix input, malformed/range
+errors, typed numeric persistence/reload, untouched invalid loaded types,
+inheritance/reset and retained Custom CRC drafts. Reset checks cover combo,
+line, spin and checkbox controls, initial show, override hide/show, repeated
+reset and font/layout changes. A native style alpha-render check establishes
+the painted combo-frame extent independently of QWidget geometry.
+
+The same 1100 by 760 logical-pixel checksum dialogs were visually inspected
+at scales 1 and 2. The updated [Custom CRC reference](images/checksums/ChecksumUnwrapCustom.png)
+shows hexadecimal inputs and matching reset/control borders. Scale 2 captures
+remain temporary acceptance artifacts. Changed C++ files were clang-formatted;
+local documentation links and `git diff --check` passed. No downloads, device
+access, external endpoint acceptance or elevation were used.
 
 The 2026-11-09 Qt 6.12.0 / MSVC Debug verification passed all 26 configured CTest
 suites, including numeric stepping, scientific notation, wide exact integers,

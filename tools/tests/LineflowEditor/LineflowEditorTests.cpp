@@ -25,6 +25,7 @@
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QTemporaryDir>
+#include <QToolButton>
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
@@ -1642,6 +1643,17 @@ private slots:
             auto* selector = form->editor("algorithm")->findChild<QComboBox*>();
             QVERIFY(selector);
             QCOMPARE(selector->count(), 8);
+            const auto verifyResets = [&] {
+                QCoreApplication::processEvents();
+                for (const auto& key : form->visibleFields())
+                {
+                    auto* reset   = form->findChild<QToolButton*>("reset_" + key);
+                    auto* control = form->editor(key)->primaryControl();
+                    QVERIFY(reset && control);
+                    QCOMPARE(reset->height(), SettingsFieldEditor::controlVisualHeight(control));
+                }
+            };
+            verifyResets();
             QCOMPARE(selector->currentText(), QString("CRC-16/MODBUS"));
             QVERIFY(form->visibleFields().contains("position"));
             QVERIFY(form->visibleFields().contains("endianness"));
@@ -1660,21 +1672,24 @@ private slots:
             auto* width = form->editor("width")->findChild<QComboBox*>();
             QVERIFY(width);
             width->setCurrentIndex(2);
-            auto* polynomial = form->editor("polynomial")->findChild<QDoubleSpinBox*>();
-            auto* init       = form->editor("init")->findChild<QDoubleSpinBox*>();
-            auto* xorout     = form->editor("xorout")->findChild<QDoubleSpinBox*>();
+            verifyResets();
+            auto* polynomial = form->editor("polynomial")->findChild<QLineEdit*>();
+            auto* init       = form->editor("init")->findChild<QLineEdit*>();
+            auto* xorout     = form->editor("xorout")->findChild<QLineEdit*>();
             QVERIFY(polynomial && init && xorout);
-            QCOMPARE(polynomial->maximum(), 4294967295.0);
-            polynomial->setValue(517762881); // 0x1edc6f41
-            init->setValue(4294967295.0);
-            xorout->setValue(4294967295.0);
+            QCOMPARE(polynomial->text(), QString("0x8005"));
+            QCOMPARE(init->text(), QString("0xFFFF"));
+            QCOMPARE(xorout->text(), QString("0x0"));
+            polynomial->setText("0x1EDC6F41");
+            init->setText("0xFFFFFFFF");
+            xorout->setText("0xFFFFFFFF");
             selector->setCurrentIndex(0);
             QVERIFY(!form->visibleFields().contains("polynomial"));
             QVERIFY(!form->visibleFields().contains("endianness"));
             selector->setCurrentIndex(7);
-            QCOMPARE(polynomial->value(), 517762881.0);
-            QCOMPARE(init->value(), 4294967295.0);
-            QCOMPARE(xorout->value(), 4294967295.0);
+            QCOMPARE(polynomial->text(), QString("0x1EDC6F41"));
+            QCOMPARE(init->text(), QString("0xFFFFFFFF"));
+            QCOMPARE(xorout->text(), QString("0xFFFFFFFF"));
             QCOMPARE(width->currentIndex(), 2);
             if (row == 1 && !destination.isEmpty())
             {

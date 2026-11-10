@@ -424,13 +424,16 @@ bool TerminalProcessingPanel::applyDraft(QString* error)
 
 bool TerminalProcessingPanel::eventFilter(QObject* watched, QEvent* event)
 {
-    if (event->type() == QEvent::Resize)
+    if (event->type() == QEvent::Resize || event->type() == QEvent::Show || event->type() == QEvent::StyleChange
+        || event->type() == QEvent::FontChange)
     {
         const auto reset  = _resetControls.value(watched);
         auto*      widget = qobject_cast<QWidget*>(watched);
-        if (reset && widget && widget->height() > 0 && reset->height() != widget->height())
+        if (reset && widget && widget->height() > 0)
         {
-            reset->setFixedHeight(widget->height());
+            reset->setFixedHeight(SettingsFieldEditor::controlVisualHeight(widget));
+            const int iconHeight = std::min(14, std::max(1, reset->height() - 4));
+            reset->setIconSize(QSize(iconHeight, iconHeight));
         }
     }
     return QWidget::eventFilter(watched, event);
@@ -766,12 +769,9 @@ void TerminalProcessingPanel::_showProperties()
                 reset->setToolTip(tr("Inherited: %1").arg(model->inheritedValue(field.key).toString()));
                 reset->setStyleSheet(
                     "QToolButton { background: #f0a13b; border: 1px solid #b87522; border-radius: 3px; }");
-                QWidget* control = editor;
-                if (editor->layout() && editor->layout()->count() > 0 && editor->layout()->itemAt(0)->widget())
-                {
-                    control = editor->layout()->itemAt(0)->widget();
-                }
-                const auto controlHeight = control->sizeHint().height();
+                auto*      control       = editor->primaryControl();
+                const auto controlHeight = SettingsFieldEditor::controlVisualHeight(control,
+                                                                                    control->sizeHint().height());
                 reset->setFixedSize(20, controlHeight > 0 ? controlHeight : fontMetrics().height() + 6);
                 control->installEventFilter(this);
                 _resetControls.insert(control, reset);

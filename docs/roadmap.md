@@ -374,9 +374,16 @@ See [processing nodes](processing-nodes.md#length-wrap-and-length-unwrap).
 
 See [processing nodes](processing-nodes.md#checksum-wrap-and-checksum-unwrap).
 
+## SETTINGS-6: Hexadecimal integer editing and reset alignment
+
+- [x] Add a descriptor-selected hexadecimal editor preserving numeric configuration and invalid loaded types.
+- [x] Present Custom CRC polynomial, initial register and final XOR in hexadecimal.
+- [x] Align reset buttons with actual native frames and checkbox indicators in both settings hosts.
+- [x] Verify typed uint32 edits, inheritance, branch retention and native rendering at scales 1 and 2.
+
 ## HELP-1: Contextual module documentation
 
-Next scheduled stage after FLOW-25 packet checksums.
+Next scheduled stage after SETTINGS-6 hexadecimal editing and reset alignment.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
 - [ ] Package module-owned help and generated parameter reference with stable context topics.

@@ -10,6 +10,11 @@ public:
     using QWidget::QWidget;
     virtual QVariant value() const                   = 0;
     virtual void     setValue(const QVariant& value) = 0;
+    /** Primary control used to align adjacent actions. */
+    QWidget* primaryControl() const;
+    /** Height of the visible control frame, excluding native style paint margins. */
+    static int controlVisualHeight(const QWidget* control, int height = -1);
+
     /** Effective draft values keyed by relative settings paths, for auxiliary presentation. */
     virtual void setContext(const QVariantMap& context)
     {

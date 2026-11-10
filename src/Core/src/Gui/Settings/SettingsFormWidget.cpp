@@ -98,15 +98,8 @@ SettingsFormWidget::SettingsFormWidget(SettingsFormModel& model, SettingsWidgetR
             reset->setIconSize(QSize(14, 14));
             reset->setAccessibleName(
                 tr("Reset %1 to inherited value").arg(field.title.isEmpty() ? field.key : field.title));
-            QWidget* control = editorWidget;
-            if (editorWidget->layout() && editorWidget->layout()->count() > 0)
-            {
-                if (auto* child = editorWidget->layout()->itemAt(0)->widget())
-                {
-                    control = child;
-                }
-            }
-            reset->setFixedSize(20, control->sizeHint().height());
+            auto* control = editorWidget->primaryControl();
+            reset->setFixedSize(20, SettingsFieldEditor::controlVisualHeight(control, control->sizeHint().height()));
             _resetControls.insert(control, reset);
             control->installEventFilter(this);
             reset->setStyleSheet("QToolButton { background: #f0a13b; border: 1px solid #b87522; border-radius: 4px; }"
@@ -228,12 +221,15 @@ QStringList SettingsFormWidget::visibleFields() const
 
 bool SettingsFormWidget::eventFilter(QObject* watched, QEvent* event)
 {
-    if (event->type() == QEvent::Resize || event->type() == QEvent::Show)
+    if (event->type() == QEvent::Resize || event->type() == QEvent::Show || event->type() == QEvent::StyleChange
+        || event->type() == QEvent::FontChange)
     {
         if (auto* reset = _resetControls.value(watched))
         {
             const auto* control = qobject_cast<QWidget*>(watched);
-            reset->setFixedHeight(control->height());
+            reset->setFixedHeight(SettingsFieldEditor::controlVisualHeight(control));
+            const int iconHeight = std::min(14, std::max(1, reset->height() - 4));
+            reset->setIconSize(QSize(iconHeight, iconHeight));
         }
     }
     return QWidget::eventFilter(watched, event);
