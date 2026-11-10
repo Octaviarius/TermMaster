@@ -35,6 +35,8 @@ The following environment variables select additional controls:
 
 - `TERMASTER_PROFILE_RESIZE_QUICK=1`: warm/reset grid resize and cold/warm widget
   repaint controls; font family, grid, DPR and direct glyph-metric controls are recorded.
+  Changed-appearance repaint toggles foreground by one RGB unit to force cache
+  invalidation; identical reapplication measures the no-op path separately.
 - `TERMASTER_PROFILE_ONE_CYCLE=1`: one lifecycle cycle instead of five.
 - `TERMASTER_PROFILE_SKIP_TERMINAL=1`: lifecycle-only attribution without screen/paint microbenchmarks.
 - `TERMASTER_PROFILE_CLOSE_ONLY=1`: open the workspace and close its loaded window

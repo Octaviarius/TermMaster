@@ -359,16 +359,19 @@ void TerminalScreen::setLimits(int columns, int rows, int history)
                 _discardedLines += excess;
             }
         }
-        for (auto& line : lines)
+        if (oldColumns != _columns)
         {
-            const int previousColumns = int(line.cells.size());
-            line.cells.resize(_columns);
-            for (int c = previousColumns; c < _columns; ++c)
+            for (auto& line : lines)
             {
-                line.cells[c] = _blank();
+                const int previousColumns = int(line.cells.size());
+                line.cells.resize(_columns);
+                for (int c = previousColumns; c < _columns; ++c)
+                {
+                    line.cells[c] = _blank();
+                }
+                _repair(line);
+                line.revision = ++_revision;
             }
-            _repair(line);
-            line.revision = ++_revision;
         }
         while (lines.size() < _rows)
         {

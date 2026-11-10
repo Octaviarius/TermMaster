@@ -1,0 +1,20 @@
+{
+  "runs": [
+    {
+      "run": 1,
+      "exitCode": 0,
+      "timedOut": false,
+      "processWallSeconds": 5.660954699967988
+    }
+  ],
+  "sourceUnchanged": true,
+  "sourceFileCount": 3,
+  "serialOptIn": false,
+  "modes": {
+    "TERMASTER_PROFILE_ONE_CYCLE": "1",
+    "TERMASTER_PROFILE_RESIZE_QUICK": "1",
+    "TERMASTER_PROFILE_SKIP_TERMINAL": null,
+    "TERMASTER_PROFILE_CLOSE_ONLY": null
+  },
+  "exeSha256": "64552c66ed553991cb3bd873694958552540c745f3572ad6b36e65dcfb5c63a4"
+}

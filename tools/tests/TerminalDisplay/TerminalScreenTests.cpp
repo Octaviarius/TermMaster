@@ -183,6 +183,40 @@ private:
         QCOMPARE(screen.lines().size(), 2);
         QVERIFY(screen.cursorLine() < 2);
     }
+    Q_SLOT void heightResizePreservesRetainedWideStyledRows()
+    {
+        TerminalScreen screen;
+        screen.setLimits(12, 3, 20);
+        for (int row = 0; row < 12; ++row)
+        {
+            screen.receive(QString::fromUtf8("\x1b[31;1m日é\x1b[0m\r\n").toUtf8());
+        }
+        const auto text         = screen.text();
+        const auto retained     = screen.lines();
+        const auto cursorColumn = screen.cursorColumn();
+        screen.setLimits(12, 4, 20);
+        QCOMPARE(screen.text(), text);
+        QCOMPARE(screen.cursorColumn(), cursorColumn);
+        for (int row = 0; row < retained.size(); ++row)
+        {
+            QCOMPARE(screen.lines()[row].revision, retained[row].revision);
+            QCOMPARE(screen.lines()[row].cells[0].width, retained[row].cells[0].width);
+            QCOMPARE(screen.lines()[row].cells[1].width, retained[row].cells[1].width);
+            QCOMPARE(screen.lines()[row].cells[0].foreground, retained[row].cells[0].foreground);
+            QCOMPARE(screen.lines()[row].cells[0].attributes, retained[row].cells[0].attributes);
+        }
+        screen.receive("\x1b[?1049h");
+        screen.receive(QString::fromUtf8("日é").toUtf8());
+        screen.setLimits(12, 5, 20);
+        QCOMPARE(screen.lines()[0].cells[0].width, 2);
+        QCOMPARE(screen.lines()[0].cells[1].width, 0);
+        screen.receive("\x1b[?1049l");
+        QCOMPARE(screen.text(), text);
+        screen.setLimits(12, 2, 1);
+        QVERIFY(screen.lines().size() <= 3);
+        QVERIFY(screen.cursorLine() < screen.lines().size());
+        QVERIFY(screen.discardedLines() > 0);
+    }
     Q_SLOT void idempotentGeometryPreservesMarginsAndRevisions()
     {
         TerminalScreen screen;

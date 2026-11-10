@@ -197,8 +197,16 @@ void terminalProbe()
                     display.viewport()->repaint();
                     return true;
                 });
-                display.setAppearance({});
-                measure(QString("display.cold.repaint.content%1").arg(content), [&](QString&) {
+                const QVariantMap appearance {
+                    {"foreground", repeat % 2 == 0 ? "#e5e7ea" : "#e5e7eb"}
+                };
+                display.setAppearance(appearance);
+                measure(QString("display.changedAppearance.repaint.content%1").arg(content), [&](QString&) {
+                    display.viewport()->repaint();
+                    return true;
+                });
+                display.setAppearance(appearance);
+                measure(QString("display.unchangedAppearance.repaint.content%1").arg(content), [&](QString&) {
                     display.viewport()->repaint();
                     return true;
                 });
