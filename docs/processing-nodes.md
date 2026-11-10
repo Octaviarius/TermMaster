@@ -202,14 +202,23 @@ packets before Unwrap when transport reads split a message.
 | `refout` (Custom) | true | Reflect the final normal register before final XOR |
 | `xorout` (Custom) | 0 | Final XOR value; must fit width |
 
-Custom numbers use decimal integer editors and numeric persistence. Values up to
-4294967295 are exact, including in the existing wide integer editor. Width-specific
+Custom polynomial, initial register and final XOR use the descriptor-selected
+`hexInteger` editor with uppercase `0x` values and numeric persistence. Their
+defaults appear as `0x8005`, `0xFFFF` and `0x0`; CRC width remains a numeric
+dropdown. Values through `0xFFFFFFFF` (4294967295) are exact. Width-specific
 bounds are enforced both by the form schema and the factory; changing width may
 require explicitly adjusting polynomial, initial register and final XOR. Even
 nonzero polynomials are accepted as specified recurrences. They can have weaker
 error detection properties than conventional CRC polynomials. Byte order affects
 only serialization, independently of input/output reflection. It has no effect on
 one-byte fields, including an 8-bit Custom CRC.
+
+
+The SETTINGS-6 follow-up verified hexadecimal numeric persistence, retained
+preset/custom drafts and matching native reset borders through the generated
+form, actual Lineflow fixture and checksum runtime tests. The complete Debug
+build and all seven affected suites passed; native forms were checked at scales
+1 and 2. See [settings-form acceptance](settings-forms.md#hexadecimal-editing-and-reset-frame-verification).
 
 The named parameters and ASCII `123456789` check values follow the
 [CRC RevEng catalogue](https://reveng.sourceforge.io/crc-catalogue/all.htm).

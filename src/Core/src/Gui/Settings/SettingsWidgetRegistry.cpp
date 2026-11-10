@@ -17,6 +17,7 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QSignalBlocker>
 #include <QSpinBox>
 #include <QStyle>
@@ -370,6 +371,99 @@ private:
                              _combo->itemDelegate()->sizeHint(option, _combo->model()->index(row, 0)).width() + 24);
         }
         _combo->view()->setMinimumWidth(width);
+    }
+};
+
+/** Unsigned exact integer presentation; the settings value remains numeric. */
+class HexIntegerEditor final : public SettingsFieldEditor
+{
+public:
+    HexIntegerEditor(const SettingsSchema::Field& field, QWidget* parent) : SettingsFieldEditor(parent), _field(field)
+    {
+        auto* layout = new QHBoxLayout(this);
+        layout->setContentsMargins(0, 0, 0, 0);
+        _input = new QLineEdit(this);
+        _input->setObjectName("settingsHexInteger");
+        _input->setMaxLength(32);
+        _input->setValidator(new QRegularExpressionValidator(QRegularExpression("(?:0[xX])?[0-9a-fA-F]+"), _input));
+        layout->addWidget(_input);
+        connect(_input, &QLineEdit::textChanged, this, [this] {
+            _untouched = false;
+            emit valueChanged();
+        });
+        connect(_input, &QLineEdit::editingFinished, this, [this] {
+            if (!_untouched && hasAcceptableInput())
+            {
+                const QSignalBlocker blocker(_input);
+                _input->setText(_formatted(value()));
+            }
+        });
+    }
+
+    QVariant value() const override
+    {
+        if (_untouched)
+        {
+            return _value;
+        }
+        bool       ok     = false;
+        const auto parsed = _input->text().toULongLong(&ok, 16);
+        return ok ? QVariant::fromValue(parsed) : QVariant(_input->text());
+    }
+    void setValue(const QVariant& value) override
+    {
+        _value     = value;
+        _untouched = true;
+        const QSignalBlocker blocker(_input);
+        _input->setText(_formatted(value));
+    }
+    bool hasAcceptableInput() const override
+    {
+        return inputError().isEmpty();
+    }
+    QString inputError() const override
+    {
+        if (_untouched)
+        {
+            return {};
+        }
+        if (!_input->hasAcceptableInput() || value().typeId() == QMetaType::QString)
+        {
+            return tr("Enter a hexadecimal integer, optionally prefixed with 0x");
+        }
+        const double parsed  = value().toDouble();
+        const double minimum = std::max(0.0, _field.definition.value("minimum", 0).toDouble());
+        const double maximum = std::min(9007199254740991.0,
+                                        _field.definition.value("maximum", 9007199254740991.0).toDouble());
+        if (parsed < minimum || parsed > maximum
+            || (_field.definition.contains("exclusiveMinimum")
+                && parsed <= _field.definition.value("exclusiveMinimum").toDouble())
+            || (_field.definition.contains("exclusiveMaximum")
+                && parsed >= _field.definition.value("exclusiveMaximum").toDouble()))
+        {
+            return tr("Hexadecimal integer is outside the permitted range");
+        }
+        return {};
+    }
+
+private:
+    SettingsSchema::Field _field;
+    QLineEdit*            _input = nullptr;
+    QVariant              _value;
+    bool                  _untouched = true;
+
+    QString _formatted(const QVariant& value) const
+    {
+        const auto   type    = value.typeId();
+        const bool   numeric = type == QMetaType::Int || type == QMetaType::UInt || type == QMetaType::LongLong
+                            || type == QMetaType::ULongLong || type == QMetaType::Double || type == QMetaType::Float;
+        const double number  = numeric ? value.toDouble() : -1;
+        if (numeric && std::isfinite(number) && number >= 0 && number <= 9007199254740991.0
+            && std::trunc(number) == number)
+        {
+            return QStringLiteral("0x") + QString::number(value.toULongLong(), 16).toUpper();
+        }
+        return value.toString();
     }
 };
 
@@ -755,6 +849,7 @@ const QStringList builtins {"boolCheckBox",
                             "stringLineEdit",
                             "enumCombo",
                             "integer",
+                            "hexInteger",
                             "number",
                             "password",
                             "multiline",
@@ -820,6 +915,10 @@ SettingsFieldEditor* SettingsWidgetRegistry::create(const SettingsSchema::Field&
     if (field.widget == "fontFamily")
     {
         return new FontFamilyEditor(parent);
+    }
+    if (field.widget == "hexInteger")
+    {
+        return new HexIntegerEditor(field, parent);
     }
     return new BuiltinEditor(field, parent);
 }

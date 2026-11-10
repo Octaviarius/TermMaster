@@ -193,19 +193,21 @@ content:
         polynomial:
           type: integer
           title: Polynomial
-          description: Normal unreflected polynomial without its top bit, in decimal (32773 = 0x8005). Nonzero; must fit CRC width.
+          description: Normal unreflected polynomial without its top bit, in hexadecimal. Nonzero; must fit CRC width.
           minimum: 1
           maximum: 4294967295
           default: 32773
+          x-widget: hexInteger
           x-group: custom
           x-order: 1
         init:
           type: integer
           title: Initial register
-          description: Initial normal register value, in decimal; must fit CRC width.
+          description: Initial normal register value, in hexadecimal; must fit CRC width.
           minimum: 0
           maximum: 4294967295
           default: 65535
+          x-widget: hexInteger
           x-group: custom
           x-order: 2
         refin:
@@ -223,10 +225,11 @@ content:
         xorout:
           type: integer
           title: Final XOR
-          description: XOR applied after output reflection, in decimal; must fit CRC width.
+          description: XOR applied after output reflection, in hexadecimal; must fit CRC width.
           minimum: 0
           maximum: 4294967295
           default: 0
+          x-widget: hexInteger
           x-group: custom
           x-order: 5
       allOf:

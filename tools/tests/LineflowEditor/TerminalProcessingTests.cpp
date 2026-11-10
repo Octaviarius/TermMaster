@@ -712,7 +712,7 @@ private:
         auto* combo = caseEditor->findChild<QComboBox*>();
         auto* reset = panel->propertiesWidget()->findChild<QToolButton*>("reset_Hex encoding/letterCase");
         QVERIFY(combo && reset);
-        QTRY_COMPARE(reset->height(), combo->height());
+        QTRY_COMPARE(reset->height(), SettingsFieldEditor::controlVisualHeight(combo));
         QVERIFY(QDir().mkpath(destination));
         QVERIFY(window.grab().save(QDir(destination).filePath("TerminalProcessing.png")));
         bool rxCancelled = false;
