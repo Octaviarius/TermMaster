@@ -498,3 +498,29 @@ central block). Lineflow commands, Inplace editor buttons and the editor window
 use the Lineflow icon (two vertical lanes with staggered blocks). Both SVGs use
 palette-aware strokes through the existing icon engine. The editor offers Apply
 and Close; Close discards unapplied changes through the existing reject path.
+
+## Application shutdown and instance retirement
+
+The registry shares an instance-lifetime counter with scoped registries and
+prepared factories. `shutdown(timeoutMs, error)` permanently rejects creation,
+drains deferred ownership releases on the owning thread and reports bounded
+failure for non-quiescent instances. Consumers must release live handles first.
+Normal registry/scope destruction does not invoke shutdown: prepared snapshots
+may still outlive those catalog objects as before.
+
+App closes terminal runtimes while its application data, plugin code and Qt event
+dispatcher are alive, then drains registry ownership before member destruction.
+Cancellation acknowledgements still defer deletion until the callback frame has
+returned. Pins are released only after the processor destructor returns. A late
+release or acknowledgement after the bounded shutdown phase keeps code pinned
+instead of posting work into Qt's event-queue cleanup. A broken provider can
+therefore remain pinned at process exit; it is never force-unloaded while active.
+
+PERF-2 verification: the Release processor catalog, processing and duplex suites
+passed, including nested scoped/deferred cancellation and bounded missing-ack
+cases. Seven application close scenarios passed, including console/Inplace and
+six terminals with nested Inplace definitions. The deferred close fixture now
+owns its error string rather than borrowing a returned stack local. Three
+close-only runs on isolated real-workspace copies exited normally in 0.69–1.59 s
+including startup; original source hashes remained unchanged. Their raw records
+are under `docs/benchmarks/application-profile/after-shutdown/`.

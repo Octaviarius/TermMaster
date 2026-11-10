@@ -1,4 +1,9 @@
+#include <QCoreApplication>
+#include <QDeadlineTimer>
 #include <QDebug>
+#include <QElapsedTimer>
+#include <QEvent>
+#include <QEventLoop>
 #include <QJsonDocument>
 #include <QPointer>
 #include <QRegularExpression>
@@ -449,6 +454,14 @@ private:
 };
 } // namespace
 
+struct ProcessorRegistry::Lifetime
+{
+    int  instances = 0;
+    bool accepting = true;
+    bool draining  = false;
+    bool finished  = false;
+};
+
 struct ProcessorRegistry::Entry
 {
     QString                         owner;
@@ -466,10 +479,55 @@ struct ProcessorRegistry::ProviderEntry
     int      instances = 0;
 };
 
-ProcessorRegistry::ProcessorRegistry(QObject* parent) : QObject(parent)
+ProcessorRegistry::ProcessorRegistry(QObject* parent) : QObject(parent), _lifetime(std::make_shared<Lifetime>())
 {
 }
 ProcessorRegistry::~ProcessorRegistry() = default;
+
+bool ProcessorRegistry::shutdown(int timeoutMs, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (QThread::currentThread() != thread())
+    {
+        return fail(error, "Processor shutdown must use the registry thread");
+    }
+    if (_lifetime->draining)
+    {
+        return fail(error, "Processor shutdown is already in progress");
+    }
+    if (_lifetime->finished)
+    {
+        return _lifetime->instances == 0 || fail(error, "Processors remain pinned after shutdown");
+    }
+
+    _lifetime->accepting = false;
+    _lifetime->draining  = true;
+    QElapsedTimer elapsed;
+    elapsed.start();
+    while (_lifetime->instances > 0 && elapsed.elapsed() < std::clamp(timeoutMs, 0, 60000))
+    {
+        const int previous = _lifetime->instances;
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, QDeadlineTimer(1));
+        if (_lifetime->instances > 0 && _lifetime->instances == previous)
+        {
+            QThread::msleep(1);
+        }
+    }
+    _lifetime->draining = false;
+    _lifetime->finished = true;
+
+    if (_lifetime->instances > 0)
+    {
+        return fail(error,
+                    "Processor shutdown timed out; " + QString::number(_lifetime->instances)
+                        + " instances remain pinned");
+    }
+    return true;
+}
 
 std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(const QString&    owner,
                                                                               const Definition& definition)
@@ -1018,6 +1076,7 @@ std::unique_ptr<ProcessorRegistry> ProcessorRegistry::scoped(const QVariantMap& 
     }
 
     auto result        = std::make_unique<ProcessorRegistry>();
+    result->_lifetime  = _lifetime;
     result->_entries   = _entries;
     result->_providers = _providers;
     const auto pin     = [&result](const auto& entries) {
@@ -1630,12 +1689,18 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
                                                       const QVariantMap&          configuration,
                                                       const Processor::Limits&    limits,
                                                       std::shared_ptr<const void> lease,
+                                                      std::shared_ptr<Lifetime>   lifetime,
                                                       int                         inputCount,
                                                       int                         outputCount,
                                                       QStringList                 inputNames,
                                                       QStringList                 outputNames,
                                                       QString*                    error)
 {
+    if (!lifetime->accepting)
+    {
+        fail(error, "Processor registry is shutting down");
+        return {};
+    }
     struct Hold
     {
         std::shared_ptr<const void> lease;
@@ -1674,22 +1739,34 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
         fail(error, "Processor factory must return an unparented instance on the calling thread");
         return {};
     }
-    auto leased = std::shared_ptr<Processor>(instance.release(), [hold](Processor* processor) {
+    ++lifetime->instances;
+    auto leased = std::shared_ptr<Processor>(instance.release(), [hold, lifetime](Processor* processor) {
         // An explicit sentinel pins code even if a broken implementation discards
         // the acknowledgement callback or throws before retaining it.
-        auto pin          = new std::shared_ptr<Hold>(hold);
+        auto pin = new std::shared_ptr<Hold>(hold);
+        if (lifetime->finished)
+        {
+            qCritical() << "Processor released after shutdown; instance remains pinned";
+            return;
+        }
         auto acknowledged = std::make_shared<bool>(false);
         try
         {
-            processor->cancel([pin, processor, acknowledged] {
+            processor->cancel([pin, processor, acknowledged, lifetime] {
                 if (*acknowledged)
                 {
                     return;
                 }
                 *acknowledged = true;
-                QTimer::singleShot(0, processor, [pin, processor] {
+                if (lifetime->finished)
+                {
+                    qCritical() << "Processor acknowledged after shutdown; instance remains pinned";
+                    return;
+                }
+                QTimer::singleShot(0, processor, [pin, processor, lifetime] {
                     delete processor;
                     delete pin;
+                    --lifetime->instances;
                 });
             });
         }
@@ -1714,6 +1791,11 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::prepare(co
     if (error)
     {
         error->clear();
+    }
+    if (!_lifetime->accepting)
+    {
+        fail(error, "Processor registry is shutting down");
+        return {};
     }
     if (limits.maxBytes <= 0 || limits.maxChunks <= 0 || limits.maxDepth <= 0 || limits.maxInstances <= 0
         || limits.eventBudget <= 0 || limits.maxSteps <= 0)
@@ -1833,7 +1915,8 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
         const auto paths     = result->_paths;
         const auto defaults  = effective->value("overrides").toMap();
         const auto snapshot  = result->_configuration;
-        result->_instantiate = [lease,
+        result->_instantiate = [lifetime = _lifetime,
+                                lease,
                                 entry,
                                 children = std::move(children),
                                 paths,
@@ -1917,6 +2000,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                            configuration,
                            limits,
                            lease,
+                           lifetime,
                            entry->type.inputCount,
                            entry->type.outputCount,
                            entry->type.inputNames,
@@ -2002,7 +2086,8 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
             referencePins.push_back(std::move(child));
         }
     }
-    result->_instantiate = [lease,
+    result->_instantiate = [lifetime = _lifetime,
+                            lease,
                             providerLease,
                             entry,
                             referencePins,
@@ -2027,6 +2112,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                        configuration,
                        limits,
                        pins,
+                       lifetime,
                        entry->type.inputCount,
                        entry->type.outputCount,
                        entry->type.inputNames,
