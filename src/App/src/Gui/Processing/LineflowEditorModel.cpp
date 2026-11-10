@@ -799,10 +799,9 @@ void LineflowEditorModel::_append(QStandardItem* parent,
         const auto shape = processorShape(target);
         item->setToolTip(node.value("name").toString() + '\n' + (unavailable ? reason : target)
                          + QString("\n%1 × %2").arg(shape.first).arg(shape.second));
-        item->setIcon(Icons::icon(unavailable                           ? "triangle-exclamation-point" :
-                                  shape.first == 2 && shape.second == 2 ? "network" :
-                                  localBlock                            ? "link" :
-                                                                          "workflow"));
+        const bool composite = localBlock || (metadata && metadata->kind != "native");
+        item->setIcon(unavailable ? Icons::icon("triangle-exclamation-point") :
+                                    Icons::processorBlock(composite, shape.first == 2 && shape.second == 2));
         parent->appendRow({item, description});
         if (localBlock)
         {

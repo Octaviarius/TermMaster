@@ -244,6 +244,25 @@ added: `Gate`, `Gate 2`, `Gate 3`. Names are unique within the containing block;
 existing and moved occurrences are not renamed. Slash/NUL removal and bounded
 truncation keep generated names valid for the current definition format.
 
+### Processing block icons
+
+Processing views use four project-owned SVG symbols: an empty rounded body for an
+elementary processor and a body divided into four sections for a composite definition.
+One lead above and below denotes 1x1 topology; two leads above and below denote 2x2.
+Composition is determined by definition kind, independently of catalog origin.
+Unavailable entries retain the warning symbol. Palette favorites, canvas previews
+and terminal selectors share the same symbols; the topology picker uses composite
+symbols because it describes a Lineflow block. Rendering retains palette-aware
+colors, selected-state contrast and disabled opacity through the existing icon engine.
+The original artwork belongs to Core under `Res/Icons`; it does not modify Lucide.
+
+The icon refinement built the Debug application and modules and passed all four
+affected Icon/LineflowEditor/TerminalProcessing/ProcessorFavorites CTest suites in
+14.74 seconds. Native Windows 1x/2x captures each passed three QtTest checks without
+skips; elementary and composite symbols were visually inspected. SVG XML and
+`git diff --check` passed. Release and unrelated suites were not rerun for this
+presentation-only change.
+
 ### FLOW-9 verification
 
 Qt 6.12.0 / MSVC2022 x64 Debug built the application, bundled modules and tests.

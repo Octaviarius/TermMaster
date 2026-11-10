@@ -10,6 +10,7 @@ static void initializeActionIcons()
 {
     static const bool initialized = [] {
         Q_INIT_RESOURCE(actionIcons);
+        Q_INIT_RESOURCE(processorIcons);
         return true;
     }();
     Q_UNUSED(initialized);
@@ -82,4 +83,9 @@ QIcon Icons::icon(const QString& name, const QColor& color)
         return {};
     }
     return QIcon(new PaletteIconEngine(file.readAll(), color));
+}
+
+QIcon Icons::processorBlock(bool composite, bool duplex)
+{
+    return icon(QString("Processor%1%2").arg(composite ? "Composite" : "Elementary").arg(duplex ? 4 : 2));
 }
