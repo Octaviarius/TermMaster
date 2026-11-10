@@ -35,7 +35,6 @@ ProcessorSelector::ProcessorSelector(QWidget* parent, ProcessorFavorites* favori
     connect(_tree, &ProcessorCatalogTree::favoritesChanged, this, &ProcessorSelector::_rebuild);
     _tree->setHeaderHidden(true);
     _tree->setUniformRowHeights(false);
-    _tree->setIndentation(16);
     _tree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     layout->addWidget(_search);
     layout->addWidget(_tree);

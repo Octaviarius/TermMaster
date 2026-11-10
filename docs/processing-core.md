@@ -458,3 +458,7 @@ nested blocks. Names and private occurrence override paths remain unchanged.
 Unary nodes cannot enable flipping; malformed flags or incompatible shapes fail
 validation. Changing orientation replaces running terminal instances through the
 existing prepared-configuration path.
+
+Processor catalog trees use a shared 12-logical-pixel indentation per level in
+the Lineflow palette and terminal selector popup, preserving hierarchy while
+leaving more width for processor names.
