@@ -271,3 +271,11 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Exit after an accepted main-window close independently of auxiliary windows.
 - [x] Preserve persistence-error close veto and normal resource destruction.
 - [x] Verify bounded subprocess exit, open-console shutdown and affected builds.
+
+## APP-14: Processing faults and terminal input controls
+
+- [x] Preserve transport connections and requested state on processing errors.
+- [x] Keep failed lanes blocked and stop Tx producers without resetting processors.
+- [x] Show sending controls only for file or periodic production.
+- [x] Add a checkable per-terminal Local echo toolbar/menu action.
+- [x] Verify failure isolation, recovery, selection state and native Windows controls.

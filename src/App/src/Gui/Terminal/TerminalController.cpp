@@ -206,6 +206,31 @@ TerminalController::TerminalController(MainWindow&                 window,
         action.trigger  = [this, requested] { _setAllConnections(requested); };
         registerAction(std::move(action));
     }
+
+    Action echo;
+    echo.id       = "Terminal.LocalEcho";
+    echo.title    = tr("Local echo");
+    echo.iconName = "keyboard";
+    echo.group    = "output";
+    echo.role     = Action::Role::Clear;
+    echo.enabled  = [this] { return _current() != nullptr; };
+    echo.trigger  = [this] {
+        auto* current = _current();
+        if (!current)
+        {
+            return;
+        }
+
+        QString    error;
+        const bool enabled = current->settings.value("input/localEcho", false).toBool();
+        if (!current->settings.setValue("input/localEcho", !enabled, &error))
+        {
+            showMessage(error);
+        }
+    };
+    registerAction(std::move(echo));
+    _actions.at("Terminal.LocalEcho").action->setCheckable(true);
+
     const QStringList ids {"Terminal.BufferedInput", "Terminal.SendFile", "Terminal.Processing"};
     const QStringList titles {tr("Buffered input"), tr("Send file…"), tr("Processing")};
     const QStringList icons {"panel-bottom", "file-plus", "sliders-horizontal"};
@@ -526,6 +551,11 @@ void TerminalController::refreshTerminalActions()
     {
         buffered->second.action->setChecked(selected && selected->editor && selected->editor->buffered());
     }
+    const auto echo = _actions.find("Terminal.LocalEcho");
+    if (echo != _actions.end() && echo->second.action)
+    {
+        echo->second.action->setChecked(selected && selected->settings.value("input/localEcho", false).toBool());
+    }
     const auto processing = _actions.find("Terminal.Processing");
     if (processing != _actions.end() && processing->second.action)
     {
@@ -746,10 +776,12 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             if (runtime.processing->submit(ProcessingRouter::Direction::Rx, {bytes, boundary}, {}, &error)
                 != Processor::AcceptResult::Accepted)
             {
-                runtime.lastError           = tr("Receive processing overflow: %1").arg(error);
-                runtime.connectionRequested = false;
-                runtime.device->close();
-                self->showMessage(runtime.lastError);
+                if (runtime.processing->diagnostics(ProcessingRouter::Direction::Rx).state
+                    != ProcessingRouter::State::Failed)
+                {
+                    runtime.processing->fail(ProcessingRouter::Direction::Rx,
+                                             tr("Receive processing rejected input: %1").arg(error));
+                }
             }
         }
     };
@@ -888,10 +920,17 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             {
                 return;
             }
+            const QPointer<TerminalController> self(this);
             it->second->lastError = error;
-            it->second->advanced->stop();
-            it->second->connectionRequested = false;
-            it->second->device->close();
+            if (it->second->processing->diagnostics(ProcessingRouter::Direction::Tx).state
+                == ProcessingRouter::State::Failed)
+            {
+                it->second->advanced->stopProducers();
+            }
+            if (!self)
+            {
+                return;
+            }
             showMessage((direction == ProcessingRouter::Direction::Rx ? tr("Rx processing: ") : tr("Tx processing: "))
                         + error);
         },
@@ -1157,11 +1196,16 @@ void TerminalController::_changed(const QString& id)
             }
             if (!configured)
             {
-                terminal.connectionRequested = false;
-                terminal.lastError           = error;
-                terminal.device->close();
-                showMessage(error);
-                return;
+                terminal.processing->fail(ProcessingRouter::Direction::Rx, error);
+                if (!self || !panel)
+                {
+                    return;
+                }
+                terminal.processing->fail(ProcessingRouter::Direction::Tx, error);
+                if (!self || !panel)
+                {
+                    return;
+                }
             }
         }
         else
@@ -1869,11 +1913,15 @@ void TerminalController::_showTabMenu(const QPoint& position)
         proxy->setObjectName(id);
         proxy->setToolTip(source->toolTip());
         proxy->setEnabled(source->isEnabled());
+        proxy->setCheckable(source->isCheckable());
+        proxy->setChecked(source->isChecked());
         connect(source, &QAction::changed, proxy, [source, proxy] {
             if (source)
             {
                 proxy->setEnabled(source->isEnabled());
                 proxy->setVisible(source->isVisible());
+                proxy->setCheckable(source->isCheckable());
+                proxy->setChecked(source->isChecked());
             }
         });
         connect(source, &QObject::destroyed, proxy, [proxy] { proxy->setEnabled(false); });
