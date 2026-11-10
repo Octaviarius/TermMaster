@@ -87,7 +87,7 @@ command bar with popup history/tools and a separate processor-properties side pa
 - Configurable raw-byte spacing, ending-pattern pauses and byte-rate limiting
   through native Pacer; no transport-queue delay settings.
 - Periodic command sending with a visible active indicator and a stop button.
-- Paste policy: send immediately or retain for editing; confirm multiline sending.
+- Paste policy: send immediately or retain for editing; send multiline input without an extra confirmation.
 - Explicit disconnected-send policy: reject sending or retain a bounded queue
   until reconnection. Never silently discard or replay pending commands.
 

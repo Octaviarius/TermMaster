@@ -30,8 +30,7 @@ uses the terminal's existing paste bytes, without appending a command terminator
 Immediate paste into the command editor submits the pasted text as one command
 with the chosen terminator. Standard keyboard, Edit menu and editor context-menu
 paste paths share the policy. Multiline submissions and immediate multiline paste
-ask for confirmation by default, with No selected. The scoped confirmation setting
-can disable the prompt explicitly. Cancelling preserves the draft and history.
+are sent without an additional confirmation dialog.
 
 Accepted command history is per live terminal, memory-only and excluded from
 routine logs and settings. Up/Down recall entries while retaining the unfinished
@@ -41,7 +40,7 @@ history is limited to 100 entries and 1 MiB of UTF-8. Oversized paste is rejecte
 
 Input settings use the existing `input` YAML overlay and generated descriptor:
 `mode`, `terminator`, `customTerminator`, `pastePolicy`,
-`confirmMultiline`, `localEcho`, `favorites`,
+`localEcho`, `favorites`,
 `disconnectedPolicy` and `periodMs`. Controls update only the active
 terminal override; application/workspace/session generated forms provide inherited
 values. Normal existing session saves persist those overrides. Settings and custom

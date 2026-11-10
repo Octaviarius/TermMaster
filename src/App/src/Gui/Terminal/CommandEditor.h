@@ -32,7 +32,6 @@ public:
     void setSendingState(bool active, const QString& status);
     void retainPaste(const QString& text);
     void pasteText(const QString& text);
-    bool confirmPaste(const QByteArray& bytes);
 
     Q_SIGNAL void settingChanged(const QString& key, const QVariant& value);
 

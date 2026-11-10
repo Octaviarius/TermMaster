@@ -37,7 +37,6 @@ private:
         QSignalSpy stop(&widget, &CommandEditor::stopRequested);
         widget.setSettings({
             {              "mode", "buffered"},
-            {  "confirmMultiline",      false},
             {          "periodMs",        200},
             {"disconnectedPolicy",   "retain"}
         });
@@ -77,8 +76,7 @@ private:
         CommandEditor widget;
         widget.resize(640, 200);
         widget.setSettings({
-            {            "mode", "buffered"},
-            {"confirmMultiline",      false}
+            {"mode", "buffered"},
         });
         widget.show();
         auto*      draft   = widget.findChild<QPlainTextEdit*>("commandDraft");
@@ -158,7 +156,7 @@ private:
         QCOMPARE(draft->toPlainText(), QString("Retained draft"));
     }
 
-    Q_SLOT void periodicConfirmationPreservesDraft()
+    Q_SLOT void periodicMultilinePreservesDraft()
     {
         CommandEditor widget;
         widget.setSettings({
@@ -167,17 +165,9 @@ private:
         auto* draft = widget.findChild<QPlainTextEdit*>("commandDraft");
         draft->setPlainText("AT\nRESET");
         QSignalSpy periodic(&widget, &CommandEditor::periodicRequested);
-        bool       prompted = false;
-        QTimer::singleShot(0, [&] {
-            if (auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget()))
-            {
-                prompted = true;
-                box->done(QMessageBox::No);
-            }
-        });
         widget.findChild<QPushButton*>("commandPeriodicStart")->click();
-        QVERIFY(prompted);
-        QCOMPARE(periodic.count(), 0);
+        QCOMPARE(periodic.count(), 1);
+        QCOMPARE(periodic.first().at(0).toString(), QString("AT\nRESET"));
         QCOMPARE(draft->toPlainText(), QString("AT\nRESET"));
         QCOMPARE(widget.findChild<QComboBox*>("commandHistory")->count(), 0);
     }
@@ -237,8 +227,7 @@ private:
     {
         CommandEditor widget;
         widget.setSettings({
-            {            "mode", "buffered"},
-            {"confirmMultiline",      false}
+            {"mode", "buffered"},
         });
         widget.show();
         auto* draft   = widget.findChild<QPlainTextEdit*>("commandDraft");
@@ -299,15 +288,17 @@ private:
         QVERIFY(sent);
     }
 
-    Q_SLOT void pastePoliciesAndConfirmation()
+    Q_SLOT void pastePoliciesWithoutConfirmation()
     {
         CommandEditor widget;
         widget.setSettings({
             {"mode", "buffered"}
         });
-        auto* draft = widget.findChild<QPlainTextEdit*>("commandDraft");
-        int   sends = 0;
-        widget.setSendCallback([&](const QString&, const QString&, const QString&) {
+        auto*   draft = widget.findChild<QPlainTextEdit*>("commandDraft");
+        int     sends = 0;
+        QString lastSent;
+        widget.setSendCallback([&](const QString& text, const QString&, const QString&) {
+            lastSent = text;
             ++sends;
             return true;
         });
@@ -323,23 +314,14 @@ private:
         QCOMPARE(sends, 1);
         QCOMPARE(draft->toPlainText(), QString("AT"));
         QApplication::clipboard()->setText("AT\nRESET");
-        bool defaultNo = false;
-        QTimer::singleShot(0, [&] {
-            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
-            if (box)
-            {
-                defaultNo = box->defaultButton() == box->button(QMessageBox::No);
-                box->done(QMessageBox::No);
-            }
-        });
         QVERIFY(QMetaObject::invokeMethod(draft, "paste"));
-        QVERIFY(defaultNo);
-        QCOMPARE(widget.findChild<QComboBox*>("commandHistory")->count(), 1);
-        QCOMPARE(sends, 1);
+        QCOMPARE(widget.findChild<QComboBox*>("commandHistory")->count(), 2);
+        QCOMPARE(sends, 2);
+        QCOMPARE(lastSent, QString("AT\nRESET"));
         QCOMPARE(draft->toPlainText(), QString("AT"));
         QTest::keyClick(draft, Qt::Key_Return, Qt::ShiftModifier);
         QVERIFY(draft->toPlainText().contains('\n'));
-        QCOMPARE(sends, 1);
+        QCOMPARE(sends, 2);
         const QString retained = draft->toPlainText();
         widget.setSettings({
             {       "mode", "buffered"},
@@ -358,7 +340,7 @@ private:
         QVERIFY(QMetaObject::invokeMethod(draft, "paste"));
         QVERIFY(warned);
         QCOMPARE(draft->toPlainText(), retained);
-        QCOMPARE(sends, 1);
+        QCOMPARE(sends, 2);
     }
 };
 

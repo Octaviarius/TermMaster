@@ -21,7 +21,7 @@ Preserve backend capability/state checks and verify the affected GUI.
 
 - [x] Provide an editor and buffered send-on-submit mode, distinct from local echo.
 - [x] Add byte-safe terminators: LF, CRLF, CR, NUL, none and custom sequences.
-- [x] Add paste policy and confirmation for multiline sending.
+- [x] Add paste policy and direct multiline sending without an extra confirmation.
 - [x] Add command history with Up/Down navigation and search.
 
 Establish one submission path that handles partial writes, backpressure and
