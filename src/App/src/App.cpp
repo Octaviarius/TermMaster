@@ -764,7 +764,7 @@ void App::_setupActions()
     connect(plugins, &QAction::triggered, this, &App::_showPluginManager);
     _data->lineflowAction = _addAction("Workspace.Processing",
                                        tr("Lineflow editor…"),
-                                       Icons::icon("workflow"),
+                                       Icons::icon("Lineflow"),
                                        {},
                                        "tools",
                                        "management");

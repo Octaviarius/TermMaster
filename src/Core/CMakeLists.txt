@@ -246,6 +246,8 @@ qt_add_resources(Core "processorIcons"
         "Res/Icons/ProcessorElementary4.svg"
         "Res/Icons/ProcessorComposite2.svg"
         "Res/Icons/ProcessorComposite4.svg"
+        "Res/Icons/Processing.svg"
+        "Res/Icons/Lineflow.svg"
 )
 
 # Use the platform zlib when available; the selected Qt kit also provides its bundled headers.

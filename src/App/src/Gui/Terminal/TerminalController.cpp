@@ -233,7 +233,7 @@ TerminalController::TerminalController(MainWindow&                 window,
 
     const QStringList ids {"Terminal.BufferedInput", "Terminal.SendFile", "Terminal.Processing"};
     const QStringList titles {tr("Buffered input"), tr("Send fileвЂ¦"), tr("Processing")};
-    const QStringList icons {"panel-bottom", "file-plus", "sliders-horizontal"};
+    const QStringList icons {"panel-bottom", "file-plus", "Processing"};
     for (int index = 0; index < ids.size(); ++index)
     {
         Action action;

@@ -71,6 +71,7 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
 {
     setObjectName("lineflowEditor");
     setWindowTitle(tr("Workspace Lineflow editor"));
+    setWindowIcon(Icons::icon("Lineflow"));
     resize(1100, 760);
     _model        = new LineflowEditorModel(std::move(definitions), registry, this);
     auto* layout  = new QVBoxLayout(this);
@@ -247,9 +248,9 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     _error->setWordWrap(true);
     _error->setStyleSheet("color: #b54a35;");
     layout->addWidget(_error);
-    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Cancel, this);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close, this);
     buttons->button(QDialogButtonBox::Apply)->setObjectName("applyButton");
-    buttons->button(QDialogButtonBox::Cancel)->setToolTip(tr("Discard unapplied changes and close."));
+    buttons->button(QDialogButtonBox::Close)->setToolTip(tr("Discard unapplied changes and close."));
     layout->addWidget(buttons);
     connect(buttons->button(QDialogButtonBox::Apply), &QPushButton::clicked, this, [this] {
         QString error;
