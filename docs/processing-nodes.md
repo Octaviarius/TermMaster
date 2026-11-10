@@ -2,7 +2,7 @@
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
 Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp, Compress, Uncompress, LengthWrap, LengthUnwrap and Pacer. NativeProcessors only registers the
+HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp, Compress, Uncompress, LengthWrap, LengthUnwrap, ChecksumWrap, ChecksumUnwrap and Pacer. NativeProcessors only registers the
 catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
@@ -181,6 +181,94 @@ Reference captures: [Wrap Fixed](images/length/LengthWrapFixed.png),
 [Unwrap Fixed](images/length/LengthUnwrapFixed.png) and
 [Unwrap Varint](images/length/LengthUnwrapVarint.png). No real-device or
 external-network acceptance was run.
+
+## Checksum Wrap and Checksum Unwrap
+
+`native.checksum-wrap` and `native.checksum-unwrap`, group Integrity, are unary
+whole-packet processors. Wrap adds one checksum field; Unwrap validates and removes
+it before emitting any payload. The checksum covers payload bytes only, including
+NUL. Each invocation starts a fresh checksum. Framing must assemble complete
+packets before Unwrap when transport reads split a message.
+
+| Field | Default | Values |
+| --- | --- | --- |
+| `algorithm` | crc16-modbus | Sum 8, XOR 8, the five named CRC presets below, or Custom CRC |
+| `position` | suffix | suffix or prefix, relative to payload |
+| `endianness` | little | little or big; shown for 16/32-bit presets and Custom CRC |
+| `width` (Custom) | 16 | 8, 16 or 32 bits |
+| `polynomial` (Custom) | 32773 | Nonzero normal polynomial, excluding its top bit; must fit width |
+| `init` (Custom) | 65535 | Initial normal register value; must fit width |
+| `refin` (Custom) | true | Reflect each input byte before the normal-register recurrence |
+| `refout` (Custom) | true | Reflect the final normal register before final XOR |
+| `xorout` (Custom) | 0 | Final XOR value; must fit width |
+
+Custom numbers use decimal integer editors and numeric persistence. Values up to
+4294967295 are exact, including in the existing wide integer editor. Width-specific
+bounds are enforced both by the form schema and the factory; changing width may
+require explicitly adjusting polynomial, initial register and final XOR. Even
+nonzero polynomials are accepted as specified recurrences. They can have weaker
+error detection properties than conventional CRC polynomials. Byte order affects
+only serialization, independently of input/output reflection. It has no effect on
+one-byte fields, including an 8-bit Custom CRC.
+
+The named parameters and ASCII `123456789` check values follow the
+[CRC RevEng catalogue](https://reveng.sourceforge.io/crc-catalogue/all.htm).
+Hexadecimal values in this reference are not configuration strings.
+
+| Algorithm ID | Width | Polynomial | Init | RefIn / RefOut | XorOut | Check |
+| --- | --- | --- | --- | --- | --- | --- |
+| `crc8-smbus` | 8 | 07 | 00 | false / false | 00 | F4 |
+| `crc16-modbus` | 16 | 8005 | FFFF | true / true | 0000 | 4B37 |
+| `crc16-ibm3740` | 16 | 1021 | FFFF | false / false | 0000 | 29B1 |
+| `crc32-iso-hdlc` | 32 | 04C11DB7 | FFFFFFFF | true / true | FFFFFFFF | CBF43926 |
+| `crc32-iscsi` | 32 | 1EDC6F41 | FFFFFFFF | true / true | FFFFFFFF | E3069283 |
+
+`sum8` adds unsigned bytes modulo 256, starting at zero; `xor8` XORs unsigned
+bytes, starting at zero. Their checks for `123456789` are DD and 31. Empty input
+produces 00 for these and CRC-8/SMBUS, FFFF for both CRC-16 presets, and 00000000
+for both CRC-32 presets. For Custom CRC, empty input produces the initial register,
+optionally reflected by `refout`, then XORed with `xorout`. No implicit zero-byte
+augmentation is appended. The runtime precomputes a 256-entry table per CRC
+instance; processing uses one lookup per payload byte.
+
+For example, default wrapping of ASCII `123456789` appends `37 4B`. A big-endian
+prefix instead produces `4B 37` before the same payload. Unwrap excludes the field
+itself from checksum computation and emits one owned payload, including a valid
+empty payload. Short fields, mismatches and host-limit violations
+fail without partial output. Checksums are not authentication: collisions can
+still make modified or extended packets pass verification.
+
+The host byte limit includes checksum overhead: Wrap bounds payload plus field,
+and Unwrap bounds the complete input packet. Work costs one step per payload byte
+plus one per field byte for either direction. Table preparation and finalization
+have a fixed bounded cost. Processing failure stops the processing chain through
+the existing error path; it does not disconnect the terminal transport. Cancel
+stops acceptance and does not flush packets. No drop-and-continue policy is added.
+
+The generated root `oneOf` shows only active algorithm fields. Switching preserves
+inactive drafts until Apply; Apply and factory normalization remove recognized
+inactive keys while preserving unrelated settings. Presets use fixed exact
+parameters, with no ambiguous generic CRC16 name or compatibility aliases.
+
+### Checksum acceptance
+
+Verified on 2026-11-10 with Qt 6.12 / MSVC2022 x64 Debug: the complete application,
+modules and test build succeeded, and all ten affected CTest executables passed
+in 21.75 seconds. Tests cover independent published checks, all field
+positions and byte orders, empty and all-256-byte payloads, a separate bitwise
+Custom CRC reference for all widths/reflection pairs and asymmetric initial
+registers, even polynomials, corruption/truncation, limits, cancellation, ownership,
+reentry, strict configuration, schema bounds and registered Lineflow composition.
+The actual Lineflow forms verify preset/custom visibility, retained drafts, Apply
+normalization and exact unsigned 32-bit editor values. Native Windows captures
+at scales 1 and 2 each passed all three QtTest checks without skips. The two
+1100 by 760 reference captures below and temporary 2200 by 1520 captures were
+visually inspected. Changed C++ files were clang-formatted; documentation links
+and `git diff --check` passed. No real device, external network endpoint, elevation
+or dependency download was used. Release and the complete CTest suite were not run.
+
+- [Checksum Wrap preset](images/checksums/ChecksumWrapPreset.png)
+- [Checksum Unwrap custom](images/checksums/ChecksumUnwrapCustom.png)
 
 ## Timestamp
 

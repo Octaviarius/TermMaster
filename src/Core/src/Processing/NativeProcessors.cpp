@@ -2,6 +2,8 @@
 #include "Nodes/Base64Decoder.h"
 #include "Nodes/Base64Encoder.h"
 #include "Nodes/Bypass.h"
+#include "Nodes/ChecksumUnwrap.h"
+#include "Nodes/ChecksumWrap.h"
 #include "Nodes/Compress.h"
 #include "Nodes/Framer.h"
 #include "Nodes/Gate.h"
@@ -73,6 +75,20 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
                    "Framing",
                    LengthUnwrap::schema(),
                    LengthUnwrap::create,
+                   "Packet",
+                   "Payload"),
+        Definition("native.checksum-wrap",
+                   "Checksum Wrap",
+                   "Integrity",
+                   ChecksumWrap::schema(),
+                   ChecksumWrap::create,
+                   "Payload",
+                   "Packet"),
+        Definition("native.checksum-unwrap",
+                   "Checksum Unwrap",
+                   "Integrity",
+                   ChecksumUnwrap::schema(),
+                   ChecksumUnwrap::create,
                    "Packet",
                    "Payload"),
         Definition("native.pacer", "Pacer", "Timing", Pacer::schema(), Pacer::create, "Data", "Data"),

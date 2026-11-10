@@ -172,3 +172,18 @@ target_link_libraries(LengthProcessorTests PRIVATE
     Qt6::Widgets
 )
 add_test(NAME LengthProcessorTests COMMAND LengthProcessorTests)
+
+qt_add_executable(ChecksumProcessorTests
+    ChecksumProcessorTests.cpp
+)
+
+target_include_directories(ChecksumProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+
+target_link_libraries(ChecksumProcessorTests PRIVATE
+    Core
+    Qt6::Test
+    Qt6::Widgets
+)
+add_test(NAME ChecksumProcessorTests COMMAND ChecksumProcessorTests)
