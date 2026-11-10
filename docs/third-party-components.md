@@ -99,3 +99,6 @@ redistribution terms and materials.
 The source inventory and notice bundle were prepared mechanically from the
 sources above. No automated tests or visual acceptance runs were performed for
 this change; the requested execution scope is compilation only.
+
+The separate About Qt menu action is omitted; Qt information and full notices
+are available through Third-party components.
