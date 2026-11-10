@@ -1,9 +1,16 @@
 # Terminal processing
 
-Each terminal has independent Rx and Tx selectors beneath its input area. A selection
-can reference a native processor, a workspace composition or bypass. Saved definitions
-remain shared; private values are stored under the session terminal object's
-`settings/processing` map. Unavailable selections stay visible with their identifier.
+The status bar exposes Buffered input, Send file and Processing commands, also
+available in the Terminal menu. Interactive idle input has no permanent command
+strip. Buffered input reveals the multiline draft and its terminator/history/tools;
+active file or periodic sending retains accessible status and Stop controls.
+Processing shows an additional row with explicit Bypass, Simplex and Duplex modes.
+Simplex selects independent 1x1 Rx/Tx processors; Duplex selects one shared 2x2
+processor; Bypass instantiates neither. Mode and selections are stored under each
+session terminal object's `settings/processing` map. Inactive selections and diagrams
+remain stored, including unavailable references. Only the active mode is prepared.
+Mode/selection changes atomically prepare, persist and replace processing; property
+edits retain their explicit Apply/Revert workflow.
 
 Selectors open searchable catalog trees matching Lineflow's origin/subgroup
 presentation and icon contrast. An unnamed favorites section comes first, separated
@@ -12,7 +19,9 @@ Control nodes. New workspaces persist Bypass as their initial favorite under
 `content/state/processing/favorites`; each workspace keeps its own list. Context
 menus add/remove entries and move them up/down. Changes refresh Lineflow and both
 terminal selectors without changing processor selections or runtime configuration.
-Unavailable favorite IDs remain saved. Empty favorites hide the leading section.
+Unavailable favorite IDs remain saved. A terminal-local Inplace entry is always
+first in terminal selectors and never enters workspace favorites. Empty workspace
+favorites leave that local entry visible.
 Headings and the divider cannot be selected. Mouse or Enter chooses a leaf; Escape
 or outside click cancels. The closed control displays only the chosen title.
 Empty saved selection still means the direct bypass path; explicitly selecting
@@ -137,10 +146,10 @@ The timing assertions test processor emission, not physical device delivery.
 
 ## Shared duplex selection
 
-The icon beside the selectors switches between independent Rx/Tx processors and a
-shared 2x2 processor selector. Catalog entries are filtered by port shape. Session
+The mode selector switches between independent Rx/Tx processors and a shared
+2x2 processor selector. Catalog entries are filtered by port shape. Session
 `settings/processing/duplex` stores the same `type`, `configuration` and `overrides`
-selection map as independent directions, exclusively of `rx`/`tx`. Private property
+selection map as independent directions, retained alongside inactive `rx`/`tx`. Private property
 forms and node occurrence paths work for a shared selection as well.
 
 The controller prepares one 2x2 instance before atomic persistence and assigns it
@@ -155,5 +164,79 @@ implementation or additional terminal backend is introduced by this feature.
 
 Known favorite entries incompatible with the selected port shape are omitted from
 that selector without changing the workspace favorite list. Genuinely unavailable
-favorite IDs remain visible. Bypass clears a shared selection without instantiating
-a unary processor as a 2x2 flow.
+favorite IDs remain visible. Bypass mode disables processing without removing any
+saved profile or instantiating a unary processor as a 2x2 flow.
+
+## Terminal-local Inplace diagrams
+
+The pencil beside each selector opens the existing Lineflow editor for that
+direction. Inplace diagrams are embedded definition maps in
+`settings/processing/inplace/rx`, `tx` and `duplex`; their stable roots are
+`terminal.inplace.rx`, `terminal.inplace.tx` and `terminal.inplace.duplex`.
+The Simplex roots remain 1x1, and the Duplex root remains 2x2. Root removal or a
+topology change is rejected on Apply. Empty roots are usable passthrough diagrams.
+The special selector ID `@inplace` resolves the matching local root. Each terminal
+can use the same local IDs without sharing state, source or private overrides.
+
+An editor draft can include additional local definitions and references to shared
+workspace/native processors. Apply persists the complete local map and selects
+Inplace through the terminal's normal atomic save callback. Cancel discards unapplied
+diagram edits. Local occurrence renames reuse bounded refactoring for private paths.
+Workspace occurrence refactoring also visits all embedded graphs, including dormant
+profiles, with an isolated scope per terminal. Combined workspace/local refactoring
+validation retains the existing 1024-definition bound.
+
+Runtime preparation and property inspection use `ProcessorRegistry::scoped()`:
+local entries never publish into or emit change notifications on the global registry.
+The scope shares original entries/providers so prepared instances keep the real
+plugin ownership leases. A live scope also pins its copied factories/providers
+until destruction, including before preparation, so unloading cannot invalidate
+retained callbacks. Existing byte/queue/depth/instance bounds, cancellation
+and quiescent replacement remain in force. No extra files or temporary catalogs
+are written. All local definitions belong to the existing session document.
+
+Changes to dormant profiles only persist metadata; they do not prepare new factories
+or replace the active pipeline. This also permits retaining unavailable dormant
+selections and preserves partially accumulated frames/codecs on the active mode.
+Callbacks that close a terminal or commit a competing processing draft during
+factory preparation are revalidated before persistence and runtime replacement.
+
+```mermaid
+flowchart LR
+    Session[Session terminal settings] --> Profiles[Bypass / Simplex / Duplex profiles]
+    Profiles --> Shared[Workspace or native selection]
+    Profiles --> Local[Embedded Inplace definitions]
+    Registry[Global processor registry] --> Scope[Isolated registry scope]
+    Local --> Scope
+    Scope --> Plan[Prepared instances with plugin leases]
+    Shared --> Plan
+    Plan --> Save[Atomic session commit]
+    Save --> Runtime[Quiescent runtime replacement]
+```
+
+- [Simplex controls](images/terminal-processing/Inplace/Simplex.png)
+- [Buffered input](images/terminal-processing/Inplace/Buffer.png)
+- [Duplex controls](images/terminal-processing/Inplace/Duplex.png)
+- [Inplace editor](images/terminal-processing/Inplace/InplaceEditor.png)
+
+## FLOW-11 verification
+
+Qt 6.12.0 / MSVC2022 x64 Debug built the application, modules and tests. All 47
+configured CTest executables passed in 120.41 seconds. After the final dormant-state
+and scope-lease refinements, the affected App, ProcessorCatalog, ProcessorRefactoring
+and TerminalProcessing suites passed again in 42.16 seconds. Native Windows App
+and standalone processing fixtures at scales 1 and 2 each passed three QtTest
+checks without skips. Captures use 1100 by 760 logical application/editor client
+areas and 1100 by 650 for the standalone property-table fixture; the controls,
+buffered draft, shared mode and local editor were visually inspected.
+
+Coverage includes per-workspace restoration, disconnected terminal reconstruction,
+explicit session closure, unavailable/corrupt restoration targets, exact-topology
+selectors and palette filtering, Inplace save/cancel/retry, independent terminal
+sources, retained inactive profiles, partial Base64 state across dormant edits,
+atomic failure on external writes, callback-driven terminal destruction/competing
+commits, embedded occurrence refactoring and owner pinning before/after preparation.
+The current format has explicit processing mode; an absent mode defaults to Bypass.
+No compatibility reader or migration was added. Changed C++ files were clang-formatted;
+SVG/document links and `git diff --check` passed. Release was not rebuilt. No real
+serial device, external endpoint or elevation was used.

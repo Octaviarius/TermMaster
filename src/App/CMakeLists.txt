@@ -9,6 +9,8 @@ qt_add_library(App STATIC
     src/App.cpp
     src/Processing/WorkspaceProcessingEdit.h
     src/Processing/WorkspaceProcessingEdit.cpp
+    src/Processing/TerminalProcessing.h
+    src/Processing/TerminalProcessing.cpp
     src/Gui/Processing/ProcessorCatalogTree.h
     src/Gui/Processing/ProcessorCatalogTree.cpp
     src/Gui/Processing/ProcessorFavorites.h

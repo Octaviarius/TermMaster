@@ -104,6 +104,7 @@ private:
     void     _updateRecent();
     bool     _activateSession(std::unique_ptr<Session> candidate, QString* error);
     void     _updateSession();
+    void     _restoreLastSession();
     void     _chooseNewSession();
     void     _chooseSession();
     void     _chooseWorkspace();

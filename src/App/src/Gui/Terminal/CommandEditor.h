@@ -25,6 +25,10 @@ public:
     void setSettings(const QVariantMap& input);
     void setSendCallback(SendCallback callback);
     bool buffered() const;
+    /** Request a mode change through the settings owner. */
+    void setBuffered(bool buffered);
+    void requestFile(bool lines = false);
+    void showSendingTools();
     void setSendingState(bool active, const QString& status);
     void retainPaste(const QString& text);
     void pasteText(const QString& text);
@@ -45,7 +49,6 @@ protected:
 private:
     static constexpr int _maximumCharacters   = 16384;
     static constexpr int _maximumHistoryBytes = 1024 * 1024;
-    QComboBox*           _mode;
     QComboBox*           _terminator;
     QLineEdit*           _custom;
     QComboBox*           _pastePolicy;
@@ -69,7 +72,9 @@ private:
     QString              _savedDraft;
     int                  _historyIndex = 0;
     int                  _historyBytes = 0;
+    bool                 _sending      = false;
 
+    void _updateVisibility();
     void _showPopup(QWidget* popup, QWidget* anchor);
     void _loadFavorite();
     void _saveFavorite();

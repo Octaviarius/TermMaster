@@ -176,6 +176,25 @@ private:
     }
 };
 
+class ReentrantProcessor final : public Processor
+{
+public:
+    QVariantMap configuration() const override
+    {
+        return {};
+    }
+    AcceptResult accept(Chunk input, Callbacks callbacks) override
+    {
+        callbacks.output(std::move(input));
+        callbacks.completed({});
+        return AcceptResult::Accepted;
+    }
+    void cancel(std::function<void()> done) override
+    {
+        done();
+    }
+};
+
 class AppTests final : public QObject
 {
     Q_OBJECT
@@ -187,6 +206,26 @@ public:
 
 private:
     App& _app;
+
+    void _closeTemporaryWorkspace()
+    {
+        QString error;
+        if (_app.closeWorkspace(&error))
+        {
+            return;
+        }
+        // Isolated fixtures may deliberately write documents from another process.
+        // Reload those documents before releasing their temporary directories.
+        if (_app.workspace())
+        {
+            QVERIFY2(_app.workspace()->load(&error), qPrintable(error));
+        }
+        if (_app.session())
+        {
+            QVERIFY2(_app.session()->load(&error), qPrintable(error));
+        }
+        QVERIFY2(_app.closeWorkspace(&error), qPrintable(error));
+    }
 
     Q_SLOT void shellAndCommands()
     {
@@ -534,6 +573,7 @@ private:
     {
         QTemporaryDir temporary;
         QString       error;
+        const auto    cleanup = qScopeGuard([&] { _closeTemporaryWorkspace(); });
         QVERIFY(_app.settings().setValue("settings/sessionTest/value", 10));
         QVERIFY(_app.createWorkspace(Path(temporary.filePath("session.termaster")), "Sessions", &error));
         QVERIFY(_app.workspace()->settings().setValue("sessionTest/value", 20));
@@ -609,9 +649,11 @@ private:
         Settings childSaved(file, {"termaster.session", "Termaster session"});
         QVERIFY(childSaved.load(&error));
         QCOMPARE(childSaved.value("settings/sessionTest/childAutosave").toInt(), 99);
+        // Startup restoration updates the child's workspace history as well as the session.
+        QVERIFY2(_app.workspace()->load(&error), qPrintable(error));
         QVERIFY2(_app.session()->load(&error), qPrintable(error));
         auto borrowed = _app.session()->objects();
-        QVERIFY(_app.closeSession(&error));
+        QVERIFY2(_app.closeSession(&error), qPrintable(error));
         QVERIFY(!borrowed.isValid());
         QVERIFY(!_app.session());
         QVERIFY2(_app.workspace()->load(&error), qPrintable(error));
@@ -630,6 +672,75 @@ private:
         Settings saved(file, {"termaster.session", "Termaster session"});
         QVERIFY(saved.load(&error));
         QCOMPARE(saved.value("settings/sessionTest/switchSaved").toInt(), 7);
+        QVERIFY(_app.closeWorkspace(&error));
+    }
+
+    Q_SLOT void workspaceRestoresItsLastSession()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        const auto    cleanup = qScopeGuard([&] { _closeTemporaryWorkspace(); });
+        const Path    first(temporary.filePath("first.termaster"));
+        const Path    second(temporary.filePath("second.termaster"));
+        QVERIFY(_app.createWorkspace(first, "First", &error));
+        QVERIFY(_app.createSession("First session", &error));
+        const auto firstId = _app.session()->id();
+        QCOMPARE(_app.workspace()->state().value("lastSession").toString(), firstId);
+        QVERIFY(_app.createWorkspace(second, "Second", &error));
+        QVERIFY(!_app.session());
+        QVERIFY(_app.createSession("Second session", &error));
+        const auto secondId = _app.session()->id();
+        QVERIFY(_app.openWorkspace(first, &error));
+        QVERIFY(_app.session());
+        QCOMPARE(_app.session()->id(), firstId);
+        QVERIFY(!_app.openSession("missing", &error));
+        QCOMPARE(_app.workspace()->state().value("lastSession").toString(), firstId);
+        QVERIFY(_app.openWorkspace(second, &error));
+        QVERIFY(_app.session());
+        QCOMPARE(_app.session()->id(), secondId);
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(_app.openWorkspace(second, &error));
+        QVERIFY(_app.session());
+        QCOMPARE(_app.session()->id(), secondId);
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(!_app.workspace()->state().contains("lastSession"));
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(_app.openWorkspace(second, &error));
+        QVERIFY(!_app.session());
+        QVERIFY(_app.closeWorkspace(&error));
+    }
+
+    Q_SLOT void unavailableLastSessionLeavesWorkspaceUsable()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        const auto    cleanup = qScopeGuard([&] { _closeTemporaryWorkspace(); });
+        const Path    file(temporary.filePath("restore.termaster"));
+        QVERIFY(_app.createWorkspace(file, "Restore", &error));
+        QVERIFY(_app.createSession("Saved session", &error));
+        const auto id          = _app.session()->id();
+        const auto sessionFile = _app.session()->filePath().toString();
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(QFile::remove(sessionFile));
+        QVERIFY(_app.openWorkspace(file, &error));
+        QVERIFY(_app.workspace());
+        QVERIFY(!_app.session());
+        QCOMPARE(_app.workspace()->state().value("lastSession").toString(), id);
+        QVERIFY(_app.mainWindow().statusBar()->currentMessage().contains("Cannot restore last session"));
+        QVERIFY(!QApplication::activeModalWidget());
+        QVERIFY(_app.closeWorkspace(&error));
+        QFile invalid(sessionFile);
+        QVERIFY(invalid.open(QIODevice::WriteOnly));
+        QVERIFY(invalid.write("version: [invalid") > 0);
+        invalid.close();
+        QVERIFY(_app.restoreLastWorkspace(&error));
+        QVERIFY(_app.workspace());
+        QVERIFY(!_app.session());
+        QVERIFY(_app.mainWindow().statusBar()->currentMessage().contains("Cannot restore last session"));
+        QVERIFY(!QApplication::activeModalWidget());
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(!_app.workspace()->state().contains("lastSession"));
+        QVERIFY(_app.createSession("Replacement", &error));
         QVERIFY(_app.closeWorkspace(&error));
     }
 
@@ -675,6 +786,10 @@ private:
         QVERIFY(QDir().mkdir(workspaceFile));
         QVERIFY(!_app.createSession("Cannot persist catalog", &error));
         QCOMPARE(_app.session(), original);
+        QCOMPARE(workspace->state().value("lastSession").toString(), original->id());
+        QVERIFY(!_app.closeSession(&error));
+        QCOMPARE(_app.session(), original);
+        QCOMPARE(workspace->state().value("lastSession").toString(), original->id());
         QCOMPARE(workspace->sessionIds(), catalogBefore);
         QCOMPARE(workspace->recentSessions(), history);
         QCOMPARE(QDir(workspace->sessionsDirectory().toString()).entryList(QDir::Dirs | QDir::NoDotAndDotDot),
@@ -2092,9 +2207,7 @@ content:
             QVERIFY(toolsCapture.save(QDir(captureFile.absolutePath()).filePath(advancedName)));
             editor->findChild<QToolButton*>("commandStop")->click();
             advancedToggle->setChecked(false);
-            auto* mode = editor->findChild<QComboBox*>("commandInputMode");
-            mode->setCurrentIndex(mode->findData("interactive"));
-            QVERIFY(QMetaObject::invokeMethod(mode, "activated", Q_ARG(int, mode->currentIndex())));
+            editor->setBuffered(false);
             QTest::qWait(30);
             const auto interactiveName = QString(captureFile.completeBaseName()).replace("Buffered", "Interactive")
                                        + ".png";
@@ -2389,13 +2502,14 @@ content:
         const QVariantMap decoder {
             {"type", "native.hex-decoder"}
         };
-        QVERIFY(_app.createTerminal("processingFixture",
-                                    {
-                                        {"processing",             QVariantMap {{"rx", decoder}, {"tx", decoder}}},
-                                        {     "input", QVariantMap {{"mode", "buffered"}, {"terminator", "crlf"}}}
+        QVERIFY(
+            _app.createTerminal("processingFixture",
+                                {
+                                    {"processing", QVariantMap {{"mode", "simplex"}, {"rx", decoder}, {"tx", decoder}}},
+                                    {     "input",          QVariantMap {{"mode", "buffered"}, {"terminator", "crlf"}}}
         },
-                                    "Processing",
-                                    &error));
+                                "Processing",
+                                &error));
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
@@ -2470,8 +2584,9 @@ content:
         };
         QVERIFY(controller.selectedSettings().setValue("processing",
                                                        QVariantMap {
-                                                           {"rx", identity},
-                                                           {"tx", identity}
+                                                           {"mode", "simplex"},
+                                                           {  "rx",  identity},
+                                                           {  "tx",  identity}
         }));
         controller.applySettings();
         QTest::qWait(30);
@@ -2512,10 +2627,11 @@ content:
         },
                                               &error),
                  qPrintable(error));
-        auto* sharedToggle    = processingPanel->findChild<QToolButton*>("duplexProcessingToggle");
+        auto* processingMode  = processingPanel->findChild<QComboBox*>("processingMode");
         auto* sharedSelection = processingPanel->findChild<QComboBox*>("duplexProcessor");
-        QVERIFY(sharedToggle && sharedSelection);
-        sharedToggle->setChecked(true);
+        QVERIFY(processingMode && sharedSelection);
+        processingMode->setCurrentIndex(processingMode->findData("duplex"));
+        emit processingMode->activated(processingMode->currentIndex());
         QVERIFY(sharedSelection->findData("duplex.fixture") >= 0);
         sharedSelection->setCurrentIndex(sharedSelection->findData("duplex.fixture"));
         emit sharedSelection->activated(sharedSelection->currentIndex());
@@ -2528,8 +2644,9 @@ content:
         QTRY_VERIFY(display->text().contains('A'));
         QTRY_COMPARE(probe->output, QByteArray("42"));
         QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("duplex.fixture"));
-        QVERIFY(!controller.selectedSettings().value("processing/rx").isValid());
-        QVERIFY(!controller.selectedSettings().value("processing/tx").isValid());
+        QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("duplex"));
+        QCOMPARE(controller.selectedSettings().value("processing/rx/type").toString(), QString("identity"));
+        QCOMPARE(controller.selectedSettings().value("processing/tx/type").toString(), QString("identity"));
         host.disconnectSelectedTerminal();
         host.connectSelectedTerminal();
         QTest::qWait(30);
@@ -2572,6 +2689,426 @@ content:
         QTRY_COMPARE(probe->output, QByteArray("\033[0ncommand\r\n"));
         QVERIFY(_app.closeWorkspace(&error));
         QTRY_VERIFY(registry.canRemoveOwner("core.processing"));
+    }
+
+    Q_SLOT void dormantProcessingEditsPreserveDuplexState()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Dormant.termaster")), "Dormant", &error));
+        QVERIFY(_app.createSession("Dormant profiles", &error));
+        auto& host                       = _app.pluginHost();
+        auto& controller                 = static_cast<TerminalController&>(host);
+        auto  probe                      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                 = true;
+        const auto               cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("dormantFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "dormantFixture";
+        type.title  = "Dormant fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Dormant fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        const QVariantMap codec {
+            {    "id",                 "dormant.codec"                      },
+            {  "name",                                       "Dormant codec"},
+            {  "kind",                                            "lineflow"},
+            {"source",
+             QVariantMap {{"channels", 2},
+             {"nodes",
+             QVariantList {QVariantMap {{"name", "codec"},
+             {"type", "native.base64-codec"},
+             {"lane", "duplex"}}}}}                                         }
+        };
+        QVERIFY(_app.workspace()->setProcessorDefinition("dormant.codec", codec, &error));
+        QVERIFY(_app.createTerminal("dormantFixture",
+                                    {
+                                        {"processing",
+                                         QVariantMap {{"mode", "duplex"},
+                                                      {"duplex", QVariantMap {{"type", "dormant.codec"}}},
+                                                      {"rx", QVariantMap {{"type", "unavailable.dormant"}}}}}
+        },
+                                    "Dormant",
+                                    &error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        QVERIFY(probe->device);
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        auto* panel   = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
+        QVERIFY(display && panel);
+        probe->device->injectReceive("Zg=");
+        QTest::qWait(30);
+        QVERIFY(display->text().isEmpty());
+        QVERIFY(_app.workspace()->removeProcessorDefinition("dormant.codec", &error));
+        QVERIFY(!_app.plugins().processors().type("dormant.codec"));
+        // The receive profile is dormant while the shared Base64 codec owns stream state.
+        panel->findChild<QToolButton*>("rxInplace")->click();
+        auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
+        QVERIFY(editor);
+        QVERIFY(!editor->model().insertNode("terminal.inplace.rx", 0, "native.gate", &error).isEmpty());
+        QVERIFY2(editor->applyDraft(&error), qPrintable(error));
+        editor->close();
+        QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("duplex"));
+        QCOMPARE(controller.selectedSettings().value("processing/rx/type").toString(), QString("@inplace"));
+        QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("dormant.codec"));
+        probe->device->injectReceive("=");
+        QTRY_COMPARE(display->text(), QString("f"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+
+        QVERIFY(_app.workspace()->setProcessorDefinition("dormant.codec", codec, &error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.disconnectSelectedTerminal();
+        host.connectSelectedTerminal();
+        display->clear();
+        probe->device->injectReceive("Zw=");
+        QTest::qWait(30);
+        QVERIFY(display->text().isEmpty());
+        QVERIFY(controller.selectedSettings().setValue("processing/tx",
+                                                       QVariantMap {
+                                                           {"type", "another.unavailable.dormant"}
+        }));
+        controller.applySettings();
+        probe->device->injectReceive("=");
+        QTRY_COMPARE(display->text(), QString("g"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QVERIFY(_app.saveSession(&error));
+    }
+
+    Q_SLOT void terminalProcessingReentrantFactories()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Reentrant.termaster")), "Reentrant", &error));
+        QVERIFY(_app.createSession("Reentrant", &error));
+        auto& host                                    = _app.pluginHost();
+        auto& controller                              = static_cast<TerminalController&>(host);
+        auto& registry                                = _app.plugins().processors();
+        auto  probe                                   = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                              = true;
+        bool                     closeDuringFactory   = false;
+        bool                     replaceDuringFactory = false;
+        bool                     nestedSaved          = false;
+        const auto               cleanup              = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("reentrantFixture");
+            registry.removeOwner("reentrant-owner");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "reentrantFixture";
+        type.title  = "Reentrant fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Reentrant fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        ProcessorCatalog::Type processor;
+        processor.id    = "reentrant.processor";
+        processor.title = "Reentrant processor";
+        processor.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Reentrant processor\ncontent:\n  type: object\n  properties: {}\n";
+        processor.create = [&](const auto&, const auto&, QString*) {
+            if (closeDuringFactory)
+            {
+                closeDuringFactory = false;
+                host.closeSelectedTerminal();
+            }
+            if (replaceDuringFactory)
+            {
+                replaceDuringFactory = false;
+                nestedSaved          = controller.selectedSettings().setValue("processing",
+                                                                              QVariantMap {
+                                                                                  {  "mode", "bypass"},
+                                                                                  {"marker", "nested"}
+                })
+                                    && _app.saveSession(&error);
+            }
+            return std::make_unique<ReentrantProcessor>();
+        };
+        registry.registerType("reentrant-owner", std::move(processor));
+        QVERIFY(_app.createTerminal("reentrantFixture",
+                                    {
+                                        {"processing",
+                                         QVariantMap {{"mode", "simplex"},
+                                                      {"rx", QVariantMap {{"type", "reentrant.processor"}}}}}
+        },
+                                    "Reentrant",
+                                    &error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        QVERIFY(probe->device);
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        host.disconnectSelectedTerminal();
+        closeDuringFactory = true;
+        host.connectSelectedTerminal();
+        QVERIFY(_app.terminalIds().isEmpty());
+        QVERIFY(!probe->device);
+        QTRY_VERIFY(registry.canRemoveOwner("reentrant-owner"));
+
+        QVERIFY(_app.createTerminal("reentrantFixture",
+                                    {
+                                        {"processing", QVariantMap {{"mode", "simplex"}}}
+        },
+                                    "Nested",
+                                    &error));
+        auto* panel = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
+        QVERIFY(panel);
+        auto* selection = panel->findChild<QComboBox*>("rxProcessor");
+        QVERIFY(selection && selection->findData("reentrant.processor") >= 0);
+        replaceDuringFactory = true;
+        selection->setCurrentIndex(selection->findData("reentrant.processor"));
+        emit selection->activated(selection->currentIndex());
+        QVERIFY2(nestedSaved, qPrintable(error));
+        QCOMPARE(controller.selectedSettings().value("processing/marker").toString(), QString("nested"));
+        QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("bypass"));
+        Settings persisted(_app.session()->filePath(), {"termaster.session", "Termaster session"});
+        QVERIFY(persisted.load(&error));
+        QCOMPARE(persisted.value("objects/" + _app.selectedTerminal() + "/settings/processing/marker").toString(),
+                 QString("nested"));
+        QVERIFY(panel->propertiesWidget()->findChild<QLabel*>("processingError")->text().contains("concurrently"));
+    }
+
+    Q_SLOT void terminalInplaceProcessingPersistenceAndAtomicity()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        const Path    workspaceFile(temporary.filePath("Inplace.termaster"));
+        QVERIFY(_app.createWorkspace(workspaceFile, "Inplace", &error));
+        QVERIFY(_app.createSession("Local diagrams", &error));
+        auto&                                          host       = _app.pluginHost();
+        auto&                                          controller = static_cast<TerminalController&>(host);
+        auto&                                          registry   = _app.plugins().processors();
+        QList<std::shared_ptr<ReconnectDevice::Probe>> probes;
+        const auto                                     originalMinimum = _app.mainWindow().minimumSize();
+        const auto                                     originalMaximum = _app.mainWindow().maximumSize();
+        const auto                                     originalSize    = _app.mainWindow().size();
+        const auto                                     cleanup         = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("inplaceFixture");
+            _app.mainWindow().setMinimumSize(originalMinimum);
+            _app.mainWindow().setMaximumSize(originalMaximum);
+            _app.mainWindow().resize(originalSize);
+        });
+        PluginHost::TerminalType                       type;
+        type.id     = "inplaceFixture";
+        type.title  = "Inplace fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Inplace fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [&] {
+            auto probe       = std::make_shared<ReconnectDevice::Probe>();
+            probe->available = true;
+            probe->allowance = 1024 * 1024;
+            probes.append(probe);
+            return std::make_unique<ReconnectDevice>(probe);
+        };
+        host.registerTerminalType(std::move(type));
+        const auto diagram = [](const QString& direction, QVariantList nodes) {
+            const auto root = "terminal.inplace." + direction;
+            return QVariantMap {
+                {root,
+                 QVariantMap {{"id", root},
+                              {"name", "Inplace"},
+                              {"kind", "lineflow"},
+                              {"source",
+                               QVariantMap {{"channels", direction == "duplex" ? 2 : 1}, {"nodes", nodes}}}}}
+            };
+        };
+        const auto        firstRx  = diagram("rx",
+                                             {
+                                                 QVariantMap {{"name", "decode"}, {"type", "native.hex-decoder"}}
+        });
+        const auto        secondRx = diagram("rx",
+                                             {
+                                                 QVariantMap {{"name", "encode"},
+                                                              {"type", "native.hex-encoder"},
+                                                              {"configuration", QVariantMap {{"separator", ""}}}}
+        });
+        const auto        shared   = diagram("duplex", {});
+        const QVariantMap initial {
+            {   "mode",                                         "simplex"},
+            {     "rx",                QVariantMap {{"type", "@inplace"}}},
+            {     "tx",             QVariantMap {{"type", "native.gate"}}},
+            { "duplex",                QVariantMap {{"type", "@inplace"}}},
+            {"inplace", QVariantMap {{"rx", firstRx}, {"duplex", shared}}}
+        };
+        QVERIFY2(_app.createTerminal("inplaceFixture",
+                                     {
+                                         {"processing", initial}
+        },
+                                     "First",
+                                     &error),
+                 qPrintable(error));
+        const auto firstId = _app.selectedTerminal();
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        QVERIFY(tabs);
+        auto* display = tabs->widget(0)->findChild<TerminalDisplay*>("terminalDisplay");
+        auto* panel   = tabs->widget(0)->findChild<TerminalProcessingPanel*>("terminalProcessing");
+        QVERIFY(display && panel);
+        probes.at(0)->device->injectReceive("41");
+        QTRY_VERIFY(display->text().contains('A'));
+        auto* commandEditor = tabs->widget(0)->findChild<CommandEditor*>("commandEditor");
+        QVERIFY(commandEditor && commandEditor->isHidden());
+        QVERIFY(panel->isHidden());
+        auto* processingCommand = _app.commands().find("Terminal.Processing");
+        auto* bufferedCommand   = _app.commands().find("Terminal.BufferedInput");
+        auto* sendFileCommand   = _app.commands().find("Terminal.SendFile");
+        QVERIFY(processingCommand && bufferedCommand && sendFileCommand);
+        auto* processingAction = processingCommand->actions().first();
+        auto* bufferedAction   = bufferedCommand->actions().first();
+        QVERIFY(processingAction->isCheckable() && bufferedAction->isCheckable());
+        processingAction->trigger();
+        QVERIFY(processingAction->isChecked());
+        QVERIFY(!panel->isHidden());
+        bufferedAction->trigger();
+        QVERIFY(commandEditor->buffered() && !commandEditor->isHidden());
+        auto* draft = commandEditor->findChild<QPlainTextEdit*>("commandDraft");
+        draft->setPlainText("Preserved command draft");
+        const auto capture = qEnvironmentVariable("TERMASTER_INPLACE_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            _app.mainWindow().setFixedSize(1100, 760);
+            QApplication::processEvents();
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("Buffer.png")));
+        }
+        bufferedAction->trigger();
+        QVERIFY(!commandEditor->buffered() && commandEditor->isHidden());
+        QCOMPARE(draft->toPlainText(), QString("Preserved command draft"));
+        if (!capture.isEmpty())
+        {
+            QApplication::processEvents();
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("Simplex.png")));
+        }
+        QVERIFY(!registry.type("terminal.inplace.rx"));
+        QVERIFY(_app.workspace()->processorDefinitions().values().isEmpty());
+
+        // Bypass ignores unavailable selections in all inactive directions.
+        const QVariantMap unavailable {
+            {"type", "missing.processor"}
+        };
+        QVERIFY2(_app.createTerminal("inplaceFixture",
+                                     {
+                                         {"processing",
+                                          QVariantMap {{"mode", "bypass"},
+                                                       {"rx", unavailable},
+                                                       {"tx", unavailable},
+                                                       {"duplex", unavailable}}}
+        },
+                                     "Second",
+                                     &error),
+                 qPrintable(error));
+        const auto secondId = _app.selectedTerminal();
+        host.connectSelectedTerminal();
+        auto* secondDisplay = tabs->widget(1)->findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(secondDisplay);
+        probes.at(1)->device->injectReceive("RAW");
+        QTRY_VERIFY(secondDisplay->text().contains("RAW"));
+        secondDisplay->outputBytes("raw", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_COMPARE(probes.at(1)->output, QByteArray("raw"));
+        auto secondConfiguration = initial;
+        auto secondDiagrams      = initial.value("inplace").toMap();
+        secondDiagrams.insert("rx", secondRx);
+        secondConfiguration.insert("inplace", secondDiagrams);
+        QVERIFY(controller.selectedSettings().setValue("processing", secondConfiguration));
+        controller.applySettings();
+        secondDisplay->clear();
+        probes.at(1)->device->injectReceive("B");
+        QTRY_VERIFY(secondDisplay->text().contains("42"));
+        QVERIFY(_app.saveSession(&error));
+        tabs->setCurrentIndex(0);
+        QCOMPARE(_app.selectedTerminal(), firstId);
+        QCOMPARE(controller.selectedSettings().value("processing/inplace/rx").toMap(), firstRx);
+
+        panel->findChild<QToolButton*>("rxInplace")->click();
+        auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
+        QVERIFY(editor);
+        QVERIFY(!editor->model().insertNode("terminal.inplace.rx", 1, "native.gate", &error).isEmpty());
+        QVERIFY2(editor->applyDraft(&error), qPrintable(error));
+        editor->close();
+        const auto editedRx = controller.selectedSettings().value("processing/inplace/rx").toMap();
+        QVERIFY(editedRx != firstRx);
+        auto* mode = panel->findChild<QComboBox*>("processingMode");
+        QVERIFY(mode);
+        for (const auto& selected : {QString("duplex"), QString("simplex")})
+        {
+            mode->setCurrentIndex(mode->findData(selected));
+            emit mode->activated(mode->currentIndex());
+            QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), selected);
+            QCOMPARE(controller.selectedSettings().value("processing/inplace/rx").toMap(), editedRx);
+            QCOMPARE(controller.selectedSettings().value("processing/inplace/duplex").toMap(), shared);
+            QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("@inplace"));
+            if (selected == "duplex" && !capture.isEmpty())
+            {
+                QApplication::processEvents();
+                QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("Duplex.png")));
+                panel->findChild<QToolButton*>("duplexInplace")->click();
+                auto* duplexEditor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
+                QVERIFY(duplexEditor);
+                QCOMPARE(duplexEditor->model().selectedBlock(), QString("terminal.inplace.duplex"));
+                duplexEditor->setFixedSize(1100, 760);
+                QApplication::processEvents();
+                QVERIFY(duplexEditor->grab().save(QDir(capture).filePath("InplaceEditor.png")));
+                duplexEditor->close();
+                QApplication::processEvents();
+            }
+        }
+
+        // A concurrent disk writer prevents both persistence and runtime replacement.
+        QFile disk(_app.session()->filePath().toString());
+        QVERIFY(disk.open(QIODevice::ReadOnly));
+        const auto originalBytes = disk.readAll();
+        disk.close();
+        const auto externalBytes = originalBytes + "\n# concurrent writer\n";
+        QVERIFY(disk.open(QIODevice::WriteOnly));
+        QCOMPARE(disk.write(externalBytes), qint64(externalBytes.size()));
+        disk.close();
+        const auto beforeFailure = controller.selectedSettings().value("processing");
+        mode->setCurrentIndex(mode->findData("bypass"));
+        emit mode->activated(mode->currentIndex());
+        QCOMPARE(controller.selectedSettings().value("processing"), beforeFailure);
+        QVERIFY(disk.open(QIODevice::ReadOnly));
+        QCOMPARE(disk.readAll(), externalBytes);
+        disk.close();
+        display->clear();
+        probes.at(0)->device->injectReceive("44");
+        QTRY_VERIFY(display->text().contains('D'));
+        QVERIFY(disk.open(QIODevice::WriteOnly));
+        QCOMPARE(disk.write(originalBytes), qint64(originalBytes.size()));
+        disk.close();
+        panel->propertiesWidget()->findChild<QPushButton*>("revertProcessing")->click();
+        tabs->setCurrentIndex(1);
+        QCOMPARE(_app.selectedTerminal(), secondId);
+        QCOMPARE(controller.selectedSettings().value("processing/inplace/rx").toMap(), secondRx);
+        QVERIFY(!registry.type("terminal.inplace.rx"));
+        QVERIFY(!registry.type("terminal.inplace.duplex"));
+        const auto sessionFile = _app.session()->filePath();
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(_app.openWorkspace(workspaceFile, &error));
+        QVERIFY(_app.session());
+        QCOMPARE(_app.terminalIds().size(), 2);
+        Settings persisted(sessionFile, {"termaster.session", "Termaster session"});
+        QVERIFY(persisted.load(&error));
+        QCOMPARE(persisted.value("objects/" + firstId + "/settings/processing/inplace/rx").toMap(), editedRx);
+        QCOMPARE(persisted.value("objects/" + secondId + "/settings/processing/inplace/rx").toMap(), secondRx);
+        for (const auto& probe : probes)
+        {
+            if (probe->device)
+            {
+                QCOMPARE(probe->device->state(), SerialDevice::State::Closed);
+            }
+        }
+        QVERIFY(!registry.type("terminal.inplace.rx"));
     }
 
     Q_SLOT void bulkTerminalConnections()
@@ -2847,9 +3384,8 @@ int main(int argc, char* argv[])
             }
             else if (qEnvironmentVariableIsSet("TERMASTER_APP_RESTART_SESSION"))
             {
-                QString error;
-                result = app.workspace()
-                              && app.openSession(qEnvironmentVariable("TERMASTER_APP_RESTART_SESSION"), &error)
+                result = app.workspace() && app.session()
+                              && app.session()->id() == qEnvironmentVariable("TERMASTER_APP_RESTART_SESSION")
                               && app.session()->name() == "Renamed session"
                               && app.configuration().value("sessionTest/value").toInt() == 31
                               && app.session()->objects().values().size() == 2

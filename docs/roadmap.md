@@ -255,3 +255,13 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Expose independent encoder/decoder settings with usable defaults.
 - [x] Reuse unary codecs while preserving separate incremental state and packet boundaries.
 - [x] Verify bounds, reentry, cancellation, rotation and native settings forms.
+
+## FLOW-11: Terminal-local processing and workspace restoration
+
+- [x] Filter Lineflow palettes and terminal selectors by the current topology.
+- [x] Restore each workspace's last session after terminal factories are available.
+- [x] Move buffered-input/file/processing controls to status-bar actions and the Terminal menu.
+- [x] Retain independent Bypass/Simplex/Duplex profiles and terminal-local Inplace diagrams.
+- [x] Edit local diagrams with the existing Lineflow editor and prepare them in isolated registry scopes.
+- [x] Preserve atomic saves, private occurrence refactoring, plugin leases and callback lifetimes.
+- [x] Verify synthetic routing/persistence, failure cases, native 1x/2x layouts and affected builds.

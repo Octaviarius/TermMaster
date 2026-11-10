@@ -1,6 +1,8 @@
 #include "Gui/Processing/LineflowCanvas.h"
 #include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorCatalogTree.h"
+#include "Gui/Processing/ProcessorFavorites.h"
+#include "Gui/Processing/ProcessorSelector.h"
 
 #include <QAction>
 #include <QComboBox>
@@ -19,6 +21,7 @@
 #include <QScrollBar>
 #include <QSignalBlocker>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
@@ -653,6 +656,65 @@ private slots:
         QVERIFY(dialog.height() <= available.height());
     }
 
+    void catalogsFollowTopologyWithoutChangingSelection()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        registerDuplex(registry);
+        SettingsWidgetRegistry widgets;
+        LineflowEditorDialog   dialog(fixtureDefinitions(),
+                                      registry,
+                                      widgets,
+                                      [](const auto&, const auto&, const auto&, QString*) { return true; });
+        auto*                  catalog  = dialog.findChild<QTreeWidget*>("processorCatalog");
+        const auto             contains = [](QTreeWidget* tree, const QString& id) {
+            for (QTreeWidgetItemIterator it(tree); *it; ++it)
+            {
+                if ((*it)->data(0, Qt::UserRole).toString() == id)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        QVERIFY(contains(catalog, "native.hex-encoder"));
+        QVERIFY(!contains(catalog, "fixture.duplex"));
+        const auto paired = dialog.model().createBlock("Paired", 2);
+        dialog.model().setSelectedBlock(paired);
+        QVERIFY(contains(catalog, "native.hex-encoder"));
+        QVERIFY(contains(catalog, "fixture.duplex"));
+        dialog.model().setSelectedBlock("root");
+        QVERIFY(!contains(catalog, "fixture.duplex"));
+
+        QTemporaryDir      temporary;
+        Settings           preferences(temporary.filePath("preferences.yaml"));
+        ProcessorFavorites favorites(preferences.node("processing"));
+        QVERIFY(favorites.setIds({"native.hex-encoder", "fixture.duplex"}));
+        ProcessorSelector selector(nullptr, &favorites);
+        selector.setCatalog(registry.types(), "native.hex-encoder");
+        auto* tree = selector.findChild<QTreeWidget*>("processorSelectorTree");
+        QVERIFY(contains(tree, "native.hex-encoder"));
+        QVERIFY(!contains(tree, "fixture.duplex"));
+        QSignalSpy changed(&selector, &QComboBox::currentIndexChanged);
+        selector.setTopology(2);
+        QCOMPARE(selector.currentData().toString(), QString("native.hex-encoder"));
+        QVERIFY(selector.currentText().contains("Unavailable"));
+        QVERIFY(!contains(tree, "native.hex-encoder"));
+        QVERIFY(contains(tree, "fixture.duplex"));
+        QCOMPARE(changed.count(), 0);
+        selector.setInplaceAvailable(true);
+        QCOMPARE(changed.count(), 0);
+        QCOMPARE(tree->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("@inplace"));
+        QVERIFY(!favorites.contains("@inplace"));
+        selector.setCatalog(registry.types(), "@inplace");
+        QCOMPARE(selector.currentText(), QString("Inplace"));
+        selector.setTopology(1);
+        QCOMPARE(selector.currentData().toString(), QString("@inplace"));
+        QCOMPARE(selector.currentText(), QString("Inplace"));
+        QVERIFY(!contains(tree, "fixture.duplex"));
+        QCOMPARE(changed.count(), 0);
+    }
+
     void catalogOriginsGroupsAndParameterizedForms()
     {
         ProcessorRegistry      registry;
@@ -685,7 +747,7 @@ private slots:
         };
         auto* codecs = findGroup(catalog->topLevelItem(2), "Codecs");
         QVERIFY(codecs);
-        QCOMPARE(codecs->childCount(), 6);
+        QCOMPARE(codecs->childCount(), 4);
         QVERIFY(!codecs->isExpanded());
         QVERIFY(!(codecs->flags() & Qt::ItemIsDragEnabled));
         QVERIFY(!(catalog->topLevelItem(2)->flags() & Qt::ItemIsSelectable));
@@ -697,7 +759,7 @@ private slots:
         search->setText("base64");
         codecs = findGroup(catalog->topLevelItem(0), "Codecs");
         QVERIFY(codecs);
-        QCOMPARE(codecs->childCount(), 3);
+        QCOMPARE(codecs->childCount(), 2);
         QVERIFY(catalog->topLevelItem(1)->isHidden());
         search->clear();
 

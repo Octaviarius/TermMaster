@@ -1,3 +1,4 @@
+#include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorCatalogTree.h"
 #include "Gui/Processing/ProcessorFavorites.h"
 #include "Gui/Processing/ProcessorSelector.h"
@@ -92,8 +93,10 @@ private:
         panel.show();
         auto* rx     = panel.findChild<QComboBox*>("rxProcessor");
         auto* shared = panel.findChild<QComboBox*>("duplexProcessor");
-        auto* toggle = panel.findChild<QToolButton*>("duplexProcessingToggle");
-        QVERIFY(rx && shared && toggle);
+        auto* mode   = panel.findChild<QComboBox*>("processingMode");
+        QVERIFY(rx && shared && mode);
+        QCOMPARE(mode->currentData().toString(), QString("bypass"));
+        QVERIFY(!rx->isVisible() && !shared->isVisible());
         QCOMPARE(rx->findData("test.protocol"), -1);
         QVERIFY(shared->findData("test.protocol") >= 0);
         QCOMPARE(shared->findData("native.hex-encoder"), -1);
@@ -106,18 +109,174 @@ private:
         QVERIFY(
             !sharedTree->findItems("Unavailable: missing.processor", Qt::MatchExactly | Qt::MatchRecursive).isEmpty());
         QCOMPARE(favorites.ids(), QStringList({"native.hex-encoder", "test.protocol", "missing.processor"}));
-        toggle->setChecked(true);
+        select(mode, "duplex");
         QVERIFY(shared->isVisible());
         QVERIFY(!rx->isVisible());
         select(shared, "test.protocol");
         QVERIFY2(panel.applyDraft(&error), qPrintable(error));
         QCOMPARE(applied.value("duplex").toMap().value("type").toString(), QString("test.protocol"));
-        QVERIFY(!applied.contains("rx") && !applied.contains("tx"));
-        toggle->setChecked(false);
+        QCOMPARE(applied.value("mode").toString(), QString("duplex"));
+        select(mode, "simplex");
         select(rx, "native.gate");
         QVERIFY2(panel.applyDraft(&error), qPrintable(error));
-        QVERIFY(!applied.contains("duplex"));
+        QCOMPARE(applied.value("duplex").toMap().value("type").toString(), QString("test.protocol"));
+        QCOMPARE(applied.value("mode").toString(), QString("simplex"));
         QCOMPARE(applied.value("rx").toMap().value("type").toString(), QString("native.gate"));
+    }
+
+    Q_SLOT void modeProfilesAndInplaceDiagramsSurviveSwitchFailureAndRevert()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        SettingsWidgetRegistry editors;
+        ProcessingRouter       router;
+        const auto             diagram = [](const QString& direction, int channels) {
+            const auto id = "terminal.inplace." + direction;
+            return QVariantMap {
+                {id,
+                 QVariantMap {{"id", id},
+                              {"name", "Inplace"},
+                              {"kind", "lineflow"},
+                              {"source", QVariantMap {{"channels", channels}, {"nodes", QVariantList {}}}}}}
+            };
+        };
+        const QVariantMap diagrams {
+            {    "rx",     diagram("rx", 1)},
+            {    "tx",     diagram("tx", 1)},
+            {"duplex", diagram("duplex", 2)}
+        };
+        const QVariantMap initial {
+            {   "mode",                                                                               "bypass"},
+            {     "rx", QVariantMap {{"type", "native.gate"}, {"overrides", QVariantMap {{"enabled", false}}}}},
+            {     "tx",                                           QVariantMap {{"type", "native.hex-encoder"}}},
+            { "duplex",                                             QVariantMap {{"type", "native.hex-codec"}}},
+            {"inplace",                                                                               diagrams}
+        };
+        QVariantMap             applied;
+        bool                    accept = true;
+        int                     calls  = 0;
+        TerminalProcessingPanel panel(registry,
+                                      editors,
+                                      router,
+                                      initial,
+                                      [&](const QVariantMap&, const QVariantMap& draft, QString* error) {
+                                          ++calls;
+                                          if (!accept)
+                                          {
+                                              *error = "Synthetic mode persistence failure";
+                                              return false;
+                                          }
+                                          applied = draft;
+                                          return true;
+                                      });
+        auto*                   mode = panel.findChild<QComboBox*>("processingMode");
+        QVERIFY(mode);
+        select(mode, "simplex");
+        QCOMPARE(calls, 1);
+        QCOMPARE(applied.value("mode").toString(), QString("simplex"));
+        QCOMPARE(applied.value("rx"), initial.value("rx"));
+        QCOMPARE(applied.value("duplex"), initial.value("duplex"));
+        QCOMPARE(applied.value("inplace").toMap(), diagrams);
+        select(mode, "duplex");
+        QCOMPARE(calls, 2);
+        QCOMPARE(applied.value("mode").toString(), QString("duplex"));
+        QCOMPARE(applied.value("rx"), initial.value("rx"));
+        QCOMPARE(applied.value("tx"), initial.value("tx"));
+        const auto committed = applied;
+        accept               = false;
+        select(mode, "bypass");
+        QCOMPARE(calls, 3);
+        QCOMPARE(applied, committed);
+        QVERIFY(panel.propertiesWidget()->findChild<QLabel*>("processingError")->text().contains("Synthetic"));
+        panel.propertiesWidget()->findChild<QPushButton*>("revertProcessing")->click();
+        QCOMPARE(mode->currentData().toString(), QString("duplex"));
+        accept = true;
+        select(mode, "bypass");
+        QCOMPARE(calls, 4);
+        QCOMPARE(applied.value("mode").toString(), QString("bypass"));
+        QCOMPARE(applied.value("rx"), initial.value("rx"));
+        QCOMPARE(applied.value("tx"), initial.value("tx"));
+        QCOMPARE(applied.value("duplex"), initial.value("duplex"));
+        QCOMPARE(applied.value("inplace").toMap(), diagrams);
+    }
+
+    Q_SLOT void inlineEditorsSaveLocallyAndCancelWithoutPublishing()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        SettingsWidgetRegistry  editors;
+        ProcessingRouter        router;
+        QVariantMap             applied;
+        int                     calls = 0;
+        bool                    allow = true;
+        TerminalProcessingPanel panel(registry,
+                                      editors,
+                                      router,
+                                      {},
+                                      [&](const QVariantMap&, const QVariantMap& draft, QString* error) {
+                                          ++calls;
+                                          if (!allow)
+                                          {
+                                              *error = "Synthetic inline persistence failure";
+                                              return false;
+                                          }
+                                          applied = draft;
+                                          return true;
+                                      });
+        select(panel.findChild<QComboBox*>("processingMode"), "simplex");
+        auto* rx = panel.findChild<QComboBox*>("rxProcessor");
+        select(rx, "@inplace");
+        QCOMPARE(applied.value("rx").toMap().value("type").toString(), QString("@inplace"));
+        const auto beforeCancel = applied;
+        const auto beforeCalls  = calls;
+        panel.findChild<QToolButton*>("rxInplace")->click();
+        auto* editor = panel.findChild<LineflowEditorDialog*>();
+        QVERIFY(editor);
+        QVERIFY(editor->windowTitle().startsWith("Inplace"));
+        QCOMPARE(editor->model().selectedBlock(), QString("terminal.inplace.rx"));
+        QCOMPARE(editor->model().blockChannels("terminal.inplace.rx"), 1);
+        QVERIFY(!editor->model().insertNode("terminal.inplace.rx", 0, "native.gate").isEmpty());
+        editor->reject();
+        QCOMPARE(calls, beforeCalls);
+        QCOMPARE(applied, beforeCancel);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        panel.findChild<QToolButton*>("rxInplace")->click();
+        editor = panel.findChild<LineflowEditorDialog*>();
+        QVERIFY(editor);
+        QCOMPARE(editor->model().rowCount(), 0);
+        QVERIFY(!editor->model().insertNode("terminal.inplace.rx", 0, "native.gate").isEmpty());
+        QString error;
+        allow = false;
+        QVERIFY(!editor->applyDraft(&error));
+        QVERIFY(error.contains("Synthetic"));
+        QCOMPARE(applied, beforeCancel);
+        allow = true;
+        QVERIFY2(editor->applyDraft(&error), qPrintable(error));
+        QCOMPARE(calls, beforeCalls + 2);
+        const auto definitions = applied.value("inplace").toMap().value("rx").toMap();
+        QVERIFY(definitions.contains("terminal.inplace.rx"));
+        QCOMPARE(definitions.value("terminal.inplace.rx")
+                     .toMap()
+                     .value("source")
+                     .toMap()
+                     .value("nodes")
+                     .toList()
+                     .size(),
+                 1);
+        QVERIFY(!registry.type("terminal.inplace.rx"));
+        QCOMPARE(applied.value("rx").toMap().value("type").toString(), QString("@inplace"));
+        editor->reject();
+        select(panel.findChild<QComboBox*>("txProcessor"), "@inplace");
+        select(panel.findChild<QComboBox*>("processingMode"), "duplex");
+        select(panel.findChild<QComboBox*>("duplexProcessor"), "@inplace");
+        const auto diagrams = applied.value("inplace").toMap();
+        for (const auto& direction : {QStringLiteral("rx"), QStringLiteral("tx"), QStringLiteral("duplex")})
+        {
+            const auto id     = "terminal.inplace." + direction;
+            const auto source = diagrams.value(direction).toMap().value(id).toMap().value("source").toMap();
+            QCOMPARE(source.value("channels").toInt(), direction == "duplex" ? 2 : 1);
+            QVERIFY(!registry.type(id));
+        }
     }
 
     Q_SLOT void selectionsAndPrivateProperties()
@@ -170,7 +329,7 @@ private:
         emit gate->valueChanged();
         QVERIFY(!panel.applyDraft(&error));
         QCOMPARE(error, QString("Synthetic persistence failure"));
-        QCOMPARE(calls, 1);
+        QCOMPARE(calls, 2);
         QVERIFY(applied.isEmpty());
         allow = true;
         QVERIFY(panel.applyDraft(&error));
@@ -187,7 +346,8 @@ private:
         SettingsWidgetRegistry editors;
         ProcessingRouter       router;
         const QVariantMap      initial {
-            {"rx", QVariantMap {{"type", "native.gate"}, {"overrides", QVariantMap {{"enabled", false}}}}}
+            {"mode",                                                                              "simplex"},
+            {  "rx", QVariantMap {{"type", "native.gate"}, {"overrides", QVariantMap {{"enabled", false}}}}}
         };
         QVariantMap             applied;
         TerminalProcessingPanel panel(registry,
@@ -214,7 +374,8 @@ private:
         SettingsWidgetRegistry editors;
         ProcessingRouter       router;
         const QVariantMap      initial {
-            {"rx", QVariantMap {{"type", "missing.plugin"}}}
+            {"mode",                                "simplex"},
+            {  "rx", QVariantMap {{"type", "missing.plugin"}}}
         };
         TerminalProcessingPanel panel(registry,
                                       editors,
@@ -231,10 +392,11 @@ private:
         SettingsWidgetRegistry editors;
         ProcessingRouter       router;
         const QVariantMap      initial {
-            {"rx",
+            {"mode","simplex"       },
+            {  "rx",
              QVariantMap {{"type", "native.gate"},
-                          {"overrides", QVariantMap {{"enabled", false}}},
-                          {"custom", "retained"}}}
+             {"overrides", QVariantMap {{"enabled", false}}},
+             {"custom", "retained"}}}
         };
         int                     calls = 0;
         QVariantMap             latest;
@@ -255,7 +417,8 @@ private:
         editor->setValue(true);
         emit              editor->valueChanged();
         const QVariantMap external {
-            {"rx", QVariantMap {{"type", "native.hex-encoder"}}}
+            {"mode",                                    "simplex"},
+            {  "rx", QVariantMap {{"type", "native.hex-encoder"}}}
         };
         panel.setConfiguration(external);
         editor->setValue(false);
@@ -310,7 +473,8 @@ private:
                                             editors,
                                             router,
                                             {
-                                                {"rx", QVariantMap {{"type", "custom"}}}
+                                                {"mode",                        "simplex"},
+                                                {  "rx", QVariantMap {{"type", "custom"}}}
         },
                                             [](const QVariantMap&, const QVariantMap&, QString*) { return true; });
         QPointer<SettingsFieldEditor> editor = panel.propertiesWidget()->findChild<SettingsFieldEditor*>("/value");
@@ -337,8 +501,6 @@ private:
                                                 return true;
                                             });
         select(panel->findChild<QComboBox*>("rxProcessor"), "native.gate");
-        QString error;
-        QVERIFY(!panel->applyDraft(&error));
         QVERIFY(!panel);
     }
 
@@ -526,10 +688,11 @@ private:
             editors,
             router,
             {
-                {"rx",
+                {"mode",                                                          "simplex"                        },
+                {  "rx",
                  QVariantMap {{"type", "test.protocol"},
                  {"overrides", QVariantMap {{"Hex encoding", QVariantMap {{"letterCase", "lower"}}}}}}             },
-                {"tx",                                                        QVariantMap {{"type", "native.gate"}}}
+                {  "tx",                                                      QVariantMap {{"type", "native.gate"}}}
         },
             [](const QVariantMap&, const QVariantMap&, QString*) { return true; },
             &window);

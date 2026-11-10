@@ -78,6 +78,12 @@ public:
                                                                 const QList<Definition>& definitions,
                                                                 QString*                 error = nullptr) const;
     bool publishDefinitions(const QString& owner, const QList<Definition>& definitions, QString* error = nullptr);
+    /** Independent catalog snapshot with bounded local definitions. The scope pins every
+     * copied factory/provider owner until destruction. Prepared snapshots and live instances
+     * retain their own leases after the scope is destroyed. Use on the registry's owning
+     * thread; local IDs must not replace existing entries.
+     */
+    std::unique_ptr<ProcessorRegistry> scoped(const QVariantMap& definitions, QString* error = nullptr) const;
 
     std::optional<QVariantMap> resolveConfiguration(const QString&     id,
                                                     const QVariantMap& stored,
@@ -109,6 +115,8 @@ public:
 private:
     struct Entry;
     struct ProviderEntry;
+    // Release pins after all maps holding copied executable callbacks have been destroyed.
+    QList<std::shared_ptr<const void>>            _scopeLeases;
     QMap<QString, std::shared_ptr<Entry>>         _entries;
     QMap<QString, std::shared_ptr<ProviderEntry>> _providers;
     QList<std::shared_ptr<Entry>>                 _retired;

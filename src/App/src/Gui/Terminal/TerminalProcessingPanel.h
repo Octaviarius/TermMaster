@@ -11,6 +11,7 @@
 class ProcessorRegistry;
 class SettingsWidgetRegistry;
 class ProcessingRouter;
+class LineflowEditorDialog;
 class QComboBox;
 class ProcessorSelector;
 class ProcessorFavorites;
@@ -54,8 +55,9 @@ private:
     ProcessorSelector*                      _selectors[2];
     QLabel*                                 _labels[2];
     ProcessorSelector*                      _duplexSelector;
-    QToolButton*                            _duplexToggle;
-    bool                                    _sharedMode = false;
+    QComboBox*                              _modeSelector;
+    QToolButton*                            _inplaceButtons[3];
+    QPointer<LineflowEditorDialog>          _inplaceEditor;
     QComboBox*                              _direction;
     QPointer<QWidget>                       _properties;
     QTableWidget*                           _table;
@@ -66,7 +68,8 @@ private:
     bool                                    _updating       = false;
     int                                     _shownDirection = 0;
     void                                    _catalog();
-    void                                    _mode(bool shared);
+    void                                    _mode(const QString& mode);
+    void                                    _editInplace(int direction);
     void                                    _clearRows();
     void                                    _showProperties();
     bool                                    _flush(QString* error);

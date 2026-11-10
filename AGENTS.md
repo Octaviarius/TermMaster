@@ -207,8 +207,14 @@ changing behavior. These rules apply repository-wide.
   independently from every widget.
 - Configuration overlays are live borrowed application/workspace/session layers.
   Write only to the highest active scope and preserve inherited values. Save active
-  sessions before workspace replacement, closure and normal exit. Startup restores
-  the workspace only; do not imply automatic last-session restoration.
+  sessions before workspace replacement, closure and normal exit. Opening a workspace
+  restores its last session after terminal factories are ready, with terminals disconnected.
+  Explicit session closure clears that workspace's restoration reference.
+- Terminal processing persists explicit Bypass/Simplex/Duplex mode with retained
+  inactive selections and separate Rx/Tx/Duplex Inplace definition maps inside the
+  terminal's session settings. Inplace is a local selector entry, never a workspace
+  publication or shared favorite ID. Prepare it through an isolated registry scope
+  that preserves original plugin leases. Filter editor/selector catalogs by topology.
 - Keep persistence separate from widget state and connection lifecycle.
   Validate loaded values before applying them to devices or allocating resources.
 - Do not silently discard unknown settings or overwrite unrelated preferences.

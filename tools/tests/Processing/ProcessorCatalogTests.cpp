@@ -46,6 +46,15 @@ QVariantMap leaf(const QString& id, const QString& name = "leaf")
         {"type",   id}
     };
 }
+QVariantMap savedLine(const QString& id, QVariantList nodes)
+{
+    return {
+        {    "id",                             id},
+        {  "name",                             id},
+        {  "kind",                     "lineflow"},
+        {"source", QVariantMap {{"nodes", nodes}}}
+    };
+}
 QByteArray schema()
 {
     return QByteArray(
@@ -56,6 +65,190 @@ class ProcessorCatalogTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void unpreparedScopePinsCopiedFactoriesAndProviders()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native-owner");
+        ProcessorCatalog::Provider provider;
+        provider.prepare = [](const auto&, const auto&, const auto&, const auto&, QString*) {
+            return ProcessorCatalog::Type::Factory([](const auto& configuration, const auto&, QString*) {
+                return std::make_unique<FixtureProcessor>(configuration);
+            });
+        };
+        registry.registerProvider("provider-owner", "fixture", std::move(provider));
+        QVERIFY(registry.canRemoveOwner("native-owner"));
+        QVERIFY(registry.canRemoveOwner("provider-owner"));
+        QSignalSpy changed(&registry, &ProcessorRegistry::changed);
+        QString    error;
+        auto       local = registry.scoped({}, &error);
+        QVERIFY2(local, qPrintable(error));
+        QVERIFY(!registry.canRemoveOwner("native-owner"));
+        QVERIFY(!registry.canRemoveOwner("provider-owner"));
+        QVERIFY(!registry.removeOwner("native-owner", &error));
+        QVERIFY(!registry.removeOwner("provider-owner", &error));
+        QCOMPARE(changed.count(), 0);
+        QVERIFY(registry.type("native.gate"));
+        local.reset();
+        QVERIFY(registry.canRemoveOwner("native-owner"));
+        QVERIFY(registry.canRemoveOwner("provider-owner"));
+        QCOMPARE(changed.count(), 0);
+        QVERIFY(registry.removeOwner("provider-owner", &error));
+        QVERIFY(registry.removeOwner("native-owner", &error));
+    }
+
+    void scopedDefinitionsKeepMetadataAndPreparationIndependent()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native-owner");
+        QVERIFY(registry.publishDefinitions("workspace", {line("workspace.flow", {leaf("native.gate", "gate")})}));
+        QSignalSpy changes(&registry, &ProcessorRegistry::changed);
+        QString    error;
+        auto       local = registry.scoped(
+            {
+                {"local.flow",
+                 savedLine("local.flow", {leaf("workspace.flow", "saved"), leaf("native.gate", "direct")})}
+        },
+            &error);
+        QVERIFY2(local, qPrintable(error));
+        QCOMPARE(changes.count(), 0);
+        QVERIFY(!registry.type("local.flow"));
+        QVERIFY(local->type("local.flow"));
+        QVERIFY(local->type("local.flow")->available);
+        QCOMPARE(local->type("local.flow")->origin, QString("terminal.inplace"));
+        auto properties = local->properties("local.flow", {}, {}, &error);
+        QVERIFY2(properties, qPrintable(error));
+        QCOMPARE(properties->size(), 2);
+        QCOMPARE(properties->at(0).path, QString("saved/gate"));
+        QCOMPARE(properties->at(1).path, QString("direct"));
+        QVERIFY(!registry.canRemoveOwner("native-owner"));
+        QVERIFY(!registry.canRemoveOwner("workspace"));
+        auto prepared = local->prepare("local.flow", {}, {}, &error);
+        QVERIFY2(prepared, qPrintable(error));
+        QVERIFY(!registry.canRemoveOwner("native-owner"));
+        QVERIFY(!registry.canRemoveOwner("workspace"));
+        local.reset();
+        QVERIFY(!registry.canRemoveOwner("native-owner"));
+        auto instance = prepared->instantiate({}, &error);
+        QVERIFY2(instance, qPrintable(error));
+        prepared.reset();
+        QVERIFY(!registry.canRemoveOwner("native-owner"));
+        QList<QByteArray> output;
+        bool              completed = false;
+        instance->accept({QByteArray("scoped")},
+                         {[&](auto chunk) { output.append(chunk.bytes); },
+                          [&](auto message) {
+                              QVERIFY(message.isEmpty());
+                              completed = true;
+                          }});
+        QTRY_VERIFY(completed);
+        QCOMPARE(output, QList<QByteArray> {QByteArray("scoped")});
+        instance.reset();
+        QTRY_VERIFY(registry.canRemoveOwner("native-owner"));
+        QTRY_VERIFY(registry.canRemoveOwner("workspace"));
+        QCOMPARE(changes.count(), 0);
+        QVERIFY(registry.type("workspace.flow"));
+    }
+
+    void scopedDefinitionsPreserveProviderLeasesAfterScopeDestruction()
+    {
+        ProcessorRegistry          registry;
+        ProcessorCatalog::Provider provider;
+        provider.prepare = [](const auto&, const auto&, const auto&, const auto&, QString*) {
+            return ProcessorCatalog::Type::Factory([](const auto& configuration, const auto&, QString*) {
+                return std::make_unique<FixtureProcessor>(configuration);
+            });
+        };
+        registry.registerProvider("provider-owner", "fixture", std::move(provider));
+        const QVariantMap definition {
+            {    "id",   "local.code"},
+            {  "name",   "Local code"},
+            {  "kind",      "fixture"},
+            {"source", QVariantMap {}}
+        };
+        QString error;
+        auto    local = registry.scoped(
+            {
+                {"local.code", definition}
+        },
+            &error);
+        QVERIFY2(local, qPrintable(error));
+        QVERIFY(!registry.canRemoveOwner("provider-owner"));
+        auto prepared = local->prepare("local.code", {}, {}, &error);
+        QVERIFY2(prepared, qPrintable(error));
+        local.reset();
+        QVERIFY(!registry.canRemoveOwner("provider-owner"));
+        auto instance = prepared->instantiate({}, &error);
+        QVERIFY2(instance, qPrintable(error));
+        prepared.reset();
+        QVERIFY(!registry.canRemoveOwner("provider-owner"));
+        instance.reset();
+        QTRY_VERIFY(registry.canRemoveOwner("provider-owner"));
+        QVERIFY(registry.removeOwner("provider-owner"));
+    }
+
+    void scopedDefinitionsRejectCollisionsCyclesAndBounds()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native-owner");
+        QVERIFY(registry.publishDefinitions("workspace", {line("workspace.flow", {leaf("local.flow")})}));
+        // A scope must reject collisions even with an existing publication of its own owner name.
+        QVERIFY(registry.publishDefinitions("terminal.inplace", {line("existing.local", {})}));
+        QSignalSpy changes(&registry, &ProcessorRegistry::changed);
+        QString    error;
+        for (const auto& id : {QString("native.gate"), QString("workspace.flow"), QString("existing.local")})
+        {
+            QVERIFY(!registry.scoped(
+                {
+                    {id, savedLine(id, {})}
+            },
+                &error));
+            QVERIFY(error.contains("Duplicate"));
+        }
+        QVERIFY(!registry.scoped(
+            {
+                {"local.flow", savedLine("local.flow", {leaf("workspace.flow")})}
+        },
+            &error));
+        QVERIFY(error.contains("cycle"));
+        QVERIFY(!registry.scoped(
+            {
+                {"local.flow", savedLine("local.flow", {leaf("local.flow")})}
+        },
+            &error));
+        QVERIFY(error.contains("cycle"));
+        QVariantMap oversized;
+        for (int index = 0; index < 1025; ++index)
+        {
+            const auto id = QString("node%1").arg(index);
+            oversized.insert(id, savedLine(id, {}));
+        }
+        QVERIFY(!registry.scoped(oversized, &error));
+        QVERIFY(error.contains("1024"));
+        QVariantList nodes;
+        for (int index = 0; index < 257; ++index)
+        {
+            nodes.append(leaf("native.gate", QString("node%1").arg(index)));
+        }
+        QVERIFY(!registry.scoped(
+            {
+                {"local.flow", savedLine("local.flow", nodes)}
+        },
+            &error));
+        QVERIFY(error.contains("256"));
+        QVERIFY(!registry.scoped(
+            {
+                {"local.flow", QVariant::fromValue(static_cast<QObject*>(this))}
+        },
+            &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(changes.count(), 0);
+        QVERIFY(!registry.type("local.flow"));
+        QVERIFY(!registry.type("workspace.flow")->available);
+        QVERIFY(registry.canRemoveOwner("native-owner"));
+        QVERIFY(registry.canRemoveOwner("workspace"));
+        QVERIFY(registry.canRemoveOwner("terminal.inplace"));
+    }
+
     void nativeGroupMetadataOwnsSnapshotsAndStripsFactories()
     {
         ProcessorRegistry      registry;

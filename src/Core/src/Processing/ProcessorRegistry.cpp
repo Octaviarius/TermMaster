@@ -1000,6 +1000,43 @@ bool ProcessorRegistry::publishDefinitions(const QString& owner, const QList<Def
     return true;
 }
 
+std::unique_ptr<ProcessorRegistry> ProcessorRegistry::scoped(const QVariantMap& definitions, QString* error) const
+{
+    const auto parsed = parseDefinitions(definitions, error);
+    if (!parsed)
+    {
+        return {};
+    }
+    for (const auto& definition : *parsed)
+    {
+        if (_entries.contains(definition.id))
+        {
+            fail(error, "Duplicate processor ID: " + definition.id);
+            return {};
+        }
+    }
+
+    auto result        = std::make_unique<ProcessorRegistry>();
+    result->_entries   = _entries;
+    result->_providers = _providers;
+    const auto pin     = [&result](const auto& entries) {
+        for (const auto& entry : entries)
+        {
+            auto lease     = std::make_shared<Lease>();
+            lease->release = [entry] { --entry->instances; };
+            ++entry->instances;
+            result->_scopeLeases.append(std::move(lease));
+        }
+    };
+    pin(result->_entries);
+    pin(result->_providers);
+    if (!result->publishDefinitions("terminal.inplace", *parsed, error))
+    {
+        return {};
+    }
+    return result;
+}
+
 void ProcessorRegistry::registerType(const QString& owner, Type type)
 {
     if (!type.create || type.settingsSchema.isEmpty() || _entries.contains(type.id))

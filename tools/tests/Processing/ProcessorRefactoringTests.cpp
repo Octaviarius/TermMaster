@@ -152,6 +152,166 @@ private slots:
         QCOMPARE(config.value("opaque").toString(), "kept");
     }
 
+    void embeddedDiagramsRefactorDormantProfilesInIsolatedTerminalScopes()
+    {
+        const QVariantMap before {
+            {"shared", definition("shared", {node("old", "missing.native")})}
+        };
+        const QVariantMap after {
+            {"shared", definition("shared", {node("new", "missing.native")})}
+        };
+        const auto terminal = [](const QString& prefix, bool selected) {
+            QVariantMap diagrams;
+            QVariantMap processing {
+                {   "mode",              "bypass"},
+                {"unknown", "processing metadata"}
+            };
+            for (const auto& direction : {QStringLiteral("rx"), QStringLiteral("tx"), QStringLiteral("duplex")})
+            {
+                const auto id     = "terminal.inplace." + direction;
+                auto       nested = node(prefix, "shared");
+                nested.insert("configuration",
+                              QVariantMap {
+                                  {"overrides", QVariantMap {{"old", QVariantMap {{"value", 7}}}}},
+                                  {  "unknown",                                   "node metadata"}
+                });
+                auto root   = definition(id, {nested, node("old", "missing.native")});
+                auto source = root.value("source").toMap();
+                source.insert("channels", direction == "duplex" ? 2 : 1);
+                root.insert("source", source);
+                root.insert("defaults",
+                            QVariantMap {
+                                {"overrides", QVariantMap {{prefix + "/old", QVariantMap {{"value", 8}}}}}
+                });
+                diagrams.insert(direction,
+                                QVariantMap {
+                                    {id, root}
+                });
+                processing.insert(direction,
+                                  QVariantMap {
+                                      {         "type",selected ? "@inplace" : "missing.other"                                                       },
+                                      {    "overrides",
+                                       QVariantMap {
+                                       {selected ? prefix + "/old" : "opaque/path", QVariantMap {{"value", 9}}}}    },
+                                      {"configuration",
+                                       QVariantMap {{"overrides",
+                                       QVariantMap {{selected ? prefix + "/old" : "opaque/path",
+                                       QVariantMap {{"value", 10}}}}}}                                              },
+                                      {      "unknown",                                         "selection metadata"}
+                });
+            }
+            processing.insert("inplace", diagrams);
+            return QVariantMap {
+                {"settings", QVariantMap {{"processing", processing}}},
+                { "unknown",                        "object metadata"}
+            };
+        };
+        const QVariantMap objects {
+            {    "first",   terminal("one",  true)},
+            {   "second",   terminal("two",  true)},
+            {  "dormant", terminal("three", false)},
+            {"unrelated", object("missing",    {})}
+        };
+        QString    error;
+        const auto result = ProcessorRefactoring::transform(before,
+                                                            after,
+                                                            {
+                                                                {"shared", "old", "new"}
+        },
+                                                            objects,
+                                                            &error);
+        QVERIFY2(result, qPrintable(error));
+        QCOMPARE(result->definitions, after);
+        QCOMPARE(result->sessionObjects.value("unrelated"), objects.value("unrelated"));
+        for (const auto& terminalId : {QStringLiteral("first"), QStringLiteral("second"), QStringLiteral("dormant")})
+        {
+            const auto prefix  = terminalId == "first"  ? QStringLiteral("one") :
+                                 terminalId == "second" ? QStringLiteral("two") :
+                                                          QStringLiteral("three");
+            const auto changed = result->sessionObjects.value(terminalId)
+                                     .toMap()
+                                     .value("settings")
+                                     .toMap()
+                                     .value("processing")
+                                     .toMap();
+            QCOMPARE(changed.value("mode").toString(), QString("bypass"));
+            QCOMPARE(changed.value("unknown").toString(), QString("processing metadata"));
+            for (const auto& direction : {QStringLiteral("rx"), QStringLiteral("tx"), QStringLiteral("duplex")})
+            {
+                const auto id   = "terminal.inplace." + direction;
+                const auto root = changed.value("inplace").toMap().value(direction).toMap().value(id).toMap();
+                QVERIFY(root.value("defaults").toMap().value("overrides").toMap().contains(prefix + "/new"));
+                const auto children = root.value("source").toMap().value("nodes").toList();
+                QCOMPARE(children[0].toMap().value("name").toString(), prefix);
+                QCOMPARE(children[1].toMap().value("name").toString(), QString("old"));
+                const auto configuration = children[0].toMap().value("configuration").toMap();
+                QVERIFY(configuration.value("overrides").toMap().contains("new"));
+                QCOMPARE(configuration.value("unknown").toString(), QString("node metadata"));
+                const auto selection = changed.value(direction).toMap();
+                QCOMPARE(selection.value("unknown").toString(), QString("selection metadata"));
+                if (terminalId == "dormant")
+                {
+                    const auto original = objects.value(terminalId)
+                                              .toMap()
+                                              .value("settings")
+                                              .toMap()
+                                              .value("processing")
+                                              .toMap();
+                    QCOMPARE(selection, original.value(direction).toMap());
+                }
+                else
+                {
+                    QCOMPARE(selection.value("type").toString(), QString("@inplace"));
+                    QVERIFY(selection.value("overrides").toMap().contains(prefix + "/new"));
+                    QVERIFY(
+                        selection.value("configuration").toMap().value("overrides").toMap().contains(prefix + "/new"));
+                    QVERIFY(!selection.value("overrides").toMap().contains(prefix + "/old"));
+                }
+            }
+        }
+        QCOMPARE(objects.value("first"), terminal("one", true));
+    }
+
+    void embeddedDiagramRefactoringRejectsCollisionsAndStaleAddresses()
+    {
+        const auto        id = QStringLiteral("terminal.inplace.rx");
+        const QVariantMap shared {
+            {"shared", definition("shared", {node("old", "missing.native")})}
+        };
+        auto              terminal   = object("@inplace",
+                                              {
+                                                  {"branch/stale", QVariantMap {}}
+        });
+        auto              settings   = terminal.value("settings").toMap();
+        auto              processing = settings.value("processing").toMap();
+        const QVariantMap local {
+            {id, definition(id, {node("branch", "shared")})}
+        };
+        processing.insert("inplace",
+                          QVariantMap {
+                              {"rx", local}
+        });
+        settings.insert("processing", processing);
+        terminal.insert("settings", settings);
+        QString error;
+        QVERIFY(!ProcessorRefactoring::transform(shared,
+                                                 shared,
+                                                 {
+        },
+                                                 {{"terminal", terminal}},
+                                                 &error));
+        QVERIFY(error.contains("Stale"));
+        auto collision = shared;
+        collision.insert(id, local.value(id));
+        QVERIFY(!ProcessorRefactoring::transform(collision,
+                                                 collision,
+                                                 {
+        },
+                                                 {{"terminal", terminal}},
+                                                 &error));
+        QVERIFY(error.contains("Duplicate"));
+    }
+
     void collisionsStalePathsAndAtomicInputs()
     {
         const QVariantMap old {

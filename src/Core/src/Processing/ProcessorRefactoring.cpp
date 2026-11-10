@@ -286,6 +286,83 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
                     changed = true;
                 }
             }
+            auto diagrams        = processing.value("inplace").toMap();
+            bool diagramsChanged = false;
+            for (const auto& direction : {QStringLiteral("rx"), QStringLiteral("tx"), QStringLiteral("duplex")})
+            {
+                if (!diagrams.contains(direction))
+                {
+                    continue;
+                }
+                if (diagrams.value(direction).typeId() != QMetaType::QVariantMap)
+                {
+                    reject("Terminal Inplace definitions must be a map: " + direction);
+                }
+                const auto local  = diagrams.value(direction).toMap();
+                auto       before = originalDefinitions;
+                auto       after  = finalDraftDefinitions;
+                for (auto definition = local.cbegin(); definition != local.cend(); ++definition)
+                {
+                    if (before.contains(definition.key()) || after.contains(definition.key()))
+                    {
+                        reject("Duplicate terminal Inplace processor ID: " + definition.key());
+                    }
+                    before.insert(definition.key(), definition.value());
+                    after.insert(definition.key(), definition.value());
+                }
+                auto        selection = processing.value(direction).toMap();
+                const bool  selected  = selection.value("type").toString() == "@inplace";
+                QVariantMap occurrences;
+                if (selected)
+                {
+                    selection.insert("type", "terminal.inplace." + direction);
+                    occurrences.insert("terminal",
+                                       QVariantMap {
+                                           {"settings",
+                                            QVariantMap {{"processing", QVariantMap {{direction, selection}}}}}
+                    });
+                }
+                // The synthetic occurrence deliberately omits embedded diagrams. Reusing
+                // this bounded traversal therefore adds exactly one call level.
+                QString    scopedError;
+                const auto scoped = transform(before, after, renames, occurrences, &scopedError);
+                if (!scoped)
+                {
+                    reject("Terminal Inplace refactoring failed: " + scopedError);
+                }
+                auto rewritten = local;
+                for (auto definition = rewritten.begin(); definition != rewritten.end(); ++definition)
+                {
+                    definition.value() = scoped->definitions.value(definition.key());
+                }
+                if (rewritten != local)
+                {
+                    diagrams.insert(direction, rewritten);
+                    diagramsChanged = true;
+                }
+                if (selected)
+                {
+                    selection = scoped->sessionObjects.value("terminal")
+                                    .toMap()
+                                    .value("settings")
+                                    .toMap()
+                                    .value("processing")
+                                    .toMap()
+                                    .value(direction)
+                                    .toMap();
+                    selection.insert("type", "@inplace");
+                    if (selection != processing.value(direction).toMap())
+                    {
+                        processing.insert(direction, selection);
+                        changed = true;
+                    }
+                }
+            }
+            if (diagramsChanged)
+            {
+                processing.insert("inplace", diagrams);
+                changed = true;
+            }
             if (changed)
             {
                 settings.insert("processing", processing);
