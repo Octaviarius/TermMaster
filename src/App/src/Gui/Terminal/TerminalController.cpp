@@ -56,6 +56,25 @@ bool fail(QString* error, const QString& text)
     }
     return false;
 }
+std::optional<QVariant> lookup(const QVariantMap& values, const QString& path)
+{
+    QVariant current = values;
+    for (const auto& part : path.split('/'))
+    {
+        if (current.typeId() != QMetaType::QVariantMap)
+        {
+            return std::nullopt;
+        }
+        const auto map = current.toMap();
+        const auto it  = map.constFind(part);
+        if (it == map.cend())
+        {
+            return std::nullopt;
+        }
+        current = it.value();
+    }
+    return current;
+}
 void put(QVariantMap& map, const QStringList& parts, qsizetype index, const QVariant& value)
 {
     if (index == parts.size() - 1)
@@ -609,12 +628,13 @@ QVariantMap TerminalController::_effective(const Type& type, SettingsOverlay set
     QVariantMap document;
     for (const auto& field : type.schema->fields())
     {
-        if (settings.contains(field.settingsPath))
+        if (const auto value = lookup(values, field.settingsPath))
         {
-            document.insert(field.key, settings.value(field.settingsPath));
+            document.insert(field.key, *value);
         }
     }
-    document = type.schema->withDefaults(document);
+    const auto explicitValues = document;
+    document                  = type.schema->withDefaults(document);
     for (const auto& field : type.schema->fields())
     {
         if (!type.schema->isActive(field.key, document))
@@ -622,7 +642,7 @@ QVariantMap TerminalController::_effective(const Type& type, SettingsOverlay set
             removePath(values, field.settingsPath.split('/'));
             continue;
         }
-        if (!settings.contains(field.settingsPath) && field.hasDefault)
+        if (!explicitValues.contains(field.key) && field.hasDefault)
         {
             put(values, field.settingsPath.split('/'), 0, field.defaultValue);
         }
@@ -631,12 +651,13 @@ QVariantMap TerminalController::_effective(const Type& type, SettingsOverlay set
 }
 bool TerminalController::_validate(const Type& type, SettingsOverlay settings, QString* error) const
 {
+    const auto  values = settings.values();
     QVariantMap document;
     for (const auto& field : type.schema->fields())
     {
-        if (settings.contains(field.settingsPath))
+        if (const auto value = lookup(values, field.settingsPath))
         {
-            document.insert(field.key, settings.value(field.settingsPath));
+            document.insert(field.key, *value);
         }
         else if (field.hasDefault)
         {
@@ -758,7 +779,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         terminal->processing = std::make_unique<ProcessingRouter>();
         terminal->advanced   = std::make_unique<AdvancedSender>(*terminal->sender, *terminal->device);
         terminal->advanced->configure(terminal->settings.value("input").toMap());
-        terminal->targetConfiguration = _effective(type, terminal->settings).value("transport").toMap();
+        terminal->targetConfiguration = effective.value("transport").toMap();
         if (_processors)
         {
             terminal->processingPanel = new TerminalProcessingPanel(
@@ -1375,12 +1396,17 @@ void TerminalController::showSelectedTerminalSettings()
 
 std::shared_ptr<SettingsSchema> TerminalController::_appearanceSchema()
 {
+    if (_appearance)
+    {
+        return _appearance;
+    }
     QFile file(":/Termaster/App/TerminalAppearance.yaml");
     if (!file.open(QIODevice::ReadOnly))
     {
         throw std::runtime_error("Terminal appearance schema is unavailable");
     }
-    return std::make_shared<SettingsSchema>(file.readAll());
+    _appearance = std::make_shared<SettingsSchema>(file.readAll());
+    return _appearance;
 }
 void TerminalController::setProcessorRegistry(ProcessorRegistry& registry)
 {
@@ -1743,15 +1769,15 @@ void TerminalController::applySettings()
 {
     for (const auto& [id, terminal] : _terminals)
     {
-        terminal->display->setAppearance(
-            _effective(_types.at(terminal->type), terminal->settings).value("appearance").toMap());
-        terminal->editor->setSettings(terminal->settings.value("input").toMap());
+        const auto effective = _effective(_types.at(terminal->type), terminal->settings);
+        terminal->display->setAppearance(effective.value("appearance").toMap());
+        terminal->editor->setSettings(effective.value("input").toMap());
         if (terminal->advanced)
         {
-            terminal->advanced->configure(terminal->settings.value("input").toMap());
+            terminal->advanced->configure(effective.value("input").toMap());
         }
         terminal->display->setFocusProxy(terminal->editor->buffered() ? terminal->editor.data() : nullptr);
-        const auto target = _effective(_types.at(terminal->type), terminal->settings).value("transport").toMap();
+        const auto target = effective.value("transport").toMap();
         if (target != terminal->targetConfiguration)
         {
             const bool pending = terminal->advanced->active();
@@ -1762,7 +1788,7 @@ void TerminalController::applySettings()
                 showMessage(tr("Pending output cancelled because the terminal connection settings changed."));
             }
         }
-        const auto processing = terminal->settings.value("processing").toMap();
+        const auto processing = effective.value("processing").toMap();
         if (terminal->processingConfiguration != processing)
         {
             if (TerminalProcessing::validateMode(processing, nullptr)
@@ -1777,7 +1803,7 @@ void TerminalController::applySettings()
         }
         if (terminal->processingPanel)
         {
-            terminal->processingPanel->setConfiguration(terminal->settings.value("processing").toMap());
+            terminal->processingPanel->setConfiguration(processing);
         }
         terminal->name = _session->objects().value(id).toMap().value("name", id).toString();
         _changed(id);
@@ -2036,8 +2062,7 @@ void TerminalController::_attemptConnection(const QString& id)
     }
     terminal.device->resize(terminal.display->terminalSize().width(), terminal.display->terminalSize().height());
     QString error;
-    if (!_validate(type->second, terminal.settings, &error)
-        || !terminal.device->open(_effective(type->second, terminal.settings).value("transport").toMap(), &error))
+    if (!_validate(type->second, terminal.settings, &error) || !terminal.device->open(target, &error))
     {
         if (error.isEmpty())
         {
