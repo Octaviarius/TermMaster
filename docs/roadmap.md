@@ -438,8 +438,8 @@ tracing was unavailable under the current Windows policy.
 - [x] Reduce cold row-layout work, repeated glyph metrics and unnecessary renderer cache invalidation.
 - [x] Avoid full-history repair for height-only terminal resize.
 - [ ] Separate session save from global terminal configuration application.
-- [ ] Cache parsed schemas/defaults and lazily construct hidden processing editors.
+- [x] Cache parsed schemas/defaults and lazily construct hidden processing editors.
 - [ ] Narrow unchanged/metadata-only workspace persistence without weakening transactions.
-- [ ] Reuse effective settings snapshots with correct overlay/schema invalidation.
+- [x] Reuse effective settings snapshots with correct overlay/schema invalidation.
 - [ ] Bound partial regex rescanning and reduce small-packet Lineflow overhead.
 - [ ] Measure and improve large-catalog search, drag validation and batched tab updates.

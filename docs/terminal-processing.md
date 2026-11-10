@@ -316,5 +316,9 @@ passed on 2026-11-10 (14 active cases; two opt-in capture cases skipped by CTest
 Coverage includes hidden preparation, latest configuration, hide/show draft
 retention, unknown override preservation, synchronous editor release and failed
 Apply diagnostics. The native Windows visual capture passed separately and was
-inspected for selector/property alignment and retained reset controls. Broader App
-integration and lifecycle performance comparisons remain separate checks.
+inspected for selector/property alignment and retained reset controls. The integrated
+Release AppTests, LineflowEditorTests and TerminalProcessingTests also passed.
+One copied real-workspace quick run measured session reopen at 174.62 ms, clean
+App save at 4.31 ms and disconnected terminal addition at 30.88 ms; these are
+exploratory single-cycle figures, not statistical performance guarantees. Raw
+records are under `docs/benchmarks/application-profile/after-settings/`.
