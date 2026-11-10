@@ -5,6 +5,7 @@
 #include <QtTest>
 #include <Termaster/Core/SettingsSchema.h>
 #include <Termaster/Core/Workspace.h>
+#include <Termaster/Core/WorkspaceFileTransaction.h>
 #include <filesystem>
 #include <memory>
 
@@ -40,6 +41,135 @@ class WorkspaceTests : public QObject
 {
     Q_OBJECT
 private slots:
+    void cleanSyncStillChecksValidatorAndPendingJournal()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Workspace     workspace(Path(temporary.filePath("workspace.yaml")), base.node(""));
+        QVERIFY(workspace.create("Clean"));
+        QVERIFY(!workspace.isDirty());
+        const auto original = readFile(workspace.filePath().toString());
+        int        calls    = 0;
+        bool       allow    = false;
+        workspace.setProcessorValidator([&](const QVariantMap&, QString* error) {
+            ++calls;
+            if (!allow && error)
+            {
+                *error = "Synthetic validator rejection";
+            }
+            return allow;
+        });
+        QString error;
+        QVERIFY(!workspace.sync(&error));
+        QCOMPARE(error, QString("Synthetic validator rejection"));
+        QCOMPARE(calls, 1);
+        allow = true;
+        QVERIFY2(workspace.sync(&error), qPrintable(error));
+        QCOMPARE(calls, 2);
+        QCOMPARE(readFile(workspace.filePath().toString()), original);
+        const auto journal = WorkspaceFileTransaction::journalPath(workspace.filePath());
+        QVERIFY(!QFileInfo::exists(journal));
+        QFile reservation(journal);
+        QVERIFY(reservation.open(QIODevice::WriteOnly | QIODevice::NewOnly));
+        reservation.close();
+        QVERIFY(!workspace.sync(&error));
+        QVERIFY(error.contains("recovered"));
+        QVERIFY(QFileInfo::exists(journal));
+        QCOMPARE(readFile(workspace.filePath().toString()), original);
+    }
+
+    void metadataSyncRetainsProcessorBytesEnvelopeAndBorrowedViews()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Workspace     workspace(Path(temporary.filePath("workspace.yaml")), base.node(""));
+        QVERIFY(workspace.create("Original"));
+        const QVariantMap definition {
+            {          "id",            "root"},
+            {        "name",            "Root"},
+            {        "kind", "future.provider"},
+            {      "source",    QVariantMap {}},
+            {"unknown/path",                17}
+        };
+        QVERIFY(workspace.setProcessorDefinition("root", definition));
+        QVERIFY(workspace.sync());
+        const auto path = workspace.processorDiskFiles().firstKey();
+        QFile      processor(path);
+        QVERIFY(processor.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        const auto bytes = "futureEnvelope: retained\n" + workspace.processorDiskFiles().value(path);
+        QCOMPARE(processor.write(bytes), bytes.size());
+        processor.close();
+        QVERIFY(workspace.load());
+        QVERIFY(processor.open(QIODevice::ReadWrite));
+        QVERIFY(processor.setFileTime(QDateTime::fromSecsSinceEpoch(1600000000), QFileDevice::FileModificationTime));
+        processor.close();
+        const auto modified = QFileInfo(path).lastModified();
+        auto       borrowed = workspace.processorDefinitions();
+        auto       settings = workspace.settings();
+        QSignalSpy changed(&workspace, &Workspace::processorsChanged);
+        QVERIFY(workspace.setName("Metadata changed"));
+        QString error;
+        QVERIFY2(workspace.sync(&error), qPrintable(error));
+        QCOMPARE(readFile(path), bytes);
+        QCOMPARE(QFileInfo(path).lastModified(), modified);
+        QCOMPARE(borrowed.values().value("root").toMap(), definition);
+        QCOMPARE(changed.count(), 0);
+        QVERIFY(!workspace.isDirty());
+        QVERIFY(settings.setValue("future/value", 23));
+        QVERIFY(workspace.sync(&error));
+        QCOMPARE(settings.value("future/value"), QVariant(23));
+        QCOMPARE(readFile(path), bytes);
+        Workspace opened(workspace.filePath(), base.node(""));
+        QVERIFY(opened.load(&error));
+        QCOMPARE(opened.name(), QString("Metadata changed"));
+        QCOMPARE(opened.processorDefinitions().values(), borrowed.values());
+        QCOMPARE(opened.settings().value("future/value"), QVariant(23));
+    }
+
+    void cleanSyncDetectsSameSizeProcessorEditAndInventoryChange()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Workspace     workspace(Path(temporary.filePath("workspace.yaml")), base.node(""));
+        QVERIFY(workspace.create("Original"));
+        const QVariantMap definition {
+            {    "id",            "root"},
+            {  "name",            "Root"},
+            {  "kind", "future.provider"},
+            {"source",    QVariantMap {}}
+        };
+        QVERIFY(workspace.setProcessorDefinition("root", definition));
+        QVERIFY(workspace.sync());
+        const auto files    = workspace.processorDiskFiles();
+        const auto path     = files.firstKey();
+        const auto main     = readFile(workspace.filePath().toString());
+        const auto modified = QFileInfo(path).lastModified();
+        auto       bytes    = files.value(path);
+        QVERIFY(bytes.contains("Root"));
+        bytes.replace("Root", "Edit");
+        QFile processor(path);
+        QVERIFY(processor.open(QIODevice::ReadWrite | QIODevice::Truncate));
+        QCOMPARE(processor.write(bytes), bytes.size());
+        QVERIFY(processor.setFileTime(modified, QFileDevice::FileModificationTime));
+        processor.close();
+        QString error;
+        QVERIFY(!workspace.sync(&error));
+        QVERIFY2(error.contains("externally changed"), qPrintable(error));
+        QCOMPARE(readFile(workspace.filePath().toString()), main);
+        QCOMPARE(workspace.processorDefinitions().value("root").toMap(), definition);
+        QVERIFY(processor.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QCOMPARE(processor.write(files.value(path)), files.value(path).size());
+        processor.close();
+        const auto extra = workspace.processorsDirectory().join("unexpected.yaml");
+        QFile      additional(extra.toString());
+        QVERIFY(additional.open(QIODevice::WriteOnly));
+        additional.write("malformed: [");
+        additional.close();
+        QVERIFY(!workspace.sync(&error));
+        QVERIFY2(error.contains("externally changed"), qPrintable(error));
+        QCOMPARE(readFile(workspace.filePath().toString()), main);
+    }
+
     void layeredSettings()
     {
         QTemporaryDir temporary;

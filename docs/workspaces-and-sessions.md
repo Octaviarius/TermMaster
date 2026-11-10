@@ -272,3 +272,38 @@ compiled, and the full AppTests suite passed. Regression coverage persists a
 pending input-mode change through both Save commands, verifies it has not changed
 the running editor, verifies rename presentation, then explicitly applies the
 configuration and verifies the new mode.
+
+## Incremental workspace synchronization
+
+Every synchronization validates the workspace payload, reads and compares the exact
+main document and processor inventory/bytes against their disk baselines, and runs
+processor validation including the current application validator. The processor
+baseline is already validated on load/adoption; conflict checks therefore read its
+files without reparsing YAML. Directory confinement, symlink rejection, entry and
+byte limits still apply. Content changes with unchanged timestamps and sizes, added
+YAML files and removals remain conflicts. Loading and rollback-baseline capture
+continue to parse and validate processor documents.
+
+If both settings owners are clean, synchronization finishes after those checks
+without serializing candidate documents or creating a transaction journal. An
+existing interrupted transaction still rejects the operation. Metadata-only saves
+reuse the processor disk bytes and retain the processor settings owner and borrowed
+nodes. Every unchanged processor remains an exact-byte guard in the existing
+transaction; staging, inventory rechecks, rollback and recovery are unchanged.
+Processor changes continue through complete candidate preparation and adoption.
+Unknown processor envelope fields and literal settings keys remain preserved.
+
+On 2026-11-10 the isolated Qt 6.12.0 / MSVC2022 x64 Debug WorkspaceTests build
+and CTest run passed (27 passed including setup/cleanup, one existing opt-in case
+skipped). Focused checks cover clean validator rejection and interrupted journals,
+same-size and timestamp-preserving external edits, malformed added YAML inventory,
+metadata saves retaining processor timestamps/bytes and unknown envelopes, and
+borrowed settings views. Existing save failure, collection limits and filesystem
+confinement cases also passed. Changed C++ files were clang-formatted and
+`git diff --check` passed. No hardware or network acceptance was performed.
+
+Integrated PERF-6 acceptance also passed the Release WorkspaceTests,
+ProcessorRefactoringTests and full AppTests suites. The dirty path relies on its
+existing candidate validation instead of adding an extra processor-validator
+pass; the clean shortcut still validates before returning. No transaction guard,
+recovery stage or conflict check was removed.
