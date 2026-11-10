@@ -19,6 +19,34 @@ class CommandEditorTests final : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void httpTerminator()
+    {
+        CommandEditor widget;
+        widget.setSettings({
+            {      "mode", "buffered"},
+            {"terminator",     "http"}
+        });
+        auto* terminator = widget.findChild<QComboBox*>("commandTerminator");
+        QCOMPARE(terminator->currentText(), QString("HTTP end"));
+        QString selected;
+        widget.setSendCallback([&](const QString&, const QString& value, const QString&) {
+            selected = value;
+            return true;
+        });
+        widget.findChild<QPlainTextEdit*>("commandDraft")->setPlainText("GET / HTTP/1.0");
+        widget.findChild<QPushButton*>("commandSend")->click();
+        QCOMPARE(selected, QString("http"));
+
+        const auto capture = qEnvironmentVariable("TERMASTER_HTTP_TERMINATOR_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            widget.resize(640, 180);
+            widget.show();
+            QTest::qWait(100);
+            QVERIFY(widget.grab().save(capture));
+        }
+    }
+
     Q_SLOT void advancedSettingsAndRequests()
     {
         CommandEditor widget;

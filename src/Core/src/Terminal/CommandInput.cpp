@@ -53,6 +53,10 @@ std::optional<QByteArray> CommandInput::prepare(const QString& text,
     {
         result.append("\r\n");
     }
+    else if (kind == QStringLiteral("http"))
+    {
+        result.append("\r\n\r\n");
+    }
     else if (kind == QStringLiteral("cr"))
     {
         result.append('\r');

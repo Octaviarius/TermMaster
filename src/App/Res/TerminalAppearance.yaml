@@ -94,7 +94,7 @@ content:
     terminator:
       type: string
       title: Command terminator
-      enum: [lf, crlf, cr, nul, none, custom]
+      enum: [lf, crlf, http, cr, nul, none, custom]
       default: cr
       x-widget: enumCombo
       x-settings-path: input/terminator
@@ -147,7 +147,7 @@ content:
         properties:
           name: {type: string, minLength: 1, maxLength: 128}
           text: {type: string, maxLength: 16384}
-          terminator: {type: string, enum: [lf, crlf, cr, nul, none, custom]}
+          terminator: {type: string, enum: [lf, crlf, http, cr, nul, none, custom]}
           customTerminator: {type: string, maxLength: 1024}
       x-widget: commandFavorites
       x-settings-path: input/favorites
