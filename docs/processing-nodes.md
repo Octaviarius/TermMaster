@@ -2,7 +2,7 @@
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
 Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer and Pacer. NativeProcessors only registers the
+HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp and Pacer. NativeProcessors only registers the
 catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
@@ -35,6 +35,48 @@ completes successfully with zero outputs: traffic is dropped, never queued for
 later release. It therefore does not stall a Lineflow. Limits still apply while
 disabled. Cancellation stops acceptance. Configuration changes follow the common
 prepared-instance replacement contract rather than mutating another instance.
+
+## Timestamp
+
+`native.timestamp`, group Timing, emits one packet for each accepted input packet.
+It samples the system wall clock when the node processes the packet, rather than
+recording transport arrival time. Place a Framer before Timestamp to label complete
+frames instead of individual read chunks. It does not buffer input.
+
+Settings:
+
+- `format`: Qt date/time format, default `yyyy-MM-dd HH:mm:ss.zzz`, at most 512
+  characters. Single-quoted portions are literal text.
+- `timeZone`: `local` (default) or `utc`.
+- `template`: output composition, default `[${timestamp}] ${packet}`, at most
+  4096 characters. `${timestamp}` inserts the formatted time; `${packet}` inserts
+  the original raw bytes. Either may occur anywhere, repeatedly, or be omitted.
+  Repeated timestamp placeholders use the same sampled time within a packet.
+
+Literal template text is UTF-8. `$$` inserts a dollar. Byte escapes are `\r`,
+`\n`, `\t`, `\0`, `\e` (ESC), `\\` and `\xHH`. Unknown placeholders, incomplete
+references and invalid escapes fail configuration before runtime. Packet contents
+are never decoded or interpreted as template syntax. ANSI sequences may color
+the timestamp, payload or surrounding text:
+
+```yaml
+format: 'HH:mm:ss.zzz'
+timeZone: utc
+template: '\e[90m[${timestamp}]\e[0m ${packet}'
+```
+
+This dims the timestamp and restores the terminal's attributes before the packet.
+Color interpretation belongs to the terminal endpoint; on Tx these remain actual
+bytes sent downstream. No reset or line ending is appended implicitly. An empty
+template emits an empty packet. Binary ownership, cancellation and output byte
+limits follow the shared synchronous node lifecycle; oversized expansion fails
+atomically without partial output. Unknown configuration values remain preserved.
+
+FLOW-18 acceptance used Qt 6.12.0 / MSVC x64 Debug. The complete build and all
+50 CTest suites passed. After tightening borrowed-buffer ownership, Timestamp,
+Processing and LineflowEditor suites passed again. Native Windows form capture
+verified the time format, time zone and output template controls. Release and
+real-device acceptance were not run.
 
 ## Framers
 
