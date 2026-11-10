@@ -381,9 +381,19 @@ See [processing nodes](processing-nodes.md#checksum-wrap-and-checksum-unwrap).
 - [x] Align reset buttons with actual native frames and checkbox indicators in both settings hosts.
 - [x] Verify typed uint32 edits, inheritance, branch retention and native rendering at scales 1 and 2.
 
+## FLOW-26: Configurable packet byte stuffing
+
+- [x] Register Stuffing Wrap/Stuffing Unwrap in Framing with hexadecimal byte editors and numeric persistence.
+- [x] Support configurable delimiter, escape, two replacement codes and none/suffix/both boundaries.
+- [x] Preserve independent whole packets and reject malformed bodies/boundaries atomically within host limits.
+- [x] Enable Unwrap stream framing by default with bounded pending state, multiple outputs and split escape support.
+- [x] Verify independent binary vectors, lifecycle, stream/Framer composition and native 1x/2x Lineflow forms.
+
+See [processing nodes](processing-nodes.md#stuffing-wrap-and-stuffing-unwrap).
+
 ## HELP-1: Contextual module documentation
 
-Next scheduled stage after SETTINGS-6 hexadecimal editing and reset alignment.
+Next scheduled stage after FLOW-26 configurable packet byte stuffing.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
 - [ ] Package module-owned help and generated parameter reference with stable context topics.

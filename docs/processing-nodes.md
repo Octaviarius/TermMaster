@@ -2,7 +2,7 @@
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
 Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp, Compress, Uncompress, LengthWrap, LengthUnwrap, ChecksumWrap, ChecksumUnwrap and Pacer. NativeProcessors only registers the
+HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp, Compress, Uncompress, LengthWrap, LengthUnwrap, ChecksumWrap, ChecksumUnwrap, StuffingWrap, StuffingUnwrap and Pacer. NativeProcessors only registers the
 catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
@@ -278,6 +278,127 @@ or dependency download was used. Release and the complete CTest suite were not r
 
 - [Checksum Wrap preset](images/checksums/ChecksumWrapPreset.png)
 - [Checksum Unwrap custom](images/checksums/ChecksumUnwrapCustom.png)
+
+## Stuffing Wrap and Stuffing Unwrap
+
+`native.stuffing-wrap` and `native.stuffing-unwrap`, group Framing, transform one
+complete binary packet per invocation when Unwrap's Framing checkbox is disabled.
+Unwrap enables Framing by default for continuous incoming streams. Both use a
+configurable fixed two-byte mapping: a payload delimiter becomes
+`escape delimiterCode`, and a payload escape becomes `escape escapeCode`. Other bytes, including NUL and replacement-code
+values appearing as ordinary payload, remain literal. Decoding consumes each pair
+exactly once; decoded bytes are never interpreted recursively.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| boundaryMode | `suffix` | `suffix` adds/requires a trailing delimiter; `both` also adds/requires a leading delimiter; `none` transforms the body only in packet mode |
+| framing (Unwrap only) | `true` | Buffer stream chunks and decode complete delimiter-separated frames |
+| delimiter | 192 (`C0`) | Reserved boundary byte |
+| escape | 219 (`DB`) | Escape introducer |
+| delimiterCode | 220 (`DC`) | Replacement code for a payload delimiter |
+| escapeCode | 221 (`DD`) | Replacement code for a payload escape |
+
+The four byte fields use the existing hexadecimal integer editor and persist as
+numeric YAML values from 0 through 255. Strings, booleans, fractional/nonfinite
+numbers and out-of-range values are rejected. `boundaryMode` must be a string.
+Unknown settings are retained. The delimiter and escape must differ; replacement
+codes must differ from each other and from the delimiter. A replacement code may
+equal escape, because it is consumed as the second byte of one fixed pair. The
+factory reports these cross-field constraints; Draft 7 schema provides individual
+field bounds and types without nonstandard data references.
+
+The defaults use the byte values specified by [RFC 1055](https://www.rfc-editor.org/rfc/rfc1055.html).
+This is configurable byte stuffing, with strict packet validation; it does not
+claim full SLIP protocol compatibility. For example, payload `00 C0 DB FF` with
+default settings becomes `00 DB DC DB DD FF C0`. An empty payload produces `C0`
+in suffix mode, `C0 C0` in both mode, and an empty packet in none mode. In packet
+mode, each inverse operation emits exactly one empty packet.
+
+With Framing disabled, Unwrap requires exactly the configured boundaries. It
+rejects dangling escapes, unknown escape codes and every raw delimiter in the encoded body, including in
+none mode. Missing boundaries, adjacent/extra delimiters and multiple stuffed
+packets in one invocation fail atomically. Failure emits no partial output and
+stops that processor instance; it does not close the terminal transport. With
+Framing disabled, nodes do not accumulate partial escape pairs or split a stream.
+
+Unwrap's **Framing** checkbox is enabled by default. It accumulates incoming byte
+chunks, including split escape pairs, until complete frames arrive. Suffix and none modes consume
+each delimiter and decode the preceding body. Each delimiter ends a frame,
+including an empty one. Both mode strictly alternates an opening delimiter and a
+closing delimiter; `C0 C0` is one empty frame, and bytes before an opening delimiter
+are errors. Concatenated both-mode packets each carry their own pair of boundaries.
+An incomplete body or escape pair remains pending across calls; an empty input
+neither emits a frame nor flushes the buffer. Cancellation discards pending data.
+A call can emit multiple owned packets. Every frame prepared in one invocation is
+validated before any callback: a malformed later frame suppresses all that call's
+outputs. Output from previously completed calls cannot be rolled back.
+
+Alternatively, for a continuous incoming stream using suffix boundaries, place
+Delimiter Framer before Unwrap with its Framing checkbox disabled. Configure
+Framer `ending: '\xC0'` and keep its default `includeEnding: false`; select Unwrap `boundaryMode: none` because Framer has
+removed the delimiter. Framer owns accumulation across arbitrary transport chunks,
+including splits inside an escape pair. In both mode the extra leading boundary
+would produce an additional empty frame unless handled by an explicit framing
+configuration. The integrated Framing option handles both-mode boundary pairs
+directly. Apply a checksum before stuffing when the checksum should cover
+the original payload, and unwrap stuffing before checksum verification.
+
+```mermaid
+flowchart LR
+    P[Payload packet] --> C[Checksum Wrap]
+    C --> S[Stuffing Wrap, suffix]
+    S --> W[Transport bytes]
+    W --> U[Stuffing Unwrap, Framing enabled]
+    U --> V[Checksum Unwrap]
+    V --> R[Payload packet]
+```
+
+Both nodes process synchronously on the owning QObject thread. Outputs own their
+storage, even when input is borrowed raw data.
+Cancellation stops acceptance and suppresses pending completion/output callbacks;
+reentrant acceptance during output returns WouldBlock. Empty valid packets remain
+observable. No worker, protocol backend or transport lifecycle is introduced.
+
+Allocation is bounded before output is prepared. Wrap checks `2*n + boundaries`
+for size overflow, counts the actual expansion and rejects only when that actual
+output exceeds the host byte bound. Ordinary unescaped packets can use the full
+remaining byte allowance. Unwrap validates each complete packet/frame before
+allocating output; decoded bytes cannot exceed that encoded body size. `maxSteps` measures
+logical byte work: input bytes plus emitted output bytes, including boundaries.
+With Framing enabled, the budget additionally counts the encoded body bytes
+examined when each complete frame is decoded; this includes bytes retained from
+prior calls. Pending body bytes and the current call's decoded output share one
+`maxBytes` bound, and `maxChunks` limits the number of emitted packets per call.
+The sizing/validation and output passes implement this logical budget; it is not
+a count of CPU instructions or loop iterations. All size and budget comparisons
+avoid addition overflow.
+
+### Stuffing acceptance
+
+Verified on 2026-11-10 with Qt 6.12 / MSVC2022 x64 Debug: the complete application,
+modules and configured test build succeeded. All ten affected CTest executables
+passed in 50.74 seconds. Coverage includes independent default vectors, every byte
+value, nondefault NUL/FF mappings, a replacement equal to escape, all boundary
+modes and empty packets, malformed escape/body/boundary rejection, exact byte/step
+limits, borrowed input ownership, cancellation, reentry and strict configuration.
+Stream tests cover every chunk split, bytewise input, split escape pairs, multiple
+and empty frames, bounded incomplete frames, queue/step limits, callback-driven
+destruction and atomic failure after a valid frame in the same invocation.
+A direct factory test verifies fragmented input with the framing option omitted,
+and catalog/default tests verify that framing is enabled. Packet tests explicitly
+disable framing. Registered Lineflow compositions verify Wrap-to-Unwrap,
+external Framer-to-Unwrap and integrated Unwrap framing. Actual Lineflow forms
+verify hexadecimal editors, numeric Apply values, retained drafts and the
+Unwrap-only Framing checkbox enabled by default.
+Native Windows captures at scales 1 and 2 each passed three QtTest checks without
+skips; both 1100 by 760 reference captures and temporary 2200 by 1520 captures were
+visually inspected against the existing settings layout. Changed C++ files were
+clang-formatted; local documentation links and `git diff --check` passed.
+No real device, external endpoint, elevation or dependency download was used.
+Release and the complete CTest suite were not run.
+
+- [Stuffing Wrap](images/stuffing/StuffingWrap.png)
+- [Stuffing Unwrap](images/stuffing/StuffingUnwrap.png)
 
 ## Timestamp
 
