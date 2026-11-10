@@ -281,6 +281,37 @@ private slots:
         runtime->cancel({});
     }
 
+    void compressionRoundTripPreservesPackets()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QString    error;
+        const auto plan = Lineflow::prepare(blocks({native("native.compress"), native("native.uncompress")}),
+                                            "root",
+                                            registry,
+                                            {},
+                                            &error);
+        QVERIFY2(plan, qPrintable(error));
+        auto runtime = plan->instantiate(registry, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QList<QByteArray>          output;
+        int                        completed = 0;
+        const Processor::Callbacks callbacks {[&](Processor::Chunk chunk) { output.append(chunk.bytes); },
+                                              [&](QString message) {
+                                                  QVERIFY2(message.isEmpty(), qPrintable(message));
+                                                  ++completed;
+                                              }};
+        const QByteArray           packet("A\0B\xff", 4);
+        QCOMPARE(runtime->accept({packet}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 1);
+        QCOMPARE(output, QList<QByteArray> {packet});
+        QCOMPARE(runtime->accept({{}}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 2);
+        QCOMPARE(output.size(), 2);
+        QVERIFY(output.last().isEmpty());
+        runtime->cancel({});
+    }
+
     void nativeStreamsAndIndependentState()
     {
         ProcessorRegistry registry;

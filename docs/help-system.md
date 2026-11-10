@@ -1,7 +1,7 @@
 # Contextual help and third-party notices
 
-Status: proposed next stage after FLOW-20. This document records the design;
-no runtime help browser or credits page is implemented by the formatting change.
+Status: next scheduled stage after FLOW-21 packet compression. This document
+records the design; the runtime help browser and credits page remain planned.
 
 ## Help source and presentation
 

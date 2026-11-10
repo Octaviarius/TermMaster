@@ -103,6 +103,18 @@ target_link_libraries(CodecProcessorTests PRIVATE
 )
 add_test(NAME CodecProcessorTests COMMAND CodecProcessorTests)
 
+qt_add_executable(CompressionProcessorTests
+    CompressionProcessorTests.cpp
+)
+target_include_directories(CompressionProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+target_link_libraries(CompressionProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME CompressionProcessorTests COMMAND CompressionProcessorTests)
+
 qt_add_executable(GateProcessorTests
     GateProcessorTests.cpp
 )

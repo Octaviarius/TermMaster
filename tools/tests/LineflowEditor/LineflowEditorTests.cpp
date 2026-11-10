@@ -1520,6 +1520,22 @@ private slots:
             QDir(destination)
                 .filePath(dialog.devicePixelRatioF() > 1.5 ? "TimestampColors2x.png" : "TimestampColors.png")));
 
+        const auto compression = dialog.model().createBlock("Packet compression", 1);
+        QVERIFY(!dialog.model().insertNodeAt(compression, 0, "native.compress", "rx").isEmpty());
+        QVERIFY(!dialog.model().insertNodeAt(compression, 1, "native.uncompress", "rx").isEmpty());
+        tree->setCurrentIndex(dialog.model().index(0, 0));
+        QTest::qWait(50);
+        auto* compressForm = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(compressForm && compressForm->editor("level"));
+        QCOMPARE(compressForm->editor("level")->value().toInt(), -1);
+        QVERIFY(dialog.grab().save(QDir(destination).filePath("Compress.png")));
+        tree->setCurrentIndex(dialog.model().index(1, 0));
+        QTest::qWait(50);
+        auto* uncompressForm = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(uncompressForm && uncompressForm->editor("maxOutputBytes"));
+        QCOMPARE(uncompressForm->editor("format")->value().toString(), QString("auto"));
+        QVERIFY(dialog.grab().save(QDir(destination).filePath("Uncompress.png")));
+
         registerDuplex(registry);
         const auto paired = dialog.model().createBlock("Device protocol · Rx / Tx", 2);
         QVERIFY(!paired.isEmpty());
