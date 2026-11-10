@@ -1027,18 +1027,6 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                         editor->retainPaste(QString::fromUtf8(echo));
                         return;
                     }
-                    const QPointer<TerminalController> self(this);
-                    const bool                         confirmed = editor->confirmPaste(echo);
-                    if (!self || !confirmed)
-                    {
-                        return;
-                    }
-                    // A confirmation runs a nested event loop; resolve the runtime again.
-                    it = _terminals.find(id);
-                    if (!editor || it == _terminals.end() || it->second->editor != editor)
-                    {
-                        return;
-                    }
                 }
                 QString    error;
                 const bool accepted = TerminalProcessing::active(it->second->processingConfiguration)

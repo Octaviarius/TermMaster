@@ -383,21 +383,6 @@ void CommandEditor::pasteText(const QString& text)
     _paste(text);
 }
 
-bool CommandEditor::confirmPaste(const QByteArray& bytes)
-{
-    if (!_settings.value(QStringLiteral("confirmMultiline"), true).toBool()
-        || (!bytes.contains('\n') && !bytes.contains('\r')))
-    {
-        return true;
-    }
-    return QMessageBox::question(this,
-                                 tr("Send multiline input"),
-                                 tr("Send input containing line breaks to the terminal?"),
-                                 QMessageBox::Yes | QMessageBox::No,
-                                 QMessageBox::No)
-        == QMessageBox::Yes;
-}
-
 bool CommandEditor::eventFilter(QObject* object, QEvent* event)
 {
     if ((object == _advanced || object == _historyPopup) && event->type() == QEvent::Hide)
@@ -435,11 +420,7 @@ bool CommandEditor::_submit(const QString& text, bool clearDraft)
         return false;
     }
     const QPointer<CommandEditor> guard(this);
-    if (!confirmPaste(text.toUtf8()) || !guard)
-    {
-        return false;
-    }
-    const auto send = _send;
+    const auto                    send = _send;
     if (!send(text, _terminator->currentData().toString(), _custom->text()) || !guard)
     {
         return false;
@@ -660,11 +641,7 @@ void CommandEditor::_saveFavorite()
 
 void CommandEditor::_startPeriodic()
 {
-    const QString                 text = _editor->toPlainText();
-    const QPointer<CommandEditor> guard(this);
-    if (!confirmPaste(text.toUtf8()) || !guard)
-    {
-        return;
-    }
+    const QString text = _editor->toPlainText();
+
     emit periodicRequested(text, _terminator->currentData().toString(), _custom->text(), _period->value());
 }
