@@ -214,6 +214,11 @@ no skips). The Debug application and affected targets built successfully.
 
 ## Compact table layout
 
+The palette displays 1x1 processors in a unary block and both 1x1 and 2x2
+processors in a paired block. Incompatible favorites are omitted from the view
+without removing their saved IDs. Terminal selectors require the exact topology
+of their Simplex or Duplex mode and add their own local Inplace entry.
+
 The center canvas uses compact numbered stages with a small gap between rounded,
 opaque tinted blocks. Unary nodes occupy one Rx or Tx column; shared 2x2 nodes
 span both. Names and classes share one centered line when space permits; redundant

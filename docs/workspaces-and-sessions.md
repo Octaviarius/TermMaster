@@ -6,9 +6,9 @@ App owns one active Core `Workspace` and optionally one active Core `Session`.
 A workspace is a single YAML file, conventionally named `*.termaster`; it owns
 workspace settings, a saved-session catalog and session history. Each session owns
 an independent directory and `session.yaml`, containing configured objects,
-links, resources and presentation metadata. Opening a session loads configuration
-only. Terminal creation, backend activation, connection execution and graph
-execution remain planned.
+links, resources and presentation metadata. Opening a session reconstructs recognized
+terminal objects through registered plugin factories in a disconnected state.
+Connection requires an explicit action; link/resource graph execution remains planned.
 
 ## Workspace document
 
@@ -29,6 +29,7 @@ content:
     scripts: scripts
   state:
     recentSessions: [40b8c33d-1955-49e7-a9b7-311a67482da4]
+    lastSession: 40b8c33d-1955-49e7-a9b7-311a67482da4
 ```
 
 The mandatory envelope uses shared [Settings](settings.md) validation and atomic
@@ -113,9 +114,12 @@ same thread and become invalid when an owner is replaced or released.
 
 ## Application lifecycle
 
-Startup restores only application `content.state.lastWorkspace`; it does not
-automatically reopen a last session. Missing or invalid workspaces leave the
-Open/New choice page visible with a concrete cause. Successful workspace
+Startup restores application `content.state.lastWorkspace` after plugin factories
+are registered, then opens that workspace's `content.state.lastSession` catalog ID.
+Every workspace open restores its own last session with terminal objects disconnected.
+Missing or corrupt session documents leave the workspace usable and report the
+concrete cause in the status bar without a modal dialog. Missing or invalid workspaces
+leave the Open/New choice page visible with a concrete cause. Successful workspace
 Open/New operations persist canonical absolute paths and update global history.
 
 File provides workspace New/Open/Save/Close and session New/Open/Save/Close/Rename.
@@ -127,7 +131,10 @@ the target again. No displayed object count establishes running terminals.
 Opening another session validates its candidate before replacing the active
 owner, saves the old session and records successful session history. Failed
 loading, ID matching or persistence preserves the old active owner. Closing a
-session saves before releasing its borrowed views. Workspace Save includes the
+session saves and clears the workspace's last-session reference before releasing
+its borrowed views. Successful session creation/open records the stable ID; failed
+opens preserve the previous reference. Workspace close, replacement and normal
+exit retain that reference for the next open. Workspace Save includes the
 active session; workspace replacement, close and normal exit save the active
 session before releasing workspace state. Write failures prevent successful
 closure or replacement. Persistence is explicit, not a destructor side effect.

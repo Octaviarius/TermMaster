@@ -20,6 +20,7 @@ class Workspace;
 class SettingsDialog;
 class TerminalDisplay;
 class QAction;
+class QToolButton;
 
 /** GUI-thread runtime owner. Session definitions survive closed views and module unload. */
 class TerminalController final : public QObject, public PluginHost
@@ -101,6 +102,7 @@ private:
     std::map<QString, std::unique_ptr<Runtime>> _terminals;
     std::map<QString, RegisteredAction>         _actions;
     QPointer<SettingsDialog>                    _creation;
+    std::array<QPointer<QToolButton>, 3>        _statusButtons;
 
     Runtime*                                                 _current() const;
     bool                                                     _activeWindow() const;

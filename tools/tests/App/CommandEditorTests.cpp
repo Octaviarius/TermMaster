@@ -22,6 +22,9 @@ private:
     Q_SLOT void advancedSettingsAndRequests()
     {
         CommandEditor widget;
+        widget.setSettings({
+            {"mode", "buffered"}
+        });
         widget.show();
         auto* panel  = widget.findChild<QWidget*>("commandAdvancedPanel");
         auto* toggle = widget.findChild<QToolButton*>("commandAdvancedToggle");
@@ -106,6 +109,53 @@ private:
         QVERIFY(!draft->isVisible());
         QVERIFY(widget.findChild<QComboBox*>("commandTerminator")->isHidden());
         QVERIFY(widget.sizeHint().height() < 55);
+        QVERIFY(widget.isHidden());
+        QVERIFY(tools->isHidden());
+        QVERIFY(history->isHidden());
+    }
+
+    Q_SLOT void interactiveVisibilityAndExternalRequests()
+    {
+        CommandEditor widget;
+        QVariantMap   settings {
+            {"mode", "interactive"}
+        };
+        connect(&widget, &CommandEditor::settingChanged, &widget, [&](const QString& key, const QVariant& value) {
+            settings.insert(key, value);
+            widget.setSettings(settings);
+        });
+        widget.setSettings(settings);
+        QVERIFY(widget.isHidden());
+        auto* draft = widget.findChild<QPlainTextEdit*>("commandDraft");
+        auto* tools = widget.findChild<QToolButton*>("commandAdvancedToggle");
+        auto* stop  = widget.findChild<QToolButton*>("commandStop");
+        draft->setPlainText("Retained draft");
+        widget.setSendingState(true, "File sending");
+        QVERIFY(!widget.isHidden());
+        QVERIFY(!stop->isHidden());
+        QVERIFY(tools->isHidden());
+        QVERIFY(!draft->isVisible());
+        widget.setSendingState(false, "Complete");
+        QVERIFY(widget.isHidden());
+        widget.setBuffered(true);
+        QVERIFY(widget.buffered());
+        QVERIFY(!widget.isHidden());
+        QVERIFY(!tools->isHidden());
+        QVERIFY(draft->isVisible());
+        QCOMPARE(draft->toPlainText(), QString("Retained draft"));
+        widget.showSendingTools();
+        auto* panel = widget.findChild<QWidget*>("commandAdvancedPanel");
+        QTRY_VERIFY(panel->isVisible());
+        QSignalSpy files(&widget, &CommandEditor::fileRequested);
+        widget.requestFile();
+        QVERIFY(panel->isHidden());
+        widget.requestFile(true);
+        QCOMPARE(files.count(), 2);
+        QCOMPARE(files.at(0).at(0).toBool(), false);
+        QCOMPARE(files.at(1).at(0).toBool(), true);
+        widget.setBuffered(false);
+        QVERIFY(widget.isHidden());
+        QCOMPARE(draft->toPlainText(), QString("Retained draft"));
     }
 
     Q_SLOT void periodicConfirmationPreservesDraft()
@@ -227,9 +277,9 @@ private:
         CommandEditor widget;
         QVERIFY(!widget.buffered());
         QSignalSpy changes(&widget, &CommandEditor::settingChanged);
-        auto*      mode = widget.findChild<QComboBox*>("commandInputMode");
-        mode->setCurrentIndex(1);
-        QVERIFY(QMetaObject::invokeMethod(mode, "activated", Q_ARG(int, 1)));
+        QVERIFY(!widget.findChild<QComboBox*>("commandInputMode"));
+        widget.setBuffered(true);
+        QVERIFY(!widget.buffered());
         QCOMPARE(changes.count(), 1);
         QCOMPARE(changes.at(0).at(0).toString(), QString("mode"));
         QCOMPARE(changes.at(0).at(1).toString(), QString("buffered"));

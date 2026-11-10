@@ -54,13 +54,6 @@ CommandEditor::CommandEditor(QWidget* parent) : QWidget(parent)
     layout->setSpacing(4);
     auto* options = new QHBoxLayout;
     options->setSpacing(6);
-    _mode = new QComboBox(this);
-    _mode->setObjectName("commandInputMode");
-    _mode->addItem(tr("Interactive"), "interactive");
-    _mode->addItem(tr("Buffered"), "buffered");
-    _mode->setToolTip(tr("Send keys immediately, or edit a command before sending"));
-    _mode->setMaximumWidth(130);
-    options->addWidget(_mode);
     _terminator = new QComboBox(this);
     _terminator->setObjectName("commandTerminator");
     for (const auto& value : {"LF", "CRLF", "CR", "NUL", "None", "Custom"})
@@ -220,7 +213,7 @@ CommandEditor::CommandEditor(QWidget* parent) : QWidget(parent)
     connect(_advancedToggle, &QToolButton::toggled, this, [this](bool visible) {
         if (visible)
         {
-            _showPopup(_advanced, _advancedToggle);
+            showSendingTools();
         }
         else
         {
@@ -256,14 +249,8 @@ CommandEditor::CommandEditor(QWidget* parent) : QWidget(parent)
         _refreshFavorites();
         emit settingChanged("favorites", _favoriteEntries);
     });
-    connect(raw, &QPushButton::clicked, this, [this] {
-        _advanced->hide();
-        emit fileRequested(false);
-    });
-    connect(lines, &QPushButton::clicked, this, [this] {
-        _advanced->hide();
-        emit fileRequested(true);
-    });
+    connect(raw, &QPushButton::clicked, this, [this] { requestFile(); });
+    connect(lines, &QPushButton::clicked, this, [this] { requestFile(true); });
     connect(_periodicStart, &QPushButton::clicked, this, [this] {
         _advanced->hide();
         _startPeriodic();
@@ -293,7 +280,6 @@ CommandEditor::CommandEditor(QWidget* parent) : QWidget(parent)
         _editor->setPlainText(text);
         _editor->setFocus();
     });
-    connect(_mode, &QComboBox::activated, this, [this] { emit settingChanged("mode", _mode->currentData()); });
     connect(_terminator, &QComboBox::activated, this, [this] {
         emit settingChanged("terminator", _terminator->currentData());
     });
@@ -332,7 +318,6 @@ void CommandEditor::setSettings(const QVariantMap& input)
         _favoriteEntries.append(entry);
     }
     _refreshFavorites();
-    const QSignalBlocker modeBlock(_mode);
     const QSignalBlocker terminatorBlock(_terminator);
     const QSignalBlocker customBlock(_custom);
     const QSignalBlocker pasteBlock(_pastePolicy);
@@ -340,16 +325,15 @@ void CommandEditor::setSettings(const QVariantMap& input)
         const int index = combo->findData(value);
         combo->setCurrentIndex(index < 0 ? 0 : index);
     };
-    select(_mode, input.value(QStringLiteral("mode"), QStringLiteral("interactive")));
     select(_terminator, input.value(QStringLiteral("terminator"), QStringLiteral("cr")));
     _custom->setText(input.value(QStringLiteral("customTerminator")).toString());
     select(_pastePolicy, input.value(QStringLiteral("pastePolicy"), QStringLiteral("edit")));
-    _body->setVisible(buffered());
-    _terminator->setEnabled(buffered());
-    _terminator->setVisible(buffered());
-    _historyToggle->setVisible(buffered());
-    _custom->setVisible(buffered() && _terminator->currentData().toString() == QStringLiteral("custom"));
-    _custom->setEnabled(buffered());
+    if (!buffered())
+    {
+        _advanced->hide();
+        _historyPopup->hide();
+    }
+    _updateVisibility();
 }
 
 void CommandEditor::setSendCallback(SendCallback callback)
@@ -362,12 +346,28 @@ bool CommandEditor::buffered() const
     return _settings.value(QStringLiteral("mode")).toString() == QStringLiteral("buffered");
 }
 
+void CommandEditor::setBuffered(bool value)
+{
+    if (value != buffered())
+    {
+        emit settingChanged(QStringLiteral("mode"), value ? QStringLiteral("buffered") : QStringLiteral("interactive"));
+    }
+}
+
+void CommandEditor::requestFile(bool lines)
+{
+    _advanced->hide();
+    emit fileRequested(lines);
+}
+
+void CommandEditor::showSendingTools()
+{
+    _showPopup(_advanced, buffered() ? _advancedToggle : window());
+}
+
 void CommandEditor::retainPaste(const QString& text)
 {
-    if (!buffered())
-    {
-        emit settingChanged(QStringLiteral("mode"), QStringLiteral("buffered"));
-    }
+    setBuffered(true);
     const int available = _maximumCharacters - _editor->toPlainText().size();
     if (text.size() > available)
     {
@@ -509,11 +509,26 @@ void CommandEditor::_remember(const QString& text)
 
 void CommandEditor::setSendingState(bool active, const QString& status)
 {
+    _sending = active;
     _sendingStatus->setText(active ? tr("Sending…") : status);
     _sendingStatus->setToolTip(active && status.isEmpty() ? tr("Output is being processed or queued.") : status);
     _sendingStatus->setVisible(active || !status.isEmpty());
     _stop->setVisible(active);
     _stop->setEnabled(active);
+    _updateVisibility();
+}
+
+void CommandEditor::_updateVisibility()
+{
+    const bool editing = buffered();
+    _body->setVisible(editing);
+    _terminator->setEnabled(editing);
+    _terminator->setVisible(editing);
+    _historyToggle->setVisible(editing);
+    _advancedToggle->setVisible(editing);
+    _custom->setVisible(editing && _terminator->currentData().toString() == QStringLiteral("custom"));
+    _custom->setEnabled(editing);
+    setVisible(editing || _sending);
 }
 
 void CommandEditor::_refreshFavorites()

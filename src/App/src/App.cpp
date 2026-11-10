@@ -217,14 +217,10 @@ App::~App()
 int App::run()
 {
     QString error;
-    if (!restoreLastWorkspace(&error))
+    if (!_ensureApplicationSettings(&error))
     {
-        _data->window->showWorkspaceChoice(error);
         _data->window->statusBar()->showMessage(error);
     }
-    _applyConfiguration();
-    _updateRecent();
-    _data->window->show();
     if (!_data->plugins.start(&error))
     {
         _data->window->statusBar()->showMessage(error);
@@ -241,6 +237,14 @@ int App::run()
             }
         }
     }
+    if (!restoreLastWorkspace(&error))
+    {
+        _data->window->showWorkspaceChoice(error);
+        _data->window->statusBar()->showMessage(error);
+    }
+    _applyConfiguration();
+    _updateRecent();
+    _data->window->show();
     return exec();
 }
 
@@ -372,6 +376,7 @@ bool App::restoreLastWorkspace(QString* error)
             emit sessionChanged();
         }
         emit workspaceChanged();
+        _restoreLastSession();
         return true;
     }
     catch (const std::exception& exception)
@@ -980,6 +985,7 @@ bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* erro
         emit sessionChanged();
     }
     emit workspaceChanged();
+    _restoreLastSession();
     return true;
 }
 
@@ -1368,13 +1374,24 @@ bool App::closeSession(QString* error)
     {
         error->clear();
     }
+    if (_data->session && !_data->session->sync(error))
+    {
+        return false;
+    }
+    if (_data->workspace)
+    {
+        auto       state    = _data->workspace->state();
+        const bool hadLast  = state.contains("lastSession");
+        const auto previous = state.value("lastSession");
+        if (hadLast && (!state.remove("lastSession", error) || !_data->workspace->sync(error)))
+        {
+            state.setValue("lastSession", previous);
+            return false;
+        }
+    }
     if (!_data->session)
     {
         return true;
-    }
-    if (!_data->session->sync(error))
-    {
-        return false;
     }
     _data->terminals->setSession(nullptr);
     _closeSettings(SettingsContext::Session);
@@ -1385,21 +1402,56 @@ bool App::closeSession(QString* error)
     return true;
 }
 
+void App::_restoreLastSession()
+{
+    if (!_data->workspace || _data->session)
+    {
+        return;
+    }
+    const auto state = _data->workspace->state();
+    if (!state.contains("lastSession"))
+    {
+        return;
+    }
+    const auto value = state.value("lastSession");
+    QString    error;
+    if (value.typeId() != QMetaType::QString || value.toString().isEmpty() || value.toString().size() > 128
+        || value.toString().contains(QChar::Null))
+    {
+        error = tr("Last session must be a nonempty catalog ID of at most 128 characters.");
+    }
+    else if (openSession(value.toString(), &error))
+    {
+        return;
+    }
+    _data->window->statusBar()->showMessage(tr("Cannot restore last session: %1").arg(error));
+}
+
 bool App::_activateSession(std::unique_ptr<Session> candidate, QString* error)
 {
     if (_data->session && !_data->session->sync(error))
     {
         return false;
     }
-    auto       state     = _data->workspace->state();
-    const bool hadRecent = state.contains("recentSessions");
-    const auto previous  = state.value("recentSessions");
+    auto       state        = _data->workspace->state();
+    const bool hadRecent    = state.contains("recentSessions");
+    const auto previous     = state.value("recentSessions");
+    const bool hadLast      = state.contains("lastSession");
+    const auto previousLast = state.value("lastSession");
     if (!_data->workspace->rememberSession(candidate->id(), error))
     {
         return false;
     }
-    if (!_data->workspace->sync(error))
+    if (!state.setValue("lastSession", candidate->id(), error) || !_data->workspace->sync(error))
     {
+        if (hadLast)
+        {
+            state.setValue("lastSession", previousLast);
+        }
+        else
+        {
+            state.remove("lastSession");
+        }
         if (hadRecent)
         {
             state.setValue("recentSessions", previous);

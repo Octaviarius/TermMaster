@@ -514,8 +514,18 @@ void LineflowEditorDialog::_refreshCatalog()
         root->setExpanded(!collapsed.contains(origin) || !_search->text().isEmpty());
         roots.insert(origin, root);
     }
+    QStringList excluded;
     for (auto it = entries.cbegin(); it != entries.cend(); ++it)
     {
+        const auto shape     = _model->processorShape(it.key());
+        const bool supported = shape.first == shape.second
+                            && (shape.first == 1
+                                || (shape.first == 2 && _model->blockChannels(_model->selectedBlock()) == 2));
+        if (!supported)
+        {
+            excluded.append(it.key());
+            continue;
+        }
         const auto type   = _registry.type(it.key());
         const bool local  = definitions.contains(it.key()) || (type && type->origin == "workspace");
         const auto origin = local ? QStringLiteral("Workspace") : QStringLiteral("Native");
@@ -540,7 +550,6 @@ void LineflowEditorDialog::_refreshCatalog()
         item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
         item->setData(0, Qt::UserRole, it.key());
         const auto reason    = _model->unavailableReason(it.key());
-        const auto shape     = _model->processorShape(it.key());
         const bool composite = definitions.contains(it.key()) || (type && type->kind != "native");
         item->setIcon(0,
                       !reason.isEmpty() ? Icons::icon("triangle-exclamation-point") :
@@ -562,7 +571,7 @@ void LineflowEditorDialog::_refreshCatalog()
             root->child(index)->sortChildren(0, Qt::AscendingOrder);
         }
     }
-    _catalog->prependFavorites(_search->text());
+    _catalog->prependFavorites(_search->text(), excluded);
 }
 void LineflowEditorDialog::_clearProperties()
 {

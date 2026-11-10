@@ -16,6 +16,8 @@ class ProcessorSelector final : public QComboBox
 public:
     explicit ProcessorSelector(QWidget* parent = nullptr, ProcessorFavorites* favorites = nullptr);
     void setCatalog(QList<ProcessorCatalog::Type> types, const QString& selectedId, QStringList excludedFavorites = {});
+    void setTopology(int channels);
+    void setInplaceAvailable(bool available);
     void showPopup() override;
     void hidePopup() override;
 
@@ -28,6 +30,11 @@ private:
     QFrame*                       _popup;
     ProcessorCatalogTree*         _tree;
     QLineEdit*                    _search;
+    int                           _channels         = 1;
+    bool                          _inplaceAvailable = false;
+
+    bool _supports(const ProcessorCatalog::Type& type) const;
+    void _refreshSelection(const QString& selectedId);
 
     void _rebuild();
     void _accept(QTreeWidgetItem* item);

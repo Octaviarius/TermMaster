@@ -3,12 +3,14 @@
 #include "ProcessorCatalogTree.h"
 
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QFrame>
 #include <QGuiApplication>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QMap>
 #include <QScreen>
+#include <QSignalBlocker>
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
@@ -39,6 +41,7 @@ ProcessorSelector::ProcessorSelector(QWidget* parent, ProcessorFavorites* favori
     layout->addWidget(_tree);
     _popup->installEventFilter(this);
     _tree->installEventFilter(this);
+    _tree->viewport()->installEventFilter(this);
     _search->installEventFilter(this);
     connect(_search, &QLineEdit::textChanged, this, [this] { _rebuild(); });
     connect(_tree, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem* item) {
@@ -72,25 +75,64 @@ void ProcessorSelector::setCatalog(QList<ProcessorCatalog::Type> types,
         const auto compared = QString::localeAwareCompare(left.title, right.title);
         return compared == 0 ? left.id < right.id : compared < 0;
     });
+    _refreshSelection(selectedId);
+}
+
+void ProcessorSelector::setTopology(int channels)
+{
+    channels = channels == 2 ? 2 : 1;
+    if (_channels == channels)
+    {
+        return;
+    }
+    _channels = channels;
+    _refreshSelection(currentData().toString());
+}
+
+void ProcessorSelector::setInplaceAvailable(bool available)
+{
+    if (_inplaceAvailable == available)
+    {
+        return;
+    }
+    _inplaceAvailable = available;
+    _refreshSelection(currentData().toString());
+}
+
+bool ProcessorSelector::_supports(const ProcessorCatalog::Type& type) const
+{
+    return type.inputCount == _channels && type.outputCount == _channels;
+}
+
+void ProcessorSelector::_refreshSelection(const QString& selectedId)
+{
+    const QSignalBlocker blocker(this);
     clear();
-    addItem(Icons::processorBlock(false, false), tr("Bypass"), QStringLiteral("native.bypass"));
+    if (_inplaceAvailable)
+    {
+        addItem(Icons::processorBlock(true, _channels == 2), tr("Inplace"), QStringLiteral("@inplace"));
+    }
     for (const auto& type : _types)
     {
-        if (type.id == "native.bypass")
+        if (!_supports(type))
         {
             continue;
         }
-        addItem(!type.available ?
-                    Icons::icon("triangle-exclamation-point") :
-                    Icons::processorBlock(type.kind != "native", type.inputCount == 2 && type.outputCount == 2),
+        addItem(!type.available ? Icons::icon("triangle-exclamation-point") :
+                                  Icons::processorBlock(type.kind != "native", _channels == 2),
                 type.title,
                 type.id);
         setItemData(count() - 1, type.available ? type.id : type.unavailableReason, Qt::ToolTipRole);
     }
-    auto row = findData(selectedId.isEmpty() ? QStringLiteral("native.bypass") : selectedId);
+    const auto selected = selectedId.isEmpty() ? QStringLiteral("native.bypass") : selectedId;
+    auto       row      = findData(selected);
     if (row < 0)
     {
-        addItem(Icons::icon("triangle-exclamation-point"), tr("Unavailable: %1").arg(selectedId), selectedId);
+        const auto type  = std::find_if(_types.cbegin(), _types.cend(), [&](const auto& value) {
+            return value.id == selected;
+        });
+        const auto title = type == _types.cend() ? selected : type->title;
+        addItem(Icons::icon("triangle-exclamation-point"), tr("Unavailable: %1").arg(title), selected);
         row = count() - 1;
     }
     setCurrentIndex(row);
@@ -133,6 +175,15 @@ void ProcessorSelector::hidePopup()
 
 bool ProcessorSelector::eventFilter(QObject* watched, QEvent* event)
 {
+    if (watched == _tree->viewport() && event->type() == QEvent::ContextMenu)
+    {
+        auto* context = static_cast<QContextMenuEvent*>(event);
+        auto* item    = _tree->itemAt(context->pos());
+        if (item && item->data(0, Qt::UserRole).toString() == "@inplace")
+        {
+            return true;
+        }
+    }
     if (watched == _popup && event->type() == QEvent::Hide)
     {
         QComboBox::hidePopup();
@@ -189,6 +240,10 @@ void ProcessorSelector::_rebuild()
     }
     for (const auto& type : _types)
     {
+        if (!_supports(type))
+        {
+            continue;
+        }
         const auto origin = type.origin == "workspace" ? QStringLiteral("Workspace") : QStringLiteral("Native");
         const auto group  = type.group.isEmpty() ? tr("General") : type.group;
         if (!(origin + ' ' + group + ' ' + type.title + ' ' + type.id).contains(query, Qt::CaseInsensitive))
@@ -219,7 +274,7 @@ void ProcessorSelector::_rebuild()
         root->setHidden(root->childCount() == 0);
         root->sortChildren(0, Qt::AscendingOrder);
     }
-    if (!selected.isEmpty() && selected != "native.bypass" && findData(selected) >= 0
+    if (!selected.isEmpty() && selected != "native.bypass" && selected != "@inplace" && findData(selected) >= 0
         && std::none_of(_types.begin(), _types.end(), [&](const auto& type) { return type.id == selected; }))
     {
         current = new QTreeWidgetItem(_tree, {currentText()});
@@ -239,7 +294,43 @@ void ProcessorSelector::_rebuild()
         }
     }
     _tree->setCurrentItem(current);
-    _tree->prependFavorites(query, _excludedFavorites);
+    auto excluded = _excludedFavorites;
+    excluded.append("@inplace");
+    for (const auto& type : _types)
+    {
+        if (!_supports(type))
+        {
+            excluded.append(type.id);
+        }
+    }
+    _tree->prependFavorites(query, excluded);
+    if (_inplaceAvailable && QStringLiteral("Inplace @inplace").contains(query, Qt::CaseInsensitive))
+    {
+        auto* item = new QTreeWidgetItem(QStringList {tr("Inplace")});
+        item->setData(0, Qt::UserRole, QStringLiteral("@inplace"));
+        item->setIcon(0, Icons::processorBlock(true, _channels == 2));
+        _tree->insertTopLevelItem(0, item);
+        if (selected == "@inplace")
+        {
+            _tree->setCurrentItem(item);
+        }
+        bool separatorPresent = false;
+        for (int row = 1; row < _tree->topLevelItemCount(); ++row)
+        {
+            if (_tree->topLevelItem(row)->data(0, ProcessorCatalogTree::SeparatorRole).toBool())
+            {
+                separatorPresent = true;
+                break;
+            }
+        }
+        if (!separatorPresent)
+        {
+            auto* separator = new QTreeWidgetItem;
+            separator->setFlags(Qt::NoItemFlags);
+            separator->setData(0, ProcessorCatalogTree::SeparatorRole, true);
+            _tree->insertTopLevelItem(1, separator);
+        }
+    }
     if (_tree->currentItem())
     {
         _tree->scrollToItem(_tree->currentItem());
