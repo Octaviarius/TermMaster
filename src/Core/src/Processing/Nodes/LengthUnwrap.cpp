@@ -19,9 +19,13 @@ std::unique_ptr<Processor> LengthUnwrap::create(const QVariantMap& input, const 
     }
 
     auto configuration = input;
-    if (!_stringOption(configuration, "position", "prefix", {"prefix", "suffix"}, error)
-        || !_stringOption(configuration, "endianness", "little", {"little", "big"}, error)
-        || !_boolOption(configuration, "includeField", false, error) || !LengthField::validate(configuration, error))
+    if (!_boolOption(configuration, "includeField", false, error) || !LengthField::validate(configuration, error))
+    {
+        return {};
+    }
+    if (configuration.value("encoding") == "fixed"
+        && (!_stringOption(configuration, "position", "prefix", {"prefix", "suffix"}, error)
+            || !_stringOption(configuration, "endianness", "little", {"little", "big"}, error)))
     {
         return {};
     }
@@ -31,32 +35,27 @@ std::unique_ptr<Processor> LengthUnwrap::create(const QVariantMap& input, const 
 
 void LengthUnwrap::_process(const Chunk& input, QByteArray& output, QString& error)
 {
-    if (_maxSteps < _field.width())
+    quint64 actual = 0;
+    int     width  = 0;
+    if (!_field.decode(input.bytes, actual, width, _maxSteps, error))
     {
-        _fail(&error, QStringLiteral("Length field processing exceeds step limit"));
-        return;
-    }
-    if (input.bytes.size() < _field.width())
-    {
-        _fail(&error, QStringLiteral("Packet is shorter than its length field"));
         return;
     }
 
-    const auto payloadBytes = input.bytes.size() - _field.width();
-    quint64    expected     = 0;
-    if (!_field.value(payloadBytes, expected, error))
+    const auto payloadBytes  = input.bytes.size() - width;
+    quint64    expected      = 0;
+    int        expectedWidth = 0;
+    if (!_field.value(payloadBytes, expected, expectedWidth, error))
     {
         return;
     }
-    const auto offset = _field.prefix() ? 0 : payloadBytes;
-    const auto actual = _field.decode(input.bytes.constData() + offset);
-    if (actual != expected)
+    if (actual != expected || width != expectedWidth)
     {
         _fail(&error, QStringLiteral("Packet length mismatch: field is %1, expected %2").arg(actual).arg(expected));
         return;
     }
 
-    output = QByteArray(input.bytes.constData() + (_field.prefix() ? _field.width() : 0), payloadBytes);
+    output = QByteArray(input.bytes.constData() + (_field.prefix() ? width : 0), payloadBytes);
 }
 
 void LengthUnwrap::_reset()

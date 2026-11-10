@@ -353,9 +353,20 @@ The supported subset and persistence contract are recorded in
 [settings forms](settings-forms.md#discriminated-variant-forms).
 
 
+## FLOW-24: Variable packet lengths
+
+- [x] Add Fixed/Varint root oneOf settings to Length Wrap and Length Unwrap.
+- [x] Support every Fixed width from 1 through 8 with integer step 1.
+- [x] Encode canonical unsigned ULEB128/Protobuf uint64 prefixes, bounded to 1–10 bytes.
+- [x] Count actual prefix width with the minimal self-consistent layout and enforce it on unwrap.
+- [x] Reject malformed lengths and bound packet work/output without changing transport lifecycle.
+- [x] Verify independent vectors, inactive draft normalization, actual Lineflow forms and native 1x/2x rendering.
+
+See [processing nodes](processing-nodes.md#length-wrap-and-length-unwrap).
+
 ## HELP-1: Contextual module documentation
 
-Next scheduled stage after SETTINGS-5 discriminated variant forms.
+Next scheduled stage after FLOW-24 variable packet lengths.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
 - [ ] Package module-owned help and generated parameter reference with stable context topics.

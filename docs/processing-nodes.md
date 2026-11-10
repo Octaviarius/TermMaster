@@ -120,25 +120,47 @@ Both nodes expose the same generated settings:
 
 | Field | Default | Values |
 | --- | --- | --- |
-| `position` | prefix | prefix or suffix, relative to the payload |
-| `width` | 2 | 1, 2, 4 or 8 bytes |
-| `endianness` | little | little or big byte order |
+| `encoding` | fixed | Fixed or Varint; selects the active settings branch |
+| `position` (Fixed) | prefix | prefix or suffix, relative to the payload |
+| `width` (Fixed) | 2 | Any integer from 1 through 8 bytes, step 1 |
+| `endianness` (Fixed) | little | little or big byte order |
+| `maxBytes` (Varint) | 10 | Maximum prefix width, any integer from 1 through 10 |
 | `includeField` | false | Count the field's own width as well as payload bytes |
 | `adjustment` | 0 | Signed integer from -2147483647 through 2147483647 |
 
-The wire value is `payloadBytes + (includeField ? width : 0) + adjustment`.
+The wire value is `payloadBytes + (includeField ? actualFieldWidth : 0) + adjustment`.
 For example, default wrapping of `41 00 FF` produces `03 00 41 00 FF`;
 a two-byte big-endian suffix with field counting produces `41 00 FF 00 05`.
 The field is always unsigned. A negative result or a value that does not fit the
 selected width fails before any output is emitted. Integer configuration accepts
 finite whole numeric values and rejects strings, booleans and fractional values.
-Unknown settings remain preserved.
+Unknown settings remain preserved. The generated root `oneOf` keeps `includeField`
+and `adjustment` common. Fixed exposes only position, width and byte order; Varint
+exposes only maximum bytes and always uses a prefix. Switching retains inactive
+drafts until Apply; applied and factory configurations remove recognized inactive
+fields while preserving unknown settings. Omitted encoding selects Fixed.
+
+Varint uses canonical unsigned ULEB128, matching Protobuf uint64 encoding: seven
+payload bits per byte, least significant group first, continuation in bit 7, at
+most ten bytes. The tenth byte must be 0 or 1 without continuation; canonical
+encoding of a ten-byte value ends in 1. Examples: 0 = `00`, 127 = `7F`,
+128 = `80 01`, 16383 = `FF 7F`, 16384 = `80 80 01`, and UINT64_MAX =
+`FF FF FF FF FF FF FF FF FF 01`. Truncated, overlong, noncanonical and overflowing
+fields fail atomically, including a prefix exceeding `maxBytes`.
+
+When counting the field, Wrap chooses the smallest width from 1 through `maxBytes`
+whose adjusted value canonically encodes to that same width. A 126-byte payload
+therefore gets prefix `7F`; a 127-byte payload gets `81 01`. At some boundaries a
+wider self-consistent value also exists: `80 01` before 126 payload bytes is
+rejected because the minimal layout uses one byte. Unwrap enforces the same
+minimal solution against the observed prefix width and actual payload bytes.
+If no solution exists, including adjustment underflow, the packet fails.
 
 Length Unwrap computes the expected value from the actual packet payload size,
 compares every field byte through unsigned 64-bit arithmetic, and strips the field
 only after an exact match. Short packets, truncated payloads, trailing bytes,
 length mismatch and adjustment overflow/underflow fail atomically. A hostile
-8-byte field never determines an allocation size. A valid field-only packet emits
+fixed or varint field never determines an allocation size. A valid field-only packet emits
 one empty payload packet. Cancellation and failure stop the instance; processing
 errors follow the existing router contract without closing the terminal transport.
 
@@ -146,15 +168,19 @@ Host input/output byte limits apply, including the added field. Length field
 encoding/decoding consumes one work step per field byte; insufficient maxSteps
 fails atomically. Each successful invocation emits exactly one owned output packet.
 
-FLOW-23 acceptance passed the complete MSVC x64 Debug build and nine affected
-CTest suites. LengthProcessorTests passed all ten QtTest checks with no skips,
-covering fixed endian vectors, settings combinations, independent packets,
-binary NUL, empty payloads, 255/256-byte boundaries, signed adjustment, hostile
-UINT64 fields, atomic limits, output ownership and cancellation. Actual Lineflow
-forms passed native capture checks at scales 1 and 2 without production GUI
-changes. Captures: [Length Wrap](images/length/LengthWrap.png) and
-[Length Unwrap](images/length/LengthUnwrap.png). No real-device or external-network
-acceptance was run.
+FLOW-24 acceptance passed the complete MSVC x64 Debug build and ten affected
+CTest suites. LengthProcessorTests covers all fixed widths, both byte orders and
+positions, independent Varint vectors through UINT64_MAX, minimal field-counting
+solutions, malformed/truncated prefixes, maxBytes/step/byte bounds, adjustment,
+packet independence, owned output and cancellation. Actual Length node forms
+verify Fixed/Varint field visibility, inactive draft restoration, normalized Apply
+and registry factory creation. Native Windows Lineflow captures use the same
+1100 by 760 logical window at scales 1 and 2; scale 2 captures remain temporary.
+Reference captures: [Wrap Fixed](images/length/LengthWrapFixed.png),
+[Wrap Varint](images/length/LengthWrapVarint.png),
+[Unwrap Fixed](images/length/LengthUnwrapFixed.png) and
+[Unwrap Varint](images/length/LengthUnwrapVarint.png). No real-device or
+external-network acceptance was run.
 
 ## Timestamp
 
