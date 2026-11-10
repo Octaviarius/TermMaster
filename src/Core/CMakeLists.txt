@@ -76,6 +76,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/Gate.cpp
     src/Processing/Nodes/Framer.h
     src/Processing/Nodes/Framer.cpp
+    src/Processing/Nodes/TimedFramer.h
+    src/Processing/Nodes/TimedFramer.cpp
     src/Processing/Nodes/HexEncoder.h
     src/Processing/Nodes/HexEncoder.cpp
     src/Processing/Nodes/HexDecoder.h

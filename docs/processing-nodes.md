@@ -2,7 +2,7 @@
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
 Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec and Pacer. NativeProcessors only registers the
+HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer and Pacer. NativeProcessors only registers the
 catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
@@ -36,34 +36,58 @@ later release. It therefore does not stall a Lineflow. Limits still apply while
 disabled. Cancellation stops acceptance. Configuration changes follow the common
 prepared-instance replacement contract rather than mutating another instance.
 
-## Framer
+## Framers
 
-`native.framer`, group Framing, explicitly accumulates input packets and emits zero,
-one or many complete frame packets. A stream read is never a frame boundary.
-State survives split delimiters and UTF-8 is not decoded from incoming data.
+Both framers belong to Framing and explicitly accumulate bytes across input
+packets. Input packet boundaries do not flush their buffers. Each completed frame
+becomes one independent output packet; UTF-8 is not decoded during framing.
+
+### Delimiter Framer
+
+`native.framer` collects bytes until a terminator is matched or an optional byte
+count is reached. A configured `frameSize: 0` (default) disables size-triggered
+emission, so accumulation continues until the terminator. It does not disable
+host runtime memory bounds. Exceeding a runtime bound reports a processing error
+without closing the transport.
 
 | Parameter | Default | Behavior |
 |---|---|---|
-| mode | delimiter | delimiter, size or either rule |
-| frameSize | 64 | Raw bytes per frame in size/either mode |
+| frameSize | 0 | Zero waits only for the terminator; positive sizes also emit at this many raw bytes |
 | ending | `\r` | Byte pattern with `\r`, `\n`, `\0`, `\xHH`, `\\` escapes; literal text is UTF-8 |
 | includeEnding | false | Keep a matched ending in the emitted frame |
-| emitEmpty | true | Preserve empty frames produced by the rules |
-| packetTail | preserve | preserve, emit, discard or error for incomplete input-packet tails |
-| maxFrameSize | 1048576 | Accumulation limit, clamped to the runtime byte bound |
+| emitEmpty | true | Preserve empty frames produced by a terminator |
 
-In either mode the first completed ending or raw-size boundary emits a frame.
-Ending bytes count toward raw size; a complete ending wins a tie. Removing an
-ending occurs only when the ending rule won. The decoded ending is limited to
-256 bytes. Matching is incremental and linear, including overlapping patterns.
+Terminator bytes count toward the configured size. A complete terminator wins a
+tie with the size rule and is removed only when includeEnding is false. A partial
+terminator at a size boundary remains raw data in that frame. Matching is linear,
+handles overlapping patterns and survives arbitrary input splits. The decoded
+pattern contains 1 to 256 bytes. Cancellation discards any incomplete frame.
+The previous mode, input-tail and per-node maximum controls are removed.
 
-By default even an incoming Packet boundary does not flush accumulated bytes.
-The emit tail policy explicitly emits remaining bytes there; an entirely empty
-packet emits an empty frame only in that policy with emitEmpty enabled. It does
-not add a duplicate empty frame after a rule already emitted during the same call.
-Discard clears the residual and partial delimiter match; error rejects a nonempty
-residual. This policy applies after every input packet. Cancellation discards residual
-state; the Processor contract has no implicit end-of-stream flush.
+### Timed Framer
+
+`native.timed-framer` collects nonempty input packets until the idle interval is
+at least `gapMs` milliseconds. The default is 20 ms; the supported range is 1 to
+60,000 ms. Each nonempty arrival restarts the deadline. Empty packets neither
+create a frame nor postpone it. Host runtime byte bounds limit the buffer.
+
+A monotonic clock measures the gap. If a packet arrives after the deadline before
+Qt dispatches the timer, the previous frame is emitted first and the new packet
+starts another frame. The timer also emits the buffered frame during silence;
+there is no requirement for another input to trigger output. Input acknowledgements
+complete immediately; frames use the Processor lifetime output channel. Timers,
+state and callbacks use the owning QObject thread. Cancellation stops the timer
+and discards buffered bytes, with no later output.
+
+```mermaid
+flowchart LR
+    P[Input packets] --> D[Delimiter buffer]
+    D --> E{Terminator or size reached?}
+    E -->|Yes| F[One frame packet]
+    P --> T[Timed buffer]
+    T --> G{Idle gap expired?}
+    G -->|Yes| H[One asynchronous frame packet]
+```
 
 ## Pacer
 
@@ -247,3 +271,26 @@ borrowed-byte ownership and absence of automatic 1024-byte fragmentation.
 Native Windows editor captures at scales 1 and 2 passed without skips and show
 the default-disabled HEX accumulation option. No serial hardware, external
 network endpoint or elevated shell was used. Release was not built.
+
+## FLOW-13 framer acceptance
+
+The complete Qt 6.12/MSVC Debug build succeeded. Direct delimiter and timed-node
+tests cover binary data, split terminators, zero/default size behavior, positive
+size triggers, delayed timer dispatch, empty input, exact resource limits,
+independent instances, cancellation and destruction/reentry from callbacks.
+Composition and router checks verify asynchronous frame output after input
+acknowledgement and cancellation of buffered data. Native Windows editor captures
+at 100% and 200% scale show both generated forms; all capture checks passed.
+
+The full 48-executable run passed 46. ProcessingTests initially submitted a second
+packet while the composition was still busy; the fixture now waits for the first
+acknowledgement, and all five affected processing/editor executables passed.
+ConsoleElevationTests encountered a heap-corruption exit in the parallel run;
+its isolated rerun passed. No console production code was changed, and this
+intermittent failure remains a verification limitation. No real serial device,
+external endpoint or elevated shell was used. Release was not built.
+
+- [Delimiter Framer](images/framers/Framer.png)
+- [Timed Framer](images/framers/TimedFramer.png)
+- [Delimiter Framer at scale 2](images/framers/Framer2x.png)
+- [Timed Framer at scale 2](images/framers/TimedFramer2x.png)

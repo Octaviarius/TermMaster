@@ -9,6 +9,7 @@
 #include "Nodes/HexEncoder.h"
 #include "Nodes/Pacer.h"
 #include "Nodes/Stub.h"
+#include "Nodes/TimedFramer.h"
 
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorCatalog.h>
@@ -40,7 +41,20 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
         Definition("native.stub", "Stub", "Control", Stub::schema(), Stub::create, "Data", "Data"),
         Definition("native.gate", "Gate", "Control", Gate::schema(), Gate::create, "Data", "Data"),
         Definition("native.pacer", "Pacer", "Timing", Pacer::schema(), Pacer::create, "Data", "Data"),
-        Definition("native.framer", "Framer", "Framing", Framer::schema(), Framer::create, "Stream", "Frames"),
+        Definition("native.framer",
+                   "Delimiter Framer",
+                   "Framing",
+                   Framer::schema(),
+                   Framer::create,
+                   "Stream",
+                   "Frames"),
+        Definition("native.timed-framer",
+                   "Timed Framer",
+                   "Framing",
+                   TimedFramer::schema(),
+                   TimedFramer::create,
+                   "Stream",
+                   "Frames"),
         Definition("native.hex-encoder",
                    "HEX Encoder",
                    "Codecs",

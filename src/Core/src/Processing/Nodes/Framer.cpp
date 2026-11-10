@@ -2,10 +2,8 @@
 
 #include <QList>
 #include <QPointer>
-#include <algorithm>
 #include <cmath>
 #include <optional>
-#include <vector>
 
 namespace
 {
@@ -110,15 +108,9 @@ std::optional<QByteArray> decodeEnding(const QString& text, QString* error)
 
 } // namespace
 
-Framer::Framer(QVariantMap configuration,
-               Limits      limits,
-               Mode        mode,
-               Tail        tail,
-               QByteArray  ending,
-               qsizetype   frameSize,
-               qsizetype   maximum) :
-    _configuration(std::move(configuration)), _limits(limits), _mode(mode), _tail(tail), _ending(std::move(ending)),
-    _frameSize(frameSize), _maximum(maximum), _includeEnding(_configuration.value("includeEnding").toBool()),
+Framer::Framer(QVariantMap configuration, Limits limits, QByteArray ending, qsizetype frameSize) :
+    _configuration(std::move(configuration)), _limits(limits), _ending(std::move(ending)), _frameSize(frameSize),
+    _includeEnding(_configuration.value("includeEnding").toBool()),
     _emitEmpty(_configuration.value("emitEmpty").toBool())
 {
     _prefix.resize(size_t(_ending.size()));
@@ -185,26 +177,22 @@ Processor::AcceptResult Framer::accept(Chunk input, Callbacks callbacks)
     for (const char byte : input.bytes)
     {
         // Count buffered raw bytes, including an incomplete delimiter, before allocation.
-        if (_buffer.size() >= _maximum || _buffer.size() >= _limits.maxBytes - outputBytes)
+        if (_buffer.size() >= _limits.maxBytes - outputBytes)
         {
             fail("Framer accumulated frame exceeds its byte limit");
             break;
         }
         _buffer.append(byte);
-        bool delimiter = false;
-        if (_mode != Mode::Size)
+        while (_matched > 0 && byte != _ending[_matched])
         {
-            while (_matched > 0 && byte != _ending[_matched])
-            {
-                _matched = _prefix[size_t(_matched - 1)];
-            }
-            if (byte == _ending[_matched])
-            {
-                ++_matched;
-            }
-            delimiter = _matched == _ending.size();
+            _matched = _prefix[size_t(_matched - 1)];
         }
-        const bool sized = _mode != Mode::Delimiter && _buffer.size() == _frameSize;
+        if (byte == _ending[_matched])
+        {
+            ++_matched;
+        }
+        const bool delimiter = _matched == _ending.size();
+        const bool sized     = _frameSize > 0 && _buffer.size() == _frameSize;
         if (delimiter || sized)
         {
             // A complete delimiter wins a tie with the raw-size rule.
@@ -213,29 +201,6 @@ Processor::AcceptResult Framer::accept(Chunk input, Callbacks callbacks)
             {
                 break;
             }
-        }
-    }
-    if (error.isEmpty())
-    {
-        if (!_buffer.isEmpty())
-        {
-            if (_tail == Tail::Emit)
-            {
-                frame(false);
-            }
-            else if (_tail == Tail::Discard)
-            {
-                _buffer.clear();
-                _matched = 0;
-            }
-            else if (_tail == Tail::Error)
-            {
-                fail("Framer packet ends with an incomplete frame");
-            }
-        }
-        else if (_tail == Tail::Emit && outputs.isEmpty() && _emitEmpty)
-        {
-            frame(false);
         }
     }
     if (!error.isEmpty())
@@ -287,22 +252,14 @@ content:
   type: object
   x-groups:
     - {id: framing, title: Framing, order: 0}
-    - {id: boundaries, title: Packet boundaries, order: 1}
-    - {id: limits, title: Limits, order: 2}
   properties:
-    mode:
-      type: string
-      enum: [delimiter, size, either]
-      default: delimiter
-      title: Framing mode
-      x-group: framing
-      x-order: 0
     frameSize:
       type: integer
-      minimum: 1
-      maximum: 1048576
-      default: 64
+      minimum: 0
+      maximum: 2147483647
+      default: 0
       title: Frame size in bytes
+      description: Zero disables size-triggered emission; runtime byte limits remain active.
       x-group: framing
       x-order: 1
     ending:
@@ -325,21 +282,6 @@ content:
       title: Emit empty frames
       x-group: framing
       x-order: 4
-    packetTail:
-      type: string
-      enum: [preserve, emit, discard, error]
-      default: preserve
-      title: Incomplete packet tail
-      x-group: boundaries
-      x-order: 0
-    maxFrameSize:
-      type: integer
-      minimum: 1
-      maximum: 1048576
-      default: 1048576
-      title: Maximum accumulated bytes
-      x-group: limits
-      x-order: 0
 )";
 }
 
@@ -364,13 +306,10 @@ std::unique_ptr<Processor> Framer::create(const QVariantMap&       configuration
     }
     QVariantMap       resolved = configuration;
     const QVariantMap defaults {
-        {         "mode", "delimiter"},
-        {    "frameSize",          64},
-        {       "ending",       "\\r"},
-        {"includeEnding",       false},
-        {    "emitEmpty",        true},
-        {   "packetTail",  "preserve"},
-        { "maxFrameSize",     1048576}
+        {    "frameSize",     0},
+        {       "ending", "\\r"},
+        {"includeEnding", false},
+        {    "emitEmpty",  true}
     };
     for (auto it = defaults.cbegin(); it != defaults.cend(); ++it)
     {
@@ -378,50 +317,6 @@ std::unique_ptr<Processor> Framer::create(const QVariantMap&       configuration
         {
             resolved.insert(it.key(), it.value());
         }
-    }
-    const auto modeValue = resolved.value("mode");
-    const auto tailValue = resolved.value("packetTail");
-    if (modeValue.typeId() != QMetaType::QString || tailValue.typeId() != QMetaType::QString)
-    {
-        return reject("Framer mode and packet tail policy must be strings");
-    }
-    Framer::Mode mode;
-    if (modeValue == "delimiter")
-    {
-        mode = Framer::Mode::Delimiter;
-    }
-    else if (modeValue == "size")
-    {
-        mode = Framer::Mode::Size;
-    }
-    else if (modeValue == "either")
-    {
-        mode = Framer::Mode::Either;
-    }
-    else
-    {
-        return reject("Unknown framer mode");
-    }
-    Framer::Tail tail;
-    if (tailValue == "preserve")
-    {
-        tail = Framer::Tail::Preserve;
-    }
-    else if (tailValue == "emit")
-    {
-        tail = Framer::Tail::Emit;
-    }
-    else if (tailValue == "discard")
-    {
-        tail = Framer::Tail::Discard;
-    }
-    else if (tailValue == "error")
-    {
-        tail = Framer::Tail::Error;
-    }
-    else
-    {
-        return reject("Unknown framer packet tail policy");
     }
     for (const auto& key : {"includeEnding", "emitEmpty"})
     {
@@ -439,46 +334,25 @@ std::unique_ptr<Processor> Framer::create(const QVariantMap&       configuration
             return std::nullopt;
         }
         const auto number = value.toDouble();
-        if (!std::isfinite(number) || number < 1 || number > 1048576 || number != std::floor(number))
+        if (!std::isfinite(number) || number < 0 || number > 2147483647.0 || number != std::floor(number))
         {
             return std::nullopt;
         }
         return qsizetype(number);
     };
-    const auto maximum = integer("maxFrameSize");
-    if (!maximum)
+    const auto size = integer("frameSize");
+    if (!size)
     {
-        return reject("Framer maximum frame size must be an integer from 1 to 1048576");
+        return reject("Framer frame size must be an integer from 0 to 2147483647");
     }
-    const auto effective = std::min(*maximum, limits.maxBytes);
-    qsizetype  size      = 64;
-    if (mode != Framer::Mode::Delimiter)
+    if (resolved.value("ending").typeId() != QMetaType::QString)
     {
-        const auto configured = integer("frameSize");
-        if (!configured)
-        {
-            return reject("Framer frame size must be an integer from 1 to 1048576");
-        }
-        size = *configured;
-        if (mode == Framer::Mode::Size && size > effective)
-        {
-            return reject("Framer frame size exceeds the effective accumulated byte limit");
-        }
+        return reject("Framer ending must be text");
     }
-    QByteArray ending;
-    if (mode != Framer::Mode::Size)
+    const auto ending = decodeEnding(resolved.value("ending").toString(), error);
+    if (!ending)
     {
-        if (resolved.value("ending").typeId() != QMetaType::QString)
-        {
-            return reject("Framer ending must be text");
-        }
-        const auto decoded = decodeEnding(resolved.value("ending").toString(), error);
-        if (!decoded)
-        {
-            return {};
-        }
-        ending = *decoded;
+        return {};
     }
-    return std::unique_ptr<Processor>(
-        new Framer(std::move(resolved), limits, mode, tail, std::move(ending), size, effective));
+    return std::unique_ptr<Processor>(new Framer(std::move(resolved), limits, *ending, *size));
 }

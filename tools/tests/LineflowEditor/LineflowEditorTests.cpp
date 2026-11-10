@@ -1470,6 +1470,22 @@ private slots:
                                     .filePath(dialog.devicePixelRatioF() > 1.5 ? QString("Framer2x.png") :
                                                                                  QString("Framer.png"));
         QVERIFY(dialog.grab().save(framerPath));
+        auto* framerForm = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(framerForm && framerForm->editor("frameSize"));
+        QCOMPARE(framerForm->editor("frameSize")->value().toInt(), 0);
+        QVERIFY(!framerForm->editor("mode"));
+        QVERIFY(!framerForm->editor("packetTail"));
+        QVERIFY(!framerForm->editor("maxFrameSize"));
+        const auto timed = dialog.model().createBlock("Idle-gap framing", 1);
+        QVERIFY(!dialog.model().insertNodeAt(timed, 0, "native.timed-framer", "rx").isEmpty());
+        tree->setCurrentIndex(dialog.model().index(0, 0));
+        QTest::qWait(50);
+        auto* timedForm = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(timedForm && timedForm->editor("gapMs"));
+        QCOMPARE(timedForm->editor("gapMs")->value().toInt(), 20);
+        QVERIFY(dialog.grab().save(
+            QDir(destination).filePath(dialog.devicePixelRatioF() > 1.5 ? "TimedFramer2x.png" : "TimedFramer.png")));
+
         registerDuplex(registry);
         const auto paired = dialog.model().createBlock("Device protocol · Rx / Tx", 2);
         QVERIFY(!paired.isEmpty());

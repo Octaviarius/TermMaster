@@ -62,6 +62,20 @@ target_link_libraries(FramerProcessorTests PRIVATE
 )
 add_test(NAME FramerProcessorTests COMMAND FramerProcessorTests)
 
+qt_add_executable(TimedFramerProcessorTests
+    TimedFramerProcessorTests.cpp
+)
+
+target_include_directories(TimedFramerProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+
+target_link_libraries(TimedFramerProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME TimedFramerProcessorTests COMMAND TimedFramerProcessorTests)
+
 qt_add_executable(CodecProcessorTests
     CodecProcessorTests.cpp
 )
