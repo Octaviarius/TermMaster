@@ -7,6 +7,7 @@
 #include "Gui/Terminal/CommandEditor.h"
 #include "Gui/Terminal/TerminalController.h"
 #include "Gui/Terminal/TerminalProcessingPanel.h"
+#include "Processing/TerminalProcessing.h"
 
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -234,7 +235,8 @@ private:
     Q_SLOT void mainWindowCloseExitsProcess_data()
     {
         QTest::addColumn<QString>("scenario");
-        for (const auto& scenario : {"empty", "auxiliary", "quitDisabled", "saveFailure", "console", "consoleInplace"})
+        for (const auto& scenario :
+             {"empty", "auxiliary", "quitDisabled", "saveFailure", "console", "consoleInplace", "nestedProcessing"})
         {
             QTest::newRow(scenario) << QString::fromLatin1(scenario);
         }
@@ -3884,6 +3886,59 @@ int main(int argc, char* argv[])
                         type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
                         app.pluginHost().registerTerminalType(std::move(type));
                     }
+                    if (scenario == "nestedProcessing")
+                    {
+                        const auto        root = TerminalProcessing::rootId("rx");
+                        const QVariantMap gate {
+                            {"name",        "Gate"},
+                            {"type", "native.gate"}
+                        };
+                        const QVariantMap nestedNode {
+                            {     "name",       "Inner"},
+                            {"reference", "local.inner"}
+                        };
+                        const QVariantMap innerSource {
+                            {"nodes", QVariantList {gate}}
+                        };
+                        const QVariantMap outerSource {
+                            {"nodes", QVariantList {nestedNode}}
+                        };
+                        const QVariantMap innerDefinition {
+                            {    "id", "local.inner"},
+                            {  "name",       "Inner"},
+                            {  "kind",    "lineflow"},
+                            {"source",   innerSource}
+                        };
+                        const QVariantMap outerDefinition {
+                            {    "id",        root},
+                            {  "name",   "Inplace"},
+                            {  "kind",  "lineflow"},
+                            {"source", outerSource}
+                        };
+                        const QVariantMap definitions {
+                            {         root, outerDefinition},
+                            {"local.inner", innerDefinition}
+                        };
+                        QVariantMap processing;
+                        processing.insert("mode", "simplex");
+                        processing.insert("rx",
+                                          QVariantMap {
+                                              {"type", "@inplace"}
+                        });
+                        processing.insert("inplace",
+                                          QVariantMap {
+                                              {"rx", definitions}
+                        });
+                        settings.insert("processing", processing);
+                        for (int index = 0; index < 5; ++index)
+                        {
+                            if (!app.createTerminal(typeId, settings, "Nested close fixture", &error))
+                            {
+                                marker("nestedSetupFailed: " + error.toUtf8());
+                                std::_Exit(87);
+                            }
+                        }
+                    }
                     if (!app.createTerminal(typeId, settings, "Close terminal", &error))
                     {
                         marker("terminalFailed: " + error.toUtf8());
@@ -3908,7 +3963,7 @@ int main(int argc, char* argv[])
                 }
                 auto* closeTimer = new QTimer(&app);
                 closeTimer->setInterval(100);
-                QObject::connect(closeTimer, &QTimer::timeout, &app, [&, closeTimer] {
+                QObject::connect(closeTimer, &QTimer::timeout, &app, [&, closeTimer, error = QString {}]() mutable {
                     if (scenario.startsWith("console"))
                     {
                         app.pluginHost().connectSelectedTerminal();

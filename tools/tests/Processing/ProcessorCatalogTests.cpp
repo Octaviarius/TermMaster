@@ -35,6 +35,48 @@ private:
     QVariantMap _configuration;
     bool        _acknowledge;
 };
+class DeferredFixtureProcessor final : public Processor
+{
+public:
+    struct Probe
+    {
+        int  destroyed                      = 0;
+        bool acknowledging                  = false;
+        bool destroyedDuringAcknowledgement = false;
+    };
+
+    explicit DeferredFixtureProcessor(std::shared_ptr<Probe> probe) : _probe(std::move(probe))
+    {
+    }
+    ~DeferredFixtureProcessor() override
+    {
+        ++_probe->destroyed;
+        _probe->destroyedDuringAcknowledgement |= _probe->acknowledging;
+    }
+
+    QVariantMap configuration() const override
+    {
+        return {};
+    }
+    AcceptResult accept(Chunk chunk, Callbacks callbacks) override
+    {
+        callbacks.output(std::move(chunk));
+        callbacks.completed({});
+        return AcceptResult::Accepted;
+    }
+    void cancel(std::function<void()> done) override
+    {
+        QTimer::singleShot(2, this, [this, done = std::move(done)] {
+            _probe->acknowledging = true;
+            done();
+            _probe->acknowledging = false;
+        });
+    }
+
+private:
+    std::shared_ptr<Probe> _probe;
+};
+
 ProcessorRegistry::Definition line(const QString& id, QVariantList nodes)
 {
     return {id, id, "lineflow", {{"nodes", nodes}}, {}, {}, {}, {}};
@@ -65,6 +107,39 @@ class ProcessorCatalogTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void shutdownDrainsNestedScopedRetirementsAndRejectsPreparedFactories()
+    {
+        ProcessorRegistry      registry;
+        auto                   probe = std::make_shared<DeferredFixtureProcessor::Probe>();
+        ProcessorCatalog::Type type {"deferred", "Deferred", schema(), [probe](const auto&, const auto&, QString*) {
+                                         return std::make_unique<DeferredFixtureProcessor>(probe);
+                                     }};
+        registry.registerType("fixture-owner", std::move(type));
+        QVERIFY(registry.publishDefinitions("workspace",
+                                            {line("inner", {leaf("deferred")}), line("outer", {leaf("inner")})}));
+        auto scope = registry.scoped({
+            {"local", savedLine("local", {leaf("outer")})}
+        });
+        QVERIFY(scope);
+        auto prepared = scope->prepare("local", {}, {});
+        QVERIFY(prepared);
+        auto instance = prepared->instantiate();
+        QVERIFY(instance);
+        scope.reset();
+
+        QTimer::singleShot(0, [holder = std::move(instance)]() mutable { holder.reset(); });
+        QString error;
+        QVERIFY2(registry.shutdown(1000, &error), qPrintable(error));
+        QCOMPARE(probe->destroyed, 1);
+        QVERIFY(!probe->destroyedDuringAcknowledgement);
+        QVERIFY(!prepared->instantiate({}, &error));
+        QVERIFY(error.contains("shutting down"));
+        QVERIFY(!registry.prepare("deferred", {}, {}, &error));
+        prepared.reset();
+        QVERIFY2(registry.canRemoveOwner("fixture-owner", &error), qPrintable(error));
+        QVERIFY(registry.shutdown(0, &error));
+    }
+
     void unpreparedScopePinsCopiedFactoriesAndProviders()
     {
         ProcessorRegistry registry;
@@ -539,6 +614,13 @@ private slots:
         QCoreApplication::processEvents();
         QVERIFY(!registry.canRemoveOwner("broken-owner"));
         QVERIFY(!registry.unregisterType("broken-owner", "broken"));
+        QString       error;
+        QElapsedTimer deadline;
+        deadline.start();
+        QVERIFY(!registry.shutdown(1, &error));
+        QVERIFY(error.contains("timed out"));
+        QVERIFY(deadline.elapsed() < 1000);
+        QVERIFY(!registry.canRemoveOwner("broken-owner"));
     }
 
     void sharedGraphDepthAndAvailabilityAreBounded()

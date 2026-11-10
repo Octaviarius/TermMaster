@@ -110,11 +110,19 @@ public:
                                               const Processor::Limits& limits,
                                               QString*                 error = nullptr);
 
+    /** Permanently rejects new instances and drains already released processor ownership on
+     * the owning thread before Qt event-queue teardown. Release consumers first. Timeout
+     * retains non-quiescent code pins instead of unloading or deleting active plugin code.
+     */
+    bool shutdown(int timeoutMs = 5000, QString* error = nullptr);
+
     Q_SIGNAL void changed();
 
 private:
+    struct Lifetime;
     struct Entry;
     struct ProviderEntry;
+    std::shared_ptr<Lifetime> _lifetime;
     // Release pins after all maps holding copied executable callbacks have been destroyed.
     QList<std::shared_ptr<const void>>            _scopeLeases;
     QMap<QString, std::shared_ptr<Entry>>         _entries;
@@ -136,6 +144,7 @@ private:
                                               const QVariantMap&          configuration,
                                               const Processor::Limits&    limits,
                                               std::shared_ptr<const void> lease,
+                                              std::shared_ptr<Lifetime>   lifetime,
                                               int                         inputCount,
                                               int                         outputCount,
                                               QStringList                 inputNames,

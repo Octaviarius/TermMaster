@@ -216,6 +216,13 @@ App::~App()
         QObject::disconnect(sender, nullptr, this, nullptr);
     }
     QObject::disconnect(_data->window.get(), nullptr, this, nullptr);
+
+    _data->terminals->closeAll();
+    QString error;
+    if (!_data->plugins.processors().shutdown(5000, &error))
+    {
+        qCritical().noquote() << error;
+    }
 }
 
 int App::run()

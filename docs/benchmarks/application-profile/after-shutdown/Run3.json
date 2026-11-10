@@ -1,0 +1,45 @@
+{
+  "measurements": [
+    {
+      "ok": true,
+      "stage": "app.construct",
+      "wallMs": 88.4011,
+      "error": ""
+    },
+    {
+      "ok": true,
+      "stage": "app.start.to.eventloop",
+      "wallMs": 355.0926,
+      "error": ""
+    },
+    {
+      "cpuMs": 187.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 41.90625,
+      "stage": "workspace.open.restore",
+      "wallMs": 240.4844
+    },
+    {
+      "ok": true,
+      "stage": "fixture",
+      "terminalCount": 6,
+      "error": ""
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 41.97265625,
+      "stage": "window.close.loaded",
+      "wallMs": 47.0878
+    },
+    {
+      "ok": true,
+      "stage": "app.destruct",
+      "wallMs": 23.7537,
+      "error": ""
+    }
+  ],
+  "platform": "Windows MSVC Qt6 Release"
+}
