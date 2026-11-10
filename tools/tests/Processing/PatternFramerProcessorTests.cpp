@@ -29,6 +29,120 @@ class PatternFramerProcessorTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void completionPrefilterPreservesPerPacketMatchesAndCaptures()
+    {
+        struct Case
+        {
+            QString    pattern;
+            QString    output;
+            QByteArray input;
+        };
+        const QList<Case> cases {
+            {"(?<payload>a+)z", "${payload}#${0}", "noiseaaazbbbazz"},
+            {"(?<payload>[^\\r\\n]+)\\r?\\n", "${payload}\\n", "a\r\nb\nc\rd\n"},
+            {"<(?<data>[^>]+)>;", "${data}", QByteArray("noise<") + QByteArray("\0\xff", 2) + ">;<abc>;"},
+            {"(a{1,3}?)(b*)z", "${2}${1}", "aaabbbzabzaaz"},
+            {"a++bz", "", "aaabzabz"},
+            {"[^>]*+>;", "", "<abc>;tail>;"},
+            {"a{0}z", "", "aaazz"},
+            {"a{0,0}z", "", "aaazz"},
+            {"a{1,}z", "", "aaazaaz"},
+            {"(?:(a+))(?:b)z", "${1}", "aaabzabz"},
+            {"(?<all>\\x00+)>\\n", "${all}", QByteArray("\0\0>\n\0>\n", 7)},
+            {"[[:<:]](?<word>[a-z]+)>", "${word}", "ab> cd>"},
+            {"(?i)(?<payload>a+)z", "${payload}", "AAAzaAz"},
+            {"(a+)a", "${1}", "aaa!aaa!"},
+            {"a(?=bc)b", "", "abcabc"},
+            {"(a|ab)z", "${1}", "abzazabz"},
+            {"(ab)+z", "${1}", "ababzabz"},
+            {"(?<x>a+?)(?<y>a*)bz", "${x}/${y}", "aaaabzabz"},
+            {"(?<=q)(a+)z", "${1}", "qaaazqaaz"},
+            {"\\G(a+)z", "${1}", "aaazaaz"},
+            {"(a)\\1z", "${1}", "aazabzaaz"},
+            {"\\Q(?<literal>)[a]\\Ez", "", "(?<literal>)[a]z"},
+            {"[^\\x00]*\\x00", "${0}", QByteArray("A\0B\0", 4)},
+            {"[]a]+z", "", "]]aazaz"},
+            {"[\\]\\[]+z", "", "]][z[z"}
+        };
+        for (const auto& test : cases)
+        {
+            for (qsizetype split = 0; split <= test.input.size(); ++split)
+            {
+                QString error;
+                auto    optimized = PatternFramer::create(
+                    {
+                        {       "pattern", test.pattern},
+                        {"outputTemplate",  test.output}
+                },
+                    {},
+                    &error);
+                QVERIFY2(optimized, qPrintable(test.pattern + ": " + error));
+                // A zero-width comment preserves PCRE2 semantics/capture numbers,
+                // but deliberately falls outside the conservative consuming grammar.
+                auto reference = PatternFramer::create(
+                    {
+                        {       "pattern", "(?#reference)" + test.pattern},
+                        {"outputTemplate",                    test.output}
+                },
+                    {},
+                    &error);
+                QVERIFY2(reference, qPrintable(error));
+                for (const auto& packet : {test.input.first(split), test.input.mid(split)})
+                {
+                    const auto actual   = invoke(*optimized, packet);
+                    const auto expected = invoke(*reference, packet);
+                    QCOMPARE(actual.accepted, expected.accepted);
+                    QCOMPARE(actual.error, expected.error);
+                    QCOMPARE(actual.completed, expected.completed);
+                    QCOMPARE(actual.output, expected.output);
+                }
+            }
+            auto optimized = PatternFramer::create(
+                {
+                    {       "pattern", test.pattern},
+                    {"outputTemplate",  test.output}
+            },
+                {});
+            auto reference = PatternFramer::create(
+                {
+                    {       "pattern", "(?#reference)" + test.pattern},
+                    {"outputTemplate",                    test.output}
+            },
+                {});
+            QVERIFY(optimized && reference);
+            for (const char byte : test.input)
+            {
+                const auto actual   = invoke(*optimized, QByteArray(1, byte));
+                const auto expected = invoke(*reference, QByteArray(1, byte));
+                QCOMPARE(actual.error, expected.error);
+                QCOMPARE(actual.completed, expected.completed);
+                QCOMPARE(actual.output, expected.output);
+            }
+        }
+    }
+
+    void longBytewisePartialRetainsCaptureUntilCompletion()
+    {
+        auto processor = PatternFramer::create(
+            {
+                {       "pattern", "(?<payload>a+)z"},
+                {"outputTemplate",      "${payload}"}
+        },
+            {});
+        QVERIFY(processor);
+        for (int index = 0; index < 65536; ++index)
+        {
+            const auto result = invoke(*processor, "a");
+            QVERIFY(result.error.isEmpty());
+            QCOMPARE(result.completed, 1);
+            QVERIFY(result.output.isEmpty());
+        }
+        const auto result = invoke(*processor, "z");
+        QVERIFY(result.error.isEmpty());
+        QCOMPARE(result.completed, 1);
+        QCOMPARE(result.output, QList<QByteArray> {QByteArray(65536, 'a')});
+    }
+
     void defaultsAndSchema()
     {
         auto processor = PatternFramer::create({}, {});

@@ -25,6 +25,11 @@ void require(bool condition, const QString& message)
 using Factory = std::function<std::shared_ptr<Processor>()>;
 void measure(const QString& name, const Factory& factory, QByteArray packet, int iterations)
 {
+    const auto filter = qEnvironmentVariable("TERMASTER_PROCESSING_PROFILE_CASE");
+    if (!filter.isEmpty() && !name.contains(filter))
+    {
+        return;
+    }
     QTextStream out(stdout);
     for (int repeat = -1; repeat < 5; ++repeat)
     {
