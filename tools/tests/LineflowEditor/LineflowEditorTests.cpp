@@ -22,6 +22,7 @@
 #include <QScrollBar>
 #include <QSignalBlocker>
 #include <QSignalSpy>
+#include <QSpinBox>
 #include <QTemporaryDir>
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
@@ -1511,43 +1512,94 @@ private slots:
         QVERIFY(!config.contains("width") && !config.contains("options"));
     }
 
-    void lengthSettingsCapture()
+    void lengthVariantFormsAndRuntime()
     {
-        const auto destination = qEnvironmentVariable("TERMASTER_LENGTH_CAPTURE");
-        if (destination.isEmpty())
-        {
-            QSKIP("Set TERMASTER_LENGTH_CAPTURE for native length settings visual acceptance");
-        }
+        const auto             destination = qEnvironmentVariable("TERMASTER_LENGTH_CAPTURE");
         ProcessorRegistry      registry;
         SettingsWidgetRegistry widgets;
         registerNativeProcessors(registry, "native");
+        QVariantMap          saved;
         LineflowEditorDialog dialog(fixtureDefinitions(),
                                     registry,
                                     widgets,
-                                    [](const auto&, const auto&, const auto&, QString*) { return true; });
+                                    [&saved](const auto& definitions, const auto&, const auto&, QString*) {
+                                        saved = definitions;
+                                        return true;
+                                    });
         dialog.setFixedSize(1100, 760);
         dialog.show();
         QVERIFY(QTest::qWaitForWindowExposed(&dialog));
-        const auto block = dialog.model().createBlock("Packet lengths", 1);
-        QVERIFY(!dialog.model().insertNodeAt(block, 0, "native.length-wrap", "rx").isEmpty());
-        QVERIFY(!dialog.model().insertNodeAt(block, 1, "native.length-unwrap", "rx").isEmpty());
+        const auto block      = dialog.model().createBlock("Packet lengths", 1);
+        const auto wrapName   = dialog.model().insertNodeAt(block, 0, "native.length-wrap", "rx");
+        const auto unwrapName = dialog.model().insertNodeAt(block, 1, "native.length-unwrap", "rx");
+        QVERIFY(!wrapName.isEmpty() && !unwrapName.isEmpty());
         auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
         QVERIFY(canvas);
-        QVERIFY(QDir().mkpath(destination));
+        if (!destination.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(destination));
+        }
         for (int row = 0; row < 2; ++row)
         {
             canvas->setCurrentIndex(dialog.model().index(row, 0));
-            QTest::qWait(50);
             auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
-            QVERIFY(form && form->editor("width"));
-            QCOMPARE(form->editor("width")->value().toInt(), 2);
-            QCOMPARE(form->editor("position")->value().toString(), QString("prefix"));
-            QVERIFY(form->editor("endianness"));
-            QVERIFY(form->editor("includeField"));
-            QVERIFY(form->editor("adjustment"));
+            QVERIFY(form);
+            auto* selector = form->editor("encoding")->findChild<QComboBox*>();
+            QVERIFY(selector);
+            QCOMPARE(selector->count(), 2);
+            QVERIFY(form->visibleFields().contains("width"));
+            QVERIFY(!form->visibleFields().contains("maxBytes"));
+            auto* width = form->editor("width")->findChild<QSpinBox*>();
+            QVERIFY(width);
+            QCOMPARE(width->minimum(), 1);
+            QCOMPARE(width->maximum(), 8);
+            width->setValue(3);
             const auto name  = row == 0 ? "LengthWrap" : "LengthUnwrap";
             const auto scale = dialog.devicePixelRatioF() > 1.5 ? "2x.png" : ".png";
-            QVERIFY(dialog.grab().save(QDir(destination).filePath(QString(name) + scale)));
+            if (!destination.isEmpty())
+            {
+                QTest::qWait(100);
+                QVERIFY(dialog.grab().save(QDir(destination).filePath(QString(name) + "Fixed" + scale)));
+            }
+            selector->setCurrentIndex(1);
+            QVERIFY(form->visibleFields().contains("maxBytes"));
+            QVERIFY(form->visibleFields().contains("includeField"));
+            QVERIFY(form->visibleFields().contains("adjustment"));
+            for (const auto* key : {"position", "width", "endianness"})
+            {
+                QVERIFY(!form->visibleFields().contains(key));
+            }
+            auto* maximum = form->editor("maxBytes")->findChild<QSpinBox*>();
+            QVERIFY(maximum);
+            QCOMPARE(maximum->value(), 10);
+            maximum->setValue(4);
+            selector->setCurrentIndex(0);
+            QCOMPARE(width->value(), 3);
+            selector->setCurrentIndex(1);
+            QCOMPARE(maximum->value(), 4);
+            if (!destination.isEmpty())
+            {
+                QTest::qWait(100);
+                QVERIFY(dialog.grab().save(QDir(destination).filePath(QString(name) + "Varint" + scale)));
+            }
+        }
+        // Re-selecting a node preserves its active variant, independently of the other node.
+        canvas->setCurrentIndex(dialog.model().index(0, 0));
+        auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QCOMPARE(form->editor("encoding")->value().toString(), QString("varint"));
+        QString error;
+        QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+        QVERIFY(!saved.isEmpty());
+        for (const auto& name : {wrapName, unwrapName})
+        {
+            const auto config = dialog.model().node(block, name).value("configuration").toMap();
+            QCOMPARE(config.value("encoding").toString(), QString("varint"));
+            QCOMPARE(config.value("maxBytes").toInt(), 4);
+            QVERIFY(!config.contains("width") && !config.contains("position") && !config.contains("endianness"));
+            const auto id      = name == wrapName ? "native.length-wrap" : "native.length-unwrap";
+            const auto runtime = registry.create(id, config, {}, &error);
+            QVERIFY2(runtime != nullptr, qPrintable(error));
+            QCOMPARE(runtime->configuration().value("maxBytes").toInt(), 4);
         }
     }
     void visualCapture()

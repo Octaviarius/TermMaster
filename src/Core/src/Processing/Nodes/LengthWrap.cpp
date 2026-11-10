@@ -19,9 +19,13 @@ std::unique_ptr<Processor> LengthWrap::create(const QVariantMap& input, const Li
     }
 
     auto configuration = input;
-    if (!_stringOption(configuration, "position", "prefix", {"prefix", "suffix"}, error)
-        || !_stringOption(configuration, "endianness", "little", {"little", "big"}, error)
-        || !_boolOption(configuration, "includeField", false, error) || !LengthField::validate(configuration, error))
+    if (!_boolOption(configuration, "includeField", false, error) || !LengthField::validate(configuration, error))
+    {
+        return {};
+    }
+    if (configuration.value("encoding") == "fixed"
+        && (!_stringOption(configuration, "position", "prefix", {"prefix", "suffix"}, error)
+            || !_stringOption(configuration, "endianness", "little", {"little", "big"}, error)))
     {
         return {};
     }
@@ -31,25 +35,25 @@ std::unique_ptr<Processor> LengthWrap::create(const QVariantMap& input, const Li
 
 void LengthWrap::_process(const Chunk& input, QByteArray& output, QString& error)
 {
-    if (_maxSteps < _field.width())
+    quint64 value = 0;
+    int     width = 0;
+    if (!_field.value(input.bytes.size(), value, width, error))
+    {
+        return;
+    }
+    if (_maxSteps < width)
     {
         _fail(&error, QStringLiteral("Length field processing exceeds step limit"));
         return;
     }
-    if (input.bytes.size() > _maximumBytes() - _field.width())
+    if (input.bytes.size() > _maximumBytes() - width)
     {
         _fail(&error, QStringLiteral("Length-wrapped packet exceeds byte limit"));
         return;
     }
 
-    quint64 value = 0;
-    if (!_field.value(input.bytes.size(), value, error))
-    {
-        return;
-    }
-
     const auto field = _field.encode(value);
-    output.reserve(input.bytes.size() + _field.width());
+    output.reserve(input.bytes.size() + width);
     output.append(_field.prefix() ? field : input.bytes);
     output.append(_field.prefix() ? input.bytes : field);
 }
