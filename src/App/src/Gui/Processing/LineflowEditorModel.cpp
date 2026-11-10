@@ -216,6 +216,37 @@ int LineflowEditorModel::_nodeIndex(const QString& block, const QString& name) c
     }
     return -1;
 }
+QString LineflowEditorModel::_defaultNodeName(const QString& block, const QString& catalogId) const
+{
+    const auto definition = _draft.value(catalogId).toMap();
+    const auto metadata   = _registry.type(catalogId);
+    QString    title      = definition.value("kind") == "lineflow" ? definition.value("name").toString() :
+                            metadata                               ? metadata->title :
+                                                                     QString {};
+    title.replace('/', ' ');
+    title.remove(QChar::Null);
+    title = title.trimmed();
+    if (title.isEmpty())
+    {
+        title = "Block";
+    }
+
+    for (int number = 1;; ++number)
+    {
+        const auto suffix = number == 1 ? QString {} : QString(" %1").arg(number);
+        auto       prefix = title.left(256 - suffix.size()).trimmed();
+        if (!prefix.isEmpty() && prefix.at(prefix.size() - 1).isHighSurrogate())
+        {
+            prefix.chop(1);
+        }
+        const auto name = prefix + suffix;
+        if (_nodeIndex(block, name) < 0)
+        {
+            return name;
+        }
+    }
+}
+
 QVariantMap LineflowEditorModel::node(const QString& block, const QString& name) const
 {
     const int index = _nodeIndex(block, name);
@@ -363,12 +394,7 @@ QString LineflowEditorModel::insertNodeAt(const QString& block,
         fail(error, tr("Invalid insertion position."));
         return {};
     }
-    QString name   = "operation";
-    int     suffix = 1;
-    while (_nodeIndex(block, name) >= 0)
-    {
-        name = QString("operation%1").arg(++suffix);
-    }
+    const auto  name = _defaultNodeName(block, catalogId);
     QVariantMap entry {
         {"name", name}
     };
@@ -488,13 +514,8 @@ std::optional<QVariantMap> LineflowEditorModel::_dropDraft(const QMimeData*   da
     QString     target;
     if (data->hasFormat(mimeTypes()[1]))
     {
-        target         = QString::fromUtf8(data->data(mimeTypes()[1]));
-        QString name   = "operation";
-        int     suffix = 1;
-        while (_nodeIndex(_selected, name) >= 0)
-        {
-            name = QString("operation%1").arg(++suffix);
-        }
+        target          = QString::fromUtf8(data->data(mimeTypes()[1]));
+        const auto name = _defaultNodeName(_selected, target);
         entry.insert("name", name);
         entry.insert(draft.value(target).toMap().value("kind") == "lineflow" ? "reference" : "type", target);
     }
@@ -828,15 +849,10 @@ bool LineflowEditorModel::canDropMimeData(const QMimeData*   data,
     }
     if (data->hasFormat(mimeTypes()[1]))
     {
-        const auto target = QString::fromUtf8(data->data(mimeTypes()[1]));
-        auto       draft  = _draft;
-        auto       list   = nodes(draft, _selected);
-        QString    name   = "operation";
-        int        suffix = 1;
-        while (_nodeIndex(_selected, name) >= 0)
-        {
-            name = QString("operation%1").arg(++suffix);
-        }
+        const auto  target = QString::fromUtf8(data->data(mimeTypes()[1]));
+        auto        draft  = _draft;
+        auto        list   = nodes(draft, _selected);
+        const auto  name   = _defaultNodeName(_selected, target);
         QVariantMap node {
             {"name", name}
         };

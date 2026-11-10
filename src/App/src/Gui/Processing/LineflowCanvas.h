@@ -42,6 +42,7 @@ protected:
     void        dragMoveEvent(QDragMoveEvent* event) override;
     void        dragLeaveEvent(QDragLeaveEvent* event) override;
     void        dropEvent(QDropEvent* event) override;
+    void        mousePressEvent(QMouseEvent* event) override;
     void        mouseDoubleClickEvent(QMouseEvent* event) override;
     void        keyPressEvent(QKeyEvent* event) override;
     bool        viewportEvent(QEvent* event) override;
@@ -59,6 +60,8 @@ private:
     int                  _dropY = 0;
     QList<Port>          _ports(const QModelIndex& index, const QRect& rect) const;
     int                  _stageGap() const;
+    int                  _bodyHeight() const;
+    QRect                _flipRect(const QRect& rect) const;
     int                  _contentWidth() const;
     QList<Item>          _items() const;
     void                 _appendLinked(QList<Item>& items, const QModelIndex& parent, const QRect& card, int& y) const;

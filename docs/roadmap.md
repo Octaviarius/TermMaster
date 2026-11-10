@@ -240,3 +240,11 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 
 - [x] Name processor ports and display input/output direction at node connectors.
 - [x] Flip a shared node's port pairs with persisted occurrence metadata and runtime parity.
+
+## FLOW-9: Compact Lineflow table
+
+- [x] Use compact tinted rows, centered names/classes and numbered stages.
+- [x] Align endpoints, wires and border-centered port chevrons on shared lane axes.
+- [x] Add inline 180-degree rotation while preserving port identity and draft settings.
+- [x] Generate meaningful unique occurrence names, with no suffix on the first instance.
+- [x] Verify affected behavior, native 1x/2x captures and the Debug application build.

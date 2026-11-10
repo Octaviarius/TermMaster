@@ -104,5 +104,6 @@ private:
                                                      const QStringList& order) const;
     void        _append(QStandardItem* parent, const QString& block, bool linked, QSet<QString> path, int depth);
     QStringList _portNames(const QString& id, bool input) const;
+    QString     _defaultNodeName(const QString& block, const QString& catalogId) const;
     int         _nodeIndex(const QString& block, const QString& name) const;
 };
