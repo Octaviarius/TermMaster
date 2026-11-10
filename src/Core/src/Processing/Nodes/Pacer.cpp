@@ -146,7 +146,7 @@ QVariantMap Pacer::configuration() const
 
 Processor::AcceptResult Pacer::accept(Chunk input, Callbacks callbacks)
 {
-    if (_stopped)
+    if (_stopped || input.port != 0)
     {
         return AcceptResult::Rejected;
     }
@@ -159,15 +159,8 @@ Processor::AcceptResult Pacer::accept(Chunk input, Callbacks callbacks)
         return AcceptResult::Rejected;
     }
 
-    _busy      = true;
-    _callbacks = std::move(callbacks);
-    if (input.boundary == Boundary::Packet && _byteDelayNs > 0)
-    {
-        _stopped = true;
-        _complete(QString::fromLatin1("Pacer byte delay cannot preserve an atomic packet"));
-        return AcceptResult::Accepted;
-    }
-
+    _busy       = true;
+    _callbacks  = std::move(callbacks);
     // An input may use fromRawData: detach by copying the raw bytes before returning.
     input.bytes = QByteArray(input.bytes.constData(), input.bytes.size());
     _input      = std::move(input);
@@ -193,22 +186,18 @@ void Pacer::cancel(std::function<void()> quiescent)
     }
 }
 
-Pacer::Fragment Pacer::_nextFragment(const QByteArray& bytes,
-                                     qsizetype         offset,
-                                     qsizetype         matched,
-                                     Boundary          boundary) const
+Pacer::Fragment Pacer::_nextFragment(const QByteArray& bytes, qsizetype offset, qsizetype matched) const
 {
     Fragment fragment;
     fragment.matched     = matched;
     const auto remaining = bytes.size() - offset;
-    const auto maximum   = boundary == Boundary::Packet ? remaining :
-                           _byteDelayNs > 0             ? std::min(qsizetype(1), remaining) :
-                           _rate > 0                    ? std::min(_burst, remaining) :
-                                                          remaining;
+    const auto maximum   = _byteDelayNs > 0 ? std::min(qsizetype(1), remaining) :
+                           _rate > 0        ? std::min(_burst, remaining) :
+                                              remaining;
     if (_lineDelayNs == 0)
     {
         fragment.length  = maximum;
-        fragment.matched = boundary == Boundary::Packet ? 0 : matched;
+        fragment.matched = matched;
         return fragment;
     }
 
@@ -227,15 +216,8 @@ Pacer::Fragment Pacer::_nextFragment(const QByteArray& bytes,
         {
             ++fragment.endings;
             fragment.matched = 0;
-            if (boundary == Boundary::StreamChunk)
-            {
-                break;
-            }
+            break;
         }
-    }
-    if (boundary == Boundary::Packet)
-    {
-        fragment.matched = 0;
     }
     return fragment;
 }
@@ -248,15 +230,10 @@ void Pacer::_pump()
         {
             return;
         }
-        if (_offset == _input.bytes.size() && _input.boundary == Boundary::StreamChunk)
-        {
-            _complete();
-            return;
-        }
         const auto now = _clock.nsecsElapsed();
         if (!_planned)
         {
-            _fragment        = _nextFragment(_input.bytes, _offset, _matched, _input.boundary);
+            _fragment        = _nextFragment(_input.bytes, _offset, _matched);
             _readyNs         = _timingReadyNs;
             _plannedFinishNs = _rateFinishNs;
             if (_rate > 0 && _fragment.length > 0)
@@ -278,7 +255,7 @@ void Pacer::_pump()
 
         Chunk output;
         output.bytes                    = QByteArray(_input.bytes.constData() + _offset, _fragment.length);
-        output.boundary                 = _input.boundary;
+        output.port                     = _input.port;
         _offset                        += _fragment.length;
         _matched                        = _fragment.matched;
         _rateFinishNs                   = _plannedFinishNs;
@@ -334,7 +311,7 @@ content:
       maximum: 60000
       default: 0
       title: Delay between bytes (ms)
-      description: Stream bytes only; an atomic packet cannot use byte delay.
+      description: Splits input packets into one-byte output packets.
       x-widget: integer
       x-group: timing
       x-order: 0
@@ -362,7 +339,7 @@ content:
       maximum: 1000000000
       default: 0
       title: Maximum bytes per second
-      description: Zero disables the rate limit; packets remain atomic.
+      description: Zero disables the rate limit; output packets are bounded by the burst.
       x-widget: integer
       x-group: timing
       x-order: 3
@@ -372,7 +349,7 @@ content:
       maximum: 65536
       default: 64
       title: Maximum rate burst (bytes)
-      description: Clamped to the runtime byte limit; larger packets wait before emission.
+      description: Clamped to the runtime byte limit; larger inputs are split into output packets.
       x-widget: integer
       x-group: timing
       x-order: 4

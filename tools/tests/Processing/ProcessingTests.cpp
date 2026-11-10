@@ -61,7 +61,7 @@ public:
             if (!input.bytes.isEmpty())
             {
                 callbacks.output(input);
-                callbacks.output({{}, Boundary::Packet});
+                callbacks.output({{}});
             }
             callbacks.completed({});
         });
@@ -197,7 +197,6 @@ private slots:
         QTRY_COMPARE(completed, 2);
         QCOMPARE(output.size(), 1);
         QVERIFY(output[0].bytes.isEmpty());
-        QCOMPARE(output[0].boundary, Processor::Boundary::Packet);
         first->accept({"b\r\r"}, callbacks());
         QTRY_COMPARE(completed, 3);
         QCOMPARE(output.size(), 3);
@@ -258,7 +257,6 @@ private slots:
         runtime->accept({QByteArray("x\r").repeated(64)},
                         {[&](auto chunk) {
                              QCOMPARE(chunk.bytes, QByteArray("x"));
-                             QCOMPARE(chunk.boundary, Processor::Boundary::Packet);
                              ++packets;
                          },
                          [&](QString failure) {
@@ -275,17 +273,21 @@ private slots:
     {
         ProcessorRegistry registry;
         registerNativeProcessors(registry, "native");
-        auto                    decoder = registry.create("native.hex-decoder", {}, {});
+        auto                    decoder = registry.create("native.hex-decoder",
+                                                          {
+                                                              {"accumulate", true}
+        },
+                                                          {});
         QList<Processor::Chunk> output;
         QString                 error;
         auto                    callbacks = Processor::Callbacks {[&](auto chunk) { output.push_back(chunk); },
                                                                   [&](QString e) { error = e; }};
         decoder->accept({"0"}, callbacks);
         QVERIFY(output.isEmpty());
-        decoder->accept({"041", Processor::Boundary::Packet}, callbacks);
+        decoder->accept({"041"}, callbacks);
         QCOMPARE(output.size(), 1);
         QCOMPARE(output[0].bytes, QByteArray("\0A", 2));
-        decoder->accept({{}, Processor::Boundary::Packet}, callbacks);
+        decoder->accept({{}}, callbacks);
         QCOMPARE(output.size(), 2);
         QVERIFY(output[1].bytes.isEmpty());
         decoder->accept({"x"}, callbacks);
@@ -620,7 +622,6 @@ content:
         int completed = 0;
         QCOMPARE(runtime->accept({QByteArray("A\0B", 3)},
                                  {[&](Processor::Chunk chunk) {
-                                      QCOMPARE(chunk.boundary, Processor::Boundary::StreamChunk);
                                       output.append(chunk.bytes);
                                       times.append(clock.elapsed());
                                       QCOMPARE(runtime->accept({"reentry"}, {}), Processor::AcceptResult::WouldBlock);
@@ -748,17 +749,18 @@ content:
                                             QVERIFY2(message.isEmpty(), qPrintable(message));
                                             ++completed;
                                         }};
-        runtime->accept({"A\nB\n", Processor::Boundary::Packet}, callbacks);
+        runtime->accept({"A\nB\n"}, callbacks);
         QTRY_COMPARE(completed, 1);
-        QCOMPARE(output.size(), 1);
-        QCOMPARE(output.first().bytes, QByteArray("A\nB\n"));
-        QCOMPARE(output.first().boundary, Processor::Boundary::Packet);
-        runtime->accept({{}, Processor::Boundary::Packet}, callbacks);
-        QTest::qWait(80);
+        QCOMPARE(output.size(), 2);
+        QCOMPARE(output[0].bytes, QByteArray("A\n"));
+        QCOMPARE(output[1].bytes, QByteArray("B\n"));
+        QVERIFY(packetTimes[1] - packetTimes[0] >= 80);
+        runtime->accept({{}}, callbacks);
+        QTest::qWait(50);
         QCOMPARE(completed, 1);
         QTRY_COMPARE_WITH_TIMEOUT(completed, 2, 2000);
-        QVERIFY(packetTimes[1] - packetTimes[0] >= 170);
-        QCOMPARE(output.size(), 2);
+        QVERIFY(packetTimes[2] - packetTimes[1] >= 80);
+        QCOMPARE(output.size(), 3);
         QVERIFY(output.last().bytes.isEmpty());
         runtime->cancel({});
 
@@ -774,16 +776,23 @@ content:
         runtime = registry.create("packet-paced", {}, {}, &error);
         QVERIFY2(runtime, qPrintable(error));
         output.clear();
-        bool failed = false;
-        runtime->accept({"packet", Processor::Boundary::Packet},
-                        {[&](Processor::Chunk chunk) { output.append(std::move(chunk)); },
+        bool completedBytes = false;
+        runtime->accept({"packet"},
+                        {[&](Processor::Chunk chunk) {
+                             QCOMPARE(chunk.bytes.size(), 1);
+                             output.append(std::move(chunk));
+                         },
                          [&](QString message) {
-                             QVERIFY(message.contains("pace"));
-                             QVERIFY(message.contains("atomic packet"));
-                             failed = true;
+                             QVERIFY2(message.isEmpty(), qPrintable(message));
+                             completedBytes = true;
                          }});
-        QTRY_VERIFY(failed);
-        QVERIFY(output.isEmpty());
+        QTRY_VERIFY(completedBytes);
+        QByteArray combined;
+        for (const auto& chunk : output)
+        {
+            combined.append(chunk.bytes);
+        }
+        QCOMPARE(combined, QByteArray("packet"));
     }
 
     void nativeRejectsReentrantAcceptance()

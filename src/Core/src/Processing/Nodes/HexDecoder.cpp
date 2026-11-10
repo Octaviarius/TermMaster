@@ -1,12 +1,14 @@
 #include "HexDecoder.h"
 
 HexDecoder::HexDecoder(QVariantMap configuration, Limits limits) :
-    SyncProcessorNode(configuration, limits), _ignoreWhitespace(configuration.value("ignoreWhitespace").toBool())
+    SyncProcessorNode(configuration, limits), _ignoreWhitespace(configuration.value("ignoreWhitespace").toBool()),
+    _accumulate(configuration.value("accumulate").toBool())
 {
 }
 QByteArray HexDecoder::schema()
 {
-    return _schema("    ignoreWhitespace: {type: boolean, title: Ignore ASCII whitespace, default: true}\n");
+    return _schema(
+        "    ignoreWhitespace: {type: boolean, title: Ignore ASCII whitespace, default: true}\n    accumulate: {type: boolean, title: Accumulate incomplete HEX byte, default: false}\n");
 }
 std::unique_ptr<Processor> HexDecoder::create(const QVariantMap& input, const Limits& limits, QString* error)
 {
@@ -15,7 +17,8 @@ std::unique_ptr<Processor> HexDecoder::create(const QVariantMap& input, const Li
         return {};
     }
     auto configuration = input;
-    if (!_boolOption(configuration, "ignoreWhitespace", true, error))
+    if (!_boolOption(configuration, "ignoreWhitespace", true, error)
+        || !_boolOption(configuration, "accumulate", false, error))
     {
         return {};
     }
@@ -51,7 +54,7 @@ void HexDecoder::_process(const Chunk& input, QByteArray& output, QString& error
             _nibble = -1;
         }
     }
-    if (input.boundary == Boundary::Packet && _nibble >= 0)
+    if (!_accumulate && _nibble >= 0)
     {
         _fail(&error, QStringLiteral("HEX packet ends with an incomplete byte"));
     }
@@ -59,4 +62,14 @@ void HexDecoder::_process(const Chunk& input, QByteArray& output, QString& error
 void HexDecoder::_reset()
 {
     _nibble = -1;
+}
+
+bool HexDecoder::_retainPacketState() const
+{
+    return _accumulate;
+}
+
+bool HexDecoder::_emitEmptyPacket() const
+{
+    return _nibble < 0;
 }

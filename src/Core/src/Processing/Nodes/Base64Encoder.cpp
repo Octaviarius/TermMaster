@@ -62,7 +62,7 @@ void Base64Encoder::_process(const Chunk& input, QByteArray& output, QString& er
             return;
         }
     }
-    if (input.boundary == Boundary::Packet && _count != 0)
+    if (_count != 0)
     {
         _quantum(output, _count, error);
     }

@@ -256,3 +256,12 @@ and absence of reconnect attempts. Debug AppTests, AdvancedSenderTests and
 ProcessingRoutingTests passed. Local echo selection state and controls were also
 checked on native Windows at 100% and 200% scale. No hardware traffic or elevated
 shell was used; Release was not built.
+
+## Packet execution
+
+Every incoming transport callback or Tx submission enters as one complete byte
+packet. Router and Lineflow preserve it without implicit segmentation. Native
+codecs finalize each packet independently; HEX pair accumulation is opt-in.
+Framer is the explicit buffering stage for assembling transport pieces into
+protocol frames. Transport atomic-write constraints remain separate from logical
+processing packets. Native hosted modules require a rebuild for HostedPlugin IID 11.

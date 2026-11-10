@@ -24,6 +24,11 @@ content:
       title: Ignore ASCII whitespace
       default: true
       x-group: decode
+    decodeAccumulate:
+      type: boolean
+      title: Accumulate incomplete HEX byte
+      default: false
+      x-group: decode
     encodeLetterCase:
       type: string
       title: Letter case

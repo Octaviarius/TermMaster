@@ -25,7 +25,8 @@ HEX decoding are distinct operations. Codec selection will replace the removed
 HEX command input toggle; command text currently uses UTF-8 without a selectable
 codec.
 
-Define codec ordering, direction, parameters and explicit packet/stream modes.
+Define codec ordering, direction and parameters using the packet-only Processor
+contract. Accumulation across input packets must be an explicit node capability.
 Specify whether terminators belong to the payload before framing, so framing and
 terminator conversion cannot be applied twice. Preserve individual submission
 boundaries through preparation and the shared bounded send queue; transport read

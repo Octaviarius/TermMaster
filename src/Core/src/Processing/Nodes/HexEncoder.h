@@ -3,7 +3,7 @@
 
 #include <memory>
 
-/** Encodes bytes with a literal separator; stream chunks share separator state. */
+/** Encodes each packet independently with a literal separator between bytes. */
 class HexEncoder final : public SyncProcessorNode
 {
 public:

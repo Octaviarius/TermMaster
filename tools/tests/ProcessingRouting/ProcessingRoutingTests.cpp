@@ -13,7 +13,8 @@ public:
     Callbacks             callbacks;
     Chunk                 input;
     std::function<void()> acknowledgement;
-    bool                  block = false;
+    bool                  block       = false;
+    int                   invocations = 0;
     QVariantMap           configuration() const override
     {
         return {};
@@ -24,6 +25,7 @@ public:
         {
             return AcceptResult::WouldBlock;
         }
+        ++invocations;
         input     = std::move(chunk);
         callbacks = std::move(next);
         return AcceptResult::Accepted;
@@ -56,7 +58,7 @@ public:
     {
         if (chunk.port == 0)
         {
-            callbacks.output({QByteArray("ACK"), Boundary::Packet, 1});
+            callbacks.output({QByteArray("ACK"), 1});
         }
         callbacks.output(std::move(chunk));
         callbacks.completed({});
@@ -64,7 +66,7 @@ public:
     }
     void unsolicited(int port, QByteArray bytes)
     {
-        publishOutput({std::move(bytes), Boundary::StreamChunk, port});
+        publishOutput({std::move(bytes), port});
     }
     void cancel(std::function<void()> done) override
     {
@@ -265,13 +267,12 @@ private slots:
         auto processor = std::make_shared<DelayedProcessor>();
         router.replace(direction, processor);
         QTRY_COMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Idle);
-        QCOMPARE(router.submit(direction, {QByteArray("abc"), Processor::Boundary::StreamChunk}),
-                 Processor::AcceptResult::Accepted);
+        QCOMPARE(router.submit(direction, {QByteArray("abc")}), Processor::AcceptResult::Accepted);
         QTRY_VERIFY(bool(processor->callbacks.completed));
         QCOMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Busy);
         QCOMPARE(router.diagnostics(direction).acceptedBytes, quint64(3));
         QCOMPARE(router.diagnostics(direction).pendingBytes, qsizetype(3));
-        processor->callbacks.output({QByteArray("ABCDE"), Processor::Boundary::Packet});
+        processor->callbacks.output({QByteArray("ABCDE")});
         processor->callbacks.completed({});
         QTRY_COMPARE(router.diagnostics(direction).forwardedBytes, quint64(5));
         QCOMPARE(router.diagnostics(direction).pendingChunks, qsizetype(0));
@@ -283,8 +284,7 @@ private slots:
         auto failed = std::make_shared<DelayedProcessor>();
         router.replace(direction, failed);
         QTRY_COMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Idle);
-        QCOMPARE(router.submit(direction, {QByteArray("x"), Processor::Boundary::StreamChunk}),
-                 Processor::AcceptResult::Accepted);
+        QCOMPARE(router.submit(direction, {QByteArray("x")}), Processor::AcceptResult::Accepted);
         QTRY_VERIFY(bool(failed->callbacks.completed));
         failed->callbacks.completed("nested/node: synthetic failure");
         QCOMPARE(router.diagnostics(direction).state, ProcessingRouter::State::Failed);
@@ -313,12 +313,11 @@ private slots:
         });
         TerminalSendQueue::Options options;
         options.retainOnDisconnect = true;
-        QCOMPARE(router.submit(direction, {QByteArray("a\0b", 3), Processor::Boundary::Packet}, options),
-                 Processor::AcceptResult::Accepted);
+        QCOMPARE(router.submit(direction, {QByteArray("a\0b", 3)}, options), Processor::AcceptResult::Accepted);
         QTRY_VERIFY(bool(processor->callbacks.output));
         QCOMPARE(processor->input.bytes, QByteArray("a\0b", 3));
-        processor->callbacks.output({QByteArray("x\0", 2), Processor::Boundary::Packet});
-        processor->callbacks.output({{}, Processor::Boundary::Packet});
+        processor->callbacks.output({QByteArray("x\0", 2)});
+        processor->callbacks.output({{}});
         processor->callbacks.completed({});
         QTest::qWait(20);
         QVERIFY(received.isEmpty());
@@ -326,7 +325,7 @@ private slots:
         router.wake(direction);
         QTRY_COMPARE(received.size(), 2);
         QCOMPARE(received[0].bytes, QByteArray("x\0", 2));
-        QCOMPARE(received[1].boundary, Processor::Boundary::Packet);
+
         QVERIFY(received[1].bytes.isEmpty());
         QCOMPARE(retention, QList<bool>({true, true}));
         router.cancel(direction);
@@ -334,7 +333,7 @@ private slots:
         QCoreApplication::processEvents();
     }
 
-    void streamFragmentsOwnBytesAndPreservePacketsAndOptions()
+    void packetsOwnBytesAndPreserveOptions()
     {
         ProcessingRouter        router;
         const auto              tx = ProcessingRouter::Direction::Tx;
@@ -355,61 +354,61 @@ private slots:
         options.retainOnDisconnect = true;
         QCOMPARE(router.submit(tx, {QByteArray::fromRawData(storage.constData(), storage.size())}, options),
                  Processor::AcceptResult::Accepted);
-        QCOMPARE(router.pendingSubmissions(tx), 4);
+        QCOMPARE(router.pendingSubmissions(tx), 1);
         QCOMPARE(router.diagnostics(tx).acceptedBytes, quint64(4096));
         storage.fill('x');
-        QTRY_COMPARE(received.size(), 4);
+        QTRY_COMPARE(received.size(), 1);
         QByteArray joined;
         for (const auto& chunk : received)
         {
-            QCOMPARE(chunk.bytes.size(), 1024);
-            QCOMPARE(chunk.boundary, Processor::Boundary::StreamChunk);
+            QCOMPARE(chunk.bytes.size(), 4096);
+
             joined += chunk.bytes;
         }
         QCOMPARE(joined, expected);
-        QCOMPARE(retention, QList<bool>({true, true, true, true}));
+        QCOMPARE(retention, QList<bool>({true}));
 
         received.clear();
         retention.clear();
         storage = QByteArray(4096, 'p');
-        QCOMPARE(router.submit(tx,
-                               {QByteArray::fromRawData(storage.constData(), storage.size()),
-                                Processor::Boundary::Packet}),
+        QCOMPARE(router.submit(tx, {QByteArray::fromRawData(storage.constData(), storage.size())}),
                  Processor::AcceptResult::Accepted);
         QCOMPARE(router.pendingSubmissions(tx), 1);
         storage.fill('z');
-        QCOMPARE(router.submit(tx, {{}, Processor::Boundary::StreamChunk}), Processor::AcceptResult::Accepted);
-        QCOMPARE(router.submit(tx, {{}, Processor::Boundary::Packet}), Processor::AcceptResult::Accepted);
+        QCOMPARE(router.submit(tx, {{}}), Processor::AcceptResult::Accepted);
+        QCOMPARE(router.submit(tx, {{}}), Processor::AcceptResult::Accepted);
         QTRY_COMPARE(received.size(), 3);
         QCOMPARE(received[0].bytes, QByteArray(4096, 'p'));
-        QCOMPARE(received[0].boundary, Processor::Boundary::Packet);
+
         QVERIFY(received[1].bytes.isEmpty());
-        QCOMPARE(received[1].boundary, Processor::Boundary::StreamChunk);
+
         QVERIFY(received[2].bytes.isEmpty());
-        QCOMPARE(received[2].boundary, Processor::Boundary::Packet);
     }
 
-    void fragmentAdmissionIsAtomicAndCountsActiveInput()
+    void packetAdmissionIsAtomicAndCountsActiveInput()
     {
         ProcessingRouter::Limits limits;
+        limits.maxBytes  = 4096;
         limits.maxChunks = 2;
         ProcessingRouter router(limits);
         const auto       tx        = ProcessingRouter::Direction::Tx;
         auto             processor = std::make_shared<DelayedProcessor>();
         router.replace(tx, processor);
         QString error;
-        QCOMPARE(router.submit(tx, {QByteArray(2049, 'x')}, {}, &error), Processor::AcceptResult::Rejected);
-        QVERIFY(error.contains("chunk limit"));
+        QCOMPARE(router.submit(tx, {QByteArray(4097, 'x')}, {}, &error), Processor::AcceptResult::Rejected);
+        QVERIFY(error.contains("byte limit"));
         QCOMPARE(router.pendingSubmissions(tx), 0);
         QCOMPARE(router.pendingBytes(tx), 0);
-        QCOMPARE(router.diagnostics(tx).acceptedBytes, quint64(0));
-        QCOMPARE(router.submit(tx, {QByteArray(2048, 'y')}), Processor::AcceptResult::Accepted);
+        const QByteArray expected(2049, 'y');
+        QCOMPARE(router.submit(tx, {expected}), Processor::AcceptResult::Accepted);
         QTRY_VERIFY(bool(processor->callbacks.completed));
-        QCOMPARE(processor->input.bytes.size(), 1024);
-        QCOMPARE(router.pendingSubmissions(tx), 2);
+        QCOMPARE(processor->input.bytes, expected);
+        QCOMPARE(processor->invocations, 1);
+        QCOMPARE(router.pendingSubmissions(tx), 1);
+        QCOMPARE(router.submit(tx, {QByteArray("queued")}), Processor::AcceptResult::Accepted);
         QCOMPARE(router.submit(tx, {QByteArray("late")}), Processor::AcceptResult::WouldBlock);
-        QCOMPARE(router.pendingBytes(tx), 2048);
-        QCOMPARE(router.diagnostics(tx).acceptedBytes, quint64(2048));
+        QCOMPARE(router.pendingBytes(tx), expected.size() + 6);
+        QCOMPARE(router.diagnostics(tx).acceptedBytes, quint64(expected.size() + 6));
         router.cancel(tx);
         processor->acknowledgement();
         QTRY_COMPARE(router.pendingSubmissions(tx), 0);
@@ -421,7 +420,7 @@ private slots:
         const auto       tx = ProcessingRouter::Direction::Tx;
         const QByteArray bytes(4 * 1024 * 1024, 'f');
         QCOMPARE(router.submit(tx, {bytes}), Processor::AcceptResult::Accepted);
-        QCOMPARE(router.pendingSubmissions(tx), 4096);
+        QCOMPARE(router.pendingSubmissions(tx), 1);
         QCOMPARE(router.pendingBytes(tx), bytes.size());
         QCOMPARE(router.diagnostics(tx).acceptedBytes, quint64(bytes.size()));
         router.cancel(tx);
@@ -432,8 +431,10 @@ private slots:
     {
         ProcessorRegistry registry;
         registerNativeProcessors(registry, "native");
-        QString error;
-        auto    pacer = registry.create("native.pacer", {}, {}, &error);
+        QString           error;
+        Processor::Limits processorLimits;
+        processorLimits.maxBytes = 3 * 1024 * 1024;
+        auto pacer               = registry.create("native.pacer", {}, processorLimits, &error);
         QVERIFY2(pacer, qPrintable(error));
 
         RoutingDevice     device;

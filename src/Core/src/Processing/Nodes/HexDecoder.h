@@ -3,7 +3,7 @@
 
 #include <memory>
 
-/** Incremental hexadecimal decoding with an optional ASCII-whitespace policy. */
+/** Packet hexadecimal decoding with optional explicit nibble accumulation. */
 class HexDecoder final : public SyncProcessorNode
 {
 public:
@@ -15,7 +15,10 @@ public:
 private:
     int  _nibble           = -1;
     bool _ignoreWhitespace = true;
+    bool _accumulate       = false;
     HexDecoder(QVariantMap configuration, Limits limits);
     void _process(const Chunk& input, QByteArray& output, QString& error) override;
     void _reset() override;
+    bool _retainPacketState() const override;
+    bool _emitEmptyPacket() const override;
 };

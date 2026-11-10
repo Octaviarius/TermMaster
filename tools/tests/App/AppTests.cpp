@@ -2583,7 +2583,8 @@ content:
                 display->outputBytes(bytes, TerminalDisplay::OutputKind::Reply, {});
             }
         };
-        sendFaultLane("!");
+        // An odd HEX packet fails by default rather than borrowing the next input.
+        sendFaultLane("4");
         QTest::qWait(100);
         QCOMPARE(probe->device->state(), SerialDevice::State::Open);
         QVERIFY(host.connectionRequested("faultFixture"));
@@ -2732,7 +2733,8 @@ content:
         type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
         host.registerTerminalType(std::move(type));
         const QVariantMap decoder {
-            {"type", "native.hex-decoder"}
+            {         "type",               "native.hex-decoder"},
+            {"configuration", QVariantMap {{"accumulate", true}}}
         };
         QVERIFY(
             _app.createTerminal("processingFixture",
@@ -2953,7 +2955,8 @@ content:
              QVariantMap {{"channels", 2},
              {"nodes",
              QVariantList {QVariantMap {{"name", "codec"},
-             {"type", "native.base64-codec"},
+             {"type", "native.hex-codec"},
+             {"configuration", QVariantMap {{"decodeAccumulate", true}}},
              {"lane", "duplex"}}}}}                                         }
         };
         QVERIFY(_app.workspace()->setProcessorDefinition("dormant.codec", codec, &error));
@@ -2974,12 +2977,12 @@ content:
         auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
         auto* panel   = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
         QVERIFY(display && panel);
-        probe->device->injectReceive("Zg=");
+        probe->device->injectReceive("6");
         QTest::qWait(30);
         QVERIFY(display->text().isEmpty());
         QVERIFY(_app.workspace()->removeProcessorDefinition("dormant.codec", &error));
         QVERIFY(!_app.plugins().processors().type("dormant.codec"));
-        // The receive profile is dormant while the shared Base64 codec owns stream state.
+        // The receive profile is dormant while the shared HEX codec accumulates packets.
         panel->findChild<QToolButton*>("rxInplace")->click();
         auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
         QVERIFY(editor);
@@ -2989,7 +2992,7 @@ content:
         QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("duplex"));
         QCOMPARE(controller.selectedSettings().value("processing/rx/type").toString(), QString("@inplace"));
         QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("dormant.codec"));
-        probe->device->injectReceive("=");
+        probe->device->injectReceive("6");
         QTRY_COMPARE(display->text(), QString("f"));
         QCOMPARE(probe->device->state(), SerialDevice::State::Open);
 
@@ -2999,7 +3002,7 @@ content:
         host.disconnectSelectedTerminal();
         host.connectSelectedTerminal();
         display->clear();
-        probe->device->injectReceive("Zw=");
+        probe->device->injectReceive("6");
         QTest::qWait(30);
         QVERIFY(display->text().isEmpty());
         QVERIFY(controller.selectedSettings().setValue("processing/tx",
@@ -3007,7 +3010,7 @@ content:
                                                            {"type", "another.unavailable.dormant"}
         }));
         controller.applySettings();
-        probe->device->injectReceive("=");
+        probe->device->injectReceive("7");
         QTRY_COMPARE(display->text(), QString("g"));
         QCOMPARE(probe->device->state(), SerialDevice::State::Open);
         QVERIFY(_app.saveSession(&error));

@@ -28,13 +28,10 @@ struct Result
         return result;
     }
 };
-Result invoke(Processor&          processor,
-              QByteArray          bytes,
-              Processor::Boundary boundary = Processor::Boundary::StreamChunk,
-              int                 port     = 0)
+Result invoke(Processor& processor, QByteArray bytes, int port = 0)
 {
     auto result      = std::make_shared<Result>();
-    result->accepted = processor.accept({std::move(bytes), boundary, port},
+    result->accepted = processor.accept({std::move(bytes), port},
                                         {[result](auto output) { result->outputs.append(std::move(output)); },
                                          [result](QString error) {
                                              result->error = std::move(error);
@@ -77,74 +74,97 @@ class CodecProcessorTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void unaryNodesRejectInvalidPorts()
+    {
+        for (const auto& id : QStringList {"native.bypass",
+                                           "native.stub",
+                                           "native.gate",
+                                           "native.framer",
+                                           "native.pacer",
+                                           "native.hex-encoder",
+                                           "native.hex-decoder",
+                                           "native.base64-encoder",
+                                           "native.base64-decoder"})
+        {
+            ProcessorRegistry registry;
+            registerNativeProcessors(registry, "native");
+            auto runtime = registry.create(id, {}, {});
+            QVERIFY(runtime);
+            QCOMPARE(invoke(*runtime, {}, -1).accepted, Processor::AcceptResult::Rejected);
+            QCOMPARE(invoke(*runtime, {}, 1).accepted, Processor::AcceptResult::Rejected);
+            QCOMPARE(invoke(*runtime, {}).accepted, Processor::AcceptResult::Accepted);
+        }
+    }
     void hexEverySplitAndPacketReset()
     {
         const auto bytes = allBytes();
-        QByteArray expected;
-        for (int index = 0; index < bytes.size(); ++index)
-        {
-            if (index)
-            {
-                expected += ' ';
-            }
-            expected += bytes.mid(index, 1).toHex().toUpper();
-        }
         for (int split = 0; split <= bytes.size(); ++split)
         {
-            auto       encoder = HexEncoder::create({}, {});
-            const auto first   = invoke(*encoder, bytes.left(split));
-            const auto second  = invoke(*encoder, bytes.mid(split), Processor::Boundary::Packet);
-            QVERIFY(first.error.isEmpty() && second.error.isEmpty());
-            QCOMPARE(first.completed, 1);
-            QCOMPARE(second.completed, 1);
-            QCOMPARE(first.bytes() + second.bytes(), expected);
-            QCOMPARE(second.outputs.size(), 1);
-            QCOMPARE(second.outputs[0].boundary, Processor::Boundary::Packet);
-            QCOMPARE(invoke(*encoder, QByteArray("\0", 1), Processor::Boundary::Packet).bytes(), QByteArray("00"));
+            auto encoder = HexEncoder::create(
+                {
+                    {"separator", ""}
+            },
+                {});
+            QCOMPARE(invoke(*encoder, bytes.left(split)).bytes(), bytes.left(split).toHex().toUpper());
+            QCOMPARE(invoke(*encoder, bytes.mid(split)).bytes(), bytes.mid(split).toHex().toUpper());
         }
-        for (int split = 0; split <= expected.size(); ++split)
+        auto encoder = HexEncoder::create({}, {});
+        QCOMPARE(invoke(*encoder, "ab").bytes(), QByteArray("61 62"));
+        QCOMPARE(invoke(*encoder, "c").bytes(), QByteArray("63"));
+        const auto encoded = bytes.toHex();
+        for (int split = 0; split <= encoded.size(); ++split)
         {
-            auto       decoder = HexDecoder::create({}, {});
-            const auto first   = invoke(*decoder, expected.left(split));
-            const auto second  = invoke(*decoder, expected.mid(split), Processor::Boundary::Packet);
-            QVERIFY2(first.error.isEmpty() && second.error.isEmpty(), qPrintable(first.error + second.error));
+            auto decoder = HexDecoder::create(
+                {
+                    {"accumulate", true}
+            },
+                {});
+            const auto first  = invoke(*decoder, encoded.left(split));
+            const auto second = invoke(*decoder, encoded.mid(split));
+            QVERIFY(first.error.isEmpty() && second.error.isEmpty());
             QCOMPARE(first.bytes() + second.bytes(), bytes);
         }
-        auto encoder = HexEncoder::create(
-            {
-                {"letterCase",                "lower"},
-                { "separator", QString::fromUtf8("·")}
-        },
-            {});
-        QCOMPARE(invoke(*encoder, QByteArray::fromHex("abcdef"), Processor::Boundary::Packet).bytes(),
-                 QString::fromUtf8("ab·cd·ef").toUtf8());
-        QCOMPARE(invoke(*encoder, {}, Processor::Boundary::Packet).outputs[0].bytes, QByteArray {});
     }
+
     void hexWhitespaceTailsAndMalformed()
     {
-        auto decoder = HexDecoder::create({}, {});
-        QCOMPARE(invoke(*decoder, "A").outputs.size(), 0);
-        QCOMPARE(invoke(*decoder, " \t\r\n\v\f").outputs.size(), 0);
-        QCOMPARE(invoke(*decoder, "b", Processor::Boundary::Packet).bytes(), QByteArray::fromHex("ab"));
-        QCOMPARE(invoke(*decoder, {}, Processor::Boundary::Packet).outputs.size(), 1);
+        auto decoder = HexDecoder::create(
+            {
+                {"accumulate", true}
+        },
+            {});
+        QVERIFY(invoke(*decoder, "A").error.isEmpty());
+        QVERIFY(invoke(*decoder, " \t\r\n\v\f").error.isEmpty());
+        QCOMPARE(invoke(*decoder, "b").bytes(), QByteArray::fromHex("ab"));
         auto strict = HexDecoder::create(
             {
                 {"ignoreWhitespace", false}
         },
             {});
-        const auto invalid = invoke(*strict, "00 11", Processor::Boundary::Packet);
-        QVERIFY(!invalid.error.isEmpty());
-        QVERIFY(invalid.outputs.isEmpty());
-        QCOMPARE(invoke(*strict, "00").accepted, Processor::AcceptResult::Rejected);
+        QVERIFY(!invoke(*strict, "00 11").error.isEmpty());
         for (const auto& bytes : QList<QByteArray> {"0", "001x", QByteArray("00\0", 3), QByteArray("0\xA0", 2)})
         {
             auto       instance = HexDecoder::create({}, {});
-            const auto result   = invoke(*instance, bytes, Processor::Boundary::Packet);
+            const auto result   = invoke(*instance, bytes);
             QVERIFY(!result.error.isEmpty());
             QVERIFY(result.outputs.isEmpty());
             QCOMPARE(result.completed, 1);
+            QCOMPARE(invoke(*instance, "00").accepted, Processor::AcceptResult::Rejected);
         }
+        auto accumulating = HexDecoder::create(
+            {
+                {"accumulate", true}
+        },
+            {});
+        QVERIFY(invoke(*accumulating, "0").error.isEmpty());
+        QVERIFY(!invoke(*accumulating, "x").error.isEmpty());
+        QVERIFY(!HexDecoder::create(
+            {
+                {"accumulate", "true"}
+        },
+            {}));
     }
+
     void base64EverySplitAllBytesAndBothAlphabets()
     {
         const auto bytes = allBytes();
@@ -152,13 +172,12 @@ private slots:
         {
             for (bool padding : {true, false})
             {
-                QByteArray::Base64Options options = alphabet == "url" ? QByteArray::Base64UrlEncoding :
-                                                                        QByteArray::Base64Encoding;
+                QByteArray::Base64Options flags = alphabet == "url" ? QByteArray::Base64UrlEncoding :
+                                                                      QByteArray::Base64Encoding;
                 if (!padding)
                 {
-                    options |= QByteArray::OmitTrailingEquals;
+                    flags |= QByteArray::OmitTrailingEquals;
                 }
-                const auto expected = bytes.toBase64(options);
                 for (int split = 0; split <= bytes.size(); ++split)
                 {
                     auto encoder = Base64Encoder::create(
@@ -167,43 +186,30 @@ private slots:
                             { "padding",  padding}
                     },
                         {});
-                    const auto first  = invoke(*encoder, bytes.left(split));
-                    const auto second = invoke(*encoder, bytes.mid(split), Processor::Boundary::Packet);
-                    QVERIFY(first.error.isEmpty() && second.error.isEmpty());
-                    QCOMPARE(first.bytes() + second.bytes(), expected);
-                    QCOMPARE(second.outputs[0].boundary, Processor::Boundary::Packet);
-                }
-                for (int split = 0; split <= expected.size(); ++split)
-                {
                     auto decoder = Base64Decoder::create(
                         {
                             {      "alphabet", alphabet},
                             {"requirePadding",  padding}
                     },
                         {});
-                    const auto first  = invoke(*decoder, expected.left(split));
-                    const auto second = invoke(*decoder, expected.mid(split), Processor::Boundary::Packet);
-                    QVERIFY2(first.error.isEmpty() && second.error.isEmpty(), qPrintable(first.error + second.error));
-                    QCOMPARE(first.bytes() + second.bytes(), bytes);
+                    const auto first  = invoke(*encoder, bytes.left(split));
+                    const auto second = invoke(*encoder, bytes.mid(split));
+                    QCOMPARE(first.bytes(), bytes.left(split).toBase64(flags));
+                    QCOMPARE(second.bytes(), bytes.mid(split).toBase64(flags));
+                    QCOMPARE(invoke(*decoder, first.bytes()).bytes(), bytes.left(split));
+                    QCOMPARE(invoke(*decoder, second.bytes()).bytes(), bytes.mid(split));
                 }
             }
         }
     }
+
     void base64StreamTailFinalizationAndWrapping()
     {
         auto encoder = Base64Encoder::create({}, {});
-        QCOMPARE(invoke(*encoder, "f").outputs.size(), 0);
-        QCOMPARE(invoke(*encoder, {}).outputs.size(), 0);
-        QCOMPARE(invoke(*encoder, "o").outputs.size(), 0);
-        QCOMPARE(invoke(*encoder, {}, Processor::Boundary::Packet).bytes(), QByteArray("Zm8="));
-        QCOMPARE(invoke(*encoder, "f", Processor::Boundary::Packet).bytes(), QByteArray("Zg=="));
-        QCOMPARE(invoke(*encoder, {}, Processor::Boundary::Packet).outputs.size(), 1);
-        auto unpadded = Base64Encoder::create(
-            {
-                {"padding", false}
-        },
-            {});
-        QCOMPARE(invoke(*unpadded, "fo", Processor::Boundary::Packet).bytes(), QByteArray("Zm8"));
+        QCOMPARE(invoke(*encoder, "f").bytes(), QByteArray("Zg=="));
+        QCOMPARE(invoke(*encoder, "o").bytes(), QByteArray("bw=="));
+        QCOMPARE(invoke(*encoder, {}).outputs.size(), 1);
+        QCOMPARE(invoke(*encoder, "fo").bytes(), QByteArray("Zm8="));
         for (const auto& ending : QStringList {"lf", "crlf"})
         {
             auto wrapped = Base64Encoder::create(
@@ -212,28 +218,22 @@ private slots:
                     {"lineEnding", ending}
             },
                 {});
-            QCOMPARE(invoke(*wrapped, "foo").bytes(), QByteArray("Zm9v"));
-            QCOMPARE(invoke(*wrapped, "bar").bytes(),
-                     (ending == "lf" ? QByteArray("\n") : QByteArray("\r\n")) + "YmFy");
-            const auto final = invoke(*wrapped, {}, Processor::Boundary::Packet);
-            QVERIFY(final.bytes().isEmpty());
-            QCOMPARE(final.outputs[0].boundary, Processor::Boundary::Packet);
-            QCOMPARE(invoke(*wrapped, "f", Processor::Boundary::Packet).bytes(), QByteArray("Zg=="));
+            const auto newline = ending == "lf" ? QByteArray("\n") : QByteArray("\r\n");
+            QCOMPARE(invoke(*wrapped, "foobar").bytes(), QByteArray("Zm9v") + newline + "YmFy");
+            QCOMPARE(invoke(*wrapped, "bar").bytes(), QByteArray("YmFy"));
         }
         auto decoder = Base64Decoder::create({}, {});
-        QCOMPARE(invoke(*decoder, "Zg=").outputs.size(), 0);
-        QCOMPARE(invoke(*decoder, "=").bytes(), QByteArray("f"));
-        QCOMPARE(invoke(*decoder, {}, Processor::Boundary::Packet).outputs[0].boundary, Processor::Boundary::Packet);
-        QCOMPARE(invoke(*decoder, "Zm8=", Processor::Boundary::Packet).bytes(), QByteArray("fo"));
+        QVERIFY(!invoke(*decoder, "Zg=").error.isEmpty());
+        QCOMPARE(invoke(*decoder, "=").accepted, Processor::AcceptResult::Rejected);
         auto optional = Base64Decoder::create(
             {
                 {"requirePadding", false}
         },
             {});
-        QCOMPARE(invoke(*optional, "Zm8").outputs.size(), 0);
-        QCOMPARE(invoke(*optional, {}).outputs.size(), 0);
-        QCOMPARE(invoke(*optional, {}, Processor::Boundary::Packet).bytes(), QByteArray("fo"));
+        QCOMPARE(invoke(*optional, "Zm8").bytes(), QByteArray("fo"));
+        QCOMPARE(invoke(*optional, "Zg").bytes(), QByteArray("f"));
     }
+
     void base64StrictMalformedAndCanonicalBits()
     {
         const QList<QByteArray> malformed {"A",
@@ -255,7 +255,7 @@ private slots:
         for (const auto& bytes : malformed)
         {
             auto       decoder = Base64Decoder::create({}, {});
-            const auto result  = invoke(*decoder, bytes, Processor::Boundary::Packet);
+            const auto result  = invoke(*decoder, bytes);
             QVERIFY2(!result.error.isEmpty(), bytes.constData());
             QVERIFY(result.outputs.isEmpty());
             QCOMPARE(result.completed, 1);
@@ -267,7 +267,7 @@ private slots:
                     {"requirePadding", false}
             },
                 {});
-            const auto result = invoke(*decoder, bytes, Processor::Boundary::Packet);
+            const auto result = invoke(*decoder, bytes);
             QVERIFY2(!result.error.isEmpty(), bytes.constData());
             QVERIFY(result.outputs.isEmpty());
         }
@@ -276,17 +276,17 @@ private slots:
                 {"ignoreWhitespace", false}
         },
             {});
-        QVERIFY(!invoke(*strict, "Zg==\n", Processor::Boundary::Packet).error.isEmpty());
+        QVERIFY(!invoke(*strict, "Zg==\n").error.isEmpty());
         auto lenient = Base64Decoder::create({}, {});
-        QCOMPARE(invoke(*lenient, " Z\tg\r=\n=\v\f ", Processor::Boundary::Packet).bytes(), QByteArray("f"));
+        QCOMPARE(invoke(*lenient, " Z\tg\r=\n=\v\f ").bytes(), QByteArray("f"));
         auto url = Base64Decoder::create(
             {
                 {"alphabet", "url"}
         },
             {});
-        QVERIFY(!invoke(*url, "+/8=", Processor::Boundary::Packet).error.isEmpty());
+        QVERIFY(!invoke(*url, "+/8=").error.isEmpty());
         auto high = Base64Decoder::create({}, {});
-        QVERIFY(!invoke(*high, QByteArray("Zg==\xA0", 5), Processor::Boundary::Packet).error.isEmpty());
+        QVERIFY(!invoke(*high, QByteArray("Zg==\xA0", 5)).error.isEmpty());
     }
     void boundsConfigurationCancellationAndIndependentInstances()
     {
@@ -294,22 +294,22 @@ private slots:
         Processor::Limits limits;
         limits.maxBytes     = 3;
         auto       bounded  = Base64Encoder::create({}, limits);
-        const auto tooLarge = invoke(*bounded, "foo", Processor::Boundary::Packet);
+        const auto tooLarge = invoke(*bounded, "foo");
         QVERIFY(!tooLarge.error.isEmpty());
         QVERIFY(tooLarge.outputs.isEmpty());
         QCOMPARE(invoke(*bounded, "x").accepted, Processor::AcceptResult::Rejected);
         limits.maxBytes = 1;
         auto tail       = Base64Encoder::create({}, limits);
-        QVERIFY(invoke(*tail, "a").error.isEmpty());
-        QVERIFY(!invoke(*tail, "b").error.isEmpty());
+        QVERIFY(!invoke(*tail, "a").error.isEmpty());
+        QCOMPARE(invoke(*tail, "b").accepted, Processor::AcceptResult::Rejected);
         auto first  = Base64Encoder::create({}, {});
         auto second = Base64Encoder::create({}, {});
         invoke(*first, "a");
-        QCOMPARE(invoke(*second, "b", Processor::Boundary::Packet).bytes(), QByteArray("Yg=="));
+        QCOMPARE(invoke(*second, "b").bytes(), QByteArray("Yg=="));
         bool quiescent = false;
         first->cancel([&] { quiescent = true; });
         QVERIFY(quiescent);
-        QCOMPARE(invoke(*first, "bc", Processor::Boundary::Packet).accepted, Processor::AcceptResult::Rejected);
+        QCOMPARE(invoke(*first, "bc").accepted, Processor::AcceptResult::Rejected);
         QVERIFY(!HexEncoder::create(
             {
                 {"letterCase", "mixed"}
@@ -396,7 +396,8 @@ private slots:
                                              QVariantMap {
                                                  {      "encodeLetterCase", "upper"},
                                                  {       "encodeSeparator",     " "},
-                                                 {"decodeIgnoreWhitespace",    true}
+                                                 {"decodeIgnoreWhitespace",    true},
+                                                 {      "decodeAccumulate",   false}
             } :
                                              QVariantMap {{"encodeAlphabet", "standard"},
                                                           {"encodePadding", true},
@@ -440,8 +441,7 @@ private slots:
                                    {},
                                    &error);
         QVERIFY2(hex, qPrintable(error));
-        QCOMPARE(invoke(*hex, QByteArray::fromHex("ab00"), Processor::Boundary::Packet, 1).bytes(),
-                 QByteArray("ab:00"));
+        QCOMPARE(invoke(*hex, QByteArray::fromHex("ab00"), 1).bytes(), QByteArray("ab:00"));
         auto base64 = registry.create("native.base64-codec",
                                       {
                                           {      "encodeAlphabet", "url"},
@@ -452,90 +452,41 @@ private slots:
                                       {},
                                       &error);
         QVERIFY2(base64, qPrintable(error));
-        QCOMPARE(invoke(*base64, QByteArray::fromHex("fbff"), Processor::Boundary::Packet, 1).bytes(),
-                 QByteArray("-_8"));
-        QCOMPARE(invoke(*base64, "-_8", Processor::Boundary::Packet, 0).bytes(), QByteArray::fromHex("fbff"));
+        QCOMPARE(invoke(*base64, QByteArray::fromHex("fbff"), 1).bytes(), QByteArray("-_8"));
+        QCOMPARE(invoke(*base64, "-_8", 0).bytes(), QByteArray::fromHex("fbff"));
     }
 
     void duplexInterleavedBinaryStreamsAndIndependentPacketReset()
     {
         ProcessorRegistry registry;
         registerNativeProcessors(registry, "native");
-        const auto bytes = allBytes();
         for (const auto& format : QStringList {"hex", "base64"})
         {
             auto runtime = registry.create("native." + format + "-codec", {}, {});
             QVERIFY(runtime);
-            QByteArray encoded;
-            if (format == "hex")
+            for (char byte : allBytes())
             {
-                for (int index = 0; index < bytes.size(); ++index)
-                {
-                    if (index)
-                    {
-                        encoded += ' ';
-                    }
-                    encoded += bytes.mid(index, 1).toHex().toUpper();
-                }
+                const QByteArray packet(1, byte);
+                const auto       encoded = invoke(*runtime, packet, 1);
+                QVERIFY(encoded.error.isEmpty());
+                QCOMPARE(encoded.outputs.size(), 1);
+                QCOMPARE(encoded.outputs[0].port, 1);
+                const auto expected = format == "hex" ? packet.toHex().toUpper() : packet.toBase64();
+                QCOMPARE(encoded.bytes(), expected);
+                const auto decoded = invoke(*runtime, expected, 0);
+                QVERIFY(decoded.error.isEmpty());
+                QCOMPARE(decoded.bytes(), packet);
+                QCOMPARE(decoded.outputs[0].port, 0);
             }
-            else
-            {
-                encoded = bytes.toBase64();
-            }
-            QByteArray decoded;
-            QByteArray encodedOutput;
-            for (int index = 0; index < qMax(bytes.size(), encoded.size()); ++index)
-            {
-                if (index < encoded.size())
-                {
-                    const auto part = invoke(*runtime, encoded.mid(index, 1), Processor::Boundary::StreamChunk, 0);
-                    QVERIFY2(part.error.isEmpty(), qPrintable(part.error));
-                    QCOMPARE(part.completed, 1);
-                    for (const auto& output : part.outputs)
-                    {
-                        QCOMPARE(output.port, 0);
-                    }
-                    decoded += part.bytes();
-                }
-                if (index < bytes.size())
-                {
-                    const auto part = invoke(*runtime, bytes.mid(index, 1), Processor::Boundary::StreamChunk, 1);
-                    QVERIFY2(part.error.isEmpty(), qPrintable(part.error));
-                    QCOMPARE(part.completed, 1);
-                    for (const auto& output : part.outputs)
-                    {
-                        QCOMPARE(output.port, 1);
-                    }
-                    encodedOutput += part.bytes();
-                }
-            }
-            const auto decodeEnd = invoke(*runtime, {}, Processor::Boundary::Packet, 0);
-            const auto encodeEnd = invoke(*runtime, {}, Processor::Boundary::Packet, 1);
-            QVERIFY(decodeEnd.error.isEmpty() && encodeEnd.error.isEmpty());
-            QCOMPARE(decoded + decodeEnd.bytes(), bytes);
-            QCOMPARE(encodedOutput + encodeEnd.bytes(), encoded);
-            QCOMPARE(decodeEnd.outputs.last().boundary, Processor::Boundary::Packet);
-            QCOMPARE(encodeEnd.outputs.last().boundary, Processor::Boundary::Packet);
-
-            // A packet on one port must not discard a partial symbol on its peer.
-            QCOMPARE(invoke(*runtime,
-                            format == "hex" ? QByteArray("A") : QByteArray("Zg="),
-                            Processor::Boundary::StreamChunk,
-                            0)
-                         .outputs.size(),
-                     0);
-            QVERIFY(invoke(*runtime, "f", Processor::Boundary::Packet, 1).error.isEmpty());
-            QCOMPARE(invoke(*runtime,
-                            format == "hex" ? QByteArray("b") : QByteArray("="),
-                            Processor::Boundary::Packet,
-                            0)
-                         .bytes(),
-                     format == "hex" ? QByteArray::fromHex("ab") : QByteArray("f"));
-            const auto prefix = invoke(*runtime, "f", Processor::Boundary::StreamChunk, 1);
-            QVERIFY(invoke(*runtime, {}, Processor::Boundary::Packet, 0).error.isEmpty());
-            const auto suffix = invoke(*runtime, "o", Processor::Boundary::Packet, 1);
-            QCOMPARE(prefix.bytes() + suffix.bytes(), format == "hex" ? QByteArray("66 6F") : QByteArray("Zm8="));
         }
+        auto accumulating = registry.create("native.hex-codec",
+                                            {
+                                                {"decodeAccumulate", true}
+        },
+                                            {});
+        QVERIFY(invoke(*accumulating, "A", 0).error.isEmpty());
+        QCOMPARE(invoke(*accumulating, "f", 1).bytes(), QByteArray("66"));
+        QCOMPARE(invoke(*accumulating, "b", 0).bytes(), QByteArray::fromHex("ab"));
     }
 
     void duplexInvalidPortsMalformedInputAndBoundsFailStop()
@@ -549,30 +500,26 @@ private slots:
             QVERIFY(runtime);
             for (int port : {-1, 2})
             {
-                const auto invalid = invoke(*runtime, "!", Processor::Boundary::Packet, port);
+                const auto invalid = invoke(*runtime, "!", port);
                 QCOMPARE(invalid.accepted, Processor::AcceptResult::Rejected);
                 QCOMPARE(invalid.completed, 0);
                 QVERIFY(invalid.outputs.isEmpty());
             }
-            QVERIFY(invoke(*runtime, "x", Processor::Boundary::Packet, 1).error.isEmpty());
-            const auto malformed = invoke(*runtime,
-                                          format == "hex" ? QByteArray("0") : QByteArray("Zg="),
-                                          Processor::Boundary::Packet,
-                                          0);
+            QVERIFY(invoke(*runtime, "x", 1).error.isEmpty());
+            const auto malformed = invoke(*runtime, format == "hex" ? QByteArray("0") : QByteArray("Zg="), 0);
             QVERIFY(!malformed.error.isEmpty());
             QCOMPARE(malformed.completed, 1);
             QVERIFY(malformed.outputs.isEmpty());
-            QCOMPARE(invoke(*runtime, "x", Processor::Boundary::Packet, 1).accepted, Processor::AcceptResult::Rejected);
-            QCOMPARE(invoke(*runtime, {}, Processor::Boundary::Packet, 0).accepted, Processor::AcceptResult::Rejected);
+            QCOMPARE(invoke(*runtime, "x", 1).accepted, Processor::AcceptResult::Rejected);
+            QCOMPARE(invoke(*runtime, {}, 0).accepted, Processor::AcceptResult::Rejected);
             Processor::Limits limits;
             limits.maxBytes = 3;
             auto bounded    = registry.create(id, {}, limits);
             QVERIFY(bounded);
-            const auto overflow = invoke(*bounded, "foo", Processor::Boundary::Packet, 1);
+            const auto overflow = invoke(*bounded, "foo", 1);
             QVERIFY(!overflow.error.isEmpty());
             QVERIFY(overflow.outputs.isEmpty());
-            QCOMPARE(invoke(*bounded, "00", Processor::Boundary::Packet, 0).accepted,
-                     Processor::AcceptResult::Rejected);
+            QCOMPARE(invoke(*bounded, "00", 0).accepted, Processor::AcceptResult::Rejected);
         }
     }
 
@@ -588,13 +535,12 @@ private slots:
             bool       output    = false;
             bool       completed = false;
             const auto text      = format == "hex" ? QByteArray("00") : QByteArray("AA==");
-            QCOMPARE(runtime->accept({text, Processor::Boundary::Packet, 0},
+            QCOMPARE(runtime->accept({text, 0},
                                      {[&](auto chunk) {
                                           QCOMPARE(chunk.port, 0);
                                           output = true;
-                                          QCOMPARE(runtime->accept({text, Processor::Boundary::Packet, 0}, {}),
-                                                   Processor::AcceptResult::WouldBlock);
-                                          const auto peer = invoke(*runtime, "x", Processor::Boundary::Packet, 1);
+                                          QCOMPARE(runtime->accept({text, 0}, {}), Processor::AcceptResult::WouldBlock);
+                                          const auto peer = invoke(*runtime, "x", 1);
                                           QCOMPARE(peer.accepted, Processor::AcceptResult::Accepted);
                                           QVERIFY(peer.error.isEmpty());
                                           QCOMPARE(peer.outputs.last().port, 1);
@@ -607,21 +553,20 @@ private slots:
             QVERIFY(output && completed);
             bool cancelled = false;
             completed      = false;
-            QCOMPARE(runtime->accept({text, Processor::Boundary::Packet, 0},
+            QCOMPARE(runtime->accept({text, 0},
                                      {[&](auto) { runtime->cancel([&] { cancelled = true; }); },
                                       [&](auto) { completed = true; }}),
                      Processor::AcceptResult::Accepted);
             QVERIFY(cancelled && !completed);
             for (int port : {0, 1})
             {
-                QCOMPARE(invoke(*runtime, {}, Processor::Boundary::Packet, port).accepted,
-                         Processor::AcceptResult::Rejected);
+                QCOMPARE(invoke(*runtime, {}, port).accepted, Processor::AcceptResult::Rejected);
             }
             auto destroy = registry.create(id, {}, {});
             QVERIFY(destroy);
             auto*               raw = destroy.get();
             QPointer<Processor> guard(raw);
-            QCOMPARE(raw->accept({text, Processor::Boundary::Packet, 0},
+            QCOMPARE(raw->accept({text, 0},
                                  {[&](auto) { destroy.reset(); },
                                   [&](auto) { QFAIL("Completion after destruction"); }}),
                      Processor::AcceptResult::Accepted);
@@ -641,13 +586,12 @@ private slots:
             int     outerCompleted = 0;
             QString outerError;
             Result  inner;
-            QCOMPARE(runtime->accept({QByteArray("foo"), Processor::Boundary::Packet, 1},
+            QCOMPARE(runtime->accept({QByteArray("foo"), 1},
                                      {[&](auto output) {
                                           ++outerOutputs;
                                           QCOMPARE(output.port, 1);
                                           inner = invoke(*runtime,
                                                          format == "hex" ? QByteArray("0") : QByteArray("Zg="),
-                                                         Processor::Boundary::Packet,
                                                          0);
                                       },
                                       [&](QString error) {
@@ -664,7 +608,7 @@ private slots:
             QCOMPARE(outerError, inner.error);
             for (int port : {0, 1})
             {
-                const auto rejected = invoke(*runtime, {}, Processor::Boundary::Packet, port);
+                const auto rejected = invoke(*runtime, {}, port);
                 QCOMPARE(rejected.accepted, Processor::AcceptResult::Rejected);
                 QCOMPARE(rejected.completed, 0);
                 QVERIFY(rejected.outputs.isEmpty());
@@ -706,11 +650,11 @@ private slots:
                 const auto       text       = format == "hex" ? QByteArray("61 00") : bytes.toBase64();
                 const int        decodePort = flipped ? 1 : 0;
                 const int        encodePort = flipped ? 0 : 1;
-                const auto       decoded    = invoke(*runtime, text, Processor::Boundary::Packet, decodePort);
+                const auto       decoded    = invoke(*runtime, text, decodePort);
                 QVERIFY2(decoded.error.isEmpty(), qPrintable(decoded.error));
                 QCOMPARE(decoded.bytes(), bytes);
                 QCOMPARE(decoded.outputs.last().port, decodePort);
-                const auto encoded = invoke(*runtime, bytes, Processor::Boundary::Packet, encodePort);
+                const auto encoded = invoke(*runtime, bytes, encodePort);
                 QVERIFY2(encoded.error.isEmpty(), qPrintable(encoded.error));
                 QCOMPARE(encoded.bytes(), text);
                 QCOMPARE(encoded.outputs.last().port, encodePort);
@@ -743,11 +687,11 @@ private slots:
             auto runtime = registry.create("roundtrip", {}, {}, &error);
             QVERIFY2(runtime, qPrintable(error));
             const auto bytes  = allBytes();
-            const auto result = invoke(*runtime, bytes, Processor::Boundary::Packet);
+            const auto result = invoke(*runtime, bytes);
             QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
             QCOMPARE(result.completed, 1);
             QCOMPARE(result.bytes(), bytes);
-            QCOMPARE(result.outputs.last().boundary, Processor::Boundary::Packet);
+
             runtime.reset();
             runtime = registry.create("roundtrip", {}, {}, &error);
             QVERIFY2(runtime, qPrintable(error));
@@ -758,16 +702,12 @@ private slots:
                 QVERIFY2(part.error.isEmpty(), qPrintable(part.error));
                 QCOMPARE(part.completed, 1);
                 streamed += part.bytes();
-                for (const auto& output : part.outputs)
-                {
-                    QCOMPARE(output.boundary, Processor::Boundary::StreamChunk);
-                }
             }
-            const auto final = invoke(*runtime, {}, Processor::Boundary::Packet);
+            const auto final = invoke(*runtime, {});
             QVERIFY2(final.error.isEmpty(), qPrintable(final.error));
             streamed += final.bytes();
             QCOMPARE(streamed, bytes);
-            QCOMPARE(final.outputs.last().boundary, Processor::Boundary::Packet);
+
             runtime.reset();
             QCoreApplication::processEvents();
         }

@@ -143,7 +143,7 @@ public:
     }
     void scheduleIdle(QByteArray bytes, int port)
     {
-        _input = {std::move(bytes), Boundary::Packet, port};
+        _input = {std::move(bytes), port};
         _idle  = true;
         _timer.start(0);
     }
@@ -151,7 +151,7 @@ public:
     {
         for (int index = 0; index < count && !_stopped; ++index)
         {
-            publishOutput({QByteArray("idle"), Boundary::Packet, port});
+            publishOutput({QByteArray("idle"), port});
         }
     }
     bool invalidOutput = false;
@@ -191,7 +191,7 @@ private:
             }
             if (inputPort == 0)
             {
-                callbacks.output({QByteArray("ack") + QByteArray::number(_received), Boundary::Packet, 1});
+                callbacks.output({QByteArray("ack") + QByteArray::number(_received), 1});
                 if (!guard || _stopped)
                 {
                     return;
@@ -242,7 +242,7 @@ public:
         QPointer<WaitingProtocol> guard(this);
         if (txCallbacks.output)
         {
-            txCallbacks.output({QByteArray("sent:") + _tx.bytes, Boundary::Packet, 1});
+            txCallbacks.output({QByteArray("sent:") + _tx.bytes, 1});
         }
         if (!guard || _stopped)
         {
@@ -322,7 +322,7 @@ public:
     }
     void pulse(int port)
     {
-        publishOutput({{}, Boundary::Packet, port});
+        publishOutput({{}, port});
     }
     void cancel(std::function<void()> ready) override
     {
@@ -351,7 +351,7 @@ public:
     {
         if (callbacks.output)
         {
-            callbacks.output({QByteArray("invalid"), Boundary::Packet, 1});
+            callbacks.output({QByteArray("invalid"), 1});
         }
         return AcceptResult::Accepted;
     }
@@ -609,13 +609,13 @@ private slots:
                                             QVERIFY2(error.isEmpty(), qPrintable(error));
                                             ++completed;
                                            }};
-        runtime->accept({QByteArray("r"), Processor::Boundary::Packet, 0}, callbacks);
+        runtime->accept({QByteArray("r"), 0}, callbacks);
         QTRY_COMPARE(completed, 1);
         QCOMPARE(outputs.size(), 1);
         QCOMPARE(outputs[0].bytes, QByteArray("rR/tx0S"));
         QCOMPARE(outputs[0].port, 0);
         outputs.clear();
-        runtime->accept({QByteArray("t"), Processor::Boundary::Packet, 1}, callbacks);
+        runtime->accept({QByteArray("t"), 1}, callbacks);
         QTRY_COMPARE(completed, 2);
         QCOMPARE(outputs.size(), 2);
         QCOMPARE(outputs[0].bytes, QByteArray("tB/rx1A"));
@@ -692,13 +692,13 @@ private slots:
                                                 QVERIFY2(error.isEmpty(), qPrintable(error));
                                                 ++completed;
                                                }};
-            runtime->accept({QByteArray("r"), Processor::Boundary::Packet, 0}, callbacks);
+            runtime->accept({QByteArray("r"), 0}, callbacks);
             QTRY_COMPARE(completed, 1);
             QCOMPARE(outputs.size(), 1);
             QCOMPARE(outputs[0].bytes, QByteArray("rB/tx0"));
             QCOMPARE(outputs[0].port, 0);
             outputs.clear();
-            runtime->accept({QByteArray("t"), Processor::Boundary::Packet, 1}, callbacks);
+            runtime->accept({QByteArray("t"), 1}, callbacks);
             QTRY_COMPARE(completed, 2);
             QCOMPARE(outputs.size(), 2);
             QCOMPARE(outputs[0].bytes, QByteArray("tR/rx1"));
@@ -737,7 +737,7 @@ private slots:
         int        commandCompleted = 0;
         int        ackCompleted     = 0;
         QByteArray sent;
-        runtime->accept({QByteArray("command"), Processor::Boundary::Packet, 0},
+        runtime->accept({QByteArray("command"), 0},
                         {[&](Processor::Chunk output) {
                              QCOMPARE(output.port, 0);
                              sent.append(output.bytes);
@@ -747,10 +747,10 @@ private slots:
                              ++commandCompleted;
                          }});
         QTRY_VERIFY(protocol->txWaiting);
-        runtime->accept({QByteArray("ACK"), Processor::Boundary::Packet, 1}, {{}, [&](QString error) {
-                                                                                  QVERIFY(error.isEmpty());
-                                                                                  ++ackCompleted;
-                                                                              }});
+        runtime->accept({QByteArray("ACK"), 1}, {{}, [&](QString error) {
+                                                     QVERIFY(error.isEmpty());
+                                                     ++ackCompleted;
+                                                 }});
         QTRY_COMPARE_WITH_TIMEOUT(commandCompleted, 1, 1500);
         QTRY_COMPARE(ackCompleted, 1);
         QCOMPARE(sent, QByteArray("sent:command"));
@@ -788,8 +788,7 @@ private slots:
                                             QVERIFY2(message.isEmpty(), qPrintable(message));
                                             ++completed;
                                            }};
-        QCOMPARE(runtime->accept({QByteArray("q"), Processor::Boundary::StreamChunk, 0}, callbacks),
-                 Processor::AcceptResult::Accepted);
+        QCOMPARE(runtime->accept({QByteArray("q"), 0}, callbacks), Processor::AcceptResult::Accepted);
         QTRY_COMPARE(completed, 1);
         QCOMPARE(outputs.size(), 2);
         QCOMPARE(outputs[0].bytes, QByteArray("qR/rx1S"));
@@ -797,8 +796,7 @@ private slots:
         QCOMPARE(outputs[1].bytes, QByteArray("ack1A"));
         QCOMPARE(outputs[1].port, 1);
         outputs.clear();
-        QCOMPARE(runtime->accept({QByteArray("t"), Processor::Boundary::StreamChunk, 1}, callbacks),
-                 Processor::AcceptResult::Accepted);
+        QCOMPARE(runtime->accept({QByteArray("t"), 1}, callbacks), Processor::AcceptResult::Accepted);
         QTRY_COMPARE(completed, 2);
         QCOMPARE(outputs.size(), 1);
         QCOMPARE(outputs[0].bytes, QByteArray("tB/tx1A"));
@@ -809,7 +807,7 @@ private slots:
         QTRY_COMPARE(idle.size(), 1);
         QCOMPARE(idle[0].bytes, QByteArray("idleA"));
         QCOMPARE(idle[0].port, 1);
-        QCOMPARE(idle[0].boundary, Processor::Boundary::Packet);
+
         QCOMPARE(completed, 2);
         bool acknowledged = false;
         fixture->protocol->scheduleIdle("cancelled", 0);
@@ -817,8 +815,7 @@ private slots:
         QVERIFY(acknowledged);
         QTest::qWait(30);
         QCOMPARE(idle.size(), 1);
-        QCOMPARE(runtime->accept({QByteArray("late"), Processor::Boundary::StreamChunk, 0}, {}),
-                 Processor::AcceptResult::Rejected);
+        QCOMPARE(runtime->accept({QByteArray("late"), 0}, {}), Processor::AcceptResult::Rejected);
     }
 
     void independentInputSlotsAllowTxWhileRxIsPaced()
@@ -841,7 +838,7 @@ private slots:
         int        txCompleted = 0;
         QByteArray rx;
         QByteArray tx;
-        QCOMPARE(runtime->accept({QByteArray("abc"), Processor::Boundary::StreamChunk, 0},
+        QCOMPARE(runtime->accept({QByteArray("abc"), 0},
                                  {[&](Processor::Chunk output) {
                                       QCOMPARE(output.port, 0);
                                       rx.append(output.bytes);
@@ -851,7 +848,7 @@ private slots:
                                       ++rxCompleted;
                                   }}),
                  Processor::AcceptResult::Accepted);
-        QCOMPARE(runtime->accept({QByteArray("t"), Processor::Boundary::StreamChunk, 1},
+        QCOMPARE(runtime->accept({QByteArray("t"), 1},
                                  {[&](Processor::Chunk output) {
                                       QCOMPARE(output.port, 1);
                                       tx.append(output.bytes);
@@ -861,8 +858,7 @@ private slots:
                                       ++txCompleted;
                                   }}),
                  Processor::AcceptResult::Accepted);
-        QCOMPARE(runtime->accept({QByteArray("blocked"), Processor::Boundary::StreamChunk, 0}, {}),
-                 Processor::AcceptResult::WouldBlock);
+        QCOMPARE(runtime->accept({QByteArray("blocked"), 0}, {}), Processor::AcceptResult::WouldBlock);
         QTRY_COMPARE_WITH_TIMEOUT(txCompleted, 1, 1500);
         QCOMPARE(rxCompleted, 0);
         QCOMPARE(tx, QByteArray("tA"));
@@ -890,17 +886,15 @@ private slots:
                                             QVERIFY(error.isEmpty());
                                             ++completed;
                                            }};
-        QCOMPARE(runtime->accept({QByteArray("r"), Processor::Boundary::Packet, 0}, callbacks),
-                 Processor::AcceptResult::Accepted);
-        QCOMPARE(runtime->accept({QByteArray("t"), Processor::Boundary::Packet, 1}, callbacks),
-                 Processor::AcceptResult::Accepted);
+        QCOMPARE(runtime->accept({QByteArray("r"), 0}, callbacks), Processor::AcceptResult::Accepted);
+        QCOMPARE(runtime->accept({QByteArray("t"), 1}, callbacks), Processor::AcceptResult::Accepted);
         QTRY_COMPARE_WITH_TIMEOUT(completed, 2, 2500);
         QCOMPARE(output.size(), 3);
         QCOMPARE(output[0].bytes, QByteArray("r/rx1"));
         QCOMPARE(output[1].bytes, QByteArray("ack1"));
         QCOMPARE(output[2].bytes, QByteArray("t/tx1"));
-        runtime->accept({QByteArray("r"), Processor::Boundary::Packet, 0}, callbacks);
-        runtime->accept({QByteArray("t"), Processor::Boundary::Packet, 1}, callbacks);
+        runtime->accept({QByteArray("r"), 0}, callbacks);
+        runtime->accept({QByteArray("t"), 1}, callbacks);
         QCoreApplication::processEvents();
         bool acknowledged = false;
         runtime->cancel([&] { acknowledged = true; });
@@ -960,13 +954,13 @@ private slots:
                                                 QVERIFY2(error.isEmpty(), qPrintable(error));
                                                 ++completed;
                                                }};
-            runtime->accept({QByteArray("r"), Processor::Boundary::Packet, 0}, callbacks);
+            runtime->accept({QByteArray("r"), 0}, callbacks);
             QTRY_COMPARE(completed, 1);
             QCOMPARE(outputs.size(), 2);
             QCOMPARE(outputs[0].bytes, QByteArray("r/rx1S"));
             QCOMPARE(outputs[1].bytes, QByteArray("ack1AB"));
             outputs.clear();
-            runtime->accept({QByteArray("t"), Processor::Boundary::Packet, 1}, callbacks);
+            runtime->accept({QByteArray("t"), 1}, callbacks);
             QTRY_COMPARE(completed, 2);
             QCOMPARE(outputs.size(), 1);
             QCOMPARE(outputs[0].bytes, QByteArray("t/tx1AB"));
@@ -1009,7 +1003,7 @@ private slots:
         QVERIFY(error.contains("port counts"));
         auto single    = registry.create("test.A", {}, {});
         int  callbacks = 0;
-        QCOMPARE(single->accept({QByteArray("x"), Processor::Boundary::Packet, 1},
+        QCOMPARE(single->accept({QByteArray("x"), 1},
                                 {[&](Processor::Chunk) { ++callbacks; }, [&](QString) { ++callbacks; }}),
                  Processor::AcceptResult::Rejected);
         QCOMPARE(callbacks, 0);
@@ -1018,7 +1012,7 @@ private slots:
         QList<Processor::Chunk> output;
         QString                 failure;
         int                     completed = 0;
-        QCOMPARE(runtime->accept({QByteArray("secret"), Processor::Boundary::Packet, 0},
+        QCOMPARE(runtime->accept({QByteArray("secret"), 0},
                                  {[&](Processor::Chunk chunk) { output.append(std::move(chunk)); },
                                   [&](QString error) {
                                       failure = std::move(error);
@@ -1029,8 +1023,7 @@ private slots:
         QVERIFY(!failure.isEmpty());
         QVERIFY(!failure.contains("secret"));
         QVERIFY(output.isEmpty());
-        QCOMPARE(runtime->accept({QByteArray("late"), Processor::Boundary::Packet, 0}, {}),
-                 Processor::AcceptResult::Rejected);
+        QCOMPARE(runtime->accept({QByteArray("late"), 0}, {}), Processor::AcceptResult::Rejected);
     }
 
     void sharedProtocolCanReceiveAckWhileTxInvocationIsPending()
@@ -1059,7 +1052,7 @@ private slots:
         int        txCompleted = 0;
         int        rxCompleted = 0;
         QByteArray sent;
-        QCOMPARE(runtime->accept({QByteArray("command"), Processor::Boundary::Packet, 1},
+        QCOMPARE(runtime->accept({QByteArray("command"), 1},
                                  {[&](Processor::Chunk output) {
                                       QCOMPARE(output.port, 1);
                                       sent.append(output.bytes);
@@ -1071,7 +1064,7 @@ private slots:
                  Processor::AcceptResult::Accepted);
         QTRY_VERIFY(protocol->txWaiting);
         QCOMPARE(txCompleted, 0);
-        QCOMPARE(runtime->accept({QByteArray("ACK"), Processor::Boundary::Packet, 0},
+        QCOMPARE(runtime->accept({QByteArray("ACK"), 0},
                                  {{},
                                   [&](QString error) {
                                       QVERIFY(error.isEmpty());
@@ -1117,7 +1110,7 @@ private slots:
         QString failure;
         int     completed = 0;
         int     outputs   = 0;
-        runtime->accept({{}, Processor::Boundary::Packet, 0},
+        runtime->accept({{}, 0},
                         {[&](Processor::Chunk) { ++outputs; },
                          [&](QString error) {
                              failure = std::move(error);
@@ -1218,7 +1211,7 @@ private slots:
         QVERIFY(runtime);
         int outputPort = -1;
         int completed  = 0;
-        QCOMPARE(runtime->accept({QByteArray("payload"), Processor::Boundary::Packet, 2},
+        QCOMPARE(runtime->accept({QByteArray("payload"), 2},
                                  {[&](Processor::Chunk output) { outputPort = output.port; },
                                   [&](QString error) {
                                       QVERIFY(error.isEmpty());
@@ -1231,8 +1224,7 @@ private slots:
         QCOMPARE(runtime->inputCount(), 3);
         QString failure;
         runtime->setErrorHandler([&](QString error) { failure = std::move(error); });
-        QCOMPARE(runtime->accept({QByteArray("invalid"), Processor::Boundary::Packet, 31}, {}),
-                 Processor::AcceptResult::Rejected);
+        QCOMPARE(runtime->accept({QByteArray("invalid"), 31}, {}), Processor::AcceptResult::Rejected);
         QVERIFY(failure.contains("counts changed"));
         QString error;
         QVERIFY(!registry.publishDefinitions("workspace",

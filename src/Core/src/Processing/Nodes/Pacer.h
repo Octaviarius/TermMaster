@@ -7,10 +7,8 @@
 #include <vector>
 
 /** Owner-thread byte pacer. Byte spacing, line pauses and rate limits are concurrent
- * constraints; the longest applicable wait wins. Stream fragments preserve bytes in order.
- * Packet input stays atomic: byte spacing is unsupported; rate scheduling precharges any
- * bytes exceeding the burst, and all matched line pauses are applied after the packet.
- * Timing and split-ending state survive invocations. Packet boundaries reset ending state.
+ * constraints; the longest applicable wait wins. Configured timing splits packets into
+ * ordered output packets. Timing and explicit ending-match state survive invocations.
  * One owned input and one output fragment are resident; maxChunks does not limit the total
  * number of fragments emitted over time. Input and burst sizes respect maxBytes.
  */
@@ -59,7 +57,7 @@ private:
     bool                   _stopped         = false;
 
     Pacer(QVariantMap configuration, Limits limits, QByteArray ending);
-    Fragment _nextFragment(const QByteArray& bytes, qsizetype offset, qsizetype matched, Boundary boundary) const;
+    Fragment _nextFragment(const QByteArray& bytes, qsizetype offset, qsizetype matched) const;
     void     _pump();
     void     _complete(QString error = {});
 };

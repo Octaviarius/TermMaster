@@ -374,7 +374,7 @@ capability permits partial writes; UDP reports atomic writes so the shared outpu
 queue preserves datagram boundaries. Byte/line timing belongs to native Pacer
 processing, which reports an error when byte spacing would split a packet.
 Rebuild every hosted plugin against this SDK. Interface IID
-`org.octaviarius.Termaster.HostedPlugin/10.0` rejects older hosted binary interfaces.
+`org.octaviarius.Termaster.HostedPlugin/11.0` rejects older hosted binary interfaces.
 
 ## Native processor registrations
 
@@ -397,7 +397,8 @@ snapshots and running instances retain provider leases; publishing or removing a
 saved definition does not mutate active instances. Rebuild hosted plugins against
 the current SDK. No Python interpreter is supplied by this interface alone.
 
-HostedPlugin ABI version 10 adds processor port metadata and lifecycle output/error handlers. Native
+HostedPlugin ABI version 11 uses a packet-only processor Chunk with bytes and port,
+plus processor port metadata and lifecycle output/error handlers. Native
 metadata and saved workspace definitions expose the same subgroup label; origin
 remains independent. Catalog queries copy group strings before module unload.
 Rebuild hosted plugins against this SDK. See [processing nodes](processing-nodes.md).
