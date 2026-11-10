@@ -60,6 +60,8 @@ CommandEditor::CommandEditor(QWidget* parent) : QWidget(parent)
     {
         _terminator->addItem(QString::fromLatin1(value), QString::fromLatin1(value).toLower());
     }
+    _terminator->insertItem(2, tr("HTTP end"), "http");
+    _terminator->setItemData(2, tr("End HTTP headers: CRLF CRLF (\\r\\n\\r\\n)"), Qt::ToolTipRole);
     _terminator->setToolTip(tr("Append these bytes once after each command"));
     _terminator->setMaximumWidth(95);
     options->addWidget(_terminator);

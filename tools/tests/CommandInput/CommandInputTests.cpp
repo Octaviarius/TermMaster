@@ -94,6 +94,7 @@ private slots:
         const QString unicode = QString::fromUtf8("\xE2\x82\xAC\xF0\x9F\x98\x80");
         QCOMPARE(*CommandInput::prepare(unicode, "crlf", {}, &error), QByteArray::fromHex("e282acf09f98800d0a"));
         QCOMPARE(*CommandInput::prepare("AT", "lf", {}), QByteArray("AT\n"));
+        QCOMPARE(*CommandInput::prepare("GET / HTTP/1.0", "http", {}), QByteArray("GET / HTTP/1.0\r\n\r\n"));
         QCOMPARE(*CommandInput::prepare("AT", "cr", {}), QByteArray("AT\r"));
         QCOMPARE(*CommandInput::prepare("AT", "none", {}), QByteArray("AT"));
         QVERIFY(error.isEmpty());

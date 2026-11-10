@@ -18,7 +18,9 @@ locally; acceptance into an output queue does not prove device delivery.
 
 Text commands are encoded as UTF-8. Selectable codecs are planned in
 [Python integration and codecs](python-and-codecs.md). The selected terminator is appended
-once after encoding: LF, CRLF, CR (default), NUL, none or custom. Custom sequences
+once after encoding: LF, CRLF, HTTP end, CR (default), NUL, none or custom.
+HTTP end (`http` in settings) appends `\r\n\r\n`, ending an HTTP header section.
+Custom sequences
 allow literal UTF-8 and `\r`, `\n`, `\0`, `\\` and `\xHH` escapes. Unknown or
 incomplete escapes reject the submission. NUL bytes remain bytes throughout.
 Command submission bypasses interactive key/newline encoding and bracketed paste

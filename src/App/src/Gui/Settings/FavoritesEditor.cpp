@@ -32,6 +32,7 @@ public:
     {
         auto* combo = new QComboBox(parent);
         combo->addItems({"lf", "crlf", "cr", "nul", "none", "custom"});
+        combo->insertItem(2, "http");
         return combo;
     }
     void setEditorData(QWidget* editor, const QModelIndex& index) const override
