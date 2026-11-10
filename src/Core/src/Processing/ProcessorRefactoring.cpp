@@ -171,7 +171,8 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
                 }
                 QString     block = root;
                 QStringList translated;
-                int         depth = 0;
+                int         depth    = 0;
+                bool        retained = true;
                 for (int index = 0; index < parts.size(); ++index)
                 {
                     if (++depth > 16)
@@ -206,12 +207,16 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
                             break;
                         }
                     }
-                    if (newNode.isEmpty() || target(oldNode) != target(newNode))
-                    {
-                        reject("Processor occurrence was removed or replaced: " + it.key());
-                    }
+                    retained &= !newNode.isEmpty() && target(oldNode) == target(newNode);
                     translated.append(renamed);
                     block = target(oldNode);
+                }
+                // Validate the complete original path before discarding overrides for
+                // an intentionally removed/replaced occurrence. A stale descendant
+                // must still reject the transaction, even under a deleted ancestor.
+                if (!retained)
+                {
+                    continue;
                 }
                 const auto address = translated.join('/');
                 if (result.contains(address))

@@ -48,8 +48,14 @@ snapshots until explicitly replaced.
 Node renames rewrite occurrence paths in Rx/Tx selections for the active session
 and every registered closed session. Refactoring also updates definition defaults
 and nested instance configuration overrides. Repeated nested occurrences each keep
-their own settings. Stale or ambiguous addressed nodes, malformed sessions and
-collisions stop preflight without changing files.
+their own settings. Removing a node or replacing its processor target prunes only
+overrides whose complete original occurrence paths are valid and pass through that
+changed node. This includes nested paths in definition defaults, linked-instance
+configuration and active or dormant terminal selections. Surviving paths retain
+unknown values and follow recorded renames. Missing providers retain opaque path
+suffixes. Stale or malformed original paths still stop preflight, including stale
+descendants of a removed node; malformed sessions and collisions also stop preflight
+without changing files.
 
 Saved definitions occupy individual `termaster.processor-definition` YAML files
 under `<workspace filename>.d/processors/`; the workspace YAML contains no inline
