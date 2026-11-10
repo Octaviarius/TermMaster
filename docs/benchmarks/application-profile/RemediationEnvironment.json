@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-11",
+  "productionRevision": "c631bb45878e878cbe8d84bb9035f95da0909fb0",
+  "os": "Windows 11",
+  "cpu": "AMD Ryzen 9 5900X",
+  "compiler": "MSVC 19.44.35225 x64",
+  "qt": "6.12.0",
+  "sourceFileCount": 3,
+  "restoredDisconnectedTerminals": 6,
+  "measurementsOverlapBuilds": false,
+  "allFinalOperationsSucceeded": true,
+  "originalSourceUnchanged": true,
+  "releaseConfiguredSuites": 38,
+  "debugConfiguredSuites": 54,
+  "affectedAppSuitesRerunAfterBatching": true,
+  "serialOptIn": "COM3 loopback, binary byte comparisons, 20 packets at 115200 baud",
+  "downloads": false,
+  "debugCloseOnlyRuns": 3,
+  "releaseCloseOnlyRuns": 3,
+  "processingCases": 41,
+  "processingRepetitions": 5
+}

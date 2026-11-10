@@ -1,7 +1,8 @@
 # Application performance investigation
 
-Date: 2026-11-10. Status: profiling and remediation plan delivered; production
-behavior is unchanged. The optional probes live under
+Baseline investigation: 2026-11-10. Remediation and acceptance: 2026-11-11.
+The final results are recorded below; baseline sections retain their original scope.
+The optional probes live under
 [ApplicationProfile](../tools/benchmarks/ApplicationProfile/CMakeLists.txt).
 Processing measurements are documented separately in
 [processing performance](processing-performance.md).
@@ -258,7 +259,7 @@ microbenchmarks completed 41 cases with five repetitions and active output/error
 checks. All refined lifecycle, render and authorized loopback operations succeeded;
 the two close-only timeouts are recorded findings. Python syntax, report links,
 JSON records and whitespace checks accompany the tools. No production optimization
-or new compatibility behavior is included in this milestone.
+or new compatibility behavior was included in the original profiling milestone.
 
 Remaining profiling scope includes allocator stacks, long-duration memory
 stability, live multiport backpressure, fractional/high-DPI resize, graphical
@@ -312,3 +313,97 @@ call and must not be reused as a forced-cold control after this optimization.
 Raw records are in `benchmarks/application-profile/after-renderer/`. Original
 workspace hashes stayed unchanged. Multi-monitor DPI transitions remain outside
 this acceptance scope.
+
+## Integrated remediation results
+
+The prioritized P0–P3 application stages are integrated in `dev`. Processor
+retirement now finishes while Qt event delivery and plugin owners are alive.
+Unchanged appearance, height-only history resize, clean session saves and clean
+workspace synchronization avoid their former repeated work. Effective settings
+are projected from one per-operation snapshot; hidden processing editors are
+created on demand. Catalog search retains its items, repeated drag probes have
+bounded exact-key caches, and bulk tab restore/close updates presentation once.
+Pattern Framer has a conservative completion prefilter; Lineflow reuses pump
+scratch and avoids redundant scheduling. Persistence conflict, transaction,
+packet-boundary, cancellation and authoritative drop-validation contracts remain.
+
+Final uninstrumented native Windows runs used the same three-file source fixture
+with six restored, disconnected terminals. Each build ran twice, five lifecycle
+cycles per process and 20 window resizes per process. No builds or other test
+runs overlapped timing. Every recorded operation succeeded and every process
+exited normally. The original source file hashes stayed unchanged.
+
+Medians in milliseconds (10 lifecycle samples; 40 resize samples per final build):
+
+| Operation | Release before | Release after | Debug before | Debug after |
+| --- | ---: | ---: | ---: | ---: |
+| Clean session save | 19.095 | 0.447 | 363.970 | 6.138 |
+| Clean workspace sync | 33.078 | 3.147 | 169.555 | 40.271 |
+| Session reopen | 334.975 | 188.870 | 2876.253 | 1645.568 |
+| Session close | 90.461 | 71.919 | 372.923 | 254.624 |
+| Add disconnected serial terminal | 44.527 | 34.991 | 241.149 | 213.078 |
+| Close added terminal | 6.434 | 3.459 | 29.885 | 27.356 |
+| Native window resize | 16.977 | 11.013 | 216.598 | 51.941 |
+
+These sequential before/after measurements include normal OS/filesystem variation;
+they are fixture medians, not worst-case latency guarantees. Debug restoration
+still takes about 1.65 seconds; Release restoration takes about 189 ms. Dirty
+saves retain transaction work (19.2 ms Release median). Renderer changed-appearance
+blank repaint is 1.92 ms Release; identical reapplication is 0.67 ms. The forced
+changed-appearance control now toggles one RGB unit, so historical unchanged-call
+cold labels are not an equivalent cache-invalidation control.
+
+Three additional loaded-window close-only runs completed in 1.24, 0.56 and
+0.58 seconds including startup, with normal exit and unchanged source hashes. Three Debug
+close-only runs also exited normally in 2.82, 2.74 and 2.79 seconds.
+The original deadlock is covered by nested/scoped asynchronous retirement tests
+and loaded-session close fixtures. Broken providers that fail to acknowledge
+cancellation remain pinned after a bounded shutdown timeout; code is not forcibly
+unloaded.
+
+The explicitly enabled COM3 USB-UART test passed all 20 binary packet comparisons
+at 115200 baud (five each at 1, 16, 256 and 4096 bytes), then closed the port.
+This is a direct Qt transport loopback check, separate from application/Lineflow
+throughput acceptance. Restored application terminals remained disconnected.
+
+Release full build and all 38 configured CTest suites passed (53.88 s). Debug
+full build and all 54 configured suites passed (199.06 s), including console
+shutdown, settings, parsing, persistence and processing. After the final batching
+change, the affected AppTests were rebuilt and passed again in Release (22.59 s)
+and Debug (49.14 s). Assertions remain active in Release tests. Native renderer
+checks covered scales 1 and 1.25; catalog popup checks covered scales 1 and 2.
+The bulk-tab native fixture was visually inspected. Formatting and whitespace
+checks passed.
+
+Raw records: [Release](benchmarks/application-profile/fixed-release/Run1.json),
+[Debug](benchmarks/application-profile/fixed-debug/Run1.json),
+[close-only](benchmarks/application-profile/fixed-close/Runs.json),
+[aggregates](benchmarks/application-profile/Summary.json) and
+[remediation environment](benchmarks/application-profile/RemediationEnvironment.json).
+Scheduler-only and pattern comparisons are documented in
+[processing core](processing-core.md#lineflow-dispatch-work) and
+[processing nodes](processing-nodes.md). The integrated processing matrix is
+retained under `benchmarks/processing-profile/fixed/`: all 41 cases completed
+five measured repetitions plus warmup with active output/error checks. The
+combined bytewise partial pattern took about 16.1 ms for 64 KiB, consistent
+with the isolated prefilter result.
+
+### Remaining measured limits
+
+- A distinct cold drag probe against 1000 definitions still validates the entire
+  draft: median 1129 ms. Identical probes reuse their bounded result; 1000 warm
+  probes took 0.4925 ms total. Search median was 2.92 ms with zero tree resets.
+  A further Core validation-snapshot contract is needed to narrow cold validation
+  safely; publishing only the modified block would discard owner graph context.
+  See [catalog evidence](lineflow-editor.md#synthetic-large-catalog-timing).
+- The regex prefilter accelerates only a conservative recognized subset. General
+  PCRE2 expressions retain bounded buffers/internal limits and may rescan partial
+  subjects. The 64 KiB bytewise `(a+)z` partial fixture improved from about
+  995 ms to 16 ms; this does not establish linear behavior for arbitrary regexes.
+- Small-packet Lineflow pump gains are modest. Asynchronous root dispatch remains
+  substantially slower than direct calls; packet, fairness and reentry semantics
+  were preserved. Queue-pressure, delimiter allocation and HEX span-construction
+  ideas remain investigation candidates, not established application regressions.
+- System CPU sampling remains unavailable under the existing WPR policy.
+  Allocator stacks, long-duration memory stability, live multiport pressure and
+  real multi-monitor DPI transitions were not established by these bounded runs.

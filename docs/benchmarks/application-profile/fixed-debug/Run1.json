@@ -1,0 +1,1842 @@
+{
+  "measurements": [
+    {
+      "ok": true,
+      "stage": "app.construct",
+      "wallMs": 665.2311,
+      "error": ""
+    },
+    {
+      "ok": true,
+      "stage": "app.start.to.eventloop",
+      "wallMs": 1698.4864,
+      "error": ""
+    },
+    {
+      "cpuMs": 1234.375,
+      "error": "",
+      "ok": true,
+      "privateMiB": 46.36328125,
+      "stage": "workspace.open.restore",
+      "wallMs": 1278.0586
+    },
+    {
+      "ok": true,
+      "stage": "fixture",
+      "terminalCount": 6,
+      "error": ""
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.0859375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 151.5021
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.9140625,
+      "stage": "window.resize.session.empty",
+      "wallMs": 53.5247
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.0859375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 50.6541
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.04296875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 51.9435
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.21484375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 51.2375
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.04296875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 51.7691
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.21484375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 50.6851
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.04296875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 51.938
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.21484375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 50.5262
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.04296875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 52.1203
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.21484375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 50.2557
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.04296875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 51.2156
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.21484375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 51.1855
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.04296875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 51.8095
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.21484375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 50.172
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.04296875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 51.0435
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.21484375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 50.8129
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.04296875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 52.7674
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.21484375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 52.3938
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.04296875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 56.9984
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.7109375,
+      "stage": "lineflow.editor.open",
+      "wallMs": 144.0027
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.71875,
+      "stage": "lineflow.editor.close",
+      "wallMs": 36.4514
+    },
+    {
+      "cpuMs": 156.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.9140625,
+      "stage": "lineflow.editor.open",
+      "wallMs": 150.4277
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.71875,
+      "stage": "lineflow.editor.close",
+      "wallMs": 35.0738
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 52.17578125,
+      "stage": "lineflow.editor.open",
+      "wallMs": 147.4228
+    },
+    {
+      "cpuMs": 78.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.3125,
+      "stage": "lineflow.editor.close",
+      "wallMs": 77.7058
+    },
+    {
+      "cpuMs": 78.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.3125,
+      "stage": "app.idle.3s",
+      "wallMs": 2994.0767
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.3125,
+      "stage": "session.sync.clean",
+      "wallMs": 4.1482
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.3125,
+      "stage": "session.save.clean",
+      "wallMs": 6.1494
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.3125,
+      "stage": "workspace.sync.clean",
+      "wallMs": 40.146
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 50.0234375,
+      "stage": "session.save.dirty",
+      "wallMs": 27.3167
+    },
+    {
+      "cpuMs": 187.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 52.36328125,
+      "stage": "terminal.add.serial",
+      "wallMs": 187.1807
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 52.36328125,
+      "stage": "terminal.close.serial",
+      "wallMs": 20.5135
+    },
+    {
+      "cpuMs": 171.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 42.14453125,
+      "stage": "session.close",
+      "wallMs": 220.7719
+    },
+    {
+      "cpuMs": 1296.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 52.03125,
+      "stage": "session.open",
+      "wallMs": 1313.1273
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 52.36328125,
+      "stage": "session.sync.clean",
+      "wallMs": 4.1234
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 52.36328125,
+      "stage": "session.save.clean",
+      "wallMs": 5.7893
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 52.4296875,
+      "stage": "workspace.sync.clean",
+      "wallMs": 40.5487
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 52.83984375,
+      "stage": "session.save.dirty",
+      "wallMs": 31.3584
+    },
+    {
+      "cpuMs": 171.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.86328125,
+      "stage": "terminal.add.serial",
+      "wallMs": 197.6543
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.86328125,
+      "stage": "terminal.close.serial",
+      "wallMs": 24.2887
+    },
+    {
+      "cpuMs": 203.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.671875,
+      "stage": "session.close",
+      "wallMs": 222.7343
+    },
+    {
+      "cpuMs": 1468.75,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.8203125,
+      "stage": "session.open",
+      "wallMs": 1471.2418
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.90625,
+      "stage": "session.sync.clean",
+      "wallMs": 4.1878
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.90625,
+      "stage": "session.save.clean",
+      "wallMs": 5.9459
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.90625,
+      "stage": "workspace.sync.clean",
+      "wallMs": 40.1241
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 57.171875,
+      "stage": "session.save.dirty",
+      "wallMs": 26.3802
+    },
+    {
+      "cpuMs": 203.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.99609375,
+      "stage": "terminal.add.serial",
+      "wallMs": 219.1545
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.99609375,
+      "stage": "terminal.close.serial",
+      "wallMs": 27.0521
+    },
+    {
+      "cpuMs": 203.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.33203125,
+      "stage": "session.close",
+      "wallMs": 288.7935
+    },
+    {
+      "cpuMs": 1640.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.20703125,
+      "stage": "session.open",
+      "wallMs": 1640.7757
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.546875,
+      "stage": "session.sync.clean",
+      "wallMs": 4.3071
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.546875,
+      "stage": "session.save.clean",
+      "wallMs": 6.1888
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.546875,
+      "stage": "workspace.sync.clean",
+      "wallMs": 40.3679
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.8125,
+      "stage": "session.save.dirty",
+      "wallMs": 26.9808
+    },
+    {
+      "cpuMs": 203.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.61328125,
+      "stage": "terminal.add.serial",
+      "wallMs": 229.0282
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.61328125,
+      "stage": "terminal.close.serial",
+      "wallMs": 28.9452
+    },
+    {
+      "cpuMs": 218.75,
+      "error": "",
+      "ok": true,
+      "privateMiB": 52.87109375,
+      "stage": "session.close",
+      "wallMs": 263.0087
+    },
+    {
+      "cpuMs": 1781.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.61328125,
+      "stage": "session.open",
+      "wallMs": 1804.5482
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.62109375,
+      "stage": "session.sync.clean",
+      "wallMs": 4.7776
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.62109375,
+      "stage": "session.save.clean",
+      "wallMs": 6.2727
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.62109375,
+      "stage": "workspace.sync.clean",
+      "wallMs": 40.2733
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.7578125,
+      "stage": "session.save.dirty",
+      "wallMs": 25.4848
+    },
+    {
+      "cpuMs": 218.75,
+      "error": "",
+      "ok": true,
+      "privateMiB": 65.58984375,
+      "stage": "terminal.add.serial",
+      "wallMs": 218.647
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 65.58984375,
+      "stage": "terminal.close.serial",
+      "wallMs": 28.7989
+    },
+    {
+      "cpuMs": 234.375,
+      "error": "",
+      "ok": true,
+      "privateMiB": 54.71875,
+      "stage": "session.close",
+      "wallMs": 282.3744
+    },
+    {
+      "cpuMs": 2343.75,
+      "error": "",
+      "ok": true,
+      "privateMiB": 65.55859375,
+      "stage": "session.open",
+      "wallMs": 2337.7331
+    },
+    {
+      "columns": 120,
+      "dpr": 1,
+      "font": "Courier New",
+      "mAdvance": 10,
+      "ok": true,
+      "pointSize": 12,
+      "rows": 31,
+      "spaceAdvance": 10,
+      "stage": "display.fixture",
+      "xAdvance": 10,
+      "error": ""
+    },
+    {
+      "cpuMs": 406.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "font.metrics.advance.10000",
+      "wallMs": 402.1544
+    },
+    {
+      "cpuMs": 437.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "font.metrics.advance.10000",
+      "wallMs": 427.1258
+    },
+    {
+      "cpuMs": 437.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "font.metrics.advance.10000",
+      "wallMs": 436.9553
+    },
+    {
+      "cpuMs": 406.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "font.metrics.advance.10000",
+      "wallMs": 399.246
+    },
+    {
+      "cpuMs": 406.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "font.metrics.advance.10000",
+      "wallMs": 404.0057
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 3.28
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 12.1491
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 3.1486
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 3.1448
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 11.9265
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 3.1974
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 3.1929
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 11.8786
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 3.172
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 4.9842
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 12.7976
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 4.3497
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 4.2824
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 15.0637
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 3.3317
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 4.0091
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 12.4594
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 3.1879
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 3.1623
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 11.9351
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 3.1964
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 3.2203
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 11.9221
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 3.1771
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 3.1482
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 11.925
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 3.2274
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content0",
+      "wallMs": 3.1748
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content0",
+      "wallMs": 11.9338
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content0",
+      "wallMs": 3.143
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 3.1562
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 11.9144
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.197
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 3.1809
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 11.9898
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.3764
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 3.1358
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 11.9
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.1625
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 4.3997
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 11.9291
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.1454
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 3.2432
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 11.8724
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.1572
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 3.1478
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 11.9615
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.1501
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 3.1887
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 12.2281
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.135
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 3.1408
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 12.2812
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.1968
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 3.171
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 11.8659
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.1505
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content1",
+      "wallMs": 3.1534
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content1",
+      "wallMs": 11.9696
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content1",
+      "wallMs": 3.195
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 41.0492
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 49.7777
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 41.0725
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 41.2335
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 49.829
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 41.0458
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 43.7619
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 51.3233
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 41.0331
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 41.1377
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 49.9485
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 41.1263
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 41.0137
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 50.3272
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 40.9922
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 40.9838
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 50.1099
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 41.2382
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 41.1646
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 49.9072
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 41.1153
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 40.9779
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 50.568
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 41.1487
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 41.1569
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 50.0221
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 44.1063
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.warm.repaint.content2",
+      "wallMs": 41.0354
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.changedAppearance.repaint.content2",
+      "wallMs": 50.5107
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.328125,
+      "stage": "display.unchangedAppearance.repaint.content2",
+      "wallMs": 40.9808
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change0",
+      "wallMs": 0.0013
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change0",
+      "wallMs": 0.0007
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change0",
+      "wallMs": 0.0005
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change0",
+      "wallMs": 0.0006
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change0",
+      "wallMs": 0.0005
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change1",
+      "wallMs": 0.0183
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change1",
+      "wallMs": 0.0084
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change1",
+      "wallMs": 0.0077
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change1",
+      "wallMs": 0.0135
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change1",
+      "wallMs": 0.0076
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change2",
+      "wallMs": 0.1255
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change2",
+      "wallMs": 0.1151
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change2",
+      "wallMs": 0.1154
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change2",
+      "wallMs": 0.1167
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 68.77734375,
+      "stage": "grid.warmresize.history0.change2",
+      "wallMs": 0.1136
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 69.04296875,
+      "stage": "grid.warmresize.history0.change3",
+      "wallMs": 0.3549
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 69.14453125,
+      "stage": "grid.warmresize.history0.change3",
+      "wallMs": 0.1242
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 69.14453125,
+      "stage": "grid.warmresize.history0.change3",
+      "wallMs": 0.1246
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 69.14453125,
+      "stage": "grid.warmresize.history0.change3",
+      "wallMs": 0.1241
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 69.14453125,
+      "stage": "grid.warmresize.history0.change3",
+      "wallMs": 0.1245
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.54296875,
+      "stage": "grid.warmresize.history1000.change0",
+      "wallMs": 0.0006
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.54296875,
+      "stage": "grid.warmresize.history1000.change0",
+      "wallMs": 0.0006
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.54296875,
+      "stage": "grid.warmresize.history1000.change0",
+      "wallMs": 0.0005
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.54296875,
+      "stage": "grid.warmresize.history1000.change0",
+      "wallMs": 0.0006
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.54296875,
+      "stage": "grid.warmresize.history1000.change0",
+      "wallMs": 0.0005
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change1",
+      "wallMs": 0.0425
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change1",
+      "wallMs": 0.009
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change1",
+      "wallMs": 0.0127
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change1",
+      "wallMs": 0.008
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change1",
+      "wallMs": 0.0099
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change2",
+      "wallMs": 4.1558
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change2",
+      "wallMs": 4.0984
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change2",
+      "wallMs": 3.9766
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change2",
+      "wallMs": 3.9738
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change2",
+      "wallMs": 3.9609
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change3",
+      "wallMs": 12.6692
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change3",
+      "wallMs": 4.2468
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change3",
+      "wallMs": 4.2339
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change3",
+      "wallMs": 4.2893
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 85.8046875,
+      "stage": "grid.warmresize.history1000.change3",
+      "wallMs": 4.2409
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.84765625,
+      "stage": "grid.warmresize.history10000.change0",
+      "wallMs": 0.0012
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change0",
+      "wallMs": 0.0006
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change0",
+      "wallMs": 0.0004
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change0",
+      "wallMs": 0.0006
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change0",
+      "wallMs": 0.0006
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change1",
+      "wallMs": 0.0145
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change1",
+      "wallMs": 0.0075
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change1",
+      "wallMs": 0.0076
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change1",
+      "wallMs": 0.0075
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change1",
+      "wallMs": 0.0075
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change2",
+      "wallMs": 41.3768
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change2",
+      "wallMs": 41.3264
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change2",
+      "wallMs": 50.3855
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change2",
+      "wallMs": 41.3778
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 233.85546875,
+      "stage": "grid.warmresize.history10000.change2",
+      "wallMs": 41.3203
+    },
+    {
+      "cpuMs": 125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 234.37890625,
+      "stage": "grid.warmresize.history10000.change3",
+      "wallMs": 127.1687
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 234.37890625,
+      "stage": "grid.warmresize.history10000.change3",
+      "wallMs": 43.5635
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 234.37890625,
+      "stage": "grid.warmresize.history10000.change3",
+      "wallMs": 43.9763
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 234.37890625,
+      "stage": "grid.warmresize.history10000.change3",
+      "wallMs": 43.6327
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 234.37890625,
+      "stage": "grid.warmresize.history10000.change3",
+      "wallMs": 43.7994
+    },
+    {
+      "cpuMs": 203.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.296875,
+      "stage": "workspace.close",
+      "wallMs": 205.2162
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.46484375,
+      "stage": "window.close",
+      "wallMs": 32.8813
+    },
+    {
+      "ok": true,
+      "stage": "app.destruct",
+      "wallMs": 25.056,
+      "error": ""
+    }
+  ],
+  "platform": "Windows MSVC Qt6 Debug"
+}

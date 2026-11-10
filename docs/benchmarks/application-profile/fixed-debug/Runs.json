@@ -1,0 +1,26 @@
+{
+  "runs": [
+    {
+      "run": 1,
+      "exitCode": 0,
+      "timedOut": false,
+      "processWallSeconds": 28.751578800030984
+    },
+    {
+      "run": 2,
+      "exitCode": 0,
+      "timedOut": false,
+      "processWallSeconds": 25.854367100051604
+    }
+  ],
+  "sourceUnchanged": true,
+  "sourceFileCount": 3,
+  "serialOptIn": false,
+  "modes": {
+    "TERMASTER_PROFILE_ONE_CYCLE": null,
+    "TERMASTER_PROFILE_RESIZE_QUICK": "1",
+    "TERMASTER_PROFILE_SKIP_TERMINAL": null,
+    "TERMASTER_PROFILE_CLOSE_ONLY": null
+  },
+  "exeSha256": "b3f1d4d4334525a66a5f84944b140a26dfeed24354263dfc051f1ee83f327be8"
+}

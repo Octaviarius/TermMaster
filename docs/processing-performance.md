@@ -1,7 +1,8 @@
 # Processing performance profile
 
 This profile measures synthetic native processor calls and serialized Lineflow delivery.
-No production behavior is changed. See [processing core](processing-core.md) and
+The original profile changed no production behavior; subsequent remediation is
+recorded in the application report. See [processing core](processing-core.md) and
 [processing nodes](processing-nodes.md) for the runtime contracts.
 
 ## Reproduction and scope
@@ -123,4 +124,6 @@ workload comparisons identify priorities, not interchangeable implementations.
    not established bottlenecks in the serialized bypass matrix. Add bounded dense
    fan-out and blocked-port workloads before choosing another queue representation.
 
-No production optimization is implemented by this profiling work.
+The original profiling milestone implemented no production optimization.
+Subsequent Pattern Framer and Lineflow changes, verification and remaining limits
+are recorded in [application performance](application-performance.md#integrated-remediation-results).

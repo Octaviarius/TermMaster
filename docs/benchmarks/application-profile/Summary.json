@@ -1,4 +1,690 @@
 {
+  "after-renderer": {
+    "stages": {
+      "app.construct": {
+        "n": 1,
+        "medianMs": 85.3773,
+        "p95Ms": 85.3773,
+        "minMs": 85.3773,
+        "maxMs": 85.3773
+      },
+      "app.destruct": {
+        "n": 1,
+        "medianMs": 10.096,
+        "p95Ms": 10.096,
+        "minMs": 10.096,
+        "maxMs": 10.096
+      },
+      "app.idle.3s": {
+        "n": 1,
+        "medianMs": 3005.9078,
+        "p95Ms": 3005.9078,
+        "minMs": 3005.9078,
+        "maxMs": 3005.9078,
+        "medianCpuMs": 15.625
+      },
+      "app.start.to.eventloop": {
+        "n": 1,
+        "medianMs": 463.047,
+        "p95Ms": 463.047,
+        "minMs": 463.047,
+        "maxMs": 463.047
+      },
+      "display.changedAppearance.repaint.content0": {
+        "n": 10,
+        "medianMs": 1.939,
+        "p95Ms": 2.11932,
+        "minMs": 1.8556,
+        "maxMs": 2.1348,
+        "medianCpuMs": 0.0
+      },
+      "display.changedAppearance.repaint.content1": {
+        "n": 10,
+        "medianMs": 2.03595,
+        "p95Ms": 2.734309999999999,
+        "minMs": 1.9436,
+        "maxMs": 3.1385,
+        "medianCpuMs": 0.0
+      },
+      "display.changedAppearance.repaint.content2": {
+        "n": 10,
+        "medianMs": 3.7543499999999996,
+        "p95Ms": 3.9175849999999994,
+        "minMs": 3.6876,
+        "maxMs": 4.0169,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content0": {
+        "n": 10,
+        "medianMs": 0.62305,
+        "p95Ms": 0.8971999999999999,
+        "minMs": 0.5904,
+        "maxMs": 0.9368,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content1": {
+        "n": 10,
+        "medianMs": 0.6039,
+        "p95Ms": 0.9249499999999997,
+        "minMs": 0.5806,
+        "maxMs": 1.064,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content2": {
+        "n": 10,
+        "medianMs": 2.4103000000000003,
+        "p95Ms": 2.7574,
+        "minMs": 2.3366,
+        "maxMs": 2.8717,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content0": {
+        "n": 10,
+        "medianMs": 0.71075,
+        "p95Ms": 2.673029999999998,
+        "minMs": 0.5852,
+        "maxMs": 3.4851,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content1": {
+        "n": 10,
+        "medianMs": 0.62965,
+        "p95Ms": 1.516379999999999,
+        "minMs": 0.5893,
+        "maxMs": 2.0706,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content2": {
+        "n": 10,
+        "medianMs": 2.46375,
+        "p95Ms": 2.646885,
+        "minMs": 2.3484,
+        "maxMs": 2.676,
+        "medianCpuMs": 0.0
+      },
+      "font.metrics.advance.10000": {
+        "n": 5,
+        "medianMs": 15.3435,
+        "p95Ms": 15.48334,
+        "minMs": 15.3213,
+        "maxMs": 15.4841,
+        "medianCpuMs": 15.625
+      },
+      "grid.warmresize.history0.change0": {
+        "n": 5,
+        "medianMs": 0.0001,
+        "p95Ms": 0.0002,
+        "minMs": 0.0001,
+        "maxMs": 0.0002,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history0.change1": {
+        "n": 5,
+        "medianMs": 0.0014,
+        "p95Ms": 0.008139999999999998,
+        "minMs": 0.0011,
+        "maxMs": 0.0087,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history0.change2": {
+        "n": 5,
+        "medianMs": 0.0079,
+        "p95Ms": 0.020059999999999998,
+        "minMs": 0.0061,
+        "maxMs": 0.0228,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history0.change3": {
+        "n": 5,
+        "medianMs": 0.0071,
+        "p95Ms": 0.045459999999999993,
+        "minMs": 0.0064,
+        "maxMs": 0.0547,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history1000.change0": {
+        "n": 5,
+        "medianMs": 0.0001,
+        "p95Ms": 0.0001,
+        "minMs": 0,
+        "maxMs": 0.0001,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history1000.change1": {
+        "n": 5,
+        "medianMs": 0.0074,
+        "p95Ms": 0.03516,
+        "minMs": 0.0014,
+        "maxMs": 0.0419,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history1000.change2": {
+        "n": 5,
+        "medianMs": 0.7163,
+        "p95Ms": 0.79606,
+        "minMs": 0.6375,
+        "maxMs": 0.8096,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history1000.change3": {
+        "n": 5,
+        "medianMs": 0.8663,
+        "p95Ms": 3.895179999999999,
+        "minMs": 0.7781,
+        "maxMs": 4.6461,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history10000.change0": {
+        "n": 5,
+        "medianMs": 0.0001,
+        "p95Ms": 0.00017999999999999998,
+        "minMs": 0.0001,
+        "maxMs": 0.0002,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history10000.change1": {
+        "n": 5,
+        "medianMs": 0.0019,
+        "p95Ms": 0.00656,
+        "minMs": 0.0011,
+        "maxMs": 0.0067,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history10000.change2": {
+        "n": 5,
+        "medianMs": 7.0855,
+        "p95Ms": 9.69524,
+        "minMs": 7.0111,
+        "maxMs": 9.8141,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history10000.change3": {
+        "n": 5,
+        "medianMs": 7.931,
+        "p95Ms": 19.438699999999997,
+        "minMs": 7.7459,
+        "maxMs": 22.3145,
+        "medianCpuMs": 0
+      },
+      "lineflow.editor.close": {
+        "n": 3,
+        "medianMs": 8.3377,
+        "p95Ms": 10.85779,
+        "minMs": 7.5594,
+        "maxMs": 11.1378,
+        "medianCpuMs": 15.625
+      },
+      "lineflow.editor.open": {
+        "n": 3,
+        "medianMs": 23.3522,
+        "p95Ms": 23.724259999999997,
+        "minMs": 23.0014,
+        "maxMs": 23.7656,
+        "medianCpuMs": 15.625
+      },
+      "session.close": {
+        "n": 1,
+        "medianMs": 81.4898,
+        "p95Ms": 81.4898,
+        "minMs": 81.4898,
+        "maxMs": 81.4898,
+        "medianCpuMs": 46.875
+      },
+      "session.open": {
+        "n": 1,
+        "medianMs": 223.2199,
+        "p95Ms": 223.2199,
+        "minMs": 223.2199,
+        "maxMs": 223.2199,
+        "medianCpuMs": 187.5
+      },
+      "session.save.clean": {
+        "n": 1,
+        "medianMs": 13.8164,
+        "p95Ms": 13.8164,
+        "minMs": 13.8164,
+        "maxMs": 13.8164,
+        "medianCpuMs": 0
+      },
+      "session.save.dirty": {
+        "n": 1,
+        "medianMs": 38.33,
+        "p95Ms": 38.33,
+        "minMs": 38.33,
+        "maxMs": 38.33,
+        "medianCpuMs": 15.625
+      },
+      "session.sync.clean": {
+        "n": 1,
+        "medianMs": 0.398,
+        "p95Ms": 0.398,
+        "minMs": 0.398,
+        "maxMs": 0.398,
+        "medianCpuMs": 0
+      },
+      "terminal.add.serial": {
+        "n": 1,
+        "medianMs": 33.5406,
+        "p95Ms": 33.5406,
+        "minMs": 33.5406,
+        "maxMs": 33.5406,
+        "medianCpuMs": 15.625
+      },
+      "terminal.close.serial": {
+        "n": 1,
+        "medianMs": 3.0948,
+        "p95Ms": 3.0948,
+        "minMs": 3.0948,
+        "maxMs": 3.0948,
+        "medianCpuMs": 0
+      },
+      "window.close": {
+        "n": 1,
+        "medianMs": 29.9413,
+        "p95Ms": 29.9413,
+        "minMs": 29.9413,
+        "maxMs": 29.9413,
+        "medianCpuMs": 0
+      },
+      "window.resize.session.empty": {
+        "n": 20,
+        "medianMs": 10.394449999999999,
+        "p95Ms": 14.063325000000004,
+        "minMs": 8.1408,
+        "maxMs": 20.0697,
+        "medianCpuMs": 0.0
+      },
+      "workspace.close": {
+        "n": 1,
+        "medianMs": 62.7742,
+        "p95Ms": 62.7742,
+        "minMs": 62.7742,
+        "maxMs": 62.7742,
+        "medianCpuMs": 46.875
+      },
+      "workspace.open.restore": {
+        "n": 1,
+        "medianMs": 227.1845,
+        "p95Ms": 227.1845,
+        "minMs": 227.1845,
+        "maxMs": 227.1845,
+        "medianCpuMs": 171.875
+      },
+      "workspace.sync.clean": {
+        "n": 1,
+        "medianMs": 57.9302,
+        "p95Ms": 57.9302,
+        "minMs": 57.9302,
+        "maxMs": 57.9302,
+        "medianCpuMs": 15.625
+      }
+    },
+    "failures": []
+  },
+  "after-settings": {
+    "stages": {
+      "app.construct": {
+        "n": 1,
+        "medianMs": 93.5123,
+        "p95Ms": 93.5123,
+        "minMs": 93.5123,
+        "maxMs": 93.5123
+      },
+      "app.destruct": {
+        "n": 1,
+        "medianMs": 11.511,
+        "p95Ms": 11.511,
+        "minMs": 11.511,
+        "maxMs": 11.511
+      },
+      "app.idle.3s": {
+        "n": 1,
+        "medianMs": 2993.7426,
+        "p95Ms": 2993.7426,
+        "minMs": 2993.7426,
+        "maxMs": 2993.7426,
+        "medianCpuMs": 0
+      },
+      "app.start.to.eventloop": {
+        "n": 1,
+        "medianMs": 365.7387,
+        "p95Ms": 365.7387,
+        "minMs": 365.7387,
+        "maxMs": 365.7387
+      },
+      "display.changedAppearance.repaint.content0": {
+        "n": 10,
+        "medianMs": 1.97355,
+        "p95Ms": 2.34935,
+        "minMs": 1.8603,
+        "maxMs": 2.3984,
+        "medianCpuMs": 0.0
+      },
+      "display.changedAppearance.repaint.content1": {
+        "n": 10,
+        "medianMs": 2.12955,
+        "p95Ms": 2.5439699999999994,
+        "minMs": 1.9832,
+        "maxMs": 2.7894,
+        "medianCpuMs": 0.0
+      },
+      "display.changedAppearance.repaint.content2": {
+        "n": 10,
+        "medianMs": 3.7382999999999997,
+        "p95Ms": 4.049144999999999,
+        "minMs": 3.6943,
+        "maxMs": 4.1913,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content0": {
+        "n": 10,
+        "medianMs": 0.68715,
+        "p95Ms": 1.0636549999999996,
+        "minMs": 0.5985,
+        "maxMs": 1.2266,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content1": {
+        "n": 10,
+        "medianMs": 0.6628499999999999,
+        "p95Ms": 0.9589599999999997,
+        "minMs": 0.5953,
+        "maxMs": 1.0756,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content2": {
+        "n": 10,
+        "medianMs": 2.3984,
+        "p95Ms": 4.027049999999997,
+        "minMs": 2.3468,
+        "maxMs": 5.1255,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content0": {
+        "n": 10,
+        "medianMs": 0.6125499999999999,
+        "p95Ms": 2.114499999999998,
+        "minMs": 0.5971,
+        "maxMs": 3.1981,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content1": {
+        "n": 10,
+        "medianMs": 0.88565,
+        "p95Ms": 2.202085,
+        "minMs": 0.5979,
+        "maxMs": 2.2897,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content2": {
+        "n": 10,
+        "medianMs": 2.42675,
+        "p95Ms": 2.890585,
+        "minMs": 2.3416,
+        "maxMs": 2.9224,
+        "medianCpuMs": 0.0
+      },
+      "font.metrics.advance.10000": {
+        "n": 5,
+        "medianMs": 15.5813,
+        "p95Ms": 15.68702,
+        "minMs": 15.5009,
+        "maxMs": 15.7037,
+        "medianCpuMs": 15.625
+      },
+      "grid.warmresize.history0.change0": {
+        "n": 5,
+        "medianMs": 0.0001,
+        "p95Ms": 0.0002,
+        "minMs": 0,
+        "maxMs": 0.0002,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history0.change1": {
+        "n": 5,
+        "medianMs": 0.0011,
+        "p95Ms": 0.00654,
+        "minMs": 0.001,
+        "maxMs": 0.0079,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history0.change2": {
+        "n": 5,
+        "medianMs": 0.0077,
+        "p95Ms": 0.02246,
+        "minMs": 0.0061,
+        "maxMs": 0.0261,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history0.change3": {
+        "n": 5,
+        "medianMs": 0.0094,
+        "p95Ms": 0.08251999999999998,
+        "minMs": 0.0072,
+        "maxMs": 0.1007,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history1000.change0": {
+        "n": 5,
+        "medianMs": 0.0001,
+        "p95Ms": 0.00017999999999999998,
+        "minMs": 0.0001,
+        "maxMs": 0.0002,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history1000.change1": {
+        "n": 5,
+        "medianMs": 0.0015,
+        "p95Ms": 0.02214,
+        "minMs": 0.0013,
+        "maxMs": 0.025,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history1000.change2": {
+        "n": 5,
+        "medianMs": 0.8074,
+        "p95Ms": 0.87904,
+        "minMs": 0.4368,
+        "maxMs": 0.8879,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history1000.change3": {
+        "n": 5,
+        "medianMs": 0.8274,
+        "p95Ms": 1.7048799999999997,
+        "minMs": 0.5274,
+        "maxMs": 1.92,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history10000.change0": {
+        "n": 5,
+        "medianMs": 0.0001,
+        "p95Ms": 0.00038,
+        "minMs": 0.0001,
+        "maxMs": 0.0004,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history10000.change1": {
+        "n": 5,
+        "medianMs": 0.0012,
+        "p95Ms": 0.006979999999999998,
+        "minMs": 0.001,
+        "maxMs": 0.0084,
+        "medianCpuMs": 0
+      },
+      "grid.warmresize.history10000.change2": {
+        "n": 5,
+        "medianMs": 8.1772,
+        "p95Ms": 9.05538,
+        "minMs": 7.7211,
+        "maxMs": 9.258,
+        "medianCpuMs": 15.625
+      },
+      "grid.warmresize.history10000.change3": {
+        "n": 5,
+        "medianMs": 8.7316,
+        "p95Ms": 20.679679999999998,
+        "minMs": 8.3649,
+        "maxMs": 23.4476,
+        "medianCpuMs": 15.625
+      },
+      "lineflow.editor.close": {
+        "n": 3,
+        "medianMs": 8.6431,
+        "p95Ms": 8.941089999999999,
+        "minMs": 8.0109,
+        "maxMs": 8.9742,
+        "medianCpuMs": 0
+      },
+      "lineflow.editor.open": {
+        "n": 3,
+        "medianMs": 22.1374,
+        "p95Ms": 23.09347,
+        "minMs": 21.9612,
+        "maxMs": 23.1997,
+        "medianCpuMs": 31.25
+      },
+      "session.close": {
+        "n": 1,
+        "medianMs": 69.0925,
+        "p95Ms": 69.0925,
+        "minMs": 69.0925,
+        "maxMs": 69.0925,
+        "medianCpuMs": 31.25
+      },
+      "session.open": {
+        "n": 1,
+        "medianMs": 174.6202,
+        "p95Ms": 174.6202,
+        "minMs": 174.6202,
+        "maxMs": 174.6202,
+        "medianCpuMs": 125
+      },
+      "session.save.clean": {
+        "n": 1,
+        "medianMs": 4.3111,
+        "p95Ms": 4.3111,
+        "minMs": 4.3111,
+        "maxMs": 4.3111,
+        "medianCpuMs": 0
+      },
+      "session.save.dirty": {
+        "n": 1,
+        "medianMs": 24.7872,
+        "p95Ms": 24.7872,
+        "minMs": 24.7872,
+        "maxMs": 24.7872,
+        "medianCpuMs": 0
+      },
+      "session.sync.clean": {
+        "n": 1,
+        "medianMs": 0.4342,
+        "p95Ms": 0.4342,
+        "minMs": 0.4342,
+        "maxMs": 0.4342,
+        "medianCpuMs": 0
+      },
+      "terminal.add.serial": {
+        "n": 1,
+        "medianMs": 30.8773,
+        "p95Ms": 30.8773,
+        "minMs": 30.8773,
+        "maxMs": 30.8773,
+        "medianCpuMs": 15.625
+      },
+      "terminal.close.serial": {
+        "n": 1,
+        "medianMs": 2.9808,
+        "p95Ms": 2.9808,
+        "minMs": 2.9808,
+        "maxMs": 2.9808,
+        "medianCpuMs": 0
+      },
+      "window.close": {
+        "n": 1,
+        "medianMs": 33.1142,
+        "p95Ms": 33.1142,
+        "minMs": 33.1142,
+        "maxMs": 33.1142,
+        "medianCpuMs": 0
+      },
+      "window.resize.session.empty": {
+        "n": 20,
+        "medianMs": 10.616050000000001,
+        "p95Ms": 13.806290000000002,
+        "minMs": 8.1484,
+        "maxMs": 15.4458,
+        "medianCpuMs": 0.0
+      },
+      "workspace.close": {
+        "n": 1,
+        "medianMs": 68.1489,
+        "p95Ms": 68.1489,
+        "minMs": 68.1489,
+        "maxMs": 68.1489,
+        "medianCpuMs": 15.625
+      },
+      "workspace.open.restore": {
+        "n": 1,
+        "medianMs": 191.7193,
+        "p95Ms": 191.7193,
+        "minMs": 191.7193,
+        "maxMs": 191.7193,
+        "medianCpuMs": 140.625
+      },
+      "workspace.sync.clean": {
+        "n": 1,
+        "medianMs": 27.3805,
+        "p95Ms": 27.3805,
+        "minMs": 27.3805,
+        "maxMs": 27.3805,
+        "medianCpuMs": 15.625
+      }
+    },
+    "failures": []
+  },
+  "after-shutdown": {
+    "stages": {
+      "app.construct": {
+        "n": 3,
+        "medianMs": 89.1876,
+        "p95Ms": 173.51589,
+        "minMs": 88.4011,
+        "maxMs": 182.8857
+      },
+      "app.destruct": {
+        "n": 3,
+        "medianMs": 24.3953,
+        "p95Ms": 25.48295,
+        "minMs": 23.7537,
+        "maxMs": 25.6038
+      },
+      "app.start.to.eventloop": {
+        "n": 3,
+        "medianMs": 355.0926,
+        "p95Ms": 539.73723,
+        "minMs": 343.5889,
+        "maxMs": 560.2533
+      },
+      "window.close.loaded": {
+        "n": 3,
+        "medianMs": 47.0878,
+        "p95Ms": 56.81788,
+        "minMs": 43.0728,
+        "maxMs": 57.899,
+        "medianCpuMs": 31.25
+      },
+      "workspace.open.restore": {
+        "n": 3,
+        "medianMs": 240.1441,
+        "p95Ms": 240.45037,
+        "minMs": 220.0889,
+        "maxMs": 240.4844,
+        "medianCpuMs": 171.875
+      }
+    },
+    "failures": []
+  },
   "baseline": {
     "stages": {
       "app.construct": {
@@ -1672,6 +2358,782 @@
         "minMs": 41.2165,
         "maxMs": 41.2165,
         "medianCpuMs": 15.625
+      }
+    },
+    "failures": []
+  },
+  "fixed-close": {
+    "stages": {
+      "app.construct": {
+        "n": 3,
+        "medianMs": 85.5608,
+        "p95Ms": 86.7533,
+        "minMs": 85.0296,
+        "maxMs": 86.8858
+      },
+      "app.destruct": {
+        "n": 3,
+        "medianMs": 22.6986,
+        "p95Ms": 22.89129,
+        "minMs": 21.2716,
+        "maxMs": 22.9127
+      },
+      "app.start.to.eventloop": {
+        "n": 3,
+        "medianMs": 343.1189,
+        "p95Ms": 931.7449099999999,
+        "minMs": 338.6874,
+        "maxMs": 997.1478
+      },
+      "window.close.loaded": {
+        "n": 3,
+        "medianMs": 6.9378,
+        "p95Ms": 7.56051,
+        "minMs": 6.5486,
+        "maxMs": 7.6297,
+        "medianCpuMs": 15.625
+      },
+      "workspace.open.restore": {
+        "n": 3,
+        "medianMs": 167.3098,
+        "p95Ms": 176.06851,
+        "minMs": 154.9036,
+        "maxMs": 177.0417,
+        "medianCpuMs": 109.375
+      }
+    },
+    "failures": []
+  },
+  "fixed-debug": {
+    "stages": {
+      "app.construct": {
+        "n": 2,
+        "medianMs": 664.9119499999999,
+        "p95Ms": 665.1991849999999,
+        "minMs": 664.5928,
+        "maxMs": 665.2311
+      },
+      "app.destruct": {
+        "n": 2,
+        "medianMs": 24.7728,
+        "p95Ms": 25.02768,
+        "minMs": 24.4896,
+        "maxMs": 25.056
+      },
+      "app.idle.3s": {
+        "n": 2,
+        "medianMs": 2995.12565,
+        "p95Ms": 2996.069705,
+        "minMs": 2994.0767,
+        "maxMs": 2996.1746,
+        "medianCpuMs": 101.5625
+      },
+      "app.start.to.eventloop": {
+        "n": 2,
+        "medianMs": 1439.15885,
+        "p95Ms": 1672.553645,
+        "minMs": 1179.8313,
+        "maxMs": 1698.4864
+      },
+      "display.changedAppearance.repaint.content0": {
+        "n": 20,
+        "medianMs": 11.9892,
+        "p95Ms": 13.431505000000001,
+        "minMs": 11.8786,
+        "maxMs": 15.0637,
+        "medianCpuMs": 15.625
+      },
+      "display.changedAppearance.repaint.content1": {
+        "n": 20,
+        "medianMs": 12.07725,
+        "p95Ms": 16.320295,
+        "minMs": 11.8659,
+        "maxMs": 18.186,
+        "medianCpuMs": 15.625
+      },
+      "display.changedAppearance.repaint.content2": {
+        "n": 20,
+        "medianMs": 50.2232,
+        "p95Ms": 50.927625,
+        "minMs": 49.7777,
+        "maxMs": 51.3233,
+        "medianCpuMs": 46.875
+      },
+      "display.unchangedAppearance.repaint.content0": {
+        "n": 20,
+        "medianMs": 3.21075,
+        "p95Ms": 4.22221,
+        "minMs": 3.143,
+        "maxMs": 4.3497,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content1": {
+        "n": 20,
+        "medianMs": 3.1925999999999997,
+        "p95Ms": 4.093715,
+        "minMs": 3.135,
+        "maxMs": 4.8179,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content2": {
+        "n": 20,
+        "medianMs": 41.1208,
+        "p95Ms": 41.68779,
+        "minMs": 40.9808,
+        "maxMs": 44.1063,
+        "medianCpuMs": 46.875
+      },
+      "display.warm.repaint.content0": {
+        "n": 20,
+        "medianMs": 3.21715,
+        "p95Ms": 4.9862400000000004,
+        "minMs": 3.1448,
+        "maxMs": 5.025,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content1": {
+        "n": 20,
+        "medianMs": 3.18555,
+        "p95Ms": 4.421475000000001,
+        "minMs": 3.1358,
+        "maxMs": 4.8352,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content2": {
+        "n": 20,
+        "medianMs": 41.1516,
+        "p95Ms": 43.888799999999996,
+        "minMs": 40.9779,
+        "maxMs": 46.2999,
+        "medianCpuMs": 46.875
+      },
+      "font.metrics.advance.10000": {
+        "n": 10,
+        "medianMs": 400.24604999999997,
+        "p95Ms": 432.53202500000003,
+        "minMs": 397.3098,
+        "maxMs": 436.9553,
+        "medianCpuMs": 406.25
+      },
+      "grid.warmresize.history0.change0": {
+        "n": 10,
+        "medianMs": 0.0007,
+        "p95Ms": 0.0014649999999999997,
+        "minMs": 0.0005,
+        "maxMs": 0.0016,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history0.change1": {
+        "n": 10,
+        "medianMs": 0.0084,
+        "p95Ms": 0.016139999999999995,
+        "minMs": 0.0075,
+        "maxMs": 0.0183,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history0.change2": {
+        "n": 10,
+        "medianMs": 0.1161,
+        "p95Ms": 0.12541,
+        "minMs": 0.1136,
+        "maxMs": 0.1255,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history0.change3": {
+        "n": 10,
+        "medianMs": 0.12455,
+        "p95Ms": 0.34045499999999995,
+        "minMs": 0.1241,
+        "maxMs": 0.3549,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history1000.change0": {
+        "n": 10,
+        "medianMs": 0.0005,
+        "p95Ms": 0.0006,
+        "minMs": 0.0005,
+        "maxMs": 0.0006,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history1000.change1": {
+        "n": 10,
+        "medianMs": 0.00945,
+        "p95Ms": 0.042005,
+        "minMs": 0.0078,
+        "maxMs": 0.0425,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history1000.change2": {
+        "n": 10,
+        "medianMs": 3.9881,
+        "p95Ms": 4.184895,
+        "minMs": 3.9609,
+        "maxMs": 4.2087,
+        "medianCpuMs": 7.8125
+      },
+      "grid.warmresize.history1000.change3": {
+        "n": 10,
+        "medianMs": 4.267,
+        "p95Ms": 12.67789,
+        "minMs": 4.2339,
+        "maxMs": 12.685,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history10000.change0": {
+        "n": 10,
+        "medianMs": 0.0006,
+        "p95Ms": 0.0013099999999999997,
+        "minMs": 0.0004,
+        "maxMs": 0.0014,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history10000.change1": {
+        "n": 10,
+        "medianMs": 0.0081,
+        "p95Ms": 0.027864999999999977,
+        "minMs": 0.0075,
+        "maxMs": 0.0388,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history10000.change2": {
+        "n": 10,
+        "medianMs": 41.323350000000005,
+        "p95Ms": 46.33203499999999,
+        "minMs": 41.1761,
+        "maxMs": 50.3855,
+        "medianCpuMs": 46.875
+      },
+      "grid.warmresize.history10000.change3": {
+        "n": 10,
+        "medianMs": 43.798199999999994,
+        "p95Ms": 126.75942500000001,
+        "minMs": 43.413,
+        "maxMs": 127.1687,
+        "medianCpuMs": 46.875
+      },
+      "lineflow.editor.close": {
+        "n": 6,
+        "medianMs": 35.12865,
+        "p95Ms": 67.3922,
+        "minMs": 34.1553,
+        "maxMs": 77.7058,
+        "medianCpuMs": 31.25
+      },
+      "lineflow.editor.open": {
+        "n": 6,
+        "medianMs": 147.53455,
+        "p95Ms": 151.608425,
+        "minMs": 144.0027,
+        "maxMs": 152.002,
+        "medianCpuMs": 140.625
+      },
+      "session.close": {
+        "n": 10,
+        "medianMs": 254.62425000000002,
+        "p95Ms": 285.904905,
+        "minMs": 213.445,
+        "maxMs": 288.7935,
+        "medianCpuMs": 203.125
+      },
+      "session.open": {
+        "n": 10,
+        "medianMs": 1645.5675,
+        "p95Ms": 2177.9592049999997,
+        "minMs": 1307.9483,
+        "maxMs": 2337.7331,
+        "medianCpuMs": 1648.4375
+      },
+      "session.save.clean": {
+        "n": 10,
+        "medianMs": 6.138450000000001,
+        "p95Ms": 6.742624999999999,
+        "minMs": 5.7893,
+        "maxMs": 7.1195,
+        "medianCpuMs": 0.0
+      },
+      "session.save.dirty": {
+        "n": 10,
+        "medianMs": 29.33755,
+        "p95Ms": 73.77991999999993,
+        "minMs": 23.8318,
+        "maxMs": 98.963,
+        "medianCpuMs": 15.625
+      },
+      "session.sync.clean": {
+        "n": 10,
+        "medianMs": 4.2675,
+        "p95Ms": 5.656939999999999,
+        "minMs": 3.9392,
+        "maxMs": 6.3764,
+        "medianCpuMs": 0.0
+      },
+      "terminal.add.serial": {
+        "n": 10,
+        "medianMs": 213.07765,
+        "p95Ms": 229.75398,
+        "minMs": 187.1541,
+        "maxMs": 230.3478,
+        "medianCpuMs": 203.125
+      },
+      "terminal.close.serial": {
+        "n": 10,
+        "medianMs": 27.35595,
+        "p95Ms": 29.244729999999997,
+        "minMs": 20.5135,
+        "maxMs": 29.4898,
+        "medianCpuMs": 31.25
+      },
+      "window.close": {
+        "n": 2,
+        "medianMs": 37.95215,
+        "p95Ms": 42.51591500000001,
+        "minMs": 32.8813,
+        "maxMs": 43.023,
+        "medianCpuMs": 0.0
+      },
+      "window.resize.session.empty": {
+        "n": 40,
+        "medianMs": 51.94075,
+        "p95Ms": 95.20464499999997,
+        "minMs": 50.172,
+        "maxMs": 151.5021,
+        "medianCpuMs": 46.875
+      },
+      "workspace.close": {
+        "n": 2,
+        "medianMs": 205.51965,
+        "p95Ms": 205.792755,
+        "minMs": 205.2162,
+        "maxMs": 205.8231,
+        "medianCpuMs": 203.125
+      },
+      "workspace.open.restore": {
+        "n": 2,
+        "medianMs": 1289.9670500000002,
+        "p95Ms": 1300.684655,
+        "minMs": 1278.0586,
+        "maxMs": 1301.8755,
+        "medianCpuMs": 1250.0
+      },
+      "workspace.sync.clean": {
+        "n": 10,
+        "medianMs": 40.2712,
+        "p95Ms": 46.30120499999999,
+        "minMs": 40.0345,
+        "maxMs": 51.0078,
+        "medianCpuMs": 46.875
+      }
+    },
+    "failures": []
+  },
+  "fixed-debug-close": {
+    "stages": {
+      "app.construct": {
+        "n": 3,
+        "medianMs": 664.7306,
+        "p95Ms": 667.28291,
+        "minMs": 664.044,
+        "maxMs": 667.5665
+      },
+      "app.destruct": {
+        "n": 3,
+        "medianMs": 153.3819,
+        "p95Ms": 153.86718,
+        "minMs": 110.6979,
+        "maxMs": 153.9211
+      },
+      "app.start.to.eventloop": {
+        "n": 3,
+        "medianMs": 1212.3958,
+        "p95Ms": 1255.0602999999999,
+        "minMs": 1200.9568,
+        "maxMs": 1259.8008
+      },
+      "window.close.loaded": {
+        "n": 3,
+        "medianMs": 51.3887,
+        "p95Ms": 51.675259999999994,
+        "minMs": 51.232,
+        "maxMs": 51.7071,
+        "medianCpuMs": 46.875
+      },
+      "workspace.open.restore": {
+        "n": 3,
+        "medianMs": 1277.323,
+        "p95Ms": 1286.4620499999999,
+        "minMs": 1275.1696,
+        "maxMs": 1287.4775,
+        "medianCpuMs": 1281.25
+      }
+    },
+    "failures": []
+  },
+  "fixed-release": {
+    "stages": {
+      "app.construct": {
+        "n": 2,
+        "medianMs": 89.65275,
+        "p95Ms": 90.02764499999999,
+        "minMs": 89.2362,
+        "maxMs": 90.0693
+      },
+      "app.destruct": {
+        "n": 2,
+        "medianMs": 10.572099999999999,
+        "p95Ms": 11.03659,
+        "minMs": 10.056,
+        "maxMs": 11.0882
+      },
+      "app.idle.3s": {
+        "n": 2,
+        "medianMs": 2993.7389,
+        "p95Ms": 2998.92605,
+        "minMs": 2987.9754,
+        "maxMs": 2999.5024,
+        "medianCpuMs": 7.8125
+      },
+      "app.start.to.eventloop": {
+        "n": 2,
+        "medianMs": 363.23475,
+        "p95Ms": 370.06993500000004,
+        "minMs": 355.6401,
+        "maxMs": 370.8294
+      },
+      "display.changedAppearance.repaint.content0": {
+        "n": 20,
+        "medianMs": 1.9233500000000001,
+        "p95Ms": 2.1203400000000006,
+        "minMs": 1.8561,
+        "maxMs": 2.4859,
+        "medianCpuMs": 0.0
+      },
+      "display.changedAppearance.repaint.content1": {
+        "n": 20,
+        "medianMs": 2.0302,
+        "p95Ms": 2.649130000000001,
+        "minMs": 1.9021,
+        "maxMs": 4.1811,
+        "medianCpuMs": 0.0
+      },
+      "display.changedAppearance.repaint.content2": {
+        "n": 20,
+        "medianMs": 3.79455,
+        "p95Ms": 4.375755000000001,
+        "minMs": 3.6533,
+        "maxMs": 5.0513,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content0": {
+        "n": 20,
+        "medianMs": 0.6665000000000001,
+        "p95Ms": 3.3479300000000003,
+        "minMs": 0.5888,
+        "maxMs": 3.5955,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content1": {
+        "n": 20,
+        "medianMs": 0.64255,
+        "p95Ms": 0.7862150000000001,
+        "minMs": 0.5816,
+        "maxMs": 0.9195,
+        "medianCpuMs": 0.0
+      },
+      "display.unchangedAppearance.repaint.content2": {
+        "n": 20,
+        "medianMs": 2.4297,
+        "p95Ms": 2.915520000000001,
+        "minMs": 2.3327,
+        "maxMs": 4.2554,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content0": {
+        "n": 20,
+        "medianMs": 0.62395,
+        "p95Ms": 2.3286200000000004,
+        "minMs": 0.5922,
+        "maxMs": 2.4696,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content1": {
+        "n": 20,
+        "medianMs": 0.61745,
+        "p95Ms": 1.045290000000001,
+        "minMs": 0.5805,
+        "maxMs": 2.1832,
+        "medianCpuMs": 0.0
+      },
+      "display.warm.repaint.content2": {
+        "n": 20,
+        "medianMs": 2.3930499999999997,
+        "p95Ms": 3.6079499999999998,
+        "minMs": 2.344,
+        "maxMs": 3.6811,
+        "medianCpuMs": 0.0
+      },
+      "font.metrics.advance.10000": {
+        "n": 10,
+        "medianMs": 15.6564,
+        "p95Ms": 20.967024999999992,
+        "minMs": 15.3056,
+        "maxMs": 24.0133,
+        "medianCpuMs": 15.625
+      },
+      "grid.warmresize.history0.change0": {
+        "n": 10,
+        "medianMs": 0.0001,
+        "p95Ms": 0.0001549999999999999,
+        "minMs": 0.0001,
+        "maxMs": 0.0002,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history0.change1": {
+        "n": 10,
+        "medianMs": 0.0037,
+        "p95Ms": 0.014829999999999998,
+        "minMs": 0.0011,
+        "maxMs": 0.016,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history0.change2": {
+        "n": 10,
+        "medianMs": 0.00595,
+        "p95Ms": 0.021339999999999998,
+        "minMs": 0.0052,
+        "maxMs": 0.0217,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history0.change3": {
+        "n": 10,
+        "medianMs": 0.00685,
+        "p95Ms": 0.05529499999999999,
+        "minMs": 0.0062,
+        "maxMs": 0.0593,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history1000.change0": {
+        "n": 10,
+        "medianMs": 0.0001,
+        "p95Ms": 0.0001549999999999999,
+        "minMs": 0.0001,
+        "maxMs": 0.0002,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history1000.change1": {
+        "n": 10,
+        "medianMs": 0.002,
+        "p95Ms": 0.02601999999999996,
+        "minMs": 0.001,
+        "maxMs": 0.0424,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history1000.change2": {
+        "n": 10,
+        "medianMs": 0.62835,
+        "p95Ms": 0.849795,
+        "minMs": 0.2648,
+        "maxMs": 0.8502,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history1000.change3": {
+        "n": 10,
+        "medianMs": 0.5477,
+        "p95Ms": 3.3736449999999967,
+        "minMs": 0.382,
+        "maxMs": 4.6579,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history10000.change0": {
+        "n": 10,
+        "medianMs": 0.0001,
+        "p95Ms": 0.0002549999999999999,
+        "minMs": 0.0001,
+        "maxMs": 0.0003,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history10000.change1": {
+        "n": 10,
+        "medianMs": 0.0053,
+        "p95Ms": 0.00886,
+        "minMs": 0.0011,
+        "maxMs": 0.0094,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history10000.change2": {
+        "n": 10,
+        "medianMs": 7.06115,
+        "p95Ms": 7.903639999999999,
+        "minMs": 6.8049,
+        "maxMs": 8.0732,
+        "medianCpuMs": 0.0
+      },
+      "grid.warmresize.history10000.change3": {
+        "n": 10,
+        "medianMs": 7.94025,
+        "p95Ms": 21.721944999999998,
+        "minMs": 7.8254,
+        "maxMs": 22.0567,
+        "medianCpuMs": 15.625
+      },
+      "lineflow.editor.close": {
+        "n": 6,
+        "medianMs": 7.8049,
+        "p95Ms": 8.7195,
+        "minMs": 7.0136,
+        "maxMs": 8.7977,
+        "medianCpuMs": 15.625
+      },
+      "lineflow.editor.open": {
+        "n": 6,
+        "medianMs": 22.19705,
+        "p95Ms": 25.215925,
+        "minMs": 21.6805,
+        "maxMs": 25.6436,
+        "medianCpuMs": 15.625
+      },
+      "serial.close": {
+        "n": 1,
+        "medianMs": 106.9745,
+        "p95Ms": 106.9745,
+        "minMs": 106.9745,
+        "maxMs": 106.9745,
+        "medianCpuMs": 0
+      },
+      "serial.loopback.1": {
+        "n": 5,
+        "medianMs": 15.3999,
+        "p95Ms": 15.44102,
+        "minMs": 2.9871,
+        "maxMs": 15.4491,
+        "medianCpuMs": 0
+      },
+      "serial.loopback.16": {
+        "n": 5,
+        "medianMs": 15.3921,
+        "p95Ms": 15.43458,
+        "minMs": 15.2547,
+        "maxMs": 15.4347,
+        "medianCpuMs": 0
+      },
+      "serial.loopback.256": {
+        "n": 5,
+        "medianMs": 37.2596,
+        "p95Ms": 37.4191,
+        "minMs": 36.9354,
+        "maxMs": 37.4585,
+        "medianCpuMs": 0
+      },
+      "serial.loopback.4096": {
+        "n": 5,
+        "medianMs": 370.1153,
+        "p95Ms": 370.16138,
+        "minMs": 369.926,
+        "maxMs": 370.172,
+        "medianCpuMs": 0
+      },
+      "serial.open.115200": {
+        "n": 1,
+        "medianMs": 28.857,
+        "p95Ms": 28.857,
+        "minMs": 28.857,
+        "maxMs": 28.857,
+        "medianCpuMs": 0
+      },
+      "session.close": {
+        "n": 10,
+        "medianMs": 71.9194,
+        "p95Ms": 83.56078,
+        "minMs": 65.1338,
+        "maxMs": 83.7577,
+        "medianCpuMs": 31.25
+      },
+      "session.open": {
+        "n": 10,
+        "medianMs": 188.86984999999999,
+        "p95Ms": 208.3801,
+        "minMs": 150.7066,
+        "maxMs": 208.903,
+        "medianCpuMs": 140.625
+      },
+      "session.save.clean": {
+        "n": 10,
+        "medianMs": 0.44695,
+        "p95Ms": 0.5523399999999998,
+        "minMs": 0.3909,
+        "maxMs": 0.5941,
+        "medianCpuMs": 0.0
+      },
+      "session.save.dirty": {
+        "n": 10,
+        "medianMs": 19.22535,
+        "p95Ms": 29.130479999999984,
+        "minMs": 14.9368,
+        "maxMs": 35.8947,
+        "medianCpuMs": 0.0
+      },
+      "session.sync.clean": {
+        "n": 10,
+        "medianMs": 0.45805,
+        "p95Ms": 0.5364099999999999,
+        "minMs": 0.2853,
+        "maxMs": 0.5464,
+        "medianCpuMs": 0.0
+      },
+      "terminal.add.serial": {
+        "n": 10,
+        "medianMs": 34.990849999999995,
+        "p95Ms": 35.328185,
+        "minMs": 34.2632,
+        "maxMs": 35.3771,
+        "medianCpuMs": 15.625
+      },
+      "terminal.close.serial": {
+        "n": 10,
+        "medianMs": 3.45905,
+        "p95Ms": 3.9565049999999995,
+        "minMs": 2.9315,
+        "maxMs": 4.182,
+        "medianCpuMs": 0.0
+      },
+      "window.close": {
+        "n": 2,
+        "medianMs": 48.4546,
+        "p95Ms": 61.92805,
+        "minMs": 33.4841,
+        "maxMs": 63.4251,
+        "medianCpuMs": 0.0
+      },
+      "window.resize.session.empty": {
+        "n": 40,
+        "medianMs": 11.0134,
+        "p95Ms": 12.674494999999991,
+        "minMs": 7.8246,
+        "maxMs": 16.3734,
+        "medianCpuMs": 15.625
+      },
+      "workspace.close": {
+        "n": 2,
+        "medianMs": 21.86235,
+        "p95Ms": 22.510035000000002,
+        "minMs": 21.1427,
+        "maxMs": 22.582,
+        "medianCpuMs": 15.625
+      },
+      "workspace.open.restore": {
+        "n": 2,
+        "medianMs": 179.73435,
+        "p95Ms": 179.82799500000002,
+        "minMs": 179.6303,
+        "maxMs": 179.8384,
+        "medianCpuMs": 132.8125
+      },
+      "workspace.sync.clean": {
+        "n": 10,
+        "medianMs": 3.1468499999999997,
+        "p95Ms": 4.195474999999998,
+        "minMs": 2.933,
+        "maxMs": 4.8788,
+        "medianCpuMs": 0.0
       }
     },
     "failures": []
