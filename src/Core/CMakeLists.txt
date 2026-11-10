@@ -85,6 +85,12 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/Uncompress.h
     src/Processing/Nodes/Uncompress.cpp
     src/Processing/Nodes/CompressionSettings.h
+    src/Processing/Nodes/StuffingSettings.h
+    src/Processing/Nodes/StuffingSettings.cpp
+    src/Processing/Nodes/StuffingWrap.h
+    src/Processing/Nodes/StuffingWrap.cpp
+    src/Processing/Nodes/StuffingUnwrap.h
+    src/Processing/Nodes/StuffingUnwrap.cpp
     src/Processing/Nodes/ChecksumField.h
     src/Processing/Nodes/ChecksumField.cpp
     src/Processing/Nodes/ChecksumWrap.h

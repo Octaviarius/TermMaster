@@ -1,6 +1,6 @@
 # Contextual help and third-party notices
 
-Status: next scheduled stage after FLOW-21 packet compression. This document
+Status: next scheduled stage after FLOW-26 configurable packet byte stuffing. This document
 records the design; the runtime help browser and credits page remain planned.
 
 ## Help source and presentation

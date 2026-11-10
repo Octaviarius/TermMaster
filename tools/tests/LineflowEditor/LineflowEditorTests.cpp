@@ -6,6 +6,7 @@
 #include "Gui/Processing/ProcessorSelector.h"
 
 #include <QAction>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
 #include <QDockWidget>
@@ -1720,6 +1721,113 @@ private slots:
         const auto runtime = registry.create("native.checksum-unwrap", customConfig, {}, &error);
         QVERIFY2(runtime, qPrintable(error));
         QCOMPARE(runtime->configuration().value("xorout").toULongLong(), qulonglong(4294967295));
+    }
+
+    void stuffingFormsAndRuntime()
+    {
+        const auto             destination = qEnvironmentVariable("TERMASTER_STUFFING_CAPTURE");
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        QVariantMap          saved;
+        LineflowEditorDialog dialog(fixtureDefinitions(),
+                                    registry,
+                                    widgets,
+                                    [&saved](const auto& definitions, const auto&, const auto&, QString*) {
+                                        saved = definitions;
+                                        return true;
+                                    });
+        dialog.setFixedSize(1100, 760);
+        dialog.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+        auto* host = dialog.findChild<QMainWindow*>("lineflowDockHost");
+        auto* dock = dialog.findChild<QDockWidget*>("lineflowPropertiesDock");
+        QVERIFY(host && dock);
+        host->resizeDocks({dock}, {420}, Qt::Horizontal);
+        const auto block      = dialog.model().createBlock("Packet byte stuffing", 1);
+        const auto wrapName   = dialog.model().insertNodeAt(block, 0, "native.stuffing-wrap", "rx");
+        const auto unwrapName = dialog.model().insertNodeAt(block, 1, "native.stuffing-unwrap", "rx");
+        QVERIFY(!wrapName.isEmpty() && !unwrapName.isEmpty());
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        QVERIFY(canvas);
+        if (!destination.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(destination));
+        }
+        for (int row = 0; row < 2; ++row)
+        {
+            canvas->setCurrentIndex(dialog.model().index(row, 0));
+            auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+            QVERIFY(form);
+            auto* mode = form->editor("boundaryMode")->findChild<QComboBox*>();
+            QVERIFY(mode);
+            QCOMPARE(mode->count(), 3);
+            QCOMPARE(form->editor("boundaryMode")->value().toString(), QString("suffix"));
+            const QStringList keys {"delimiter", "escape", "delimiterCode", "escapeCode"};
+            const QStringList defaults {"0xC0", "0xDB", "0xDC", "0xDD"};
+            const QStringList values {"0x0", "0xFF", "0xFF", "0x1"};
+            for (int field = 0; field < keys.size(); ++field)
+            {
+                auto* edit = form->editor(keys[field])->findChild<QLineEdit*>();
+                QVERIFY(edit);
+                QCOMPARE(edit->text(), defaults[field]);
+                QCoreApplication::processEvents();
+                auto* reset = form->findChild<QToolButton*>("reset_" + keys[field]);
+                QVERIFY(reset);
+                QCOMPARE(reset->height(), SettingsFieldEditor::controlVisualHeight(edit));
+                edit->setText(values[field]);
+                QVERIFY(form->editor(keys[field])->value().typeId() != QMetaType::QString);
+            }
+            mode->setCurrentIndex(row == 0 ? 1 : 2);
+            QCOMPARE(form->editor("boundaryMode")->value().toString(), QString(row == 0 ? "both" : "none"));
+            if (row == 0)
+            {
+                QVERIFY(!form->editor("framing"));
+            }
+            else
+            {
+                auto* framing = form->editor("framing")->findChild<QCheckBox*>();
+                QVERIFY(framing);
+                QVERIFY(framing->isChecked());
+                framing->setChecked(true);
+                QCOMPARE(form->editor("framing")->value(), QVariant(true));
+            }
+            if (!destination.isEmpty())
+            {
+                const auto scale = dialog.devicePixelRatioF() > 1.5 ? "2x.png" : ".png";
+                const auto name  = row == 0 ? "StuffingWrap" : "StuffingUnwrap";
+                QTest::qWait(100);
+                QVERIFY(dialog.grab().save(QDir(destination).filePath(QString(name) + scale)));
+            }
+        }
+        canvas->setCurrentIndex(dialog.model().index(0, 0));
+        auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QCOMPARE(form->editor("delimiterCode")->findChild<QLineEdit*>()->text(), QString("0xFF"));
+        QString error;
+        QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+        QVERIFY(!saved.isEmpty());
+        for (const auto& name : {wrapName, unwrapName})
+        {
+            const auto config = dialog.model().node(block, name).value("configuration").toMap();
+            QCOMPARE(config.value("delimiter").toInt(), 0);
+            QCOMPARE(config.value("escape").toInt(), 255);
+            QCOMPARE(config.value("delimiterCode").toInt(), 255);
+            QCOMPARE(config.value("escapeCode").toInt(), 1);
+            for (const auto* key : {"delimiter", "escape", "delimiterCode", "escapeCode"})
+            {
+                QVERIFY(config.value(key).typeId() != QMetaType::QString);
+            }
+            const auto runtime = registry.create(name == wrapName ? "native.stuffing-wrap" : "native.stuffing-unwrap",
+                                                 config,
+                                                 {},
+                                                 &error);
+            QVERIFY2(runtime, qPrintable(error));
+            QCOMPARE(runtime->configuration().value("delimiterCode").toInt(), 255);
+            if (name == unwrapName)
+            {
+                QCOMPARE(runtime->configuration().value("framing"), QVariant(true));
+            }
+        }
     }
 
     void visualCapture()

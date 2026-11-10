@@ -187,3 +187,20 @@ target_link_libraries(ChecksumProcessorTests PRIVATE
     Qt6::Widgets
 )
 add_test(NAME ChecksumProcessorTests COMMAND ChecksumProcessorTests)
+
+qt_add_executable(StuffingProcessorTests
+    StuffingProcessorTests.cpp
+)
+
+target_include_directories(StuffingProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+
+target_link_libraries(StuffingProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME StuffingProcessorTests COMMAND StuffingProcessorTests)
+set_tests_properties(StuffingProcessorTests PROPERTIES
+    ENVIRONMENT "QT_FORCE_STDERR_LOGGING=1"
+)

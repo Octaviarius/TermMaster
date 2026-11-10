@@ -15,6 +15,8 @@
 #include "Nodes/Pacer.h"
 #include "Nodes/PatternFramer.h"
 #include "Nodes/Stub.h"
+#include "Nodes/StuffingUnwrap.h"
+#include "Nodes/StuffingWrap.h"
 #include "Nodes/TimedFramer.h"
 #include "Nodes/Timestamp.h"
 #include "Nodes/Uncompress.h"
@@ -75,6 +77,20 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
                    "Framing",
                    LengthUnwrap::schema(),
                    LengthUnwrap::create,
+                   "Packet",
+                   "Payload"),
+        Definition("native.stuffing-wrap",
+                   "Stuffing Wrap",
+                   "Framing",
+                   StuffingWrap::schema(),
+                   StuffingWrap::create,
+                   "Payload",
+                   "Packet"),
+        Definition("native.stuffing-unwrap",
+                   "Stuffing Unwrap",
+                   "Framing",
+                   StuffingUnwrap::schema(),
+                   StuffingUnwrap::create,
                    "Packet",
                    "Payload"),
         Definition("native.checksum-wrap",
