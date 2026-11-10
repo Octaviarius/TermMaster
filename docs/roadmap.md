@@ -309,3 +309,9 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Add binary Pattern Framer with hard-partial matching and bounded cancellation-safe state.
 - [x] Compose frames from nested numeric/named captures, byte literals and an empty/full-match default.
 - [x] Verify template validation, packet boundaries, terminal routing and native generated settings.
+## FLOW-18: Packet timestamp templates
+
+- [x] Register a native Timestamp node with Qt date/time formatting and local/UTC selection.
+- [x] Compile binary-safe output templates with packet/time placeholders and ANSI byte escapes.
+- [x] Preserve packet boundaries, output ownership, cancellation and atomic byte limits.
+- [x] Verify generated settings, binary templates and Framer-to-Timestamp composition.

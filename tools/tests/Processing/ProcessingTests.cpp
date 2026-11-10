@@ -250,6 +250,37 @@ private slots:
         runtime->cancel({});
     }
 
+    void timestampFollowsFrameBoundaries()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        auto timestamp = native("native.timestamp");
+        timestamp.insert("configuration",
+                         QVariantMap {
+                             {  "format",                               "'TIME'"},
+                             {"template", R"(\e[90m${timestamp}\e[0m ${packet})"}
+        });
+        QString    error;
+        const auto plan = Lineflow::prepare(blocks({native("native.framer"), timestamp}), "root", registry, {}, &error);
+        QVERIFY2(plan, qPrintable(error));
+        auto runtime = plan->instantiate(registry, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QList<QByteArray>          output;
+        int                        completed = 0;
+        const Processor::Callbacks callbacks {[&](Processor::Chunk chunk) { output.append(chunk.bytes); },
+                                              [&](QString message) {
+                                                  QVERIFY2(message.isEmpty(), qPrintable(message));
+                                                  ++completed;
+                                              }};
+        QCOMPARE(runtime->accept({"fir"}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 1);
+        QVERIFY(output.isEmpty());
+        QCOMPARE(runtime->accept({"st\rsecond\r"}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 2);
+        QCOMPARE(output, QList<QByteArray>({"\x1b[90mTIME\x1b[0m first", "\x1b[90mTIME\x1b[0m second"}));
+        runtime->cancel({});
+    }
+
     void nativeStreamsAndIndependentState()
     {
         ProcessorRegistry registry;

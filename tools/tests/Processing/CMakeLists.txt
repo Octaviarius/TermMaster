@@ -116,6 +116,18 @@ target_link_libraries(GateProcessorTests PRIVATE
 )
 add_test(NAME GateProcessorTests COMMAND GateProcessorTests)
 
+qt_add_executable(TimestampProcessorTests
+    TimestampProcessorTests.cpp
+)
+target_include_directories(TimestampProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+target_link_libraries(TimestampProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME TimestampProcessorTests COMMAND TimestampProcessorTests)
+
 qt_add_executable(ProcessorPropertiesTests
     ProcessorPropertiesTests.cpp
 )

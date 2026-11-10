@@ -1503,6 +1503,16 @@ private slots:
         QVERIFY(dialog.grab().save(
             QDir(destination)
                 .filePath(dialog.devicePixelRatioF() > 1.5 ? "PatternFramer2x.png" : "PatternFramer.png")));
+        const auto timestamped = dialog.model().createBlock("Packet timestamps", 1);
+        QVERIFY(!dialog.model().insertNodeAt(timestamped, 0, "native.timestamp", "rx").isEmpty());
+        tree->setCurrentIndex(dialog.model().index(0, 0));
+        QTest::qWait(50);
+        auto* timestampForm = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(timestampForm && timestampForm->editor("template"));
+        QCOMPARE(timestampForm->editor("template")->value().toString(), QString("[${timestamp}] ${packet}"));
+        QVERIFY(dialog.grab().save(
+            QDir(destination).filePath(dialog.devicePixelRatioF() > 1.5 ? "Timestamp2x.png" : "Timestamp.png")));
+
         registerDuplex(registry);
         const auto paired = dialog.model().createBlock("Device protocol · Rx / Tx", 2);
         QVERIFY(!paired.isEmpty());
