@@ -8,6 +8,8 @@
 #include "Nodes/HexCodec.h"
 #include "Nodes/HexDecoder.h"
 #include "Nodes/HexEncoder.h"
+#include "Nodes/LengthUnwrap.h"
+#include "Nodes/LengthWrap.h"
 #include "Nodes/Pacer.h"
 #include "Nodes/PatternFramer.h"
 #include "Nodes/Stub.h"
@@ -59,6 +61,20 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
                    Uncompress::create,
                    "Compressed",
                    "Bytes"),
+        Definition("native.length-wrap",
+                   "Length Wrap",
+                   "Framing",
+                   LengthWrap::schema(),
+                   LengthWrap::create,
+                   "Payload",
+                   "Packet"),
+        Definition("native.length-unwrap",
+                   "Length Unwrap",
+                   "Framing",
+                   LengthUnwrap::schema(),
+                   LengthUnwrap::create,
+                   "Packet",
+                   "Payload"),
         Definition("native.pacer", "Pacer", "Timing", Pacer::schema(), Pacer::create, "Data", "Data"),
         Definition("native.framer",
                    "Delimiter Framer",

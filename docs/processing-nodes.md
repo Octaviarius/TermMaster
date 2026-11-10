@@ -2,7 +2,7 @@
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
 Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp, Compress, Uncompress and Pacer. NativeProcessors only registers the
+HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp, Compress, Uncompress, LengthWrap, LengthUnwrap and Pacer. NativeProcessors only registers the
 catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
@@ -108,6 +108,53 @@ Their APIs are documented by [Zstandard](https://github.com/facebook/zstd),
 [LZ4](https://github.com/lz4/lz4), [Brotli](https://www.brotli.org/encode.html)
 and [XZ](https://tukaani.org/xz/man/xz.1.html). They are candidates rather than
 claims of measured performance in Termaster.
+
+## Length Wrap and Length Unwrap
+
+`native.length-wrap` and `native.length-unwrap`, group Framing, add and validate
+an unsigned binary length field around one whole packet. They do not accumulate,
+split or join packets. Assemble complete incoming packets with an explicit framing
+stage before Length Unwrap when transport reads can split a message.
+
+Both nodes expose the same generated settings:
+
+| Field | Default | Values |
+| --- | --- | --- |
+| `position` | prefix | prefix or suffix, relative to the payload |
+| `width` | 2 | 1, 2, 4 or 8 bytes |
+| `endianness` | little | little or big byte order |
+| `includeField` | false | Count the field's own width as well as payload bytes |
+| `adjustment` | 0 | Signed integer from -2147483647 through 2147483647 |
+
+The wire value is `payloadBytes + (includeField ? width : 0) + adjustment`.
+For example, default wrapping of `41 00 FF` produces `03 00 41 00 FF`;
+a two-byte big-endian suffix with field counting produces `41 00 FF 00 05`.
+The field is always unsigned. A negative result or a value that does not fit the
+selected width fails before any output is emitted. Integer configuration accepts
+finite whole numeric values and rejects strings, booleans and fractional values.
+Unknown settings remain preserved.
+
+Length Unwrap computes the expected value from the actual packet payload size,
+compares every field byte through unsigned 64-bit arithmetic, and strips the field
+only after an exact match. Short packets, truncated payloads, trailing bytes,
+length mismatch and adjustment overflow/underflow fail atomically. A hostile
+8-byte field never determines an allocation size. A valid field-only packet emits
+one empty payload packet. Cancellation and failure stop the instance; processing
+errors follow the existing router contract without closing the terminal transport.
+
+Host input/output byte limits apply, including the added field. Length field
+encoding/decoding consumes one work step per field byte; insufficient maxSteps
+fails atomically. Each successful invocation emits exactly one owned output packet.
+
+FLOW-23 acceptance passed the complete MSVC x64 Debug build and nine affected
+CTest suites. LengthProcessorTests passed all ten QtTest checks with no skips,
+covering fixed endian vectors, settings combinations, independent packets,
+binary NUL, empty payloads, 255/256-byte boundaries, signed adjustment, hostile
+UINT64 fields, atomic limits, output ownership and cancellation. Actual Lineflow
+forms passed native capture checks at scales 1 and 2 without production GUI
+changes. Captures: [Length Wrap](images/length/LengthWrap.png) and
+[Length Unwrap](images/length/LengthUnwrap.png). No real-device or external-network
+acceptance was run.
 
 ## Timestamp
 

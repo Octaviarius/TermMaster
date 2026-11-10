@@ -1413,6 +1413,45 @@ private slots:
         QVERIFY(!dialog.model().node("shared", "frame").isEmpty());
     }
 
+    void lengthSettingsCapture()
+    {
+        const auto destination = qEnvironmentVariable("TERMASTER_LENGTH_CAPTURE");
+        if (destination.isEmpty())
+        {
+            QSKIP("Set TERMASTER_LENGTH_CAPTURE for native length settings visual acceptance");
+        }
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        LineflowEditorDialog dialog(fixtureDefinitions(),
+                                    registry,
+                                    widgets,
+                                    [](const auto&, const auto&, const auto&, QString*) { return true; });
+        dialog.setFixedSize(1100, 760);
+        dialog.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+        const auto block = dialog.model().createBlock("Packet lengths", 1);
+        QVERIFY(!dialog.model().insertNodeAt(block, 0, "native.length-wrap", "rx").isEmpty());
+        QVERIFY(!dialog.model().insertNodeAt(block, 1, "native.length-unwrap", "rx").isEmpty());
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        QVERIFY(canvas);
+        QVERIFY(QDir().mkpath(destination));
+        for (int row = 0; row < 2; ++row)
+        {
+            canvas->setCurrentIndex(dialog.model().index(row, 0));
+            QTest::qWait(50);
+            auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+            QVERIFY(form && form->editor("width"));
+            QCOMPARE(form->editor("width")->value().toInt(), 2);
+            QCOMPARE(form->editor("position")->value().toString(), QString("prefix"));
+            QVERIFY(form->editor("endianness"));
+            QVERIFY(form->editor("includeField"));
+            QVERIFY(form->editor("adjustment"));
+            const auto name  = row == 0 ? "LengthWrap" : "LengthUnwrap";
+            const auto scale = dialog.devicePixelRatioF() > 1.5 ? "2x.png" : ".png";
+            QVERIFY(dialog.grab().save(QDir(destination).filePath(QString(name) + scale)));
+        }
+    }
     void visualCapture()
     {
         const auto destination = qEnvironmentVariable("TERMASTER_LINEFLOW_CAPTURE");
