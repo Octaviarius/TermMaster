@@ -524,3 +524,50 @@ owns its error string rather than borrowing a returned stack local. Three
 close-only runs on isolated real-workspace copies exited normally in 0.69–1.59 s
 including startup; original source hashes remained unchanged. Their raw records
 are under `docs/benchmarks/application-profile/after-shutdown/`.
+
+## Lineflow dispatch work
+
+Lineflow acceptance continues to enqueue root packets for a later event-loop turn.
+The active pump processes synchronous child output and completion within the same
+finite event budget. Those callbacks do not post another pump while it is already
+running; its tail schedules remaining runnable work or the existing delayed retry
+for backpressure. A genuinely asynchronous child callback still schedules a wakeup
+when no pump is active. The per-stage blocked-port scratch buffer is allocated with
+the stages and reset at each pump, rather than allocated for every dispatch.
+
+These changes retain packet copies, per-port invocation guards, cumulative step
+and output bounds, cancellation and late-callback generation checks. They do not
+make root completion synchronous. A completion callback that submits another root
+packet still yields through the event loop, so repeated producer acceptance cannot
+reset a synchronous budget indefinitely.
+
+On 2026-11-11 the isolated Qt 6.12.0 / MSVC2022 x64 Release ProcessingTests and
+DuplexProcessorTests build and CTest run passed (38 passes including setup/cleanup,
+4.02 seconds). A new repeated-completion producer fixture uses `eventBudget=1`,
+alternating binary/empty packets and an independent heartbeat to check asynchronous
+acceptance, packet integrity and event-loop progress. Existing asynchronous output,
+backpressure, duplex ports, cancellation and reentry checks also passed.
+
+The standalone ProcessingProfile matrix completed all 41 cases with five measured
+repetitions plus warmup before and after the change, with output/error assertions
+active. The runs used the same isolated Release build and benchmark source, and
+were separated from compilation. Selected medians in microseconds per packet:
+
+| Case | Packet bytes | Before | After |
+| --- | ---: | ---: | ---: |
+| Direct bypass control | 1 | 0.250 | 0.243 |
+| Legacy producer, 1-stage bypass | 1 | 14.909 | 14.614 |
+| Event-driven producer, 1-stage bypass | 1 | 14.590 | 14.117 |
+| Legacy producer, 4-stage bypass | 1 | 16.704 | 16.130 |
+| Event-driven producer, 4-stage bypass | 1 | 16.589 | 15.488 |
+| Legacy producer, 16-stage bypass | 1 | 23.398 | 22.183 |
+| Event-driven producer, 16-stage bypass | 1 | 22.508 | 21.717 |
+| Event-driven producer, 1-stage bypass | 64 | 14.688 | 14.283 |
+| Event-driven producer, 1-stage bypass | 4096 | 15.408 | 15.019 |
+
+The direct control also improved slightly, so this sequential comparison does not
+isolate the change from machine drift. The observed improvement is modest; the
+asynchronous root dispatch gap remains. The legacy producer explicitly calls
+`processEvents` while waiting; the event-driven producer submits from completion.
+Neither result measures GUI rendering, transport delivery or hardware. Changed
+C++ files were clang-formatted and `git diff --check` passed.

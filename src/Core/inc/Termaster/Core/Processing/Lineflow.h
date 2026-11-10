@@ -115,6 +115,7 @@ private:
     QStringList                             _nodeNames;
     std::deque<Work>                        _queue;
     std::vector<Stage>                      _stages;
+    std::vector<std::array<bool, 2>>        _blocked;
     std::vector<Root>                       _roots;
     std::vector<int>                        _lanes;
     int                                     _channels = 1;
