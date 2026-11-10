@@ -1,0 +1,10 @@
+Vectorscan 5.4.14, MSVC 19.44 x64 Release, Ninja
+Boost 1.85 headers and Ragel 6.10 available; no source modifications.
+Configure succeeded; compilation failed:
+[2/208] Building C object CMakeFiles\hs_exec.dir\src\crc32.c.obj
+FAILED: CMakeFiles/hs_exec.dir/src/crc32.c.obj
+cl : Command line error D8021 : invalid numeric argument '/Wextra'
+ninja: build stopped: subcommand failed.
+
+PCRE2 10.49 8-bit with JIT built successfully with the same MSVC toolchain.
+Throughput results use both libraries built with MinGW GCC 13.1, not MSVC.

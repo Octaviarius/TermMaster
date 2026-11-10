@@ -294,3 +294,11 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Add idle-gap framing with asynchronous output during silence.
 - [x] Preserve host memory bounds, cancellation and callback lifetime contracts.
 - [x] Verify direct nodes, compositions, terminal routing and native settings forms.
+
+## FLOW-14: Streaming regex benchmark
+
+- [x] Verify native MSVC build compatibility and record upstream blockers.
+- [x] Build pinned PCRE2-8 and Vectorscan with the same MinGW Release toolchain.
+- [x] Validate binary packet boundaries and group extraction, including DFA continuation.
+- [x] Measure repeated isolated throughput, component memory, process memory and compilation.
+- [x] Record reproducible scripts, raw data and decision limitations without selecting a production engine.

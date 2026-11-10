@@ -1,0 +1,34 @@
+[
+  {
+    "file": "pcre2-10.49.tar.gz",
+    "url": "https://codeload.github.com/PCRE2Project/pcre2/tar.gz/refs/tags/pcre2-10.49",
+    "sha256": "69d04dcddcf9e038aeae8f58b0c07ee5e08abb835ee8daa2bd6acee433dc112c",
+    "directory": "pcre2-pcre2-10.49"
+  },
+  {
+    "file": "vectorscan-5.4.14.tar.gz",
+    "url": "https://codeload.github.com/VectorCamp/vectorscan/tar.gz/refs/tags/vectorscan/5.4.14",
+    "sha256": "8a035e5a7e769f3793d50645a17042bcd601a2f9835b32c535eae7b1a9b9f0e0",
+    "directory": "vectorscan-vectorscan-5.4.14"
+  },
+  {
+    "file": "ragel-6.10.tar.gz",
+    "url": "https://www.colm.net/files/ragel/ragel-6.10.tar.gz",
+    "sha256": "5f156edb65d20b856d638dd9ee2dfb43285914d9aa2b6ec779dac0270cd56c3f",
+    "directory": "ragel-6.10"
+  },
+  {
+    "file": "boost-1.85.0.tar.gz",
+    "url": "https://archives.boost.io/release/1.85.0/source/boost_1_85_0.tar.gz",
+    "sha256": "be0d91732d5b0cc6fbb275c7939974457e79b54d6f07ce2e3dfdd68bef883b0b",
+    "directory": "boost_1_85_0",
+    "member": "boost_1_85_0/boost"
+  },
+  {
+    "file": "sljit.tar.gz",
+    "url": "https://codeload.github.com/zherczeg/sljit/tar.gz/de0259c7aaf36aa40cba8014f3fad3edde9307f9",
+    "sha256": "256b50b4e96c806fd13fc9b630f6c1ba41b777e7cedfcf406651d062d8260611",
+    "directory": "pcre2-pcre2-10.49/deps/sljit",
+    "strip": true
+  }
+]

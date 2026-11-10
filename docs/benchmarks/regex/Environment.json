@@ -1,0 +1,27 @@
+{
+  "platform": "Windows-11-10.0.28000-SP0",
+  "python": "3.14.4",
+  "cpu_affinity": 4,
+  "logical_processors": 24,
+  "repetitions": 5,
+  "target_seconds": 0.12,
+  "elapsed_seconds": 148.60429191589355,
+  "correctness_jobs": 110,
+  "exe": "F:\\DEVELOPING\\Octaviarius\\TermMaster\\build\\RegexBenchmark\\bench-mingw\\RegexBenchmark.exe",
+  "engines": [
+    "pcre2",
+    "pcre2-jit",
+    "pcre2-dfa",
+    "vectorscan",
+    "vectorscan-pcre2"
+  ],
+  "compiler": "g++.exe (x86_64-posix-seh-rev1, Built by MinGW-Builds project) 13.1.0",
+  "cpu_model": "AMD Ryzen 9 5900X",
+  "physical_cores": 12,
+  "pcre2": "10.49",
+  "vectorscan": "5.4.14",
+  "vectorscan_target": "core-avx2",
+  "build_type": "Release -O3 -DNDEBUG",
+  "date": "2026-11-10",
+  "harness_sha256": "36831240fa4c33a8b7980b4228000573586c24b60f61f86adda2f9ab3fc9f584"
+}
