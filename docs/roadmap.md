@@ -441,5 +441,5 @@ tracing was unavailable under the current Windows policy.
 - [x] Cache parsed schemas/defaults and lazily construct hidden processing editors.
 - [x] Narrow unchanged/metadata-only workspace persistence without weakening transactions.
 - [x] Reuse effective settings snapshots with correct overlay/schema invalidation.
-- [ ] Bound partial regex rescanning and reduce small-packet Lineflow overhead.
+- [x] Bound partial regex rescanning and reduce small-packet Lineflow overhead.
 - [ ] Measure and improve large-catalog search, drag validation and batched tab updates.

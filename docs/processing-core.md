@@ -571,3 +571,9 @@ asynchronous root dispatch gap remains. The legacy producer explicitly calls
 `processEvents` while waiting; the event-driven producer submits from completion.
 Neither result measures GUI rendering, transport delivery or hardware. Changed
 C++ files were clang-formatted and `git diff --check` passed.
+
+Integrated Release verification also passed ProcessingTests, DuplexProcessorTests and
+PatternFramerProcessorTests after combining the scheduler and regex changes (4.18 s).
+The scheduler-only raw measurements are retained in
+[Before.csv](benchmarks/lineflow-runtime/Before.csv) and
+[After.csv](benchmarks/lineflow-runtime/After.csv); these precede the regex optimization.
