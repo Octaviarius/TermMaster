@@ -144,7 +144,8 @@ close the file immediately; files never resume automatically. Already accepted
 transport bytes cannot be recalled.
 
 Periodic sending snapshots the current command bytes, shows an active indicator
-and exposes Stop in the main bar while the tools popup is closed. Intervals range
+and exposes Stop in the main bar while the tools popup is closed. Ordinary
+interactive input and pending processor/transport bytes do not reveal this bar. Intervals range
 from 100 ms to 24 hours. A new interval begins after the previous application-queue
 submission drains, so backpressure does not accumulate repeated commands. Only one
 file or periodic producer can run per terminal. Periodic work stops on disconnect
@@ -191,3 +192,9 @@ ownership. Real Pacer fixtures cover periodic backpressure, cancellation during 
 fixtures cover compact controls, popup tools, draft preservation and the properties
 side pane. Earlier captures and suite totals above record their original milestones;
 current visual and full-suite acceptance are recorded with FLOW-7 delivery.
+
+The checkable Local echo action is shared by the Terminal menu, terminal toolbar
+group and tab context menu. Its checked state follows the selected terminal's
+effective `input/localEcho` value; toggling writes only that terminal's override.
+The action is disabled without a selected terminal and uses the existing local
+echo path without changing transport or processing configuration.

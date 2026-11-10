@@ -68,6 +68,15 @@ sizes. Tooltips include saturating accepted/forwarded byte counts and failure co
 Forwarded counts mean acceptance by the next sink, including the transport queue;
 they do not establish delivery to a remote device. No payloads are recorded.
 
+Processor errors stop the affected processing lane without closing the transport
+or clearing the requested connection state. A simplex fault leaves the opposite
+lane running; a shared duplex processor fault stops both lanes. Faulted data is
+never silently passed through. Subsequent input to a failed lane is rejected until
+processing is explicitly replaced, edited or switched to Bypass. Receive admission
+overflow also fails the processing lane while preserving the connection. Tx faults
+cancel file/periodic producers without restarting the faulty processor; bytes
+already accepted by the transport queue may still drain.
+
 Workspace definitions use individual YAML files. Multi-document edits share a bounded
 recoverable transaction with session rename refactoring. Python/Codeflow execution
 remains outside this stage.
@@ -240,3 +249,10 @@ The current format has explicit processing mode; an absent mode defaults to Bypa
 No compatibility reader or migration was added. Changed C++ files were clang-formatted;
 SVG/document links and `git diff --check` passed. Release was not rebuilt. No real
 serial device, external endpoint or elevation was used.
+
+APP-14 verification covers independent Rx/Tx failures with synthetic devices,
+continued opposite-lane traffic, rejection after failure, recovery through Bypass
+and absence of reconnect attempts. Debug AppTests, AdvancedSenderTests and
+ProcessingRoutingTests passed. Local echo selection state and controls were also
+checked on native Windows at 100% and 200% scale. No hardware traffic or elevated
+shell was used; Release was not built.

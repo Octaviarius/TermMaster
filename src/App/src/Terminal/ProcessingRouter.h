@@ -66,8 +66,10 @@ public:
                                    QString*                          error   = nullptr);
     void replace(Direction direction, std::shared_ptr<Processor> processor, std::function<void()> ready = {});
     /** One 2x2 instance owns both directions; ports 0/1 are Rx/Tx. */
-    void        replaceDuplex(std::shared_ptr<Processor> processor, std::function<void()> ready = {});
-    bool        duplex() const;
+    void replaceDuplex(std::shared_ptr<Processor> processor, std::function<void()> ready = {});
+    bool duplex() const;
+    /** Stop a failed lane (both lanes for duplex) without switching to bypass. */
+    void        fail(Direction direction, QString message);
     void        cancel(Direction direction, std::function<void()> ready = {});
     void        wake(Direction direction);
     Diagnostics diagnostics(Direction direction) const;
@@ -127,7 +129,6 @@ private:
                  bool                              requireActive);
     void _pump(Direction direction);
     void _schedule();
-    void _fail(Direction direction, QString message);
     void _clear(Lane& lane);
     static void _retire(std::shared_ptr<Processor> processor, std::function<void()> ready);
 };

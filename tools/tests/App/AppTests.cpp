@@ -308,7 +308,8 @@ private:
         QVERIFY(!_app.toolbar().toolbar()->actions().contains(plugins->actions().first()));
         QCOMPARE(_app.toolbar().groups(), QStringList({"terminalCreation", "terminal"}));
         QCOMPARE(_app.toolbar().toolbar()->toolButtonStyle(), Qt::ToolButtonIconOnly);
-        QVERIFY(_app.toolbar().toolbar()->actions().isEmpty());
+        QCOMPARE(_app.toolbar().toolbar()->actions().size(), 1);
+        QVERIFY(!_app.commands().find("Terminal.LocalEcho")->actions().first()->isEnabled());
         for (auto* action : _app.toolbar().toolbar()->actions())
         {
             if (!action->isSeparator())
@@ -1550,6 +1551,7 @@ content:
                                   console ? "Stop" : "Disconnect",
                                   console ? "Restart" : "Reconnect",
                                   "Clear screen",
+                                  "Local echo",
                                   "Settings..."}));
             QVERIFY(!visible.contains("Close"));
             QCOMPARE(_app.pluginHost().selectedDevice(type)->state(), SerialDevice::State::Closed);
@@ -2236,7 +2238,7 @@ content:
             editor->findChild<QPushButton*>("commandFavoriteLoad")->click();
             QCOMPARE(editor->findChild<QComboBox*>("commandTerminator")->currentData().toString(), QString("crlf"));
             editor->findChild<QPushButton*>("commandPeriodicStart")->click();
-            QTRY_VERIFY(!editor->findChild<QToolButton*>("commandStop")->isHidden());
+            QVERIFY(editor->findChild<QToolButton*>("commandStop")->isHidden());
             QTest::qWait(100);
             QCOMPARE(_app.mainWindow().size(), QSize(1100, 760));
             const auto advancedName = QString(captureFile.completeBaseName()).replace("Buffered", "Advanced") + ".png";
@@ -2332,7 +2334,7 @@ content:
         QVERIFY(draft->toPlainText().isEmpty());
         QCOMPARE(editor->findChild<QComboBox*>("commandHistory")->count(), 1);
         QCOMPARE(probe->output, QByteArray());
-        QTRY_VERIFY(!editor->findChild<QToolButton*>("commandStop")->isHidden());
+        QVERIFY(editor->findChild<QToolButton*>("commandStop")->isHidden());
         auto& controller = static_cast<TerminalController&>(host);
         QVERIFY(controller.selectedSettings().setValue("transport/target", "new-target"));
         controller.applySettings();
@@ -2518,6 +2520,191 @@ content:
         QCOMPARE(registry.type("workspace.pipeline")->title, QString("Updated pipeline"));
         QVERIFY(_app.workspace()->removeProcessorDefinition("workspace.pipeline", &error));
         QVERIFY(!registry.type("workspace.pipeline"));
+    }
+
+    Q_SLOT void terminalProcessingFaultPreservesConnection_data()
+    {
+        QTest::addColumn<bool>("receiveFault");
+        QTest::newRow("rx") << true;
+        QTest::newRow("tx") << false;
+    }
+
+    Q_SLOT void terminalProcessingFaultPreservesConnection()
+    {
+        QFETCH(bool, receiveFault);
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Fault.termaster")), "Fault", &error));
+        QVERIFY(_app.createSession("Fault", &error));
+        auto& host                       = _app.pluginHost();
+        auto& controller                 = static_cast<TerminalController&>(host);
+        auto  probe                      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                 = true;
+        probe->allowance                 = 1024 * 1024;
+        const auto               cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("faultFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "faultFixture";
+        type.title  = "Fault fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Fault fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        const QVariantMap decoder {
+            {"type", "native.hex-decoder"}
+        };
+        const QVariantMap gate {
+            {"type", "native.gate"}
+        };
+        QVERIFY(_app.createTerminal("faultFixture",
+                                    {
+                                        {"processing",
+                                         QVariantMap {{"mode", "simplex"},
+                                                      {"rx", receiveFault ? decoder : gate},
+                                                      {"tx", receiveFault ? gate : decoder}}}
+        },
+                                    "Fault",
+                                    &error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(display);
+        const auto sendFaultLane = [&](const QByteArray& bytes) {
+            if (receiveFault)
+            {
+                probe->device->injectReceive(bytes);
+            }
+            else
+            {
+                display->outputBytes(bytes, TerminalDisplay::OutputKind::Reply, {});
+            }
+        };
+        sendFaultLane("!");
+        QTest::qWait(100);
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QVERIFY(host.connectionRequested("faultFixture"));
+
+        // Valid bytes after failure must neither restart decoding nor bypass it.
+        sendFaultLane("4142");
+        if (receiveFault)
+        {
+            display->outputBytes("opposite", TerminalDisplay::OutputKind::Reply, {});
+            QTRY_COMPARE(probe->output, QByteArray("opposite"));
+        }
+        else
+        {
+            probe->device->injectReceive("opposite");
+            QTRY_VERIFY(display->text().contains("opposite"));
+        }
+        QTest::qWait(1200);
+        QCOMPARE(probe->attempts, 1);
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QVERIFY(host.connectionRequested("faultFixture"));
+        if (receiveFault)
+        {
+            QVERIFY(!display->text().contains("AB"));
+            QVERIFY(!display->text().contains("4142"));
+        }
+        else
+        {
+            QVERIFY(probe->output.isEmpty());
+        }
+
+        auto* panel = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
+        QVERIFY(panel);
+        auto* mode = panel->findChild<QComboBox*>("processingMode");
+        QVERIFY(mode);
+        mode->setCurrentIndex(mode->findData("bypass"));
+        emit mode->activated(mode->currentIndex());
+        QVERIFY2(panel->applyDraft(&error), qPrintable(error));
+        sendFaultLane("recovered");
+        if (receiveFault)
+        {
+            QTRY_VERIFY(display->text().contains("recovered"));
+        }
+        else
+        {
+            QTRY_COMPARE(probe->output, QByteArray("recovered"));
+        }
+        QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("bypass"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QCOMPARE(probe->attempts, 1);
+    }
+
+    Q_SLOT void terminalLocalEchoActionTracksSelection()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Echo.termaster")), "Echo", &error));
+        QVERIFY(_app.createSession("Echo", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        const auto               cleanup    = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("echoFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "echoFixture";
+        type.title  = "Echo fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Echo fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [] {
+            return std::make_unique<ReconnectDevice>(std::make_shared<ReconnectDevice::Probe>());
+        };
+        host.registerTerminalType(std::move(type));
+        QVERIFY(_app.createTerminal("echoFixture",
+                                    {
+                                        {"input", QVariantMap {{"localEcho", false}}}
+        },
+                                    "First",
+                                    &error));
+        const auto firstId = _app.selectedTerminal();
+        auto*      command = _app.commands().find("Terminal.LocalEcho");
+        QVERIFY(command && !command->actions().isEmpty());
+        auto* action = command->actions().first();
+        QVERIFY(action->isCheckable());
+        QVERIFY(_app.toolbar().toolbar()->actions().contains(action));
+        QVERIFY(!action->icon().isNull());
+        QVERIFY(!action->toolTip().isEmpty());
+        QVERIFY(!action->isChecked());
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        action->trigger();
+        QVERIFY(action->isChecked());
+        QVERIFY(controller.selectedSettings().value("input/localEcho").toBool());
+        _app.mainWindow().statusBar()->clearMessage();
+        const auto capture = qEnvironmentVariable("TERMASTER_ECHO_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            QApplication::processEvents();
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("LocalEcho.png")));
+        }
+        QVERIFY(_app.createTerminal("echoFixture",
+                                    {
+                                        {"input", QVariantMap {{"localEcho", false}}}
+        },
+                                    "Second",
+                                    &error));
+        QVERIFY(!action->isChecked());
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        QVERIFY(tabs);
+        tabs->setCurrentIndex(0);
+        QVERIFY(action->isChecked());
+        action->trigger();
+        QVERIFY(!controller.selectedSettings().value("input/localEcho").toBool());
+        tabs->setCurrentIndex(1);
+        QVERIFY(!action->isChecked());
+        tabs->setCurrentIndex(0);
+        QVERIFY(!action->isChecked());
+        const auto persisted = _app.session()->objects().value(firstId).toMap().value("settings").toMap();
+        QVERIFY(persisted.value("input").toMap().contains("localEcho"));
+        QVERIFY(!persisted.value("input").toMap().value("localEcho").toBool());
     }
 
     Q_SLOT void terminalProcessingRouting()
@@ -2713,8 +2900,8 @@ content:
         QVERIFY(sendingEditor);
         auto* stop = sendingEditor->findChild<QToolButton*>("commandStop");
         QVERIFY(stop);
-        QTRY_VERIFY(!stop->isHidden());
-        stop->click();
+        QVERIFY(stop->isHidden());
+        emit sendingEditor->stopRequested();
         probe->allowance = 1024 * 1024;
         QTest::qWait(60);
         QVERIFY(probe->output.isEmpty());

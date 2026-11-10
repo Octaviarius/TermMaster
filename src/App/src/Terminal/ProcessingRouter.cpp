@@ -328,7 +328,7 @@ void ProcessingRouter::_installHandlers(Direction direction)
     lane.processor->setErrorHandler([guard, direction, generation](QString message) {
         if (guard && guard->_lane(direction).generation == generation)
         {
-            guard->_fail(direction, std::move(message));
+            guard->fail(direction, std::move(message));
         }
     });
 }
@@ -347,7 +347,7 @@ void ProcessingRouter::_output(Direction                         source,
     }
     if (chunk.port < 0 || chunk.port >= (_duplex ? 2 : 1))
     {
-        _fail(source, QStringLiteral("Processor emitted an invalid output port"));
+        fail(source, QStringLiteral("Processor emitted an invalid output port"));
         return;
     }
 
@@ -355,7 +355,7 @@ void ProcessingRouter::_output(Direction                         source,
     auto&      target    = _lane(direction);
     if (target.outputs.size() >= _limits.maxChunks || chunk.bytes.size() > _limits.maxBytes - target.outputBytes)
     {
-        _fail(direction, QStringLiteral("Processing output exceeds queue limits"));
+        fail(direction, QStringLiteral("Processing output exceeds queue limits"));
         return;
     }
 
@@ -466,15 +466,7 @@ qsizetype ProcessingRouter::pendingSubmissions(Direction direction) const
     return lane.inputs.size() + lane.outputs.size() + (lane.active ? 1 : 0);
 }
 
-void ProcessingRouter::_schedule()
-{
-    if (!_retry.isActive())
-    {
-        _retry.start();
-    }
-}
-
-void ProcessingRouter::_fail(Direction direction, QString message)
+void ProcessingRouter::fail(Direction direction, QString message)
 {
     message.truncate(4096);
     QPointer<ProcessingRouter> guard(this);
@@ -495,6 +487,14 @@ void ProcessingRouter::_fail(Direction direction, QString message)
         count(other.failures, 1);
     }
     emit error(direction, message);
+}
+
+void ProcessingRouter::_schedule()
+{
+    if (!_retry.isActive())
+    {
+        _retry.start();
+    }
 }
 
 void ProcessingRouter::_pump(Direction direction)
@@ -533,7 +533,7 @@ void ProcessingRouter::_pump(Direction direction)
             }
             if (result == Processor::AcceptResult::Rejected)
             {
-                _fail(direction, message.isEmpty() ? QStringLiteral("Processing output was rejected") : message);
+                fail(direction, message.isEmpty() ? QStringLiteral("Processing output was rejected") : message);
                 if (!guard)
                 {
                     return;
@@ -592,7 +592,7 @@ void ProcessingRouter::_pump(Direction direction)
                                                    current.activeBytes = 0;
                                                    if (!message.isEmpty())
                                                    {
-                                                       guard->_fail(direction, std::move(message));
+                                                       guard->fail(direction, std::move(message));
                                                        return;
                                                    }
                                                    emit guard->capacityAvailable(direction);
@@ -615,7 +615,7 @@ void ProcessingRouter::_pump(Direction direction)
             lane.activeBytes = 0;
             if (result == Processor::AcceptResult::Rejected)
             {
-                _fail(direction, QStringLiteral("Processor rejected input"));
+                fail(direction, QStringLiteral("Processor rejected input"));
                 if (!guard)
                 {
                     return;

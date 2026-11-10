@@ -58,6 +58,33 @@ private:
     }
 
 private slots:
+    void interactiveQueueDoesNotShowProducerControls()
+    {
+        SenderDevice device;
+        device.allowance = 0;
+        TerminalSendQueue queue(device);
+        AdvancedSender    sender(queue, device);
+        QSignalSpy        changes(&sender, &AdvancedSender::stateChanged);
+        QString           error;
+        QVERIFY2(sender.submit("\r", &error), qPrintable(error));
+        QTRY_VERIFY(!changes.isEmpty());
+        QVERIFY(sender.active());
+        for (const auto& change : changes)
+        {
+            QVERIFY(!change.at(0).toBool());
+        }
+
+        QVERIFY2(sender.startPeriodic("AT\r", 100, &error), qPrintable(error));
+        QVERIFY(changes.last().at(0).toBool());
+        QSignalSpy stopped(&sender, &AdvancedSender::stopped);
+        sender.stopProducers();
+        QVERIFY(!changes.last().at(0).toBool());
+        QVERIFY(sender.active());
+        QCOMPARE(stopped.count(), 0);
+        QCOMPARE(device.currentState, SerialDevice::State::Open);
+        queue.reset();
+    }
+
     void rawStreamingBeyondQueueLimit()
     {
         QTemporaryDir directory;

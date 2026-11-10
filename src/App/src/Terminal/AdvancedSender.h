@@ -20,7 +20,10 @@ public:
     bool startPeriodic(const QByteArray& bytes, int intervalMs, QString* error = nullptr);
     void connectionChanged();
     void stop();
+    /** Stop file/periodic production without restarting processors or closing transport. */
+    void stopProducers();
     bool active() const;
+    /** Presentation state for file/periodic producers; active() also counts manual queues. */
     Q_SIGNAL void stateChanged(bool active, const QString& status);
     Q_SIGNAL void stopped();
     Q_SIGNAL void failed(const QString& error);

@@ -194,6 +194,12 @@ void AdvancedSender::stop()
     }
 }
 
+void AdvancedSender::stopProducers()
+{
+    _cancelProducers();
+    _publish();
+}
+
 bool AdvancedSender::active() const
 {
     return _fileActive || _periodicActive || _pending() > 0;
@@ -338,7 +344,7 @@ void AdvancedSender::_publish()
                                                              .arg(_queue.pendingSubmissions())
                                                              .arg(_queue.pendingBytes()) :
                                                          QString {};
-    emit          stateChanged(active(), status);
+    emit          stateChanged(_fileActive || _periodicActive, status);
 }
 
 void AdvancedSender::_cancelProducers()
