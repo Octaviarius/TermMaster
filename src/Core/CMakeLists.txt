@@ -80,6 +80,11 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/TimedFramer.cpp
     src/Processing/Nodes/Timestamp.h
     src/Processing/Nodes/Timestamp.cpp
+    src/Processing/Nodes/Compress.h
+    src/Processing/Nodes/Compress.cpp
+    src/Processing/Nodes/Uncompress.h
+    src/Processing/Nodes/Uncompress.cpp
+    src/Processing/Nodes/CompressionSettings.h
     inc/Termaster/Core/Formatting/FormatSchema.h
     inc/Termaster/Core/Formatting/CompiledFormat.h
     src/Formatting/FormatSchema.cpp

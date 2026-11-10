@@ -2,6 +2,7 @@
 #include "Nodes/Base64Decoder.h"
 #include "Nodes/Base64Encoder.h"
 #include "Nodes/Bypass.h"
+#include "Nodes/Compress.h"
 #include "Nodes/Framer.h"
 #include "Nodes/Gate.h"
 #include "Nodes/HexCodec.h"
@@ -12,6 +13,7 @@
 #include "Nodes/Stub.h"
 #include "Nodes/TimedFramer.h"
 #include "Nodes/Timestamp.h"
+#include "Nodes/Uncompress.h"
 
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorCatalog.h>
@@ -43,6 +45,20 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
         Definition("native.stub", "Stub", "Control", Stub::schema(), Stub::create, "Data", "Data"),
         Definition("native.gate", "Gate", "Control", Gate::schema(), Gate::create, "Data", "Data"),
         Definition("native.timestamp", "Timestamp", "Timing", Timestamp::schema(), Timestamp::create, "Data", "Data"),
+        Definition("native.compress",
+                   "Compress",
+                   "Compression",
+                   Compress::schema(),
+                   Compress::create,
+                   "Bytes",
+                   "Compressed"),
+        Definition("native.uncompress",
+                   "Uncompress",
+                   "Compression",
+                   Uncompress::schema(),
+                   Uncompress::create,
+                   "Compressed",
+                   "Bytes"),
         Definition("native.pacer", "Pacer", "Timing", Pacer::schema(), Pacer::create, "Data", "Data"),
         Definition("native.framer",
                    "Delimiter Framer",

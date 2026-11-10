@@ -328,7 +328,16 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Evaluate only requested Timestamp clocks/date text while always advancing accepted packet indices.
 - [x] Integrate datetime, Unix/boot units, standard number formatting and persistent live preview state.
 - [x] Verify Debug/Release behavior and record a reproducible Release formatting benchmark.
+## FLOW-21: Packet compression
+
+- [x] Register native Compress/Uncompress nodes with generated settings.
+- [x] Support independent zlib, gzip and raw DEFLATE packets with configurable compression parameters.
+- [x] Enforce strict complete streams, checksums, output limits, bounded work and optional concatenated members.
+- [x] Verify independent fixtures, packet composition, native forms and Python zlib interoperability.
+
 ## HELP-1: Contextual module documentation
+
+Next scheduled stage after FLOW-21 packet compression.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
 - [ ] Package module-owned help and generated parameter reference with stable context topics.

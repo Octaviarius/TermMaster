@@ -2,7 +2,7 @@
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
 Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp and Pacer. NativeProcessors only registers the
+HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer, Timestamp, Compress, Uncompress and Pacer. NativeProcessors only registers the
 catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
@@ -35,6 +35,79 @@ completes successfully with zero outputs: traffic is dropped, never queued for
 later release. It therefore does not stall a Lineflow. Limits still apply while
 disabled. Cancellation stops acceptance. Configuration changes follow the common
 prepared-instance replacement contract rather than mutating another instance.
+
+## Compress and Uncompress
+
+`native.compress` and `native.uncompress`, group Compression, are unary packet
+processors using Core's existing zlib dependency. zlib, gzip and raw are three
+wrappers around the same DEFLATE algorithm. Each accepted packet is an independent
+complete stream; separate invocations share allocation capacity but never a
+dictionary or unfinished input. A framing stage must assemble complete compressed
+packets before Uncompress when transport reads split them.
+
+Compress settings:
+
+| Field | Default | Values |
+| --- | --- | --- |
+| `format` | zlib | zlib, gzip, raw DEFLATE |
+| `level` | -1 | -1 library default, 0 stored blocks, 1 fastest through 9 strongest |
+| `windowBits` | 15 | 9–15, a 512-byte through 32 KiB history window |
+| `memLevel` | 8 | 1–9 compression memory/speed trade-off |
+| `strategy` | default | default, filtered, huffman, rle, fixed |
+
+Filtered favors filtered data, huffman skips LZ matching, rle specializes in runs
+and fixed uses fixed Huffman codes. Level 0 still emits a valid wrapped/raw
+DEFLATE stream. A compressed packet may be larger than its input, including an
+empty packet. See the [zlib API manual](https://www.zlib.net/manual.html).
+
+Uncompress settings:
+
+| Field | Default | Values |
+| --- | --- | --- |
+| `format` | auto | auto detects zlib/gzip; raw requires explicit selection |
+| `windowBits` | 15 | 9–15, maximum decompression window |
+| `maxOutputBytes` | 1048576 | 1–67108864, additionally capped by the host limit |
+| `concatenated` | false | Accept multiple complete streams into one output packet |
+
+Checksums are verified when the selected wrapper supplies them. Every remaining
+byte must belong to a complete stream; truncated packets, trailing junk and
+unsupported preset dictionaries fail atomically. Concatenated mode does not
+ignore incomplete final members. A valid compressed empty stream emits one
+empty output packet; an empty compressed input is invalid. Raw DEFLATE has no
+wrapper checksum and cannot provide equivalent integrity checks.
+
+Output grows in bounded 16 KiB increments rather than trusting input size headers.
+The host byte/step limits remain authoritative. Context pointers are cleared
+before input callbacks finish and native resources are owned by the instance.
+Execution is synchronous on the owning thread, as for the existing native codecs;
+packet size and compression level determine the time spent in one invocation.
+Processing errors follow the existing router failure path without closing the
+terminal transport. Unknown configuration fields remain preserved.
+
+FLOW-21 acceptance passed the complete MSVC x64 Debug build and all 52 CTest
+suites. CompressionProcessorTests and ProcessingTests also passed in Release.
+Independent Python zlib runtime 1.3.1.zlib-ng decoded all three captured native
+formats with exact 16409-byte output. Fixed external fixtures cover binary bytes,
+while the matrix covers wrappers, levels, strategies, windows and memory settings.
+Truncation, checksums, dictionaries, concatenation, step/byte limits and buffer
+ownership were checked. Native forms are captured in
+[Compress](images/compression/Compress.png) and
+[Uncompress](images/compression/Uncompress.png). No real-device acceptance was run.
+
+Additional algorithm candidates, not implemented by these nodes yet:
+
+| Algorithm | Parameters to expose | Intended use |
+| --- | --- | --- |
+| Zstandard | level/fast mode, window limit, dictionary, frame checksum | General-purpose compressed packet protocols |
+| LZ4 Frame / HC | acceleration or HC level, block size, block/content checksum | Low-latency packet handling |
+| Brotli | quality 0–11, window 10–24, generic/text/font mode | Brotli-compatible content |
+| LZMA2/XZ | preset 0–9, dictionary and memory limits, check type | XZ-compatible content and larger blocks |
+
+These require additional dependencies and distinct framing/limit validation.
+Their APIs are documented by [Zstandard](https://github.com/facebook/zstd),
+[LZ4](https://github.com/lz4/lz4), [Brotli](https://www.brotli.org/encode.html)
+and [XZ](https://tukaani.org/xz/man/xz.1.html). They are candidates rather than
+claims of measured performance in Termaster.
 
 ## Timestamp
 
