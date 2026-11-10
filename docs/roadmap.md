@@ -248,3 +248,10 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Add inline 180-degree rotation while preserving port identity and draft settings.
 - [x] Generate meaningful unique occurrence names, with no suffix on the first instance.
 - [x] Verify affected behavior, native 1x/2x captures and the Debug application build.
+
+## FLOW-10: Duplex codecs
+
+- [x] Register HEX Codec and Base64 Codec as native 2x2 nodes with named ports.
+- [x] Expose independent encoder/decoder settings with usable defaults.
+- [x] Reuse unary codecs while preserving separate incremental state and packet boundaries.
+- [x] Verify bounds, reentry, cancellation, rotation and native settings forms.

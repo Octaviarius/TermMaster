@@ -685,7 +685,7 @@ private slots:
         };
         auto* codecs = findGroup(catalog->topLevelItem(2), "Codecs");
         QVERIFY(codecs);
-        QCOMPARE(codecs->childCount(), 4);
+        QCOMPARE(codecs->childCount(), 6);
         QVERIFY(!codecs->isExpanded());
         QVERIFY(!(codecs->flags() & Qt::ItemIsDragEnabled));
         QVERIFY(!(catalog->topLevelItem(2)->flags() & Qt::ItemIsSelectable));
@@ -697,7 +697,7 @@ private slots:
         search->setText("base64");
         codecs = findGroup(catalog->topLevelItem(0), "Codecs");
         QVERIFY(codecs);
-        QCOMPARE(codecs->childCount(), 2);
+        QCOMPARE(codecs->childCount(), 3);
         QVERIFY(catalog->topLevelItem(1)->isHidden());
         search->clear();
 
@@ -1453,6 +1453,17 @@ private slots:
         QDragLeaveEvent leave;
         QApplication::sendEvent(tree->viewport(), &leave);
         QVERIFY(!tree->dropIndicatorVisible());
+        const auto codecs = dialog.model().createBlock("Duplex codecs", 2);
+        QVERIFY(!dialog.model().insertNodeAt(codecs, 0, "native.hex-codec", "duplex").isEmpty());
+        QVERIFY(!dialog.model().insertNodeAt(codecs, 1, "native.base64-codec", "duplex").isEmpty());
+        tree->setCurrentIndex(dialog.model().index(0, 0));
+        QTest::qWait(50);
+        QVERIFY(dialog.grab().save(
+            QDir(destination).filePath(dialog.devicePixelRatioF() > 1.5 ? "HexCodec2x.png" : "HexCodec.png")));
+        tree->setCurrentIndex(dialog.model().index(1, 0));
+        QTest::qWait(50);
+        QVERIFY(dialog.grab().save(
+            QDir(destination).filePath(dialog.devicePixelRatioF() > 1.5 ? "Base64Codec2x.png" : "Base64Codec.png")));
         QCOMPARE(dialog.size(), QSize(1100, 760));
     }
 };
