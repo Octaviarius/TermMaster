@@ -222,6 +222,16 @@ qt_add_resources(Core "actionIcons"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../components/lucide/icons/x.svg"
 )
 
+qt_add_resources(Core "processorIcons"
+    PREFIX "/Termaster/Core/Icons"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/Res/Icons"
+    FILES
+        "Res/Icons/ProcessorElementary2.svg"
+        "Res/Icons/ProcessorElementary4.svg"
+        "Res/Icons/ProcessorComposite2.svg"
+        "Res/Icons/ProcessorComposite4.svg"
+)
+
 # Use the platform zlib when available; the selected Qt kit also provides its bundled headers.
 find_package(ZLIB QUIET)
 if(TARGET ZLIB::ZLIB)

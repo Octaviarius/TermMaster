@@ -89,8 +89,8 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     blockBar->addWidget(_blocks);
     _topology = new QComboBox(this);
     _topology->setObjectName("blockTopology");
-    _topology->addItem(Icons::icon("arrow-right"), "1 × 1", 1);
-    _topology->addItem(Icons::icon("workflow"), "2 × 2", 2);
+    _topology->addItem(Icons::processorBlock(true, false), "1 × 1", 1);
+    _topology->addItem(Icons::processorBlock(true, true), "2 × 2", 2);
     _topology->setItemData(0, tr("One input and one output"), Qt::ToolTipRole);
     _topology->setItemData(1, tr("Paired Rx/Tx flow with shared duplex operations"), Qt::ToolTipRole);
     _topology->setToolTip(tr("Block topology. New blocks use the selected topology."));
@@ -539,13 +539,12 @@ void LineflowEditorDialog::_refreshCatalog()
         auto* item = new QTreeWidgetItem(parent, {it.value()});
         item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
         item->setData(0, Qt::UserRole, it.key());
-        const auto reason = _model->unavailableReason(it.key());
-        const auto shape  = _model->processorShape(it.key());
+        const auto reason    = _model->unavailableReason(it.key());
+        const auto shape     = _model->processorShape(it.key());
+        const bool composite = definitions.contains(it.key()) || (type && type->kind != "native");
         item->setIcon(0,
-                      Icons::icon(!reason.isEmpty()                     ? "triangle-exclamation-point" :
-                                  shape.first == 2 && shape.second == 2 ? "network" :
-                                  local                                 ? "blocks" :
-                                                                          "workflow"));
+                      !reason.isEmpty() ? Icons::icon("triangle-exclamation-point") :
+                                          Icons::processorBlock(composite, shape.first == 2 && shape.second == 2));
         item->setToolTip(0,
                          (reason.isEmpty() ? it.key() : reason)
                              + QString("\n%1 × %2").arg(shape.first).arg(shape.second));

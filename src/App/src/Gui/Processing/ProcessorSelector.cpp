@@ -73,17 +73,16 @@ void ProcessorSelector::setCatalog(QList<ProcessorCatalog::Type> types,
         return compared == 0 ? left.id < right.id : compared < 0;
     });
     clear();
-    addItem(Icons::icon("workflow"), tr("Bypass"), QStringLiteral("native.bypass"));
+    addItem(Icons::processorBlock(false, false), tr("Bypass"), QStringLiteral("native.bypass"));
     for (const auto& type : _types)
     {
         if (type.id == "native.bypass")
         {
             continue;
         }
-        const bool local = type.origin == "workspace";
-        addItem(Icons::icon(!type.available ? "triangle-exclamation-point" :
-                            local           ? "blocks" :
-                                              "workflow"),
+        addItem(!type.available ?
+                    Icons::icon("triangle-exclamation-point") :
+                    Icons::processorBlock(type.kind != "native", type.inputCount == 2 && type.outputCount == 2),
                 type.title,
                 type.id);
         setItemData(count() - 1, type.available ? type.id : type.unavailableReason, Qt::ToolTipRole);
