@@ -315,3 +315,9 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Compile binary-safe output templates with packet/time placeholders and ANSI byte escapes.
 - [x] Preserve packet boundaries, output ownership, cancellation and atomic byte limits.
 - [x] Verify generated settings, binary templates and Framer-to-Timestamp composition.
+## FLOW-19: Live Timestamp preview
+
+- [x] Select a generated auxiliary preview through the Timestamp schema's x-widget.
+- [x] Render actual substitutions with editable sample bytes and template-only ANSI coloring.
+- [x] Refresh current time on randomized 100–1000 ms intervals while visible.
+- [x] Verify draft updates, bounded output, timer shutdown and native plain/color rendering.

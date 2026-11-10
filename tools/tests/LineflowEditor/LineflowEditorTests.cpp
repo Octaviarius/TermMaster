@@ -1512,6 +1512,13 @@ private slots:
         QCOMPARE(timestampForm->editor("template")->value().toString(), QString("[${timestamp}] ${packet}"));
         QVERIFY(dialog.grab().save(
             QDir(destination).filePath(dialog.devicePixelRatioF() > 1.5 ? "Timestamp2x.png" : "Timestamp.png")));
+        auto* timestampTemplate = timestampForm->editor("template")->findChild<QLineEdit*>();
+        QVERIFY(timestampTemplate);
+        timestampTemplate->setText(R"(\e[38;2;255;160;70m[${timestamp}]\e[0m ${packet})");
+        QTest::qWait(50);
+        QVERIFY(dialog.grab().save(
+            QDir(destination)
+                .filePath(dialog.devicePixelRatioF() > 1.5 ? "TimestampColors2x.png" : "TimestampColors.png")));
 
         registerDuplex(registry);
         const auto paired = dialog.model().createBlock("Device protocol · Rx / Tx", 2);

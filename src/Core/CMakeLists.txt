@@ -80,6 +80,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/TimedFramer.cpp
     src/Processing/Nodes/Timestamp.h
     src/Processing/Nodes/Timestamp.cpp
+    src/Gui/Settings/TimestampPreviewEditor.h
+    src/Gui/Settings/TimestampPreviewEditor.cpp
     src/Processing/Nodes/PatternFramer.h
     src/Processing/Nodes/PatternFramer.cpp
     src/Processing/Nodes/HexEncoder.h
