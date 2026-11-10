@@ -322,3 +322,27 @@ One copied real-workspace quick run measured session reopen at 174.62 ms, clean
 App save at 4.31 ms and disconnected terminal addition at 30.88 ms; these are
 exploratory single-cycle figures, not statistical performance guarantees. Raw
 records are under `docs/benchmarks/application-profile/after-settings/`.
+
+## Bulk terminal presentation updates
+
+Session replacement, restoration and closing all terminal views use a nested
+controller batch. Backend creation/teardown and each terminal's lifecycle/status
+updates still run normally. The batch defers action predicates, controller
+selection notifications and terminal-area show/focus work until its outer boundary.
+Tab-widget signals and repaints are suspended during intermediate tab mutations;
+their prior blocked/enabled states are restored exactly. Restoration selects the
+last successfully materialized terminal, matching the existing ordered restore.
+One final controller selection notification reports changed views; closing an
+already empty collection emits none. Single-terminal creation and closure retain
+their existing presentation path.
+
+On 2026-11-11 the isolated Qt 6.12.0 / MSVC2022 x64 Release AppTests build
+and full CTest run passed (46 passes including setup/cleanup, 22.54 seconds). The
+four-terminal fixture checks one final selection/action refresh, no intermediate
+tab signals, retained tab-widget signal/repaint flags, no notification for an
+empty close, and a final selection observer reentering closeAll. The native Windows
+fixture also passed; its capture was inspected for four disconnected tabs, final
+selection, aligned tab controls and intact terminal/status presentation. Scoped
+restoration and QPointer guards protect batch finalization across GUI callbacks.
+Changed C++ files were clang-formatted and `git diff --check` passed. Tests used
+synthetic disconnected backends; no real device or external endpoint was opened.

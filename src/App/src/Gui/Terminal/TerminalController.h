@@ -104,11 +104,18 @@ private:
     std::map<QString, RegisteredAction>         _actions;
     QPointer<SettingsDialog>                    _creation;
     std::array<QPointer<QToolButton>, 3>        _statusButtons;
+    int                                         _batchDepth            = 0;
+    bool                                        _batchSignalsBlocked   = false;
+    bool                                        _batchUpdatesEnabled   = true;
+    bool                                        _batchSelectionChanged = false;
+    QPointer<QWidget>                           _batchSelected;
 
     Runtime*                                                 _current() const;
     bool                                                     _activeWindow() const;
     bool                                                     _materialize(const QString& id, QString* error);
     void                                                     _restore();
+    void                                                     _beginBatch();
+    void                                                     _endBatch();
     std::optional<std::array<std::shared_ptr<Processor>, 2>> _prepareProcessing(const QVariantMap& configuration,
                                                                                 QString*           error,
                                                                                 bool               txOnly = false);

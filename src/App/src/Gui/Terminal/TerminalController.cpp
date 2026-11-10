@@ -18,6 +18,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QSaveFile>
+#include <QScopeGuard>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTabBar>
@@ -331,17 +332,44 @@ void TerminalController::setSession(Session* session)
     {
         return;
     }
+    _beginBatch();
+    const QPointer<TerminalController> self(this);
+    const auto                         finish = qScopeGuard([self] {
+        if (self)
+        {
+            self->_endBatch();
+        }
+    });
     closeAll();
+    if (!self)
+    {
+        return;
+    }
     _session = session;
     _restore();
-    refreshTerminalActions();
 }
 void TerminalController::closeAll()
 {
+    _beginBatch();
+    const QPointer<TerminalController> self(this);
+    const auto                         finish = qScopeGuard([self] {
+        if (self)
+        {
+            self->_endBatch();
+        }
+    });
     delete _creation.data();
+    if (!self)
+    {
+        return;
+    }
     while (!_terminals.empty())
     {
         _close(_terminals.begin()->first);
+        if (!self)
+        {
+            return;
+        }
     }
 }
 QString TerminalController::selectedTerminal() const
@@ -442,7 +470,6 @@ void TerminalController::registerTerminalType(TerminalType type)
     type.defaultSettingsSchema = QByteArray(type.defaultSettingsSchema.constData(), type.defaultSettingsSchema.size());
     _types.emplace(id, Type {std::move(type), std::move(schema), std::move(workspaceSchema), std::move(defaultSchema)});
     _restore();
-    refreshTerminalActions();
 }
 bool TerminalController::unregisterTerminalType(const QString& type, QString* error)
 {
@@ -587,6 +614,10 @@ void TerminalController::unregisterEditor(const QString& id)
 }
 void TerminalController::refreshTerminalActions()
 {
+    if (_batchDepth > 0)
+    {
+        return;
+    }
     const auto* selected = _current();
     const auto  buffered = _actions.find("Terminal.BufferedInput");
     if (buffered != _actions.end() && buffered->second.action)
@@ -1156,14 +1187,106 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         }
     });
     const int index = _window.terminalTabs().addTab(panel, _terminals.at(id)->name);
-    _window.terminalTabs().setCurrentIndex(index);
-    _window.showTerminals(true);
-    display->setFocus();
+    if (_batchDepth > 0)
+    {
+        _batchSelected         = panel;
+        _batchSelectionChanged = true;
+    }
+    else
+    {
+        _window.terminalTabs().setCurrentIndex(index);
+        _window.showTerminals(true);
+        display->setFocus();
+    }
     _changed(id);
     return true;
 }
+void TerminalController::_beginBatch()
+{
+    if (_batchDepth++ > 0)
+    {
+        return;
+    }
+    auto& tabs           = _window.terminalTabs();
+    _batchSignalsBlocked = tabs.blockSignals(true);
+    _batchUpdatesEnabled = tabs.updatesEnabled();
+    tabs.setUpdatesEnabled(false);
+    _batchSelectionChanged = false;
+    _batchSelected.clear();
+}
+
+void TerminalController::_endBatch()
+{
+    if (_batchDepth > 1)
+    {
+        --_batchDepth;
+        return;
+    }
+    const QPointer<TerminalController> self(this);
+    const QPointer<QTabWidget>         tabs(&_window.terminalTabs());
+    const bool                         signalsBlocked  = _batchSignalsBlocked;
+    const bool                         updatesEnabled  = _batchUpdatesEnabled;
+    const auto                         restoreTabState = [tabs, signalsBlocked, updatesEnabled] {
+        if (tabs)
+        {
+            tabs->blockSignals(signalsBlocked);
+            tabs->setUpdatesEnabled(updatesEnabled);
+        }
+    };
+    auto restoreTabs = qScopeGuard(restoreTabState);
+    if (_batchSelected && tabs->indexOf(_batchSelected) >= 0)
+    {
+        tabs->setCurrentWidget(_batchSelected);
+        if (!self)
+        {
+            return;
+        }
+    }
+    if (_batchSelectionChanged)
+    {
+        _window.showTerminals(!_terminals.empty());
+        if (!self)
+        {
+            return;
+        }
+    }
+    if (_batchSelected)
+    {
+        if (auto* terminal = _current())
+        {
+            terminal->display->setFocus();
+            if (!self)
+            {
+                return;
+            }
+        }
+    }
+    restoreTabState();
+    restoreTabs.dismiss();
+    if (!self)
+    {
+        return;
+    }
+    const bool changed = _batchSelectionChanged;
+    _batchSelected.clear();
+    _batchDepth = 0;
+    refreshTerminalActions();
+    if (self && changed)
+    {
+        emit selectionChanged();
+    }
+}
+
 void TerminalController::_restore()
 {
+    _beginBatch();
+    const QPointer<TerminalController> self(this);
+    const auto                         finish = qScopeGuard([self] {
+        if (self)
+        {
+            self->_endBatch();
+        }
+    });
     if (!_session)
     {
         return;
@@ -1175,8 +1298,13 @@ void TerminalController::_restore()
         {
             continue;
         }
-        QString error;
-        if (!_materialize(it.key(), &error))
+        QString    error;
+        const bool restored = _materialize(it.key(), &error);
+        if (!self)
+        {
+            return;
+        }
+        if (!restored)
         {
             _window.statusBar()->showMessage(owned(error));
         }
@@ -1196,6 +1324,11 @@ void TerminalController::_close(const QString& id)
         _window.terminalTabs().removeTab(_window.terminalTabs().indexOf(terminal->panel));
     }
     terminal.reset();
+    if (_batchDepth > 0)
+    {
+        _batchSelectionChanged = true;
+        return;
+    }
     _window.showTerminals(!_terminals.empty());
     refreshTerminalActions();
     emit selectionChanged();
