@@ -784,6 +784,10 @@ void TerminalProcessingPanel::_showProperties()
                     layout->addStretch();
                 }
                 _table->setRowHeight(fieldRow, cell->sizeHint().height());
+                _table->setRowHidden(fieldRow, !model->isActive(field.key));
+                connect(model, &SettingsFormModel::validationChanged, cell, [this, model, fieldRow, key = field.key] {
+                    _table->setRowHidden(fieldRow, !model->isActive(key));
+                });
                 connect(editor, &SettingsFieldEditor::valueChanged, this, [this, editor, model, field, reset] {
                     if (_updating)
                     {

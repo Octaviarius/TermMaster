@@ -342,9 +342,20 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Preserve whole packets and reject length mismatch, underflow, overflow and host-limit violations atomically.
 - [x] Verify independent vectors, packet/configuration boundaries, lifecycle and native settings forms.
 
+## SETTINGS-5: Discriminated variant forms
+
+- [x] Generate common and selected-branch fields from root oneOf string const variants.
+- [x] Preserve inactive drafts, validation errors, custom editor lifetimes and inheritance.
+- [x] Project active processor/terminal configurations and preserve unknown settings.
+- [x] Verify schema/model/GUI integration and native rendering at scales 1 and 2.
+
+The supported subset and persistence contract are recorded in
+[settings forms](settings-forms.md#discriminated-variant-forms).
+
+
 ## HELP-1: Contextual module documentation
 
-Next scheduled stage after FLOW-23 binary packet lengths.
+Next scheduled stage after SETTINGS-5 discriminated variant forms.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
 - [ ] Package module-owned help and generated parameter reference with stable context topics.

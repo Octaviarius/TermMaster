@@ -1,3 +1,5 @@
+#include "../SettingsVariantFixture.h"
+
 #include <QAbstractItemDelegate>
 #include <QAbstractItemView>
 #include <QAccessible>
@@ -86,6 +88,145 @@ private:
             QVERIFY(QFontDatabase::addApplicationFont(root + "/Fonts/arial.ttf") >= 0);
         }
 #endif
+    }
+
+    Q_SLOT void variantDraftsValidationAndAtomicApply()
+    {
+        Settings settings(QString {});
+        QVERIFY(settings.setValue("future/retained", 42));
+        auto                   descriptor = std::make_shared<const SettingsSchema>(settingsVariantFixture());
+        SettingsFormModel      model(descriptor, settings.node(""));
+        SettingsWidgetRegistry registry;
+        SettingsFormWidget     form(model, registry);
+        form.resize(700, 500);
+        form.show();
+        auto* selector = form.editor("encoding")->findChild<QComboBox*>();
+        QVERIFY(selector);
+        QCOMPARE(selector->itemText(0), QString("Fixed width"));
+        QCOMPARE(selector->itemText(1), QString("Variable width"));
+        QVERIFY(form.visibleFields().contains("width"));
+        QVERIFY(!form.visibleFields().contains("maxBytes"));
+        auto* options = form.editor("options")->findChild<QPlainTextEdit*>();
+        QVERIFY(options);
+        options->setPlainText("[");
+        QVERIFY(!model.isValid());
+        selector->setCurrentIndex(1);
+        QVERIFY(model.isValid());
+        QVERIFY(form.visibleFields().contains("maxBytes"));
+        QVERIFY(!form.visibleFields().contains("width"));
+        form.setFilter("Width");
+        QVERIFY(!form.visibleFields().contains("width"));
+        form.setFilter({});
+        selector->setCurrentIndex(0);
+        QCOMPARE(options->toPlainText(), QString("["));
+        QVERIFY(!model.isValid());
+        options->setPlainText("{enabled: true}");
+        model.setValue("width", 8);
+        selector->setCurrentIndex(1);
+        selector->setCurrentIndex(0);
+        QCOMPARE(model.value("width").toInt(), 8);
+        QCOMPARE(options->toPlainText(), QString("{enabled: true}"));
+        QString error;
+        QVERIFY2(model.apply(&error), qPrintable(error));
+        QCOMPARE(settings.value("width").toInt(), 8);
+        selector->setCurrentIndex(1);
+        model.setValue("maxBytes", 9);
+        QVERIFY2(model.apply(&error), qPrintable(error));
+        QCOMPARE(settings.value("encoding").toString(), QString("varint"));
+        QCOMPARE(settings.value("maxBytes").toInt(), 9);
+        QVERIFY(!settings.contains("width") && !settings.contains("options"));
+        QCOMPARE(settings.value("future/retained").toInt(), 42);
+        QVERIFY(!model.isDirty());
+        QVERIFY(model.isValid());
+        QVERIFY(settings.setValue("encoding", "unknown"));
+        model.reload();
+        QCOMPARE(model.value("encoding").toString(), QString("unknown"));
+        QCOMPARE(form.editor("encoding")->value().toString(), QString("unknown"));
+        QVERIFY(!model.isDirty() && !model.isValid());
+        QVERIFY(!model.isActive("width") && !model.isActive("maxBytes"));
+    }
+
+    Q_SLOT void inactiveReadOnlyValuesAreRemovedAtomically()
+    {
+        Settings settings(QString {});
+        QVERIFY(settings.setValue("encoding", "fixed"));
+        QVERIFY(settings.setValue("width", 3));
+        QVERIFY(settings.setValue("options",
+                                  QVariantMap {
+                                      {"retained", true}
+        }));
+        auto bytes = settingsVariantFixture();
+        bytes.replace("type: object, title: Options,", "type: object, title: Options, readOnly: true,");
+        auto              descriptor = std::make_shared<const SettingsSchema>(bytes);
+        SettingsFormModel model(descriptor, settings.node(""));
+        model.setValue("options", QVariantMap {});
+        QCOMPARE(model.value("options").toMap().value("retained").toBool(), true);
+        model.setValue("encoding", "varint");
+        QString error;
+        QVERIFY2(model.apply(&error), qPrintable(error));
+        QVERIFY(!settings.contains("options"));
+        QVERIFY(!settings.contains("width"));
+    }
+
+    Q_SLOT void inactiveVariantKeepsCustomEditorLease()
+    {
+        Settings settings(QString {});
+        auto     bytes = settingsVariantFixture();
+        bytes.replace("x-widget: yaml", "x-widget: fixture.variant");
+        auto                   descriptor = std::make_shared<const SettingsSchema>(bytes);
+        SettingsFormModel      model(descriptor, settings.node(""));
+        SettingsWidgetRegistry registry;
+        int                    created = 0;
+        registry.registerWidget("fixture.variant", [&](const auto&, QWidget* parent) {
+            ++created;
+            return new PortEditor(parent);
+        });
+        auto  form   = std::make_unique<SettingsFormWidget>(model, registry);
+        auto* custom = form->editor("options");
+        model.setValue("encoding", "varint");
+        QCOMPARE(form->editor("options"), custom);
+        QVERIFY_THROWS_EXCEPTION(std::logic_error, registry.unregisterWidget("fixture.variant"));
+        model.setValue("encoding", "fixed");
+        QCOMPARE(form->editor("options"), custom);
+        QCOMPARE(created, 1);
+        form.reset();
+        QVERIFY(registry.unregisterWidget("fixture.variant"));
+    }
+
+    Q_SLOT void variantInheritanceAndExternalSelectorConflict()
+    {
+        Settings base(QString {});
+        Settings local(QString {});
+        QVERIFY(base.setValue("encoding", "fixed"));
+        QVERIFY(base.setValue("width", 3));
+        auto              descriptor = std::make_shared<const SettingsSchema>(settingsVariantFixture());
+        SettingsFormModel model(descriptor, SettingsOverlay(base.node(""), local.node("")));
+        QVERIFY(!model.hasOverride("encoding"));
+        model.setValue("encoding", "varint");
+        model.setValue("maxBytes", 7);
+        QVERIFY(model.isActive("maxBytes"));
+        model.removeValue("encoding");
+        QVERIFY(model.isActive("width"));
+        QCOMPARE(model.value("width").toInt(), 3);
+        model.setValue("encoding", "varint");
+        QCOMPARE(model.value("maxBytes").toInt(), 7);
+        QString error;
+        QVERIFY2(model.apply(&error), qPrintable(error));
+        QCOMPARE(local.value("encoding").toString(), QString("varint"));
+        QVERIFY(!local.contains("width"));
+        QCOMPARE(base.value("width").toInt(), 3);
+        model.removeValue("encoding");
+        QVERIFY2(model.apply(&error), qPrintable(error));
+        QVERIFY(!local.contains("encoding") && !local.contains("maxBytes"));
+        QVERIFY(model.isActive("width"));
+
+        // Both branches have defaults: validation alone must not mask selector concurrency.
+        model.setValue("width", 4);
+        QVERIFY(base.setValue("encoding", "varint"));
+        QVERIFY(!model.apply(&error));
+        QVERIFY(error.contains("encoding"));
+        QVERIFY(!local.contains("width"));
+        QCOMPARE(base.value("encoding").toString(), QString("varint"));
     }
 
     Q_SLOT void timestampPreviewFollowsDraftAndVisibility()

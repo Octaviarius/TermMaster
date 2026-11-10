@@ -386,7 +386,9 @@ public:
             _combo = new QComboBox(this);
             for (const auto& item : field.definition.value("enum").toList())
             {
-                _combo->addItem(item.isValid() ? item.toString() : "null", item);
+                const auto titles = field.presentation.value("variantTitles").toMap();
+                _combo->addItem(titles.value(item.toString(), item.isValid() ? item.toString() : "null").toString(),
+                                item);
             }
             layout->addWidget(_combo);
             connect(_combo, &QComboBox::currentIndexChanged, this, [this] { _changed(); });

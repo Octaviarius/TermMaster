@@ -522,11 +522,11 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
         }
     }
     entry->defaults = merged(entry->defaults, definition.defaults);
-    if (!entry->schema->validate(entry->defaults).isEmpty())
+    if (!entry->schema->validate(entry->schema->activeValues(entry->defaults)).isEmpty())
     {
         throw std::invalid_argument("Invalid processor defaults");
     }
-    entry->type.defaults = entry->defaults;
+    entry->type.defaults = entry->schema->activeValues(entry->defaults);
     if (definition.kind == "lineflow")
     {
         const auto channels = definition.source.value("channels", 1);
@@ -938,8 +938,9 @@ bool ProcessorRegistry::validatePublication(const QString&           owner,
                 {
                     return false;
                 }
-                const auto effective = merged(target->defaults, node.value("configuration").toMap());
-                const auto errors    = target->schema->validate(effective);
+                const auto effective = target->schema->activeValues(
+                    merged(target->defaults, node.value("configuration").toMap()));
+                const auto errors = target->schema->validate(effective);
                 if (!errors.isEmpty())
                 {
                     return fail(error,
@@ -1250,8 +1251,9 @@ bool ProcessorRegistry::_available(const QString& id, QSet<QString>& visiting, Q
                 {
                     break;
                 }
-                const auto effective = merged(target->defaults, node.value("configuration").toMap());
-                const auto errors    = target->schema->validate(effective);
+                const auto effective = target->schema->activeValues(
+                    merged(target->defaults, node.value("configuration").toMap()));
+                const auto errors = target->schema->validate(effective);
                 if (!errors.isEmpty())
                 {
                     problem = "Invalid Lineflow node configuration: " + node.value("name").toString() + ": "
@@ -1324,7 +1326,7 @@ std::optional<QVariantMap> ProcessorRegistry::resolveConfiguration(const QString
     }
     try
     {
-        auto       effective = merged(merged(entry->defaults, stored), overrides);
+        auto       effective = entry->schema->activeValues(merged(merged(entry->defaults, stored), overrides));
         const auto errors    = entry->schema->validate(effective);
         if (!errors.isEmpty())
         {
@@ -1490,8 +1492,10 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
                       const QVariantMap& effectiveOverrides) {
             if (!node.composite)
             {
-                const auto inherited = merged(node.base, inheritedOverrides);
-                const auto effective = merged(node.base, effectiveOverrides);
+                const auto inherited = node.entry->schema->activeValues(
+                    merged(merged(node.entry->defaults, node.base), inheritedOverrides));
+                const auto effective = node.entry->schema->activeValues(
+                    merged(merged(node.entry->defaults, node.base), effectiveOverrides));
                 for (const auto& configuration : {inherited, effective})
                 {
                     const auto errors = node.entry->schema->validate(configuration);
@@ -2005,7 +2009,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                             factory   = std::move(factory),
                             effective = *effective,
                             limits](const QVariantMap& overrides, QString* error) -> std::shared_ptr<Processor> {
-        auto       configuration = merged(effective, overrides);
+        auto       configuration = entry->schema->activeValues(merged(merged(entry->defaults, effective), overrides));
         const auto errors        = entry->schema->validate(configuration);
         if (!errors.isEmpty())
         {

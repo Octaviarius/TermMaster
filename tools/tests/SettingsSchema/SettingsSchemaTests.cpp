@@ -1,3 +1,5 @@
+#include "../SettingsVariantFixture.h"
+
 #include <QtTest>
 #include <Termaster/Core/SettingsSchema.h>
 #include <limits>
@@ -20,6 +22,113 @@ class SettingsSchemaTests : public QObject
 {
     Q_OBJECT
 private slots:
+    void discriminatedVariants()
+    {
+        SettingsSchema schema(settingsVariantFixture());
+        QCOMPARE(schema.discriminator(), QString("encoding"));
+        const auto fixed = schema.withDefaults();
+        QCOMPARE(fixed.value("encoding").toString(), QString("fixed"));
+        QVERIFY(fixed.contains("label") && fixed.contains("width") && fixed.contains("options"));
+        QVERIFY(!fixed.contains("maxBytes"));
+        QVERIFY(schema.validate(fixed).isEmpty());
+        const auto variable = schema.withDefaults({
+            {"encoding", "varint"}
+        });
+        QCOMPARE(variable.value("maxBytes").toInt(), 5);
+        QVERIFY(!variable.contains("width") && !variable.contains("options"));
+        QVERIFY(schema.validate(variable).isEmpty());
+        auto invalid = variable;
+        invalid.insert("width", 2);
+        QVERIFY(!schema.validate(invalid).isEmpty()); // Original closed branch remains authoritative.
+        const auto projected = schema.activeValues(invalid);
+        QCOMPARE(projected, variable);
+        invalid.insert("future", 42);
+        QCOMPARE(schema.activeValues(invalid).value("future").toInt(), 42);
+        QVERIFY(!schema
+                     .validate(schema.withDefaults({
+                         {"encoding", "future"}
+        }))
+                     .isEmpty());
+
+        SettingsSchema propertyless(descriptor(R"(type: object
+oneOf:
+  - title: Fixed
+    required: [encoding, width]
+    properties:
+      encoding: {const: fixed}
+      width: {type: integer, default: 2}
+  - title: Varint
+    required: [encoding, maxBytes]
+    properties:
+      encoding: {const: varint}
+      maxBytes: {type: integer, default: 5}
+)"));
+        QVERIFY(propertyless.validate(propertyless.withDefaults()).isEmpty());
+        QCOMPARE(propertyless.fields().size(), 3);
+    }
+
+    void variantBranchReferencesAndGroups()
+    {
+        SettingsSchema schema(descriptor(R"(type: object
+definitions:
+  first:
+    title: First
+    x-groups: [{id: connection, title: Connection, order: 1}]
+    required: [kind]
+    properties:
+      kind: {const: first}
+      firstValue: {type: integer, default: 1, x-group: connection}
+  second:
+    title: Second
+    x-groups: [{id: connection, title: Connection, order: 1}]
+    required: [kind]
+    properties:
+      kind: {const: second}
+      secondValue: {type: string, default: ok, x-group: connection}
+oneOf: [{$ref: '#/definitions/first'}, {$ref: '#/definitions/second'}]
+)"));
+        QCOMPARE(schema.groups().size(), 1);
+        QCOMPARE(schema.groups().first().title, QString("Connection"));
+        QVERIFY(schema
+                    .validate(schema.withDefaults({
+                        {"kind", "second"}
+        }))
+                    .isEmpty());
+        auto conflicting = settingsVariantFixture();
+        conflicting.replace("- title: Variable width",
+                            "- title: Variable width\n      x-groups: [{id: format, title: Different, order: 0}]");
+        QVERIFY_THROWS_EXCEPTION(std::invalid_argument, SettingsSchema {conflicting});
+    }
+
+    void rejectedVariantLayouts()
+    {
+        const QList<QByteArray> invalid {
+            "type: object\nanyOf: [{properties: {extra: {type: string}}}]",
+            "type: object\nif: {properties: {mode: {const: fixed}}}\nthen: {properties: {extra: {type: string}}}",
+            "type: object\noneOf: [{properties: {extra: {type: string}}}, {properties: {other: {type: string}}}]",
+            "type: object\noneOf: [{required: [mode], properties: {mode: {const: 1}, a: {type: string}}}, {required: [mode], properties: {mode: {const: 2}}}]",
+            "type: object\noneOf: [{required: [mode], properties: {mode: {const: same}, a: {type: string}}}, {required: [mode], properties: {mode: {const: same}}}]",
+            "type: object\noneOf: [{required: [mode], properties: {mode: {const: a}, shared: {type: string}}}, {required: [mode], properties: {mode: {const: b}, shared: {type: integer}}}]",
+            "type: object\nadditionalProperties: false\noneOf: [{required: [mode], properties: {mode: {const: a}}}, {required: [mode], properties: {mode: {const: b}}}]",
+            "type: object\noneOf: [{allOf: [{properties: {extra: {type: string}}}]}]"};
+        for (const auto& content : invalid)
+        {
+            QVERIFY_EXCEPTION_THROWN(SettingsSchema {descriptor(content)}, std::invalid_argument);
+        }
+        // Existing flat forms retain combinators that constrain already declared fields.
+        SettingsSchema flat(descriptor(
+            "type: object\nproperties: {value: {type: integer}}\noneOf: [{properties: {value: {minimum: 1}}}, {properties: {value: {maximum: -1}}}]"));
+        QVERIFY(flat.discriminator().isEmpty());
+        QVERIFY(flat.validate({
+                                  {"value", 2}
+        })
+                    .isEmpty());
+        QVERIFY(!flat.validate({
+                                   {"value", 0}
+        })
+                     .isEmpty());
+    }
+
     void typedValues()
     {
         auto value = SettingsSchema::parseValue("{number: 17, text: '17', flag: true, nullValue: null, real: 1.5}")

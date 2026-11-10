@@ -128,6 +128,16 @@ bool SettingsFormModel::contains(const QString& key) const
     return _draft.contains(key);
 }
 
+bool SettingsFormModel::isActive(const QString& key) const
+{
+    return _schema->isActive(key, _draft);
+}
+
+QVariantMap SettingsFormModel::values() const
+{
+    return _schema->activeValues(_draft);
+}
+
 bool SettingsFormModel::supportsInheritance() const
 {
     return _supportsInheritance;
@@ -210,7 +220,15 @@ QList<SettingsSchema::Error> SettingsFormModel::errors() const
 }
 bool SettingsFormModel::isDirty() const
 {
-    return !_edited.isEmpty() || !_removed.isEmpty() || !_inputErrors.isEmpty();
+    for (const auto& field : _schema->fields())
+    {
+        if (isActive(field.key)
+            && (_edited.contains(field.key) || _removed.contains(field.key) || _inputErrors.contains(field.key)))
+        {
+            return true;
+        }
+    }
+    return false;
 }
 bool SettingsFormModel::isValid() const
 {
@@ -269,17 +287,43 @@ bool SettingsFormModel::apply(QString* error)
     {
         return fail("Settings scope is invalid or expired");
     }
-    if (!_inputErrors.isEmpty())
+    for (auto it = _inputErrors.cbegin(); it != _inputErrors.cend(); ++it)
     {
-        return fail("Correct invalid editor input before applying settings");
+        if (isActive(it.key()))
+        {
+            return fail("Correct invalid editor input before applying settings");
+        }
     }
 
-    auto        current = _current();
-    auto        merged  = current;
+    auto        current  = _current();
+    auto        merged   = current;
+    const auto* selector = _field(_schema->discriminator());
+    if (selector
+        && ((_supportsInheritance && _hasLocal(selector->settingsPath) != _originalLocal.contains(selector->key))
+            || current.contains(selector->key) != _original.contains(selector->key)
+            || !sameValue(current.value(selector->key), _original.value(selector->key))))
+    {
+        return fail("Settings changed externally at " + selector->settingsPath + "; reload before applying");
+    }
     QVariantMap patch;
     QStringList removed;
     for (const auto& field : _schema->fields())
     {
+        if (!isActive(field.key))
+        {
+            // Inherited inactive values remain in their owner. Only this scope's known values are removed.
+            if (_hasLocal(field.settingsPath))
+            {
+                if (!_originalLocal.contains(field.key) || current.contains(field.key) != _original.contains(field.key)
+                    || !sameValue(current.value(field.key), _original.value(field.key)))
+                {
+                    return fail("Settings changed externally at " + field.settingsPath + "; reload before applying");
+                }
+                removed.append(field.settingsPath);
+            }
+            merged.remove(field.key);
+            continue;
+        }
         if (field.readOnly)
         {
             continue;
@@ -329,7 +373,7 @@ bool SettingsFormModel::apply(QString* error)
             }
         }
     }
-    const auto validation = _schema->validate(merged);
+    const auto validation = _schema->validate(_schema->activeValues(merged));
     if (!validation.isEmpty())
     {
         return fail(validation.first().path + ": " + validation.first().message);
@@ -392,10 +436,13 @@ QVariantMap SettingsFormModel::_current() const
 
 void SettingsFormModel::_validate()
 {
-    _errors = _schema->validate(_draft);
+    _errors = _schema->validate(values());
     for (auto it = _inputErrors.cbegin(); it != _inputErrors.cend(); ++it)
     {
-        _errors.append({it.key(), it.value()});
+        if (isActive(it.key()))
+        {
+            _errors.append({it.key(), it.value()});
+        }
     }
     emit validationChanged();
 }

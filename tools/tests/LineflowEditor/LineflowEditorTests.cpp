@@ -1,3 +1,4 @@
+#include "../SettingsVariantFixture.h"
 #include "Gui/Processing/LineflowCanvas.h"
 #include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorCatalogTree.h"
@@ -1411,6 +1412,103 @@ private slots:
         QCOMPARE(dialog.model().rowCount(), 2);
         QVERIFY(dialog.model().node("root", "decode").isEmpty());
         QVERIFY(!dialog.model().node("shared", "frame").isEmpty());
+    }
+
+    void variantNodeFormsAndRuntimeProjection()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        ProcessorCatalog::Type type;
+        type.id             = "fixture.variant";
+        type.title          = "Packet encoding";
+        type.settingsSchema = settingsVariantFixture();
+        // Keep the captured packet example compact; YAML draft retention is covered by SettingsFormTests.
+        type.settingsSchema.replace(
+            "        options: {type: object, title: Options, default: {}, x-widget: yaml, x-group: format, x-order: 2}\n",
+            "");
+        QVariantMap instantiated;
+        type.create =
+            [&instantiated](const QVariantMap& configuration, const auto&, QString*) -> std::unique_ptr<Processor> {
+            instantiated = configuration;
+            return {};
+        };
+        registry.registerType("fixture", std::move(type));
+        QString    error;
+        const auto variable = registry.resolveConfiguration("fixture.variant",
+                                                            {
+                                                                {"encoding", "varint"}
+        },
+                                                            {},
+                                                            &error);
+        QVERIFY2(variable.has_value(), qPrintable(error));
+        QCOMPARE(variable->value("maxBytes").toInt(), 5);
+        QVERIFY(!variable->contains("width") && !variable->contains("options"));
+        const auto prepared = registry.prepare("fixture.variant", {}, {}, &error);
+        QVERIFY2(prepared != nullptr, qPrintable(error));
+        prepared->instantiate(
+            {
+                {"encoding", "varint"}
+        },
+            &error);
+        QCOMPARE(instantiated.value("maxBytes").toInt(), 5);
+        QVERIFY(!instantiated.contains("width"));
+        const auto properties = registry.properties("fixture.variant",
+                                                    {
+        },
+                                                    {{"encoding", "varint"}},
+                                                    &error);
+        QVERIFY2(properties.has_value(), qPrintable(error));
+        QVERIFY(!properties->first().configuration.contains("width"));
+        QCOMPARE(properties->first().configuration.value("maxBytes").toInt(), 5);
+
+        const QVariantMap original {
+            {"root",
+             definition("root",
+             "Variant settings", {operation("packet", "fixture.variant"), operation("other", "fixture.variant")})}
+        };
+        LineflowEditorDialog dialog(original, registry, widgets, [](const auto&, const auto&, const auto&, QString*) {
+            return true;
+        });
+        dialog.setFixedSize(1100, 760);
+        dialog.show();
+        auto* host = dialog.findChild<QMainWindow*>("lineflowDockHost");
+        auto* dock = dialog.findChild<QDockWidget*>("lineflowPropertiesDock");
+        QVERIFY(host && dock);
+        // Exercise the real resizable properties panel at both native scales.
+        host->resizeDocks({dock}, {430}, Qt::Horizontal);
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        QVERIFY(canvas);
+        canvas->setCurrentIndex(dialog.model().index(0, 0));
+        auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(form);
+        auto* selector = form->editor("encoding")->findChild<QComboBox*>();
+        QVERIFY(selector);
+        QVERIFY(form->visibleFields().contains("width"));
+        const auto destination = qEnvironmentVariable("TERMASTER_VARIANT_CAPTURE");
+        if (!destination.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(destination));
+            QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+            QTest::qWait(100);
+            QVERIFY(dialog.grab().save(QDir(destination).filePath("Fixed.png")));
+        }
+        selector->setCurrentIndex(1);
+        QVERIFY(form->visibleFields().contains("maxBytes"));
+        QVERIFY(!form->visibleFields().contains("width"));
+        if (!destination.isEmpty())
+        {
+            QTest::qWait(100);
+            QVERIFY(dialog.grab().save(QDir(destination).filePath("Variable.png")));
+        }
+        canvas->setCurrentIndex(dialog.model().index(1, 0));
+        canvas->setCurrentIndex(dialog.model().index(0, 0));
+        form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QCOMPARE(form->editor("encoding")->value().toString(), QString("varint"));
+        QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+        const auto config = dialog.model().node("root", "packet").value("configuration").toMap();
+        QCOMPARE(config.value("encoding").toString(), QString("varint"));
+        QVERIFY(!config.contains("width") && !config.contains("options"));
     }
 
     void lengthSettingsCapture()

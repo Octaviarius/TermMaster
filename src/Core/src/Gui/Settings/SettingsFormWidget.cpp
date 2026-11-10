@@ -248,8 +248,9 @@ void SettingsFormWidget::_applyFilter()
     {
         const auto& field = it->field;
         const auto& group = _groups[field.group];
-        it->visible       = _filter.isEmpty() || matches(field.group) || matches(group.title) || matches(field.key)
-                         || matches(field.title) || matches(field.description) || matches(field.settingsPath);
+        it->visible       = _model && _model->isActive(field.key)
+                         && (_filter.isEmpty() || matches(field.group) || matches(group.title) || matches(field.key)
+                             || matches(field.title) || matches(field.description) || matches(field.settingsPath));
         group.form->setRowVisible(it->container, it->visible);
         if (it->visible)
         {
@@ -392,7 +393,10 @@ void SettingsFormWidget::_refreshContext()
     QVariantMap context;
     for (const auto& field : _model->schema().fields())
     {
-        context.insert(field.settingsPath, _model->value(field.key));
+        if (_model->isActive(field.key))
+        {
+            context.insert(field.settingsPath, _model->value(field.key));
+        }
     }
     _auxiliary->setContext(context);
 }
