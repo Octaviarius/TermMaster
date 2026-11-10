@@ -31,6 +31,8 @@ qt_add_library(App STATIC
     src/Gui/Main/MainWindow.cpp
     src/Gui/Main/EditActions.h
     src/Gui/Main/EditActions.cpp
+    src/Gui/Help/ThirdPartyDialog.h
+    src/Gui/Help/ThirdPartyDialog.cpp
     src/Gui/Settings/SettingsDialog.h
     src/Gui/Settings/SettingsDialog.cpp
     src/Gui/Settings/FavoritesEditor.h
@@ -50,6 +52,9 @@ qt_add_library(App STATIC
 )
 
 target_compile_features(App PUBLIC cxx_std_20)
+
+include("${CMAKE_SOURCE_DIR}/cmake/ThirdParty.cmake")
+termaster_add_third_party_resources(App)
 
 target_link_libraries(App PUBLIC
     Qt6::Widgets

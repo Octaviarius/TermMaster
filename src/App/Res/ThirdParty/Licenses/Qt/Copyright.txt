@@ -1,0 +1,1 @@
+Copyright (C) The Qt Company Ltd. and other contributors.

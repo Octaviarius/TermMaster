@@ -1,0 +1,300 @@
+{
+  "version": 1,
+  "type": "termaster.third-party-components",
+  "description": "Third-party components and offline copyright and license notices.",
+  "content": {
+    "components": [
+      {
+        "id": "qt",
+        "name": "Qt",
+        "version": "6.12.0",
+        "authors": "The Qt Company Ltd. and contributors",
+        "homepage": "https://www.qt.io/",
+        "license": "GPL-2.0-only OR GPL-3.0-only OR LGPL-3.0-only OR LicenseRef-Qt-Commercial",
+        "notices": [
+          {
+            "title": "Qt copyright notices",
+            "path": "Licenses/Qt/Copyright.txt"
+          },
+          {
+            "title": "GPL-2.0-only",
+            "path": "Licenses/Qt/GPL-2.0-only.txt"
+          },
+          {
+            "title": "GPL-3.0-only",
+            "path": "Licenses/Qt/GPL-3.0-only.txt"
+          },
+          {
+            "title": "LGPL-3.0-only",
+            "path": "Licenses/Qt/LGPL-3.0-only.txt"
+          },
+          {
+            "title": "Qt commercial licensing notice",
+            "path": "Licenses/Qt/Commercial.txt"
+          },
+          {
+            "title": "Freetype 2 - Bitmap Distribution Format (BDF) support — Not specified — MIT",
+            "path": "Licenses/Qt/freetype-bdf.txt"
+          },
+          {
+            "title": "Freetype 2 - Portable Compiled Format (PCF) support — Not specified — MIT AND MIT-open-group",
+            "path": "Licenses/Qt/freetype-pcf.txt"
+          },
+          {
+            "title": "Freetype 2 - zlib — Not specified — Zlib",
+            "path": "Licenses/Qt/freetype-zlib.txt"
+          },
+          {
+            "title": "PCRE2 - Stack-less Just-In-Time Compiler — 10.48 — BSD-2-Clause",
+            "path": "Licenses/Qt/pcre2-sljit.txt"
+          },
+          {
+            "title": "BLAKE2 (reference implementation) — ed1974ea83433eba7b2d95c5dcd9ac33cb847913 — CC0-1.0 OR Apache-2.0",
+            "path": "Licenses/Qt/blake2.txt"
+          },
+          {
+            "title": "Efficient Binary-Decimal and Decimal-Binary Conversion Routines for IEEE Doubles — 3.4.0 — BSD-3-Clause",
+            "path": "Licenses/Qt/doubleconversion.txt"
+          },
+          {
+            "title": "Easing Equations by Robert Penner — Not specified — BSD-3-Clause",
+            "path": "Licenses/Qt/easing.txt"
+          },
+          {
+            "title": "MD4 — Not specified — CC0-1.0",
+            "path": "Licenses/Qt/md4.txt"
+          },
+          {
+            "title": "MD5 — Not specified — CC0-1.0",
+            "path": "Licenses/Qt/md5.txt"
+          },
+          {
+            "title": "Secure Hash Algorithms SHA-384 and SHA-512 — Not specified — BSD-3-Clause",
+            "path": "Licenses/Qt/rfc6234.txt"
+          },
+          {
+            "title": "Secure Hash Algorithm SHA-1 — Not specified — LicenseRef-SHA1-Public-Domain",
+            "path": "Licenses/Qt/sha1.txt"
+          },
+          {
+            "title": "Secure Hash Algorithm SHA-3 - brg_endian — 1.0.0 — BSD-2-Clause",
+            "path": "Licenses/Qt/sha3_endian.txt"
+          },
+          {
+            "title": "Secure Hash Algorithm SHA-3 - Keccak — 3.2 — CC0-1.0",
+            "path": "Licenses/Qt/sha3_keccak.txt"
+          },
+          {
+            "title": "SipHash Algorithm — Not specified — CC0-1.0",
+            "path": "Licenses/Qt/siphash.txt"
+          },
+          {
+            "title": "Apache Tika MimeType Definitions — c29724782854bb5a319f4a1940d0828a58ace3f9 — Apache-2.0",
+            "path": "Licenses/Qt/tika-mimetypes.txt"
+          },
+          {
+            "title": "TinyCBOR — 7.0 — MIT",
+            "path": "Licenses/Qt/tinycbor.txt"
+          },
+          {
+            "title": "tl::expected — 41d3e1f48d682992a2230b2a715bca38b848b269 — CC0-1.0",
+            "path": "Licenses/Qt/tlexpected.txt"
+          },
+          {
+            "title": "Unicode Character Database (UCD) — 36 — Unicode-3.0",
+            "path": "Licenses/Qt/unicode-character-database.txt"
+          },
+          {
+            "title": "Unicode Common Locale Data Repository (CLDR) — v48.2 — Unicode-3.0",
+            "path": "Licenses/Qt/unicode-cldr.txt"
+          },
+          {
+            "title": "Adobe Glyph List For New Fonts — 1.7 — BSD-3-Clause",
+            "path": "Licenses/Qt/aglfn.txt"
+          },
+          {
+            "title": "D3D12 Memory Allocator — v3.1.0 — MIT",
+            "path": "Licenses/Qt/d3d12memoryallocator.txt"
+          },
+          {
+            "title": "Emoji Segmenter — 0.4.0 — Apache-2.0",
+            "path": "Licenses/Qt/emoji-segmenter.txt"
+          },
+          {
+            "title": "Anti-aliasing rasterizer from FreeType 2 — Not specified — FTL OR GPL-2.0-only",
+            "path": "Licenses/Qt/grayraster.txt"
+          },
+          {
+            "title": "sRGB color profile icc file — Not specified — LicenseRef-ICC-License",
+            "path": "Licenses/Qt/icc-srgb-color-profile.txt"
+          },
+          {
+            "title": "MD4C — 0.5.3 — MIT",
+            "path": "Licenses/Qt/md4c.txt"
+          },
+          {
+            "title": "OpenGL ES 2 Headers — Revision 27673 — MIT",
+            "path": "Licenses/Qt/opengl-es2-headers.txt"
+          },
+          {
+            "title": "OpenGL Headers — Revision 27684 — MIT",
+            "path": "Licenses/Qt/opengl-headers.txt"
+          },
+          {
+            "title": "Mipmap generator for D3D12 — 0aa79bad78992da0b6a8279ddb9002c1753cb849 — MIT",
+            "path": "Licenses/Qt/rhi-miniengine-d3d12-mipmap.txt"
+          },
+          {
+            "title": "Smooth Scaling Algorithm — Not specified — BSD-2-Clause AND Imlib2",
+            "path": "Licenses/Qt/smooth-scaling-algorithm.txt"
+          },
+          {
+            "title": "Vulkan API Registry — 1.4.308 — Apache-2.0 OR MIT",
+            "path": "Licenses/Qt/vulkan-xml-spec.txt"
+          },
+          {
+            "title": "Vulkan Memory Allocator — 3.3.0 — MIT",
+            "path": "Licenses/Qt/vulkanmemoryallocator.txt"
+          },
+          {
+            "title": "WebGradients — Not specified — MIT",
+            "path": "Licenses/Qt/webgradients.txt"
+          },
+          {
+            "title": "X Server helper — Not specified — X11 AND HPND",
+            "path": "Licenses/Qt/xserverhelper.txt"
+          },
+          {
+            "title": "XSVG — Not specified — HPND-sell-variant",
+            "path": "Licenses/Qt/XSVG.txt"
+          },
+          {
+            "title": "Data Compression Library (zlib) — 1.3.2 — Zlib",
+            "path": "Licenses/Qt/zlib.txt"
+          },
+          {
+            "title": "libpsl - C library to handle the Public Suffix List — 664f3dc85259ec65e30248a61fa1c45b7b0e4c3f — BSD-3-Clause",
+            "path": "Licenses/Qt/libpsl.txt"
+          },
+          {
+            "title": "The Public Suffix List — 2026-05-14_08-35-31_UTC — MPL-2.0",
+            "path": "Licenses/Qt/psl-data.txt"
+          },
+          {
+            "title": "Wintab API — Not specified — LicenseRef-Lcs-Telegraphics",
+            "path": "Licenses/Qt/wintab.txt"
+          },
+          {
+            "title": "Freetype 2 — 2.14.3 — FTL OR GPL-2.0-only",
+            "path": "Licenses/Qt/freetype.txt"
+          },
+          {
+            "title": "HarfBuzz-NG — 14.5.0 — MIT",
+            "path": "Licenses/Qt/harfbuzz-ng.txt"
+          },
+          {
+            "title": "LibPNG — 1.6.58 — Libpng AND libpng-2.0",
+            "path": "Licenses/Qt/libpng.txt"
+          },
+          {
+            "title": "PCRE2 — 10.48 — LicenseRef-BSD-3-Clause-with-PCRE2-Binary-Like-Packages-Exception",
+            "path": "Licenses/Qt/pcre2.txt"
+          },
+          {
+            "title": "Qt logo attribution",
+            "path": "Licenses/Qt/Logo.txt"
+          },
+          {
+            "title": "Qt documentation image license",
+            "path": "Licenses/Qt/Documentation-GFDL-1.3.txt"
+          }
+        ],
+        "icon": "Icons/Qt.png"
+      },
+      {
+        "id": "fmt",
+        "name": "{fmt}",
+        "version": "12.2.1",
+        "authors": "Victor Zverovich and {fmt} contributors",
+        "homepage": "https://fmt.dev/",
+        "license": "MIT",
+        "notices": [
+          {
+            "title": "Copyright and license",
+            "path": "Licenses/fmt.txt"
+          }
+        ]
+      },
+      {
+        "id": "pcre2",
+        "name": "PCRE2",
+        "version": "10.49",
+        "authors": "Philip Hazel, University of Cambridge and contributors",
+        "homepage": "https://www.pcre.org/",
+        "license": "BSD-3-Clause WITH PCRE2-exception",
+        "notices": [
+          {
+            "title": "Copyright and license",
+            "path": "Licenses/pcre2.txt"
+          }
+        ]
+      },
+      {
+        "id": "sljit",
+        "name": "SLJIT",
+        "version": "de0259c7aaf36aa40cba8014f3fad3edde9307f9",
+        "authors": "Zoltan Herczeg and contributors",
+        "homepage": "https://github.com/zherczeg/sljit",
+        "license": "BSD-2-Clause",
+        "notices": [
+          {
+            "title": "Copyright and license",
+            "path": "Licenses/sljit.txt"
+          }
+        ]
+      },
+      {
+        "id": "valijson",
+        "name": "Valijson",
+        "version": "af2383509277f8e8051acbb3e4b3060f4779aa10",
+        "authors": "Tristan Penman, Akamai Technologies and contributors",
+        "homepage": "https://github.com/tristanpenman/valijson",
+        "license": "BSD-2-Clause",
+        "notices": [
+          {
+            "title": "Copyright and license",
+            "path": "Licenses/valijson.txt"
+          }
+        ]
+      },
+      {
+        "id": "yaml-cpp",
+        "name": "yaml-cpp",
+        "version": "0.8.0 + 31 commits",
+        "authors": "Jesse Beder and contributors",
+        "homepage": "https://github.com/jbeder/yaml-cpp",
+        "license": "MIT",
+        "notices": [
+          {
+            "title": "Copyright and license",
+            "path": "Licenses/yaml-cpp.txt"
+          }
+        ]
+      },
+      {
+        "id": "lucide",
+        "name": "Lucide / Feather icons",
+        "version": "53fab88ff9d1b48f4704b5b5b560d6b4d560bf4c",
+        "authors": "Lucide Icons contributors; Cole Bemis (Feather)",
+        "homepage": "https://lucide.dev/",
+        "license": "ISC AND MIT",
+        "notices": [
+          {
+            "title": "Lucide and Feather copyright and licenses",
+            "path": "Licenses/lucide.txt"
+          }
+        ]
+      }
+    ]
+  }
+}

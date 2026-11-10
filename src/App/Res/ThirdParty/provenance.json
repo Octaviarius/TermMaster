@@ -1,0 +1,921 @@
+{
+  "version": 1,
+  "qtVersion": "6.12.0",
+  "qtKit": "msvc2022_64",
+  "zlibMode": "qt",
+  "sbomFiles": {
+    "qtbase-6.12.0.cdx.json": "1a3fcf6b54e0062a01a5a48bd9022cf9308155aa0bb1d6dab1070d1ee7376366",
+    "qtserialport-6.12.0.cdx.json": "e9e131af8a920221d0c3f8205a9e385cb1910eff316cb9bf987cffb253f2a340",
+    "qtsvg-6.12.0.cdx.json": "9e9df4859cc12bc58a06dddc3ff67b8db17fd083e888303e1359b168cca2de21",
+    "qtbase-6.12.0.spdx.json": "ec627100f721386be2a72e904af13f2ef3d52e2714aee3e25db279fc9464884d",
+    "qtserialport-6.12.0.spdx.json": "3f71f2415ef99cda967caa4972b24f95714da06f147a8d7e179588cf1a92d528",
+    "qtsvg-6.12.0.spdx.json": "70ea12dda11f4b39772fd731c3fb50a7dd4ed72afc06800a88494d3904e11e36"
+  },
+  "localSources": [
+    {
+      "path": "components/fmt",
+      "revision": "208219daff58f2a7438f6931cc2ddc358acf33ef",
+      "licenseFile": "LICENSE",
+      "sha256": "e53b24254a17f6acdaf967557c287dca7e920b22cc6290f6a84d57c34d942a6e"
+    },
+    {
+      "path": "components/pcre2",
+      "revision": "6f9d7c1373262c541324a16a358785b33ef116cf",
+      "licenseFile": "LICENCE.md",
+      "sha256": "4195c519dcfe4a4ffedc4b8ccc5d49e4dd02efd5ece6b69a4fba5d20080902a9"
+    },
+    {
+      "path": "components/pcre2/deps/sljit",
+      "revision": "de0259c7aaf36aa40cba8014f3fad3edde9307f9",
+      "licenseFile": "LICENSE",
+      "sha256": "37c7a090fc61388430d63fc97bf8a22ffce92d3ca2249aac572cfaf411d3070f"
+    },
+    {
+      "path": "components/valijson",
+      "revision": "af2383509277f8e8051acbb3e4b3060f4779aa10",
+      "licenseFile": "LICENSE",
+      "sha256": "4ee8628c25c2a60e343853f0c416481f80914a28d038bcbf9a5bca3ac5fd4de3"
+    },
+    {
+      "path": "components/yaml-cpp",
+      "revision": "1d8ca1f35eb3a9c9142462b28282a848e5d29a91",
+      "licenseFile": "LICENSE",
+      "sha256": "c06fd4ee9241e3b6841fcee5d471475be412c822ddf2876af17127acd426c011"
+    }
+  ],
+  "noticeSources": {
+    "Licenses/Qt/freetype-bdf.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-freetype-bdf.html",
+      "sourceSha256": "121b2c79c661d8338bea07826cc5f1e024d62a18b76169d6339b4a95855e9475"
+    },
+    "Licenses/Qt/freetype-pcf.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-freetype-pcf.html",
+      "sourceSha256": "d84dd4e8e1b90cfe56ca2c74f52586d183ffafa5d354e9e84a793331b04ee0da"
+    },
+    "Licenses/Qt/freetype-zlib.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-freetype-zlib.html",
+      "sourceSha256": "9fe6b40965fd2d5010ab925e7b081373d16ae5da8498c39ff01853b384e579cf"
+    },
+    "Licenses/Qt/pcre2-sljit.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-pcre2-sljit.html",
+      "sourceSha256": "740000ae813b5d2e39a5e2587de4f3b3b21de50b442429c1a23b9063112470e8"
+    },
+    "Licenses/Qt/blake2.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-blake2.html",
+      "sourceSha256": "a732065fd7010ad6032e53a078ac114e96ae8238a4e521c66d2c82023b24c5eb"
+    },
+    "Licenses/Qt/doubleconversion.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-doubleconversion.html",
+      "sourceSha256": "3a4471b44bc4e0f1dcdab57ed79bbe63413d65c2413612bf8c96accf7765562a"
+    },
+    "Licenses/Qt/easing.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-easing.html",
+      "sourceSha256": "a3bdc1d2914d6327c880f53f7e762f046ee6e125e3619512d3c7ca6231a4f3ab"
+    },
+    "Licenses/Qt/md4.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-md4.html",
+      "sourceSha256": "6bc366a37becc672d426317be4cb6647f5c45b70ccd5deb1360d7bfe8a8740c8"
+    },
+    "Licenses/Qt/md5.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-md5.html",
+      "sourceSha256": "4ec474b59333cf686010832fc4d6eda3c0c7f5ee07f2661bf05e3252b62f6718"
+    },
+    "Licenses/Qt/rfc6234.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-rfc6234.html",
+      "sourceSha256": "9a67b389eb97301d8f4e03dc24a91521b45c998f9ad16b979e5860ac7a5877ac"
+    },
+    "Licenses/Qt/sha1.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-sha1.html",
+      "sourceSha256": "5a1b218339dc548d9795e54be5393f972e39c2223437efc340bd2ac5e764247a"
+    },
+    "Licenses/Qt/sha3_endian.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-sha3-endian.html",
+      "sourceSha256": "2a76889ab620fbfbb913f8f8c17b3a516705473a8da3bb439dce3e5bcf32f524"
+    },
+    "Licenses/Qt/sha3_keccak.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-sha3-keccak.html",
+      "sourceSha256": "930ab12cd8335ce1801562253d083dccea13435dc359e5a7cd9def65f9c36a1b"
+    },
+    "Licenses/Qt/siphash.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-siphash.html",
+      "sourceSha256": "cf28918400386230c7dc800a6fb0f806e79a8ea92a794fa54e4466777d261f81"
+    },
+    "Licenses/Qt/tika-mimetypes.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-tika-mimetypes.html",
+      "sourceSha256": "d64ca92476feca64d3fc2fd6d0bec56c9ce555330a19d2eb1097b82473dccd7d"
+    },
+    "Licenses/Qt/tinycbor.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-tinycbor.html",
+      "sourceSha256": "f7abc84f562edc68ecd5aa9f0a5c3c6df10c39de430dfbc3d16481009703770d"
+    },
+    "Licenses/Qt/tlexpected.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-tlexpected.html",
+      "sourceSha256": "f065f3871da368c5437a44902f464afc6f64668eab4202d6753f06258c53b604"
+    },
+    "Licenses/Qt/unicode-character-database.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-unicode-character-database.html",
+      "sourceSha256": "ba441631788d07a4ab818994cde79f55af2436644fa6f822e904d9db80eefc17"
+    },
+    "Licenses/Qt/unicode-cldr.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-unicode-cldr.html",
+      "sourceSha256": "a43baff762d7e1912563815ee426e8b3ff916514965e813577311bae4483ed85"
+    },
+    "Licenses/Qt/aglfn.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-aglfn.html",
+      "sourceSha256": "24d207260f76ddd473947c4647a6131cdfbe8d635cdcda12bc5000b28bf60ae0"
+    },
+    "Licenses/Qt/d3d12memoryallocator.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-d3d12memoryallocator.html",
+      "sourceSha256": "4de079ab80ad3af7124dc8cf318a5e4ff0d367b809a906c3c92fc0c58636f888"
+    },
+    "Licenses/Qt/emoji-segmenter.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-emoji-segmenter.html",
+      "sourceSha256": "39a579c1857f95050a3247d19aef0dbe7a1f2a53041badbb343076ab37256fd0"
+    },
+    "Licenses/Qt/grayraster.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-grayraster.html",
+      "sourceSha256": "73a4ef94ec9d37124d2614324ccb2dc86c2a90acfccb48f3584959889be2c323"
+    },
+    "Licenses/Qt/icc-srgb-color-profile.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-icc-srgb-color-profile.html",
+      "sourceSha256": "b6a296b85fbe13dd53d36b11ebd68701ae4a2707c073539ecb5f5a8d2953213e"
+    },
+    "Licenses/Qt/md4c.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-md4c.html",
+      "sourceSha256": "c7637309fadad2f0d9014e5b4e3d5c0a17a889c4f662efc5c026bfc1b63cf1e3"
+    },
+    "Licenses/Qt/opengl-es2-headers.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-opengl-es2-headers.html",
+      "sourceSha256": "ee756d14b420b325971113a25213eced8cdc9c0e793ec29ab48e10fa076aca18"
+    },
+    "Licenses/Qt/opengl-headers.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-opengl-headers.html",
+      "sourceSha256": "21f1e19addd6dc7233a425826276f10491014c206c4b91bd6cfaafb266879bc6"
+    },
+    "Licenses/Qt/rhi-miniengine-d3d12-mipmap.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-rhi-miniengine-d3d12-mipmap.html",
+      "sourceSha256": "e98051981d6789cb2360d5170874ba390279382c98abaa4849fbcd2e0a2e7f79"
+    },
+    "Licenses/Qt/smooth-scaling-algorithm.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-smooth-scaling-algorithm.html",
+      "sourceSha256": "153205561e05a98ef11e499ff92f75992709ff90553a5caff8ee3f0dabe6990f"
+    },
+    "Licenses/Qt/vulkan-xml-spec.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-vulkan-xml-spec.html",
+      "sourceSha256": "b4ac12f5b083d490cc91513dfb785c1f73ba1af689d87737edf165e4fd13d898"
+    },
+    "Licenses/Qt/vulkanmemoryallocator.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-vulkanmemoryallocator.html",
+      "sourceSha256": "852e2b41a6ee05fe321b4ff69d99c90a8d333ed3b83090a314382fe4f0d83dd8"
+    },
+    "Licenses/Qt/webgradients.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-webgradients.html",
+      "sourceSha256": "7d469aec0db8077983d3ef44d3cb3da2af26dfb18129787a037bd4356b8512e1"
+    },
+    "Licenses/Qt/xserverhelper.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-xserverhelper.html",
+      "sourceSha256": "1844faa6a391d298b85bc08bd0158abcf22ab8972392d18a8dcc17b11f524a8b"
+    },
+    "Licenses/Qt/XSVG.txt": {
+      "upstream": "https://raw.githubusercontent.com/qt/qtbase/025bdad1/src/gui/util/LICENSE.XSVG.txt"
+    },
+    "Licenses/Qt/zlib.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-zlib.html",
+      "sourceSha256": "4e18ff5da0856faee98d0db977023a2d9eb3d02ee8e053875b9cb66ddd0c30e9"
+    },
+    "Licenses/Qt/libpsl.txt": {
+      "qtDocumentation": "qtnetwork/qtnetwork-attribution-libpsl.html",
+      "sourceSha256": "967a73d437e5b712edf98159bae2d1c2aba9aaa329b8a1658e2fcb70caf02963"
+    },
+    "Licenses/Qt/psl-data.txt": {
+      "qtDocumentation": "qtnetwork/qtnetwork-attribution-psl-data.html",
+      "sourceSha256": "d0cd6079ee3a2416931856d6f4e31e644cbf28db9bc02bad90e4ec6896b10d2e"
+    },
+    "Licenses/Qt/wintab.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-wintab.html",
+      "sourceSha256": "111bf022f3f1c062a552fe2dd13e247b001b1ecb515ca684f5a2e7e9c4ca0181"
+    },
+    "Licenses/Qt/freetype.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-freetype.html",
+      "sourceSha256": "9e8b65f9baf47362ee072037ddd0ded4340343b13f324b5bef67932442062ebb"
+    },
+    "Licenses/Qt/harfbuzz-ng.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-harfbuzz-ng.html",
+      "sourceSha256": "3038f0fad21085f4613f7a72f7ce0d5ebaf46ae352bc571ef53bf5444d1e9bbd"
+    },
+    "Licenses/Qt/libpng.txt": {
+      "qtDocumentation": "qtgui/qtgui-attribution-libpng.html",
+      "sourceSha256": "415740f10c8396619701c13eed2e14fca653f609885c99a78e1530b2c3becf35"
+    },
+    "Licenses/Qt/pcre2.txt": {
+      "qtDocumentation": "qtcore/qtcore-attribution-pcre2.html",
+      "sourceSha256": "e06f49397ddd365a6ba650fc9facee6600980009e75b5985e7bd90be0ebd9f6b"
+    },
+    "Licenses/Qt/GPL-2.0-only.txt": {
+      "upstream": "https://raw.githubusercontent.com/qt/qtbase/025bdad1/LICENSES/GPL-2.0-only.txt"
+    },
+    "Licenses/Qt/GPL-3.0-only.txt": {
+      "upstream": "https://raw.githubusercontent.com/qt/qtbase/025bdad1/LICENSES/GPL-3.0-only.txt"
+    },
+    "Licenses/Qt/LGPL-3.0-only.txt": {
+      "upstream": "https://raw.githubusercontent.com/qt/qtbase/025bdad1/LICENSES/LGPL-3.0-only.txt"
+    }
+  },
+  "runtimeRoots": [
+    "Core",
+    "Gui",
+    "Network",
+    "QModernWindowsStylePlugin",
+    "QSchannelBackendPlugin",
+    "QSvgIconPlugin",
+    "QSvgPlugin",
+    "QTlsBackendCertOnlyPlugin",
+    "QWindowsIntegrationPlugin",
+    "SerialPort",
+    "Svg",
+    "Widgets",
+    "ZlibPrivate"
+  ],
+  "excludedBuildMetadata": [
+    "GlobalConfig",
+    "GlobalConfigPrivate",
+    "Platform",
+    "PlatformModuleInternal",
+    "PlatformPluginInternal",
+    "WrapAtomic"
+  ],
+  "lucide": {
+    "revision": "53fab88ff9d1b48f4704b5b5b560d6b4d560bf4c",
+    "licenseSha256": "6fc5b7332939dd5c61af3a5f97450f7bc05d4a396dd0bc21ac341716b3b05096"
+  },
+  "assetSources": {
+    "Icons/Qt.png": {
+      "qtDocumentation": "global/template/images/Qt-logo.png",
+      "sha256": "ee90b7e6dcac245e5bee4907fde12ff37e9a77418c8fc217cfb6f9577aafc4b2",
+      "copyrightAndTrademarkNotice": "Licenses/Qt/Logo.txt",
+      "documentationLicense": "Licenses/Qt/Documentation-GFDL-1.3.txt"
+    }
+  },
+  "qtRuntimePackages": [
+    "Core",
+    "Gui",
+    "Network",
+    "OpenGL",
+    "QModernWindowsStylePlugin",
+    "QSchannelBackendPlugin",
+    "QSvgIconPlugin",
+    "QSvgPlugin",
+    "QTlsBackendCertOnlyPlugin",
+    "QWindowsIntegrationPlugin",
+    "SerialPort",
+    "Svg",
+    "Widgets"
+  ],
+  "qtBundledComponents": [
+    {
+      "id": "qt-freetype-bdf",
+      "name": "Freetype 2 - Bitmap Distribution Format (BDF) support",
+      "version": "Not specified",
+      "authors": "Copyright (c) 2000 Computing Research Labs, New Mexico State University\nCopyright (c) 2001-2014 Francesco Zappa Nardelli",
+      "homepage": "http://www.freetype.org",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/freetype-bdf.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-freetype-pcf",
+      "name": "Freetype 2 - Portable Compiled Format (PCF) support",
+      "version": "Not specified",
+      "authors": "Copyright (c) 2001, 2012 David Turner, Robert Wilhelm, and Werner Lemberg\nCopyright (c) 2000-2014 Francesco Zappa Nardelli\nCopyright (c) 1990, 1994, 1998 The Open Group",
+      "homepage": "http://www.freetype.org",
+      "license": "MIT AND MIT-open-group",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/freetype-pcf.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-freetype-zlib",
+      "name": "Freetype 2 - zlib",
+      "version": "Not specified",
+      "authors": "Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler",
+      "homepage": "http://www.freetype.org",
+      "license": "Zlib",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/freetype-zlib.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-pcre2-sljit",
+      "name": "PCRE2 - Stack-less Just-In-Time Compiler",
+      "version": "10.48",
+      "authors": "Copyright Zoltan Herczeg",
+      "homepage": "http://www.pcre.org/",
+      "license": "BSD-2-Clause",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/pcre2-sljit.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-blake2",
+      "name": "BLAKE2 (reference implementation)",
+      "version": "ed1974ea83433eba7b2d95c5dcd9ac33cb847913",
+      "authors": "Copyright 2012, Samuel Neves <sneves@dei.uc.pt>",
+      "homepage": "https://blake2.net/",
+      "license": "CC0-1.0 OR Apache-2.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/blake2.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-doubleconversion",
+      "name": "Efficient Binary-Decimal and Decimal-Binary Conversion Routines for IEEE Doubles",
+      "version": "3.4.0",
+      "authors": "Copyright 2006-2012, the V8 project authors",
+      "homepage": "https://github.com/google/double-conversion",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/doubleconversion.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-easing",
+      "name": "Easing Equations by Robert Penner",
+      "version": "Not specified",
+      "authors": "Copyright (c) 2001 Robert Penner",
+      "homepage": "http://robertpenner.com/easing/",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/easing.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-md4",
+      "name": "MD4",
+      "version": "Not specified",
+      "authors": "Written by Alexander Peslyak - better known as Solar Designer <solar@openwall.com> - in 2001, and placed in the public domain. There's absolutely no warranty.",
+      "homepage": "https://doc.qt.io/qt-6/qtcore-attribution-md4.html",
+      "license": "CC0-1.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/md4.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-md5",
+      "name": "MD5",
+      "version": "Not specified",
+      "authors": "Written by Colin Plumb in 1993, no copyright is claimed. Ian Jackson <ian@chiark.greenend.org.uk>.",
+      "homepage": "https://doc.qt.io/qt-6/qtcore-attribution-md5.html",
+      "license": "CC0-1.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/md5.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-rfc6234",
+      "name": "Secure Hash Algorithms SHA-384 and SHA-512",
+      "version": "Not specified",
+      "authors": "Copyright (c) 2011 IETF Trust and the persons identified as authors of the code.",
+      "homepage": "https://doc.qt.io/qt-6/qtcore-attribution-rfc6234.html",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/rfc6234.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-sha1",
+      "name": "Secure Hash Algorithm SHA-1",
+      "version": "Not specified",
+      "authors": "Copyright (C) Dominik Reichl <dominik.reichl@t-online.de>\nCopyright (C) 2016 The Qt Company Ltd",
+      "homepage": "http://www.dominik-reichl.de/projects/csha1/",
+      "license": "LicenseRef-SHA1-Public-Domain",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/sha1.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-sha3_endian",
+      "name": "Secure Hash Algorithm SHA-3 - brg_endian",
+      "version": "1.0.0",
+      "authors": "Copyright (c) 1998-2013, Brian Gladman, Worcester, UK. All rights reserved.",
+      "homepage": "https://doc.qt.io/qt-6/qtcore-attribution-sha3-endian.html",
+      "license": "BSD-2-Clause",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/sha3_endian.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-sha3_keccak",
+      "name": "Secure Hash Algorithm SHA-3 - Keccak",
+      "version": "3.2",
+      "authors": "Guido Bertoni, Joan Daemen, Michaël Peeters and Gilles Van Assche.\nTo the extent possible under law, the implementers have waived all copyright\nand related or neighboring rights to the source code in this file.",
+      "homepage": "https://doc.qt.io/qt-6/qtcore-attribution-sha3-keccak.html",
+      "license": "CC0-1.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/sha3_keccak.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-siphash",
+      "name": "SipHash Algorithm",
+      "version": "Not specified",
+      "authors": "Copyright (C) 2012-2014 Jean-Philippe Aumasson\nCopyright (C) 2012-2014 Daniel J. Bernstein <djb@cr.yp.to>\nCopyright (C) 2016 Intel Corporation",
+      "homepage": "https://131002.net/siphash/",
+      "license": "CC0-1.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/siphash.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-tika-mimetypes",
+      "name": "Apache Tika MimeType Definitions",
+      "version": "c29724782854bb5a319f4a1940d0828a58ace3f9",
+      "authors": "Copyright 2026 The Apache Software Foundation",
+      "homepage": "https://github.com/apache/tika/tree/main/tika-core/src/main/resources/org/apache/tika/mime",
+      "license": "Apache-2.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/tika-mimetypes.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-tinycbor",
+      "name": "TinyCBOR",
+      "version": "7.0",
+      "authors": "Copyright (C) 2015-2025 Intel Corporation",
+      "homepage": "https://github.com/intel/tinycbor",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/tinycbor.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-tlexpected",
+      "name": "tl::expected",
+      "version": "41d3e1f48d682992a2230b2a715bca38b848b269",
+      "authors": "To the extent possible under law, Sy Brand has waived all copyright and related or neighboring rights to the expected library. This work is published from: United Kingdom.",
+      "homepage": "https://github.com/TartanLlama/expected/",
+      "license": "CC0-1.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/tlexpected.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-unicode-character-database",
+      "name": "Unicode Character Database (UCD)",
+      "version": "36",
+      "authors": "Copyright (C) 1991-2025 Unicode, Inc.",
+      "homepage": "https://www.unicode.org/ucd/",
+      "license": "Unicode-3.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/unicode-character-database.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-unicode-cldr",
+      "name": "Unicode Common Locale Data Repository (CLDR)",
+      "version": "v48.2",
+      "authors": "Copyright (C) 2004-2025 Unicode, Inc.",
+      "homepage": "https://cldr.unicode.org/",
+      "license": "Unicode-3.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/unicode-cldr.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-aglfn",
+      "name": "Adobe Glyph List For New Fonts",
+      "version": "1.7",
+      "authors": "Copyright 2002, 2003, 2005, 2006, 2008, 2010, 2015 Adobe Systems",
+      "homepage": "https://github.com/adobe-type-tools/agl-aglfn",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/aglfn.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-d3d12memoryallocator",
+      "name": "D3D12 Memory Allocator",
+      "version": "v3.1.0",
+      "authors": "Copyright (c) 2019-2026 Advanced Micro Devices, Inc. All rights reserved.",
+      "homepage": "https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/d3d12memoryallocator.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-emoji-segmenter",
+      "name": "Emoji Segmenter",
+      "version": "0.4.0",
+      "authors": "Copyright 2019 Google LLC",
+      "homepage": "https://github.com/google/emoji-segmenter",
+      "license": "Apache-2.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/emoji-segmenter.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-grayraster",
+      "name": "Anti-aliasing rasterizer from FreeType 2",
+      "version": "Not specified",
+      "authors": "Copyright 2000-2016 by David Turner, Robert Wilhelm, and Werner Lemberg.",
+      "homepage": "http://www.freetype.org",
+      "license": "FTL OR GPL-2.0-only",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/grayraster.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-icc-srgb-color-profile",
+      "name": "sRGB color profile icc file",
+      "version": "Not specified",
+      "authors": "Copyright International Color Consortium, 2015",
+      "homepage": "http://www.color.org/",
+      "license": "LicenseRef-ICC-License",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/icc-srgb-color-profile.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-md4c",
+      "name": "MD4C",
+      "version": "0.5.3",
+      "authors": "Copyright © 2016-2024 Martin Mitáš",
+      "homepage": "https://github.com/mity/md4c",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/md4c.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-opengl-es2-headers",
+      "name": "OpenGL ES 2 Headers",
+      "version": "Revision 27673",
+      "authors": "Copyright (c) 2013-2014 The Khronos Group Inc.",
+      "homepage": "https://www.khronos.org/",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/opengl-es2-headers.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-opengl-headers",
+      "name": "OpenGL Headers",
+      "version": "Revision 27684",
+      "authors": "Copyright (c) 2013-2014 The Khronos Group Inc.",
+      "homepage": "https://www.khronos.org/",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/opengl-headers.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-rhi-miniengine-d3d12-mipmap",
+      "name": "Mipmap generator for D3D12",
+      "version": "0aa79bad78992da0b6a8279ddb9002c1753cb849",
+      "authors": "Copyright (c) 2015 Microsoft",
+      "homepage": "https://github.com/microsoft/DirectX-Graphics-Samples",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/rhi-miniengine-d3d12-mipmap.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-smooth-scaling-algorithm",
+      "name": "Smooth Scaling Algorithm",
+      "version": "Not specified",
+      "authors": "Copyright (C) 2004, 2005 Daniel M. Duley.\n(C) Carsten Haitzler and various contributors.\n(C) Willem Monsuwe <willem@stack.nl>",
+      "homepage": "https://doc.qt.io/qt-6/qtgui-attribution-smooth-scaling-algorithm.html",
+      "license": "BSD-2-Clause AND Imlib2",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/smooth-scaling-algorithm.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-vulkan-xml-spec",
+      "name": "Vulkan API Registry",
+      "version": "1.4.308",
+      "authors": "Copyright (c) 2015-2025 The Khronos Group Inc.",
+      "homepage": "https://www.khronos.org/",
+      "license": "Apache-2.0 OR MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/vulkan-xml-spec.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-vulkanmemoryallocator",
+      "name": "Vulkan Memory Allocator",
+      "version": "3.3.0",
+      "authors": "Copyright (c) 2017-2025 Advanced Micro Devices, Inc. All rights reserved.",
+      "homepage": "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/vulkanmemoryallocator.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-webgradients",
+      "name": "WebGradients",
+      "version": "Not specified",
+      "authors": "Copyright (c) 2017 itmeo",
+      "homepage": "https://webgradients.com/",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/webgradients.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-xserverhelper",
+      "name": "X Server helper",
+      "version": "Not specified",
+      "authors": "Copyright (c) 1987, 1988 X Consortium\nCopyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts.",
+      "homepage": "https://www.x.org/",
+      "license": "X11 AND HPND",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/xserverhelper.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-xsvg",
+      "name": "XSVG",
+      "version": "Not specified",
+      "authors": "Copyright 2002 USC/Information Sciences Institute",
+      "homepage": "https://code.qt.io/cgit/qt/qtbase.git/tree/src/gui/util",
+      "license": "HPND-sell-variant",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/XSVG.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-zlib",
+      "name": "Data Compression Library (zlib)",
+      "version": "1.3.2",
+      "authors": "(C) 1995-2026 Jean-loup Gailly and Mark Adler",
+      "homepage": "https://zlib.net/",
+      "license": "Zlib",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/zlib.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-libpsl",
+      "name": "libpsl - C library to handle the Public Suffix List",
+      "version": "664f3dc85259ec65e30248a61fa1c45b7b0e4c3f",
+      "authors": "Copyright 2014-2016 The Chromium Authors. All rights reserved.",
+      "homepage": "https://github.com/rockdaboot/libpsl",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/libpsl.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-psl-data",
+      "name": "The Public Suffix List",
+      "version": "2026-05-14_08-35-31_UTC",
+      "authors": "The list was originally provided by Jo Hermans <jo.hermans@gmail.com>.\nIt is now maintained on github (https://github.com/publicsuffix/list).",
+      "homepage": "http://publicsuffix.org/",
+      "license": "MPL-2.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/psl-data.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-wintab",
+      "name": "Wintab API",
+      "version": "Not specified",
+      "authors": "Copyright 1991-1998 by LCS/Telegraphics.",
+      "homepage": "https://doc.qt.io/qt-6/qtgui-attribution-wintab.html",
+      "license": "LicenseRef-Lcs-Telegraphics",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/wintab.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-freetype",
+      "name": "Freetype 2",
+      "version": "2.14.3",
+      "authors": "Copyright (c) 2007-2014 Adobe Systems Incorporated\nCopyright (c) 2004-2026 Albert Chin-A-Young\nCopyright (c) 2018-2026 Armin Hasitzka, David Turner, Robert Wilhelm, and Werner Lemberg\nCopyright (c) 2000 Computing Research Labs, New Mexico State University\nCopyright (c) 1996-2026 David Turner, Robert Wilhelm, Dominik Röttsches, and Werner Lemberg\nCopyright (c) 2004-2026 David Turner, Robert Wilhelm, Werner Lemberg and George Williams\nCopyright (c) 2022-2026 David Turner, Robert Wilhelm, Werner Lemberg, and Moazin Khatti\nCopyright (c) 2008-2026 David Turner, Robert Wilhelm, Werner Lemberg, and suzuki toshiya\nCopyright (c) 2003-2026 David Turner, Robert Wilhelm, and Werner Lemberg\nCopyright (c) 2005-2026 David Turner\nCopyright (c) 2007-2026 Derek Clegg and Michael Toftdal\nCopyright (c) 2007 Dmitry Timoshkov for Codeweavers\nCopyright (c) 2001-2015 Francesco Zappa Nardelli\nCopyright (c) 2005, 2007, 2008, 2013 George Williams\nCopyright (c) 2013-2026 Google, Inc. Google Author(s) Behdad Esfahbod and Stuart Gill\nCopyright (c) 2013-2022 Google, Inc.\nCopyright (c) 2003 Huw D M Davies for Codeweavers\nCopyright (c) 2010-2026 Joel Klinghed\nCopyright (c) 1996-2026 Just van Rossum, David Turner, Robert Wilhelm, and Werner Lemberg\nCopyright (c) 2003-2026 Masatake YAMATO and Redhat K.K.\nCopyright (c) 2004-2026 Masatake YAMATO, Redhat K.K, David Turner, Robert Wilhelm, and Werner Lemberg\nCopyright (c) 2019-2026 Nikhil Ramakrishnan, David Turner, Robert Wilhelm, and Werner Lemberg\nCopyright (c) 2009-2026 Oran Agra and Mickey Gabel\nCopyright (c) 2007-2026 Rahul Bhalerao <rahul.bhalerao@redhat.com>\nCopyright (c) 2002-2026 Roberto Alameda\nCopyright (c) 2015-2026 Werner Lemberg\nCopyright (c) 2004-2026 suzuki toshiya, Masatake YAMATO, Red Hat K.K., David Turner, Robert Wilhelm, and Werner Lemberg\nCopyright (c) 2019 nyorain\nCopyright (c) 2022-2026 David Turner, Robert Wilhelm, Werner Lemberg, George Williams, and Dominik Röttsches\nCopyright (C) 2009, 2023  Red Hat, Inc.",
+      "homepage": "http://www.freetype.org",
+      "license": "FTL OR GPL-2.0-only",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/freetype.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-harfbuzz-ng",
+      "name": "HarfBuzz-NG",
+      "version": "14.5.0",
+      "authors": "Copyright © 2010-2022  Google, Inc.\nCopyright © 2015-2020  Ebrahim Byagowi\nCopyright © 2019,2020  Facebook, Inc.\nCopyright © 2012,2015  Mozilla Foundation\nCopyright © 2011  Codethink Limited\nCopyright © 2008,2010  Nokia Corporation and/or its subsidiary(-ies)\nCopyright © 2009  Keith Stribley\nCopyright © 2011  Martin Hosken and SIL International\nCopyright © 2007  Chris Wilson\nCopyright © 2005,2006,2020,2021,2022,2023  Behdad Esfahbod\nCopyright © 2004,2007,2008,2009,2010,2013,2021,2022,2023  Red Hat, Inc.\nCopyright © 1998-2005  David Turner and Werner Lemberg\nCopyright © 2016  Igalia S.L.\nCopyright © 2022  Matthias Clasen\nCopyright © 2018,2021  Khaled Hosny\nCopyright © 2018,2019,2020  Adobe, Inc\nCopyright © 2013-2015  Alexei Podtelezhnikov",
+      "homepage": "http://harfbuzz.org",
+      "license": "MIT",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/harfbuzz-ng.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-libpng",
+      "name": "LibPNG",
+      "version": "1.6.58",
+      "authors": "Copyright (c) 1995-2026 The PNG Reference Library Authors\nCopyright (c) 2000-2026 Cosmin Truta\nCopyright (c) 1998-2018 Glenn Randers-Pehrson\nCopyright (c) 1996-1997 Andreas Dilger\nCopyright (c) 1995-1996 Guy Eric Schalnat, Group 42, Inc.\nCopyright (c) 2000-2017 Simon-Pierre Cadieux\nCopyright (c) 2000-2017 Eric S. Raymond\nCopyright (c) 2000-2017 Mans Rullgard\nCopyright (c) 2000-2017 Gilles Vollant\nCopyright (c) 2000-2017 James Yu\nCopyright (c) 2000-2017 Mandar Sahastrabuddhe\nCopyright (c) 1998-2000 Tom Lane\nCopyright (c) 1998-2000 Willem van Schaik\nCopyright (c) 1996-1997 John Bowler\nCopyright (c) 1996-1997 Kevin Bracey\nCopyright (c) 1996-1997 Sam Bushell\nCopyright (c) 1996-1997 Magnus Holmgren\nCopyright (c) 1996-1997 Greg Roelofs\nCopyright (c) 1996-1997 Tom Tanner\nCopyright (c) 1995-1996 Dave Martindale\nCopyright (c) 1995-1996 Paul Schmidt\nCopyright (c) 1995-1996 Tim Wegner",
+      "homepage": "http://www.libpng.org/pub/png/libpng.html",
+      "license": "Libpng AND libpng-2.0",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/libpng.txt"
+        }
+      ]
+    },
+    {
+      "id": "qt-pcre2",
+      "name": "PCRE2",
+      "version": "10.48",
+      "authors": "Copyright (c) 1997-2007 University of Cambridge\nCopyright (c) 2007-2024 Philip Hazel\nCopyright (c) 2010-2024 Zoltan Herczeg",
+      "homepage": "http://www.pcre.org/",
+      "license": "LicenseRef-BSD-3-Clause-with-PCRE2-Binary-Like-Packages-Exception",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/pcre2.txt"
+        }
+      ]
+    }
+  ],
+  "licenseHashes": {
+    "Licenses/fmt.txt": "e53b24254a17f6acdaf967557c287dca7e920b22cc6290f6a84d57c34d942a6e",
+    "Licenses/lucide.txt": "6fc5b7332939dd5c61af3a5f97450f7bc05d4a396dd0bc21ac341716b3b05096",
+    "Licenses/pcre2.txt": "4195c519dcfe4a4ffedc4b8ccc5d49e4dd02efd5ece6b69a4fba5d20080902a9",
+    "Licenses/Qt/aglfn.txt": "e567981bbcd16a3d0e9edf88e429c8eb9363068994d785febaff1a20919eed0b",
+    "Licenses/Qt/blake2.txt": "2de877bb1be9ac35a20e26b25037b8ea14a4d529d60f9e2afcde8c42b47b5ee0",
+    "Licenses/Qt/Commercial.txt": "6e5ff31f3ef87bec4342a9594d409aa634bb0d7e695a5ea7899e8ac5785ae43b",
+    "Licenses/Qt/Copyright.txt": "f208928637884179336818b1db69a84c07aee03dee25d0b4a7c38cb40ad99baa",
+    "Licenses/Qt/d3d12memoryallocator.txt": "39116991399084c8d4d20dca6b6fb674db1a7c71154cec074b0e42833bfebedd",
+    "Licenses/Qt/Documentation-GFDL-1.3.txt": "c256483c2d1e8a51b62fc7a44a58f21cb4ef23fa840c7d33e3658035fd8cf62f",
+    "Licenses/Qt/doubleconversion.txt": "b50982047add17f06ab1b2449be5a6315cd7d0406d2c48032077cc37ea9ec0c5",
+    "Licenses/Qt/easing.txt": "35a31865b3e9bf8db3ae7e350ca61d5855baacab51836de7792b98c7cb3377ab",
+    "Licenses/Qt/emoji-segmenter.txt": "7cede0a690b28313015c9a590f6bb5d3a0d595b2d44ff6e1a59303ab8d0f632c",
+    "Licenses/Qt/freetype-bdf.txt": "0bc421107644b654262f5e9e68c4cbb78d9b95d3defe8fb6599875c8454ce905",
+    "Licenses/Qt/freetype-pcf.txt": "4000101ae6216b499a2c55d9163bfc74a8cf1901588269bdcef4e5c82eae5143",
+    "Licenses/Qt/freetype-zlib.txt": "6016bde0e44eb6be78c3b61061168195fec3fcc43a20d9cf0853be4b0db370f2",
+    "Licenses/Qt/freetype.txt": "0dc434f5039f2c14f53e6e5212b32b478b2d82e03d7a5297e420da164c25bf72",
+    "Licenses/Qt/GPL-2.0-only.txt": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+    "Licenses/Qt/GPL-3.0-only.txt": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "Licenses/Qt/grayraster.txt": "7cc417f54d0e4a91d1ea88d6b8bad80f48182c20d9cca27a115ae4146dbbd23f",
+    "Licenses/Qt/harfbuzz-ng.txt": "e634f16e9decdbc8e6b5c113a9e7942fe34b40e62f343ae8bfd3cb50bd3a514f",
+    "Licenses/Qt/icc-srgb-color-profile.txt": "455973cad6f149a8e81a7974c4baee2a673c460b3af79bb22920132a99c2eaf9",
+    "Licenses/Qt/LGPL-3.0-only.txt": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+    "Licenses/Qt/libpng.txt": "37815522c8b9fa8e1eae328b0209364f7c4155107143b25c4b14c81223585193",
+    "Licenses/Qt/libpsl.txt": "d479c09d6b79cc2a74d1339257a11f3ce3f14577212865e42d1fc75e883eaac2",
+    "Licenses/Qt/Logo.txt": "884b64edeb595f9b1e152419de3a875c735b27ab80166339989f22a11e6489b7",
+    "Licenses/Qt/md4.txt": "2d7c1c52fbe579ce8782714d21c168db365fc6e2dab6a83d74e5bd21a062f1ad",
+    "Licenses/Qt/md4c.txt": "2686fbb1fb77cfdba76fa6ac7e990173d8b2fde759657b32af5edc30f0328d35",
+    "Licenses/Qt/md5.txt": "add5dcfdbc2fd4da44e12cbd3b36fd62f56fab3ccd56a19e081d190ffe84f77c",
+    "Licenses/Qt/opengl-es2-headers.txt": "0145c9d582d0cc08604106d50829c7d6b0e5501c9bcfa43f6a37c39807fd9392",
+    "Licenses/Qt/opengl-headers.txt": "0145c9d582d0cc08604106d50829c7d6b0e5501c9bcfa43f6a37c39807fd9392",
+    "Licenses/Qt/pcre2-sljit.txt": "47b012553cc1f25c4b5f76e6090142dea6f48d7af0d4dfd1c5c1f8b2fef7d79f",
+    "Licenses/Qt/pcre2.txt": "d657fd8d7f0f26cd5a55fdfe09c34e2596cdae9d1ae5d1a21bcb40a7cda2fffe",
+    "Licenses/Qt/psl-data.txt": "9a3ec3354bfc3deec2b6b5c1b391e7402e62fc81ea0bc3964c04c48b7149bac1",
+    "Licenses/Qt/rfc6234.txt": "fb6689a9a1bcf11d50d30139be627166ee30e6f0e51b41c5fa2ea3dd82b5bb0c",
+    "Licenses/Qt/rhi-miniengine-d3d12-mipmap.txt": "0637d9f6053353be1e7f0c6a041914452979e90c488478091a05cc020360cd08",
+    "Licenses/Qt/sha1.txt": "33c7b9885962cce85142ccce78766561c5b1f675ec7fa2ef404db0172a9e484a",
+    "Licenses/Qt/sha3_endian.txt": "95d9bf484dff6a9a23e562d5e27b732b0ab2496fa21c80f971aa01d39c252b37",
+    "Licenses/Qt/sha3_keccak.txt": "5588cbb1f5c0feab4d46fbb4435d75af86692c110f0b516640de5ca22f8ff158",
+    "Licenses/Qt/siphash.txt": "3a7ff43f0def981be3c428a3dcb619f695ac13344f734bc2d2b1dbf2d8443856",
+    "Licenses/Qt/smooth-scaling-algorithm.txt": "bdb0007179cacbd0a99e08b6905f74f1c145eb3ba472cfd71885719c29dd3e4b",
+    "Licenses/Qt/tika-mimetypes.txt": "ed3d80c5577e522e5935a0f2ad040efbf7f7a4c79c7cc5ce0f6596e03ae14c0d",
+    "Licenses/Qt/tinycbor.txt": "4ad810f201ea2eda22ecd2dd30f39eec3cc9c7b25793e4f2d23797c020789f2b",
+    "Licenses/Qt/tlexpected.txt": "1ff16991ac3b2ba3d9770407c3197b8fa88fba83600afb15ab68ed99b8c3bc30",
+    "Licenses/Qt/unicode-character-database.txt": "29b59fbebcaf78dfd5fe37b6f40da618017871c5cb0e5623ce8c403cd4470647",
+    "Licenses/Qt/unicode-cldr.txt": "869443952cf6be291781e1bd80d3bc265d3cbab06cb841d5654c4dc6360a1bc7",
+    "Licenses/Qt/vulkan-xml-spec.txt": "273263eb04393c79f3704de3bc3c8a8f6fea23efa260a9392509ef1cb2147d5f",
+    "Licenses/Qt/vulkanmemoryallocator.txt": "beb6bd5c695c6db39eb0933a15dd88850e212bcbd6bb2a8b6b7a3ed18d953339",
+    "Licenses/Qt/webgradients.txt": "29ecfe366c6d640e3e34589130ef4051a1eef6a2315276ceba97f0a46d2a96d8",
+    "Licenses/Qt/wintab.txt": "f647f7101dd7b85fcfd85d869a1a225aee9c23c2eb967fb000172b27946d28f3",
+    "Licenses/Qt/xserverhelper.txt": "f3911b6f95bdc8679f6c7f52e1fa5125b1ffaf01ab1b49861186c781ae572047",
+    "Licenses/Qt/XSVG.txt": "3a946598a9f674d44df764279ca0b85b5d6faba08f3bc75d8e0fcf6cd729a9bd",
+    "Licenses/Qt/zlib.txt": "34728a0457153ee4979ba0093bfff7af2c2416fff68f9e01d47aff71722a2aae",
+    "Licenses/sljit.txt": "37c7a090fc61388430d63fc97bf8a22ffce92d3ca2249aac572cfaf411d3070f",
+    "Licenses/valijson.txt": "4ee8628c25c2a60e343853f0c416481f80914a28d038bcbf9a5bca3ac5fd4de3",
+    "Licenses/yaml-cpp.txt": "c06fd4ee9241e3b6841fcee5d471475be412c822ddf2876af17127acd426c011"
+  }
+}
