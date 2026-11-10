@@ -1,6 +1,6 @@
 # Contextual help and third-party notices
 
-Status: next scheduled stage after FLOW-26 configurable packet byte stuffing. This document
+Status: next scheduled stage after FLOW-27 paired processor families. This document
 records the design; the runtime help browser and credits page remain planned.
 
 ## Help source and presentation
@@ -42,6 +42,34 @@ flowchart LR
 MVP checks cover disabled-plugin help discovery, selected nested-node resolution,
 unload with an open copied page, launch from another working directory, unknown
 and stale topics, path containment, broken links, search and native DPI rendering.
+
+## Developer help: first custom processor
+
+Add a concise, end-to-end tutorial using one minimal working processor plugin.
+The tutorial must show the actual calls and file/build placement rather than
+presenting interfaces without an executable registration path:
+
+1. Implement the public `Processor` contract: `configuration()`, `accept()` and
+   `cancel()`, with owned byte packets, supplied limits and completion callbacks.
+2. Provide a versioned YAML settings schema with usable defaults and demonstrate
+   one generated control through `x-widget` where appropriate.
+3. Build a `ProcessorCatalog::Type` with its ID, title, group, schema, port metadata
+   and factory; register it through `PluginHost::registerProcessorType()` during
+   plugin startup after host injection.
+4. Show the minimal SHARED plugin CMake target, public SDK includes and packaged
+   library/header layout; do not depend on private Core implementation headers.
+5. Demonstrate catalog discovery and placement in Lineflow, then a synthetic
+   input/output check without connecting a real device.
+6. Unregister through `PluginHost::unregisterProcessorType()` during shutdown,
+   handle refusal while instances are in use, and acknowledge cancellation only
+   after owned work and callbacks have stopped.
+
+Keep the first example small and complete. Follow it with optional topics for
+stateful/async output and for separate family-owned direct, inverse and Codec
+creation choices. Explain that unary schemas are assembled before form creation
+and must not instantiate the unused direction or its editors. Compile and test
+the published example against the current SDK so documentation remains accurate.
+This is scheduled developer-help content; the tutorial is not implemented yet.
 
 ## Third-party page and distribution
 

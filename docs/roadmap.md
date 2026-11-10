@@ -405,6 +405,7 @@ Next scheduled stage after FLOW-27 paired processor families.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
 - [ ] Package module-owned help and generated parameter reference with stable context topics.
+- [ ] Add a short, compiled end-to-end developer tutorial for implementing, building, registering and unloading a custom processor plugin.
 - [ ] Add offline Widgets navigation, search and selected-node Help/F1 integration.
 - [ ] Verify missing topics, plugin unload, resource paths, links and native rendering.
 
