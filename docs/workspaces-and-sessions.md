@@ -301,3 +301,9 @@ metadata saves retaining processor timestamps/bytes and unknown envelopes, and
 borrowed settings views. Existing save failure, collection limits and filesystem
 confinement cases also passed. Changed C++ files were clang-formatted and
 `git diff --check` passed. No hardware or network acceptance was performed.
+
+Integrated PERF-6 acceptance also passed the Release WorkspaceTests,
+ProcessorRefactoringTests and full AppTests suites. The dirty path relies on its
+existing candidate validation instead of adding an extra processor-validator
+pass; the clean shortcut still validates before returning. No transaction guard,
+recovery stage or conflict check was removed.

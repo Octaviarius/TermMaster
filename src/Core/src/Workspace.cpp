@@ -379,17 +379,17 @@ bool Workspace::sync(QString* error)
         return false;
     }
     const auto values = processorDefinitions().values();
-    if (!_validateProcessors(values, error))
-    {
-        return false;
-    }
-    const auto journal = WorkspaceFileTransaction::journalPath(_file);
-    if (QFileInfo::exists(journal) || QFileInfo(journal).isSymLink())
-    {
-        return fail(error, "An interrupted processing transaction must be recovered before editing");
-    }
     if (!isDirty())
     {
+        if (!_validateProcessors(values, error))
+        {
+            return false;
+        }
+        const auto journal = WorkspaceFileTransaction::journalPath(_file);
+        if (QFileInfo::exists(journal) || QFileInfo(journal).isSymLink())
+        {
+            return fail(error, "An interrupted processing transaction must be recovered before editing");
+        }
         return true;
     }
 
