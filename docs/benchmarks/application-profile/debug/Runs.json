@@ -1,0 +1,14 @@
+{
+  "runs": [
+    {
+      "run": 1,
+      "exitCode": 0,
+      "timedOut": false,
+      "processWallSeconds": 39.92182950000279
+    }
+  ],
+  "sourceUnchanged": true,
+  "sourceFileCount": 3,
+  "serialOptIn": false,
+  "exeSha256": "949d8a076db33886fc2fe622ac33eb5f223b8711a1346682dff823e52d028b4f"
+}

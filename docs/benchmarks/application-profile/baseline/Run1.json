@@ -1,0 +1,1439 @@
+{
+  "measurements": [
+    {
+      "ok": true,
+      "stage": "app.construct",
+      "wallMs": 106.8333,
+      "error": ""
+    },
+    {
+      "ok": true,
+      "stage": "app.start.to.eventloop",
+      "wallMs": 1401.6213,
+      "error": ""
+    },
+    {
+      "cpuMs": 203.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 42,
+      "stage": "workspace.open.restore",
+      "wallMs": 260.6412
+    },
+    {
+      "ok": true,
+      "stage": "fixture",
+      "terminalCount": 6,
+      "error": ""
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 42.8203125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 26.5787
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.9375,
+      "stage": "window.resize.session.empty",
+      "wallMs": 19.5996
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.2421875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 29.6044
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.0703125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 17.2814
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.2421875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 19.9568
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.0703125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 15.9363
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.2421875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 17.3801
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.0703125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 17.8414
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.2421875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 17.2655
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.0703125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 17.7001
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.2421875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 17.4535
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.0703125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 16.1844
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.2421875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 16.2096
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.0703125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 17.0202
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.2421875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 16.7459
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.0703125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 15.9787
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.2421875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 16.4982
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.0703125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 17.8939
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 43.2421875,
+      "stage": "window.resize.session.empty",
+      "wallMs": 18.2949
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.0703125,
+      "stage": "window.resize.session.empty",
+      "wallMs": 16.5896
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.3359375,
+      "stage": "app.idle.3s",
+      "wallMs": 3000.7022
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.3359375,
+      "stage": "session.sync.clean",
+      "wallMs": 0.4288
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.3359375,
+      "stage": "session.save.clean",
+      "wallMs": 14.7891
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.3359375,
+      "stage": "workspace.sync.clean",
+      "wallMs": 31.1807
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.3359375,
+      "stage": "session.save.dirty",
+      "wallMs": 35.4165
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 45.890625,
+      "stage": "terminal.add.serial",
+      "wallMs": 32.1782
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 37.3515625,
+      "stage": "session.close",
+      "wallMs": 86.4247
+    },
+    {
+      "cpuMs": 187.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.92578125,
+      "stage": "session.open",
+      "wallMs": 267.5869
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.2578125,
+      "stage": "session.sync.clean",
+      "wallMs": 0.4244
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.2578125,
+      "stage": "session.save.clean",
+      "wallMs": 16.892
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.2578125,
+      "stage": "workspace.sync.clean",
+      "wallMs": 29.8166
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.2578125,
+      "stage": "session.save.dirty",
+      "wallMs": 38.619
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.96484375,
+      "stage": "terminal.add.serial",
+      "wallMs": 40.3045
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.43359375,
+      "stage": "session.close",
+      "wallMs": 87.5594
+    },
+    {
+      "cpuMs": 250,
+      "error": "",
+      "ok": true,
+      "privateMiB": 50.984375,
+      "stage": "session.open",
+      "wallMs": 288.5572
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.64453125,
+      "stage": "session.sync.clean",
+      "wallMs": 0.4576
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.6640625,
+      "stage": "session.save.clean",
+      "wallMs": 21.0537
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.6640625,
+      "stage": "workspace.sync.clean",
+      "wallMs": 37.9018
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.671875,
+      "stage": "session.save.dirty",
+      "wallMs": 37.9152
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 53.58203125,
+      "stage": "terminal.add.serial",
+      "wallMs": 37.7063
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 46.03125,
+      "stage": "session.close",
+      "wallMs": 99.5106
+    },
+    {
+      "cpuMs": 265.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 54.12890625,
+      "stage": "session.open",
+      "wallMs": 324.7417
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 54.265625,
+      "stage": "session.sync.clean",
+      "wallMs": 0.5188
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 54.265625,
+      "stage": "session.save.clean",
+      "wallMs": 23.3533
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 54.265625,
+      "stage": "workspace.sync.clean",
+      "wallMs": 25.978
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 54.265625,
+      "stage": "session.save.dirty",
+      "wallMs": 43.7711
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 55.515625,
+      "stage": "terminal.add.serial",
+      "wallMs": 44.4161
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 44.32421875,
+      "stage": "session.close",
+      "wallMs": 96.8325
+    },
+    {
+      "cpuMs": 328.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.109375,
+      "stage": "session.open",
+      "wallMs": 349.8131
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.12109375,
+      "stage": "session.sync.clean",
+      "wallMs": 0.5541
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.12109375,
+      "stage": "session.save.clean",
+      "wallMs": 25.7827
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.12109375,
+      "stage": "workspace.sync.clean",
+      "wallMs": 92.7887
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 56.12109375,
+      "stage": "session.save.dirty",
+      "wallMs": 47.8141
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 57.92578125,
+      "stage": "terminal.add.serial",
+      "wallMs": 41.1711
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.8125,
+      "stage": "session.close",
+      "wallMs": 94.9264
+    },
+    {
+      "cpuMs": 296.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 58.61328125,
+      "stage": "session.open",
+      "wallMs": 373.6185
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.0546875,
+      "stage": "screen.history100.chunk1",
+      "wallMs": 61.9538
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.0546875,
+      "stage": "screen.history100.chunk64",
+      "wallMs": 39.9483
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.0546875,
+      "stage": "screen.history100.chunk4096",
+      "wallMs": 38.8067
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "privateMiB": 272.140625,
+      "stage": "screen.history10000.chunk1",
+      "wallMs": 58.5526
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 272.140625,
+      "stage": "screen.history10000.chunk64",
+      "wallMs": 48.2012
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 272.140625,
+      "stage": "screen.history10000.chunk4096",
+      "wallMs": 44.0814
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 2.6932
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 2.3375
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 10.9997
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 3.1013
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 2.8737
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 11.9519
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 3.1939
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 2.5969
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 11.8745
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 2.8854
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 1.7916
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 11.2453
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 3.1803
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 2.5336
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 12.2431
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 3.8893
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 2.623
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 11.4194
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 3.0063
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 2.8768
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 11.4233
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 3.0987
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 2.63
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 12.2791
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 3.1162
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 2.8577
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 12.2761
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.static.repaint",
+      "wallMs": 3.2531
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.unchanged",
+      "wallMs": 2.8611
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 83.3125,
+      "stage": "display.appearance.repaint",
+      "wallMs": 12.6488
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.5,
+      "stage": "display.resize.history0",
+      "wallMs": 23.9075
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 20.9389
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.51953125,
+      "stage": "display.resize.history0",
+      "wallMs": 17.9407
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 17.18
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.51953125,
+      "stage": "display.resize.history0",
+      "wallMs": 17.8566
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 17.9653
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.51953125,
+      "stage": "display.resize.history0",
+      "wallMs": 20.4192
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 20.8858
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.51953125,
+      "stage": "display.resize.history0",
+      "wallMs": 16.5537
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 16.9955
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.51953125,
+      "stage": "display.resize.history0",
+      "wallMs": 16.6695
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 17.3025
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.51953125,
+      "stage": "display.resize.history0",
+      "wallMs": 15.8148
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 15.8344
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.51953125,
+      "stage": "display.resize.history0",
+      "wallMs": 15.9599
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 16.2687
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.51953125,
+      "stage": "display.resize.history0",
+      "wallMs": 15.5584
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 19.0698
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.51953125,
+      "stage": "display.resize.history0",
+      "wallMs": 14.2548
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.24609375,
+      "stage": "display.resize.history0",
+      "wallMs": 13.9667
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 81.93359375,
+      "stage": "display.resize.history1000",
+      "wallMs": 16.1213
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.66015625,
+      "stage": "display.resize.history1000",
+      "wallMs": 18.1517
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 81.93359375,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.8529
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.7890625,
+      "stage": "display.resize.history1000",
+      "wallMs": 18.7576
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.0625,
+      "stage": "display.resize.history1000",
+      "wallMs": 19.0495
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.7890625,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.0519
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.0625,
+      "stage": "display.resize.history1000",
+      "wallMs": 16.3168
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.7890625,
+      "stage": "display.resize.history1000",
+      "wallMs": 16.5592
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.0625,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.3681
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.7890625,
+      "stage": "display.resize.history1000",
+      "wallMs": 25.3726
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.0625,
+      "stage": "display.resize.history1000",
+      "wallMs": 20.4579
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.7890625,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.4112
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.0625,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.6476
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.7890625,
+      "stage": "display.resize.history1000",
+      "wallMs": 18.2
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.0625,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.8337
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.7890625,
+      "stage": "display.resize.history1000",
+      "wallMs": 21.3531
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.0625,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.2175
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.7890625,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.4708
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.0625,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.6549
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 82.7890625,
+      "stage": "display.resize.history1000",
+      "wallMs": 17.0757
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 33.3116
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 39.8278
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 27.641
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 33.95
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 26.058
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 27.4053
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 23.0467
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 27.2236
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 25.2127
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 28.0777
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 22.5948
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 30.618
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 23.0529
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 29.3883
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 24.9216
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 30.0403
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 24.6054
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 28.8309
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 264.27734375,
+      "stage": "display.resize.history10000",
+      "wallMs": 23.4725
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 265.00390625,
+      "stage": "display.resize.history10000",
+      "wallMs": 28.0374
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.328125,
+      "stage": "serial.open.115200",
+      "wallMs": 28.493
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.1",
+      "wallMs": 1.7613
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.1",
+      "wallMs": 8.7811
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.1",
+      "wallMs": 15.4969
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.1",
+      "wallMs": 15.3514
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.1",
+      "wallMs": 15.3516
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.16",
+      "wallMs": 15.5264
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.16",
+      "wallMs": 15.3521
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.16",
+      "wallMs": 15.4393
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.16",
+      "wallMs": 15.3035
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.16",
+      "wallMs": 15.3703
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.256",
+      "wallMs": 37.203
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.256",
+      "wallMs": 37.4523
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.256",
+      "wallMs": 37.3747
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.256",
+      "wallMs": 37.3188
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.3984375,
+      "stage": "serial.loopback.256",
+      "wallMs": 37.3338
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.48046875,
+      "stage": "serial.loopback.4096",
+      "wallMs": 370.7063
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.48046875,
+      "stage": "serial.loopback.4096",
+      "wallMs": 370.2268
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.48046875,
+      "stage": "serial.loopback.4096",
+      "wallMs": 370.1492
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.48046875,
+      "stage": "serial.loopback.4096",
+      "wallMs": 370.0612
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.48046875,
+      "stage": "serial.loopback.4096",
+      "wallMs": 370.0584
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.44921875,
+      "stage": "serial.close",
+      "wallMs": 106.9713
+    },
+    {
+      "cpuMs": 78.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 38.703125,
+      "stage": "workspace.close",
+      "wallMs": 104.127
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 38.78515625,
+      "stage": "window.close",
+      "wallMs": 3.3753
+    }
+  ],
+  "platform": "Windows MSVC Qt6 Release"
+}

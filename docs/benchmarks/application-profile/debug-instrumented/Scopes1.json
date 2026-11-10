@@ -1,0 +1,206 @@
+[
+  {
+    "stage": "App::_activateSession",
+    "calls": 2,
+    "inclusiveMs": 9400.0001,
+    "exclusiveMs": 7.5738
+  },
+  {
+    "stage": "App::_activateWorkspace",
+    "calls": 1,
+    "inclusiveMs": 2901.7442,
+    "exclusiveMs": 8.8042
+  },
+  {
+    "stage": "App::_updateRecent",
+    "calls": 11,
+    "inclusiveMs": 67.0013,
+    "exclusiveMs": 16.8731
+  },
+  {
+    "stage": "App::_updateSession",
+    "calls": 9,
+    "inclusiveMs": 5339.538,
+    "exclusiveMs": 13.2333
+  },
+  {
+    "stage": "App::saveSession",
+    "calls": 2,
+    "inclusiveMs": 803.8882,
+    "exclusiveMs": 0.0513
+  },
+  {
+    "stage": "Session::_validate",
+    "calls": 10,
+    "inclusiveMs": 55.4464,
+    "exclusiveMs": 6.4679
+  },
+  {
+    "stage": "Session::load",
+    "calls": 4,
+    "inclusiveMs": 100.0646,
+    "exclusiveMs": 3.3188
+  },
+  {
+    "stage": "Session::sync",
+    "calls": 6,
+    "inclusiveMs": 110.6855,
+    "exclusiveMs": 5.2707
+  },
+  {
+    "stage": "Settings::applyValues",
+    "calls": 36,
+    "inclusiveMs": 114.0439,
+    "exclusiveMs": 114.0439
+  },
+  {
+    "stage": "Settings::load",
+    "calls": 10,
+    "inclusiveMs": 85.5565,
+    "exclusiveMs": 85.5565
+  },
+  {
+    "stage": "Settings::sync",
+    "calls": 11,
+    "inclusiveMs": 2600.9161,
+    "exclusiveMs": 2600.9161
+  },
+  {
+    "stage": "Settings::value",
+    "calls": 11310,
+    "inclusiveMs": 1877.6175,
+    "exclusiveMs": 1877.6175
+  },
+  {
+    "stage": "SettingsSchema::SettingsSchema",
+    "calls": 163,
+    "inclusiveMs": 4098.2549,
+    "exclusiveMs": 4098.2549
+  },
+  {
+    "stage": "SettingsSchema::validate",
+    "calls": 384,
+    "inclusiveMs": 61.5303,
+    "exclusiveMs": 61.5303
+  },
+  {
+    "stage": "SettingsSchema::withDefaults",
+    "calls": 138,
+    "inclusiveMs": 5.3453,
+    "exclusiveMs": 5.3453
+  },
+  {
+    "stage": "TerminalController::_close",
+    "calls": 14,
+    "inclusiveMs": 448.6239,
+    "exclusiveMs": 441.1825
+  },
+  {
+    "stage": "TerminalController::_effective",
+    "calls": 138,
+    "inclusiveMs": 3203.3502,
+    "exclusiveMs": 1776.7789
+  },
+  {
+    "stage": "TerminalController::_materialize",
+    "calls": 14,
+    "inclusiveMs": 5173.2954,
+    "exclusiveMs": 1211.3947
+  },
+  {
+    "stage": "TerminalController::_validate",
+    "calls": 14,
+    "inclusiveMs": 124.2815,
+    "exclusiveMs": 65.9123
+  },
+  {
+    "stage": "TerminalController::applySettings",
+    "calls": 9,
+    "inclusiveMs": 5246.7628,
+    "exclusiveMs": 1122.0925
+  },
+  {
+    "stage": "TerminalController::closeAll",
+    "calls": 5,
+    "inclusiveMs": 404.5821,
+    "exclusiveMs": 0.1215
+  },
+  {
+    "stage": "TerminalDisplay::_layout",
+    "calls": 6436,
+    "inclusiveMs": 20393.2609,
+    "exclusiveMs": 20393.2609
+  },
+  {
+    "stage": "TerminalDisplay::_updateGeometry",
+    "calls": 135,
+    "inclusiveMs": 49.1542,
+    "exclusiveMs": 30.2296
+  },
+  {
+    "stage": "TerminalDisplay::paintEvent",
+    "calls": 102,
+    "inclusiveMs": 23905.9153,
+    "exclusiveMs": 3512.6544
+  },
+  {
+    "stage": "TerminalDisplay::setAppearance",
+    "calls": 91,
+    "inclusiveMs": 111.3526,
+    "exclusiveMs": 47.4442
+  },
+  {
+    "stage": "TerminalProcessingPanel::TerminalProcessingPanel",
+    "calls": 14,
+    "inclusiveMs": 2900.4743,
+    "exclusiveMs": 795.939
+  },
+  {
+    "stage": "TerminalProcessingPanel::_catalog",
+    "calls": 14,
+    "inclusiveMs": 854.5132,
+    "exclusiveMs": 850.6315
+  },
+  {
+    "stage": "TerminalProcessingPanel::_showProperties",
+    "calls": 14,
+    "inclusiveMs": 1250.0221,
+    "exclusiveMs": 542.6204
+  },
+  {
+    "stage": "TerminalProcessingPanel::setConfiguration",
+    "calls": 32,
+    "inclusiveMs": 1.3929,
+    "exclusiveMs": 1.3929
+  },
+  {
+    "stage": "TerminalScreen::_recolor",
+    "calls": 91,
+    "inclusiveMs": 32.5389,
+    "exclusiveMs": 32.5389
+  },
+  {
+    "stage": "TerminalScreen::setLimits",
+    "calls": 258,
+    "inclusiveMs": 3547.3068,
+    "exclusiveMs": 3547.3068
+  },
+  {
+    "stage": "Workspace::_validateProcessors",
+    "calls": 16,
+    "inclusiveMs": 1288.5689,
+    "exclusiveMs": 101.9014
+  },
+  {
+    "stage": "Workspace::load",
+    "calls": 1,
+    "inclusiveMs": 30.9633,
+    "exclusiveMs": 7.6019
+  },
+  {
+    "stage": "Workspace::sync",
+    "calls": 5,
+    "inclusiveMs": 3141.9448,
+    "exclusiveMs": 1758.0625
+  }
+]

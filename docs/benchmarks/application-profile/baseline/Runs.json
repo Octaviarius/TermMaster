@@ -1,0 +1,26 @@
+{
+  "runs": [
+    {
+      "run": 1,
+      "exitCode": 1,
+      "timedOut": true,
+      "processWallSeconds": 45.04558100004215
+    },
+    {
+      "run": 2,
+      "exitCode": 1,
+      "timedOut": true,
+      "processWallSeconds": 45.01837449998129
+    },
+    {
+      "run": 3,
+      "exitCode": 1,
+      "timedOut": true,
+      "processWallSeconds": 45.01780700008385
+    }
+  ],
+  "sourceUnchanged": true,
+  "sourceFileCount": 3,
+  "serialOptIn": true,
+  "exeSha256": "4665de118af0bebe59f02d3441e092536e7ae64512ac985b9997ff784c231f45"
+}

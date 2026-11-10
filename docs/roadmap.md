@@ -419,3 +419,27 @@ Next scheduled stage after FLOW-27 paired processor families.
 
 HELP-2 compilation is performed without automated tests or native visual verification,
 as requested. Release deployment coverage remains a packaging acceptance task.
+
+## PERF-1: Application performance investigation
+
+- [x] Measure copied real workspace lifecycle in Release and Debug without connecting restored terminals.
+- [x] Measure native resize, repaint/cache controls, history grid resize and synthetic processing throughput.
+- [x] Exercise explicitly authorized COM3 binary loopback and retain byte-comparison results.
+- [x] Attribute expensive paths with temporary scope timers and capture the bounded close-only hang stack.
+- [x] Restore production sources and record prioritized remediation, reproducible probes and raw evidence.
+
+See [application performance](application-performance.md) and
+[processing performance](processing-performance.md). System-wide sampled CPU
+tracing was unavailable under the current Windows policy.
+
+## PERF-2: Prioritized performance remediation
+
+- [ ] Finish processor cancellation/retirement before Qt event-queue destruction.
+- [ ] Reduce cold row-layout work, repeated glyph metrics and unnecessary renderer cache invalidation.
+- [ ] Avoid full-history repair for height-only terminal resize.
+- [ ] Separate session save from global terminal configuration application.
+- [ ] Cache parsed schemas/defaults and lazily construct hidden processing editors.
+- [ ] Narrow unchanged/metadata-only workspace persistence without weakening transactions.
+- [ ] Reuse effective settings snapshots with correct overlay/schema invalidation.
+- [ ] Bound partial regex rescanning and reduce small-packet Lineflow overhead.
+- [ ] Measure and improve large-catalog search, drag validation and batched tab updates.
