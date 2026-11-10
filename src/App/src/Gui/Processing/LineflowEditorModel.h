@@ -87,6 +87,22 @@ public:
     Q_SIGNAL void   rejected(const QString& message);
 
 private:
+    struct DropKey
+    {
+        QString     format;
+        QByteArray  payload;
+        int         row = 0;
+        QString     lane;
+        QStringList order;
+        bool        operator==(const DropKey&) const = default;
+    };
+    struct DropProbe
+    {
+        DropKey key;
+        bool    accepted = false;
+    };
+    mutable std::optional<DropProbe>      _laneProbe;
+    mutable std::optional<DropProbe>      _modelProbe;
     QVariantMap                           _baseline;
     QVariantMap                           _draft;
     ProcessorRegistry&                    _registry;
@@ -98,6 +114,12 @@ private:
     QString                               _unavailableReason(const QString& id, QSet<QString> path = {});
     bool                                  _commit(QVariantMap draft, QString* error);
     void                                  _rebuild();
+    void                                  _invalidateDropProbes();
+    std::optional<DropKey>                _dropKey(const QMimeData*   data,
+                                                   int                row,
+                                                   const QString&     lane  = {},
+                                                   const QStringList& order = {}) const;
+    bool                                  _canDropMimeData(const QMimeData* data, int row) const;
     std::optional<QVariantMap>            _dropDraft(const QMimeData*   data,
                                                      int                row,
                                                      const QString&     lane,

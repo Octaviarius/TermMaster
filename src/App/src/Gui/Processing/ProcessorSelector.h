@@ -25,6 +25,11 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
+    enum Role
+    {
+        SearchRole = Qt::UserRole + 2,
+        ExpandedRole
+    };
     QList<ProcessorCatalog::Type> _types;
     QStringList                   _excludedFavorites;
     QFrame*                       _popup;
@@ -32,10 +37,12 @@ private:
     QLineEdit*                    _search;
     int                           _channels         = 1;
     bool                          _inplaceAvailable = false;
+    bool                          _filtering        = false;
 
     bool _supports(const ProcessorCatalog::Type& type) const;
     void _refreshSelection(const QString& selectedId);
 
     void _rebuild();
+    void _filter();
     void _accept(QTreeWidgetItem* item);
 };

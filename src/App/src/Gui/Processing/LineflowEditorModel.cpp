@@ -451,7 +451,69 @@ bool LineflowEditorModel::moveNodeToLane(const QString& block,
 
 bool LineflowEditorModel::canDropAt(const QMimeData* data, int row, const QString& lane, const QStringList& order) const
 {
-    return bool(_dropDraft(data, row, lane, order));
+    const auto key = _dropKey(data, row, lane, order);
+    if (key && _laneProbe && _laneProbe->key == *key)
+    {
+        return _laneProbe->accepted;
+    }
+    QMimeData snapshot;
+    if (key)
+    {
+        snapshot.setData(key->format, key->payload);
+    }
+    const bool accepted = key ? bool(_dropDraft(&snapshot, row, key->lane, key->order)) :
+                                bool(_dropDraft(data, row, lane, order));
+    _laneProbe          = key ? std::optional<DropProbe>({*key, accepted}) : std::nullopt;
+    return accepted;
+}
+
+void LineflowEditorModel::_invalidateDropProbes()
+{
+    _laneProbe.reset();
+    _modelProbe.reset();
+}
+
+std::optional<LineflowEditorModel::DropKey> LineflowEditorModel::_dropKey(const QMimeData*   data,
+                                                                          int                row,
+                                                                          const QString&     lane,
+                                                                          const QStringList& order) const
+{
+    if (!data)
+    {
+        return {};
+    }
+    const auto formats = mimeTypes();
+    const auto format  = data->hasFormat(formats[1]) ? formats[1] : formats[0];
+    if (!data->hasFormat(format))
+    {
+        return {};
+    }
+    const auto payload = data->data(format);
+    // Retain at most one bounded probe per API, never the caller's QMimeData object.
+    if (payload.size() > 64 * 1024 || order.size() > 2048)
+    {
+        return {};
+    }
+    qsizetype orderSize = 0;
+    for (const auto& name : order)
+    {
+        orderSize += name.size();
+        if (orderSize > 32 * 1024)
+        {
+            return {};
+        }
+    }
+    QStringList ownedOrder;
+    ownedOrder.reserve(order.size());
+    for (const auto& name : order)
+    {
+        ownedOrder.append(QString(name.constData(), name.size()));
+    }
+    return DropKey {format,
+                    QByteArray(payload.constData(), payload.size()),
+                    row,
+                    QString(lane.constData(), lane.size()),
+                    std::move(ownedOrder)};
 }
 
 std::optional<QVariantMap> LineflowEditorModel::_dropDraft(const QMimeData*   data,
@@ -694,6 +756,7 @@ bool LineflowEditorModel::setNodeConfiguration(const QString&     block,
     {
         return false;
     }
+    _invalidateDropProbes();
     _draft = std::move(draft);
     emit draftChanged();
     return true;
@@ -736,6 +799,7 @@ QString LineflowEditorModel::_unavailableReason(const QString& id, QSet<QString>
 }
 void LineflowEditorModel::_rebuild()
 {
+    _invalidateDropProbes();
     clear();
     _availability.clear();
     _rendered = 0;
@@ -846,6 +910,23 @@ bool LineflowEditorModel::canDropMimeData(const QMimeData*   data,
     {
         return false;
     }
+    const auto key = _dropKey(data, row);
+    if (key && _modelProbe && _modelProbe->key == *key)
+    {
+        return _modelProbe->accepted;
+    }
+    QMimeData snapshot;
+    if (key)
+    {
+        snapshot.setData(key->format, key->payload);
+    }
+    const bool accepted = key ? _canDropMimeData(&snapshot, row) : data && _canDropMimeData(data, row);
+    _modelProbe         = key ? std::optional<DropProbe>({*key, accepted}) : std::nullopt;
+    return accepted;
+}
+
+bool LineflowEditorModel::_canDropMimeData(const QMimeData* data, int row) const
+{
     if (data->hasFormat(mimeTypes()[1]))
     {
         const auto  target = QString::fromUtf8(data->data(mimeTypes()[1]));

@@ -306,3 +306,44 @@ unselected and flipped nodes were visually inspected. The scale-1 reference is
 [port triangles](images/lineflow-ports/PortTriangles.png); scale-2 captures remain
 temporary. Changed C++ was clang-formatted and git diff --check passed. Other
 suites and Release were not rerun for this rendering-only change.
+
+## Catalog interaction and drag validation
+
+The compact processor selector retains its grouped metadata tree while searching.
+Search filters origin, group, title and ID in place, including shared favorite
+shortcuts and missing favorite IDs. Matching ancestors expand during search and
+restore their previous expansion state when the query is cleared. Filtering does
+not change the selected processor. Catalog, topology, Inplace availability and
+favorite changes rebuild the applicable entries; incompatible favorites remain
+excluded. Icons are derived directly from entry metadata during tree creation.
+
+The editor retains only the latest hover-validation result for each existing
+model/canvas drop API. Keys contain the exact supported MIME format and bytes,
+row, lane and supplied ordering input. Cacheable probes validate an owned MIME
+snapshot made from exactly those key bytes. Retained bytes, lane and order names
+are deep copies, including when the caller supplied raw-data views. Both accepted
+and rejected probes are
+invalidated by draft changes, selection changes and catalog notifications.
+Configuration-only mutations invalidate explicitly even when model signals are
+blocked. Each cache accepts at most 64 KiB of MIME data and 2048 ordering names
+with 32 Ki UTF-16 code units in total; larger inputs keep the uncached validation
+path. No MIME objects, executable factories or prospective draft snapshots are
+retained. Actual drops still run the normal authoritative commit validation.
+
+An isolated Qt 6.12/MSVC Release build passed LineflowEditorTests,
+TerminalProcessingTests and ProcessorFavoritesTests. Added synthetic coverage
+checks repeated probe reuse and invalidation after configuration edits, renames,
+topology/catalog changes, MIME/order changes and invalid-to-valid definition
+replacement. Lazy MIME and borrowed-data fixtures check that validation and cache
+keys use the same payload and retain no caller-owned buffers. Selector checks cover stable item identity without model resets,
+favorite duplicates, missing IDs, Inplace, topology and expansion restoration.
+Native Windows focused tests and the existing popup keyboard/search fixture
+passed at scales 1 and 2; filtered/unfiltered popup captures were inspected for
+icons, grouping, selection and clipping. Formatting and whitespace checks passed.
+No devices or processing runtimes were opened. Large-catalog timing and integrated
+application performance remain separate acceptance work.
+
+Integrated Release verification passed the three catalog/processing/favorites suites
+(3.15 seconds). Catalog correctness checks assert retained tree identity and zero
+search resets, plus provider-validation counts for repeated and invalidated drops;
+actual commit validation remains mandatory.

@@ -239,6 +239,245 @@ private slots:
         QCOMPARE(overrides.value("second").toMap().value("marker").toInt(), 1);
     }
 
+    void dropProbesOwnAndValidateExactMimeSnapshot()
+    {
+        class ChangingMime final : public QMimeData
+        {
+        public:
+            mutable int reads = 0;
+            QStringList formats() const override
+            {
+                return {"application/x-termaster-processor"};
+            }
+
+        protected:
+            QVariant retrieveData(const QString&, QMetaType) const override
+            {
+                return ++reads == 1 ? QByteArray("native.gate") : QByteArray("root");
+            }
+        };
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        LineflowEditorModel model(
+            {
+                {"root", definition("root", "Root", {operation("efgh", "native.gate")})}
+        },
+            registry);
+        model.setSelectedBlock("root");
+        ChangingMime laneMime;
+        QVERIFY(model.canDropAt(&laneMime, 0, "rx"));
+        QCOMPARE(laneMime.reads, 1);
+        QVERIFY(!model.canDropAt(&laneMime, 0, "rx"));
+        QCOMPARE(laneMime.reads, 2);
+        ChangingMime modelMime;
+        QVERIFY(model.canDropMimeData(&modelMime, Qt::CopyAction, 0, 0, {}));
+        QCOMPARE(modelMime.reads, 1);
+        QVERIFY(!model.canDropMimeData(&modelMime, Qt::CopyAction, 0, 0, {}));
+        QCOMPARE(modelMime.reads, 2);
+
+        char      bytes[] = "root";
+        QMimeData borrowed;
+        borrowed.setData("application/x-termaster-processor", QByteArray::fromRawData(bytes, 4));
+        QVERIFY(!model.canDropAt(&borrowed, 0, "rx"));
+        std::copy_n("xxxx", 4, bytes);
+        QVERIFY(model.canDropAt(&borrowed, 0, "rx"));
+        std::copy_n("root", 4, bytes);
+        QVERIFY(!model.canDropMimeData(&borrowed, Qt::CopyAction, 0, 0, {}));
+        std::copy_n("xxxx", 4, bytes);
+        QVERIFY(model.canDropMimeData(&borrowed, Qt::CopyAction, 0, 0, {}));
+
+        QMimeData palette;
+        palette.setData("application/x-termaster-processor", "native.gate");
+        QChar      lane[] {u'x', u'x'};
+        const auto borrowedLane = QString::fromRawData(lane, 2);
+        QVERIFY(!model.canDropAt(&palette, 0, borrowedLane));
+        lane[0] = u'r';
+        lane[1] = u'x';
+        QVERIFY(model.canDropAt(&palette, 0, borrowedLane));
+        QChar             name[] {u'a', u'b', u'c', u'd'};
+        const QStringList order {QString::fromRawData(name, 4)};
+        QVERIFY(!model.canDropAt(&palette, 0, "rx", order));
+        std::copy_n(u"efgh", 4, name);
+        QVERIFY(model.canDropAt(&palette, 0, "rx", order));
+    }
+
+    void dropProbesRevalidateAfterDraftCatalogAndMimeChanges()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        registerDuplex(registry);
+        int                        validations = 0;
+        ProcessorCatalog::Provider provider;
+        provider.validate = [&](const auto& source, QString*) {
+            ++validations;
+            return source.value("allowed", true).toBool();
+        };
+        provider.prepare = [](const auto&, const auto&, const auto&, const auto&, QString*) {
+            return ProcessorCatalog::Type::Factory {};
+        };
+        registry.registerProvider("fixture", "checked", std::move(provider));
+        auto definitions = QVariantMap {
+            {"root", definition("root", "Root", {operation("gate", "native.gate")})},
+            {"code", QVariantMap {{"id", "code"}, {"name", "Code"}, {"kind", "checked"}, {"source", QVariantMap {}}}}
+        };
+        LineflowEditorModel model(definitions, registry);
+        model.setSelectedBlock("root");
+        QMimeData palette;
+        palette.setData("application/x-termaster-processor", "native.hex-encoder");
+        QVERIFY(model.canDropAt(&palette, 0, "rx"));
+        const auto first = validations;
+        for (int repeat = 0; repeat < 10; ++repeat)
+        {
+            QVERIFY(model.canDropAt(&palette, 0, "rx"));
+        }
+        QCOMPARE(validations, first);
+        QVERIFY(model.canDropMimeData(&palette, Qt::CopyAction, 0, 0, {}));
+        const auto legacy = validations;
+        QVERIFY(model.canDropMimeData(&palette, Qt::CopyAction, 0, 0, {}));
+        QCOMPARE(validations, legacy);
+        {
+            const QSignalBlocker blocked(model);
+            QVERIFY(model.setNodeConfiguration("root",
+                                               "gate",
+                                               {
+                                                   {"marker", 1}
+            }));
+        }
+        const auto configured = validations;
+        QVERIFY(model.canDropAt(&palette, 0, "rx"));
+        QVERIFY(validations > configured);
+        std::unique_ptr<QMimeData> nodeDrag(model.mimeData({model.index(0, 0)}));
+        QVERIFY(model.canDropMimeData(nodeDrag.get(), Qt::MoveAction, 0, 0, {}));
+        QVERIFY(model.canDropAt(nodeDrag.get(), 0, "rx"));
+        QVERIFY(model.renameNode("root", "gate", "renamed"));
+        QVERIFY(!model.canDropMimeData(nodeDrag.get(), Qt::MoveAction, 0, 0, {}));
+        QVERIFY(!model.canDropAt(nodeDrag.get(), 0, "rx"));
+        const auto renamed = validations;
+        QVERIFY(model.canDropMimeData(&palette, Qt::CopyAction, 0, 0, {}));
+        QVERIFY(validations > renamed);
+        QVERIFY(!model.canDropAt(&palette, 0, "rx", {"renamed", "renamed"}));
+        QVERIFY(!model.canDropAt(&palette, 0, "tx"));
+        QVERIFY(model.setBlockChannels("root", 2));
+        QVERIFY(model.canDropAt(&palette, 0, "tx"));
+        palette.setData("application/x-termaster-processor", "fixture.duplex");
+        QVERIFY(!model.canDropAt(&palette, 0, "rx"));
+        QVERIFY(model.canDropAt(&palette, 0, "duplex"));
+        QVERIFY(registry.unregisterType("fixture", "fixture.duplex"));
+        QVERIFY(!model.canDropAt(&palette, 0, "duplex"));
+        registerDuplex(registry);
+        QVERIFY(model.canDropAt(&palette, 0, "duplex"));
+        QVERIFY(model.dropAt(&palette, 0, "duplex"));
+        QCOMPARE(model.node("root", "Shared protocol").value("lane").toString(), QString("duplex"));
+        palette.setData("application/x-termaster-processor", "root");
+        QVERIFY(!model.canDropMimeData(&palette, Qt::CopyAction, 0, 0, {}));
+        QVERIFY(!model.canDropMimeData(&palette, Qt::CopyAction, 0, 0, {}));
+        palette.setData("application/x-termaster-processor", "native.hex-encoder");
+        auto replacement = model.definitions();
+        auto code        = replacement.value("code").toMap();
+        code.insert("source",
+                    QVariantMap {
+                        {"allowed", false}
+        });
+        replacement.insert("code", code);
+        model.markApplied(replacement);
+        QVERIFY(!model.canDropAt(&palette, 0, "rx"));
+        const auto rejected = validations;
+        QVERIFY(!model.canDropAt(&palette, 0, "rx"));
+        QCOMPARE(validations, rejected);
+        code.insert("source",
+                    QVariantMap {
+                        {"allowed", true}
+        });
+        replacement.insert("code", code);
+        model.markApplied(replacement);
+        QVERIFY(model.canDropAt(&palette, 0, "rx"));
+        model.setSelectedBlock({});
+        QVERIFY(!model.canDropAt(&palette, 0, "rx"));
+    }
+
+    void selectorSearchRetainsItemsAndFiltersFavoriteDuplicates()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        registerDuplex(registry);
+        QTemporaryDir      temporary;
+        Settings           settings(temporary.filePath("preferences.yaml"));
+        ProcessorFavorites favorites(settings.node("processing"));
+        QVERIFY(favorites.setIds({"native.hex-encoder", "missing.processor", "fixture.duplex"}));
+        ProcessorSelector selector(nullptr, &favorites);
+        selector.setInplaceAvailable(true);
+        selector.setCatalog(registry.types(), "native.hex-encoder");
+        auto*            tree     = selector.findChild<QTreeWidget*>("processorSelectorTree");
+        auto*            search   = selector.findChild<QLineEdit*>("processorSelectorSearch");
+        QTreeWidgetItem* regular  = nullptr;
+        QTreeWidgetItem* favorite = nullptr;
+        for (QTreeWidgetItemIterator it(tree); *it; ++it)
+        {
+            if ((*it)->data(0, Qt::UserRole).toString() == "native.hex-encoder")
+            {
+                ((*it)->parent() ? regular : favorite) = *it;
+            }
+        }
+        QVERIFY(regular && favorite);
+        regular->parent()->setExpanded(false);
+        regular->parent()->parent()->setExpanded(false);
+        const QPersistentModelIndex regularIndex = tree->indexFromItem(regular);
+        QSignalSpy                  reset(tree->model(), &QAbstractItemModel::modelReset);
+        QSignalSpy                  changed(&selector, &QComboBox::currentIndexChanged);
+        search->setText("Codecs");
+        QVERIFY(regular->parent()->isExpanded());
+        QVERIFY(regular->parent()->parent()->isExpanded());
+        QVERIFY(!regular->isHidden());
+        QVERIFY(!favorite->isHidden());
+        QCOMPARE(tree->currentItem(), favorite);
+        search->setText("no matching processor");
+        QVERIFY(regular->isHidden());
+        QVERIFY(favorite->isHidden());
+        QVERIFY(!tree->currentItem());
+        search->setText("Inplace");
+        QCOMPARE(tree->currentItem()->data(0, Qt::UserRole).toString(), QString("@inplace"));
+        search->setText("missing.processor");
+        QCOMPARE(tree->currentItem()->data(0, Qt::UserRole).toString(), QString("missing.processor"));
+        search->clear();
+        QVERIFY(regularIndex.isValid());
+        QCOMPARE(tree->itemFromIndex(regularIndex), regular);
+        QVERIFY(!regular->parent()->isExpanded());
+        QVERIFY(!regular->parent()->parent()->isExpanded());
+        QCOMPARE(reset.count(), 0);
+        QCOMPARE(changed.count(), 0);
+        QCOMPARE(selector.currentData().toString(), QString("native.hex-encoder"));
+        selector.setTopology(2);
+        for (QTreeWidgetItemIterator it(tree); *it; ++it)
+        {
+            QVERIFY((*it)->data(0, Qt::UserRole).toString() != "native.hex-encoder");
+        }
+        QVERIFY(favorites.setIds({"fixture.duplex"}));
+        search->setText("Shared protocol");
+        int matches = 0;
+        for (QTreeWidgetItemIterator it(tree); *it; ++it)
+        {
+            if ((*it)->data(0, Qt::UserRole).toString() == "fixture.duplex" && !(*it)->isHidden())
+            {
+                ++matches;
+            }
+        }
+        QCOMPARE(matches, 2);
+        const auto capture = qEnvironmentVariable("TERMASTER_SELECTOR_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            selector.resize(440, 28);
+            selector.show();
+            selector.showPopup();
+            search->setText("Shared protocol");
+            QTest::qWait(30);
+            QVERIFY(QDir().mkpath(capture));
+            QVERIFY(selector.findChild<QWidget*>("processorSelectorPopup")
+                        ->grab()
+                        .save(QDir(capture).filePath("FilteredSelector.png")));
+            selector.hidePopup();
+        }
+    }
+
     void insertedNodeNamesUseNumberedCatalogTitlesAcrossInsertionPaths()
     {
         ProcessorRegistry registry;
