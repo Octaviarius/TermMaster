@@ -620,6 +620,108 @@ private:
         QVERIFY(_app.closeWorkspace(&error));
     }
 
+    Q_SLOT void bulkTerminalRestoreAndClosePublishFinalState()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Batch.termaster")), "Batch", &error));
+        QVERIFY(_app.createSession("Batch", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        int                      refreshes  = 0;
+        const auto               cleanup    = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterAction("Batch.Probe");
+            host.unregisterTerminalType("batchFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "batchFixture";
+        type.title  = "Batch fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Batch fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [] {
+            return std::make_unique<ReconnectDevice>(std::make_shared<ReconnectDevice::Probe>());
+        };
+        host.registerTerminalType(std::move(type));
+        PluginHost::Action action;
+        action.id       = "Batch.Probe";
+        action.title    = "Batch probe";
+        action.group    = "settings";
+        action.iconName = "sliders-horizontal";
+        action.trigger  = [] { };
+        action.visible  = [&] {
+            ++refreshes;
+            return !controller.terminalIds().isEmpty();
+        };
+        host.registerAction(std::move(action));
+        for (int index = 0; index < 4; ++index)
+        {
+            QVERIFY2(_app.createTerminal("batchFixture", {}, QString::number(index), &error), qPrintable(error));
+        }
+        QVERIFY(_app.saveSession(&error));
+        auto*      session = _app.session();
+        const auto ids     = controller.terminalIds();
+        auto*      tabs    = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        QVERIFY(tabs);
+        QSignalSpy selection(&controller, &TerminalController::selectionChanged);
+        QSignalSpy tabSelection(tabs, &QTabWidget::currentChanged);
+        refreshes = 0;
+        controller.setSession(nullptr);
+        QCOMPARE(selection.count(), 1);
+        QCOMPARE(tabSelection.count(), 0);
+        QCOMPARE(refreshes, 1);
+        QVERIFY(controller.terminalIds().isEmpty());
+        QCOMPARE(tabs->count(), 0);
+        QVERIFY(controller.selectedTerminal().isEmpty());
+        QVERIFY(!_app.commands().find("Batch.Probe")->actions().first()->isVisible());
+        selection.clear();
+        refreshes = 0;
+        tabs->blockSignals(true);
+        tabs->setUpdatesEnabled(false);
+        controller.setSession(session);
+        QCOMPARE(selection.count(), 1);
+        QCOMPARE(refreshes, 1);
+        QCOMPARE(controller.terminalIds(), ids);
+        QCOMPARE(controller.selectedTerminal(), ids.last());
+        QCOMPARE(tabs->count(), 4);
+        QVERIFY(tabs->signalsBlocked());
+        QVERIFY(!tabs->updatesEnabled());
+        QVERIFY(_app.commands().find("Batch.Probe")->actions().first()->isVisible());
+        tabs->blockSignals(false);
+        tabs->setUpdatesEnabled(true);
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            _app.mainWindow().repaint();
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("TerminalBatch.png")));
+        }
+        selection.clear();
+        controller.closeAll();
+        QCOMPARE(selection.count(), 1);
+        QVERIFY(!tabs->signalsBlocked());
+        QVERIFY(tabs->updatesEnabled());
+        selection.clear();
+        controller.closeAll();
+        QCOMPARE(selection.count(), 0);
+        controller.setSession(nullptr);
+        const auto reentry           = connect(&controller, &TerminalController::selectionChanged, this, [&] {
+            if (!controller.terminalIds().isEmpty())
+            {
+                controller.closeAll();
+            }
+        });
+        const auto disconnectReentry = qScopeGuard([&] { disconnect(reentry); });
+        controller.setSession(session);
+        disconnect(reentry);
+        QCOMPARE(selection.count(), 2);
+        QVERIFY(controller.terminalIds().isEmpty());
+        QVERIFY(controller.selectedTerminal().isEmpty());
+        QVERIFY(!tabs->signalsBlocked());
+        QVERIFY(tabs->updatesEnabled());
+    }
+
     Q_SLOT void savingDoesNotApplyPendingRuntimeConfiguration()
     {
         QTemporaryDir temporary;

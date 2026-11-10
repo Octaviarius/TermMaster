@@ -442,4 +442,9 @@ tracing was unavailable under the current Windows policy.
 - [x] Narrow unchanged/metadata-only workspace persistence without weakening transactions.
 - [x] Reuse effective settings snapshots with correct overlay/schema invalidation.
 - [x] Bound partial regex rescanning and reduce small-packet Lineflow overhead.
-- [ ] Measure and improve large-catalog search, drag validation and batched tab updates.
+- [x] Measure and improve large-catalog search, drag validation and batched tab updates.
+
+Remediation measurements and remaining limits are documented in
+[application performance](application-performance.md) and
+[large-catalog interaction](lineflow-editor.md#synthetic-large-catalog-timing).
+Cold full-draft hover validation and general regex complexity remain explicit limits.
