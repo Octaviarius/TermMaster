@@ -364,9 +364,19 @@ The supported subset and persistence contract are recorded in
 
 See [processing nodes](processing-nodes.md#length-wrap-and-length-unwrap).
 
+## FLOW-25: Packet checksums
+
+- [x] Register independent Checksum Wrap/Checksum Unwrap nodes in Integrity.
+- [x] Support Sum 8, XOR 8, exact named CRC presets and bounded Custom CRC parameters.
+- [x] Add payload-only prefix/suffix fields with independent byte order and reflection.
+- [x] Generate preset/custom forms with inactive draft retention and normalized Apply.
+- [x] Verify independent vectors, custom reference recurrence, lifecycle, limits and Lineflow forms.
+
+See [processing nodes](processing-nodes.md#checksum-wrap-and-checksum-unwrap).
+
 ## HELP-1: Contextual module documentation
 
-Next scheduled stage after FLOW-24 variable packet lengths.
+Next scheduled stage after FLOW-25 packet checksums.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
 - [ ] Package module-owned help and generated parameter reference with stable context topics.

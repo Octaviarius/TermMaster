@@ -9,6 +9,7 @@
 #include <QComboBox>
 #include <QDir>
 #include <QDockWidget>
+#include <QDoubleSpinBox>
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
 #include <QDragMoveEvent>
@@ -1602,6 +1603,110 @@ private slots:
             QCOMPARE(runtime->configuration().value("maxBytes").toInt(), 4);
         }
     }
+    void checksumVariantFormsAndRuntime()
+    {
+        const auto             destination = qEnvironmentVariable("TERMASTER_CHECKSUM_CAPTURE");
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        QVariantMap          saved;
+        LineflowEditorDialog dialog(fixtureDefinitions(),
+                                    registry,
+                                    widgets,
+                                    [&saved](const auto& definitions, const auto&, const auto&, QString*) {
+                                        saved = definitions;
+                                        return true;
+                                    });
+        dialog.setFixedSize(1100, 760);
+        dialog.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+        auto* host = dialog.findChild<QMainWindow*>("lineflowDockHost");
+        auto* dock = dialog.findChild<QDockWidget*>("lineflowPropertiesDock");
+        QVERIFY(host && dock);
+        host->resizeDocks({dock}, {420}, Qt::Horizontal);
+        const auto block      = dialog.model().createBlock("Packet checksums", 1);
+        const auto wrapName   = dialog.model().insertNodeAt(block, 0, "native.checksum-wrap", "rx");
+        const auto unwrapName = dialog.model().insertNodeAt(block, 1, "native.checksum-unwrap", "rx");
+        QVERIFY(!wrapName.isEmpty() && !unwrapName.isEmpty());
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        QVERIFY(canvas);
+        if (!destination.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(destination));
+        }
+        for (int row = 0; row < 2; ++row)
+        {
+            canvas->setCurrentIndex(dialog.model().index(row, 0));
+            auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+            QVERIFY(form);
+            auto* selector = form->editor("algorithm")->findChild<QComboBox*>();
+            QVERIFY(selector);
+            QCOMPARE(selector->count(), 8);
+            QCOMPARE(selector->currentText(), QString("CRC-16/MODBUS"));
+            QVERIFY(form->visibleFields().contains("position"));
+            QVERIFY(form->visibleFields().contains("endianness"));
+            QVERIFY(!form->visibleFields().contains("polynomial"));
+            const auto scale = dialog.devicePixelRatioF() > 1.5 ? "2x.png" : ".png";
+            if (row == 0 && !destination.isEmpty())
+            {
+                QTest::qWait(100);
+                QVERIFY(dialog.grab().save(QDir(destination).filePath(QString("ChecksumWrapPreset") + scale)));
+            }
+            selector->setCurrentIndex(7);
+            for (const auto* key : {"width", "polynomial", "init", "refin", "refout", "xorout"})
+            {
+                QVERIFY(form->visibleFields().contains(key));
+            }
+            auto* width = form->editor("width")->findChild<QComboBox*>();
+            QVERIFY(width);
+            width->setCurrentIndex(2);
+            auto* polynomial = form->editor("polynomial")->findChild<QDoubleSpinBox*>();
+            auto* init       = form->editor("init")->findChild<QDoubleSpinBox*>();
+            auto* xorout     = form->editor("xorout")->findChild<QDoubleSpinBox*>();
+            QVERIFY(polynomial && init && xorout);
+            QCOMPARE(polynomial->maximum(), 4294967295.0);
+            polynomial->setValue(517762881); // 0x1edc6f41
+            init->setValue(4294967295.0);
+            xorout->setValue(4294967295.0);
+            selector->setCurrentIndex(0);
+            QVERIFY(!form->visibleFields().contains("polynomial"));
+            QVERIFY(!form->visibleFields().contains("endianness"));
+            selector->setCurrentIndex(7);
+            QCOMPARE(polynomial->value(), 517762881.0);
+            QCOMPARE(init->value(), 4294967295.0);
+            QCOMPARE(xorout->value(), 4294967295.0);
+            QCOMPARE(width->currentIndex(), 2);
+            if (row == 1 && !destination.isEmpty())
+            {
+                QTest::qWait(100);
+                QVERIFY(dialog.grab().save(QDir(destination).filePath(QString("ChecksumUnwrapCustom") + scale)));
+            }
+            if (row == 0)
+            {
+                selector->setCurrentIndex(3);
+            }
+        }
+        canvas->setCurrentIndex(dialog.model().index(0, 0));
+        auto* form = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QCOMPARE(form->editor("algorithm")->value().toString(), QString("crc16-modbus"));
+        QString error;
+        QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+        QVERIFY(!saved.isEmpty());
+        const auto wrapConfig = dialog.model().node(block, wrapName).value("configuration").toMap();
+        QCOMPARE(wrapConfig.value("algorithm").toString(), QString("crc16-modbus"));
+        for (const auto* key : {"width", "polynomial", "init", "refin", "refout", "xorout"})
+        {
+            QVERIFY(!wrapConfig.contains(key));
+        }
+        const auto customConfig = dialog.model().node(block, unwrapName).value("configuration").toMap();
+        QCOMPARE(customConfig.value("algorithm").toString(), QString("crc-custom"));
+        QCOMPARE(customConfig.value("width").toInt(), 32);
+        QCOMPARE(customConfig.value("init").toULongLong(), qulonglong(4294967295));
+        const auto runtime = registry.create("native.checksum-unwrap", customConfig, {}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QCOMPARE(runtime->configuration().value("xorout").toULongLong(), qulonglong(4294967295));
+    }
+
     void visualCapture()
     {
         const auto destination = qEnvironmentVariable("TERMASTER_LINEFLOW_CAPTURE");
