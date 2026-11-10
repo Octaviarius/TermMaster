@@ -123,6 +123,38 @@ class ProcessingRoutingTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void timedFramerPublishesAfterInputHasDrained()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QString error;
+        auto    framer = registry.create("native.timed-framer",
+                                         {
+                                             {"gapMs", 250}
+        },
+                                         {},
+                                         &error);
+        QVERIFY2(framer, qPrintable(error));
+        ProcessingRouter  router;
+        QList<QByteArray> output;
+        router.setOutput(ProcessingRouter::Direction::Rx,
+                         [&](const Processor::Chunk& chunk, const TerminalSendQueue::Options&, QString*) {
+                             output.append(chunk.bytes);
+                             return Processor::AcceptResult::Accepted;
+                         });
+        router.replace(ProcessingRouter::Direction::Rx, std::move(framer));
+        QCOMPARE(router.submit(ProcessingRouter::Direction::Rx, {"A"}), Processor::AcceptResult::Accepted);
+        QCOMPARE(router.submit(ProcessingRouter::Direction::Rx, {QByteArray("\0B", 2)}),
+                 Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(router.pendingSubmissions(ProcessingRouter::Direction::Rx), 0);
+        QTRY_COMPARE(output, QList<QByteArray> {QByteArray("A\0B", 3)});
+        QCOMPARE(router.submit(ProcessingRouter::Direction::Rx, {"discard"}), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(router.pendingSubmissions(ProcessingRouter::Direction::Rx), 0);
+        router.cancel(ProcessingRouter::Direction::Rx);
+        QTest::qWait(300);
+        QCOMPARE(output.size(), 1);
+    }
+
     void duplexCrossPortAndIdleRouting()
     {
         ProcessingRouter router;

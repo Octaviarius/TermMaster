@@ -19,27 +19,10 @@ public:
     void         cancel(std::function<void()> quiescent) override;
 
 private:
-    enum class Mode
-    {
-        Delimiter,
-        Size,
-        Either
-    };
-    enum class Tail
-    {
-        Preserve,
-        Emit,
-        Discard,
-        Error
-    };
-
     QVariantMap            _configuration;
     Limits                 _limits;
-    Mode                   _mode;
-    Tail                   _tail;
     QByteArray             _ending;
     qsizetype              _frameSize;
-    qsizetype              _maximum;
     bool                   _includeEnding;
     bool                   _emitEmpty;
     std::vector<qsizetype> _prefix;
@@ -48,11 +31,5 @@ private:
     bool                   _busy    = false;
     bool                   _stopped = false;
 
-    Framer(QVariantMap configuration,
-           Limits      limits,
-           Mode        mode,
-           Tail        tail,
-           QByteArray  ending,
-           qsizetype   frameSize,
-           qsizetype   maximum);
+    Framer(QVariantMap configuration, Limits limits, QByteArray ending, qsizetype frameSize);
 };

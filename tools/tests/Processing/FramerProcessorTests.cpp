@@ -41,13 +41,13 @@ private slots:
     void descriptorDefaultsAndIndependentInstances()
     {
         SettingsSchema schema(Framer::schema());
-        QCOMPARE(schema.fields().size(), 7);
+        QCOMPARE(schema.fields().size(), 4);
         auto first  = Framer::create({}, {});
         auto second = Framer::create({}, {});
         QVERIFY(first);
         QVERIFY(second);
         QCOMPARE(first->configuration().value("ending").toString(), QString("\\r"));
-        QCOMPARE(first->configuration().value("maxFrameSize").toInt(), 1048576);
+        QCOMPARE(first->configuration().value("frameSize").toInt(), 0);
         QVERIFY(schema.validate(first->configuration()).isEmpty());
         QCOMPARE(invoke(*first, "partial").completions, 1);
         QCOMPARE(payloads(invoke(*second, "b\r").outputs), QList<QByteArray>({"b"}));
@@ -70,7 +70,7 @@ private slots:
         QTest::newRow("overlap") << QString("aab") << QByteArray("aaaaabaaaab") << QList<QByteArray>({"aaa", "aa"});
         QTest::newRow("empty") << QString("abab") << QByteArray("xababababYabab") << QList<QByteArray>({"x", "", "Y"});
         QTest::newRow("backslash") << QString("\\\\") << QByteArray("a\\b\\") << QList<QByteArray>({"a", "b"});
-        QTest::newRow("utf8") << QString::fromUtf8("雪") << QString::fromUtf8("a雪b雪").toUtf8()
+        QTest::newRow("utf8") << QString::fromUtf8("й›Є") << QString::fromUtf8("aй›Єbй›Є").toUtf8()
                               << QList<QByteArray>({"a", "b"});
     }
     void delimitersAtEverySplit()
@@ -113,23 +113,19 @@ private slots:
         QCOMPARE(payloads(output), expected);
     }
 
-    void rawSizeAndEitherDelimiterTie()
+    void sizeAndDelimiterTie()
     {
         auto sized = Framer::create(
             {
-                {     "mode",      "size"},
-                {"frameSize",           3},
-                {   "ending", "\\invalid"}
+                {"frameSize", 3}
         },
             {});
-        QVERIFY(sized); // Unused delimiter validation does not affect size framing.
-        auto first = invoke(*sized, QByteArray("a\0", 2));
-        QVERIFY(first.outputs.isEmpty());
-        auto second = invoke(*sized, QByteArray("\rbcdX", 5));
-        QCOMPARE(payloads(second.outputs), QList<QByteArray>({QByteArray("a\0\r", 3), "bcd"}));
+        QVERIFY(sized);
+        QVERIFY(invoke(*sized, QByteArray("a\0", 2)).outputs.isEmpty());
+        QCOMPARE(payloads(invoke(*sized, QByteArray("xbcdef", 6)).outputs),
+                 QList<QByteArray>({QByteArray("a\0x", 3), "bcd"}));
         auto either = Framer::create(
             {
-                {     "mode", "either"},
                 {"frameSize",        4},
                 {   "ending", "\\r\\n"}
         },
@@ -138,90 +134,40 @@ private slots:
         QCOMPARE(payloads(invoke(*either, "AB\r\nCDEFZ\r\n").outputs), QList<QByteArray>({"AB", "CDEF", "Z"}));
         auto included = Framer::create(
             {
-                {         "mode", "either"},
                 {    "frameSize",        4},
                 {       "ending", "\\r\\n"},
                 {"includeEnding",     true}
         },
             {});
         QCOMPARE(payloads(invoke(*included, "AB\r\nCDEF").outputs), QList<QByteArray>({"AB\r\n", "CDEF"}));
-    }
-
-    void emptyFramesAndPacketTailPolicies()
-    {
-        for (const auto& tail : {"preserve", "emit", "discard", "error"})
-        {
-            auto processor = Framer::create(
-                {
-                    {"packetTail", tail}
-            },
-                {});
-            QVERIFY(processor);
-            const auto empty = invoke(*processor, {});
-            QCOMPARE(empty.outputs.size(), tail == QByteArray("emit") ? 1 : 0);
-            QVERIFY(empty.error.isEmpty());
-            const auto complete = invoke(*processor, "a\r");
-            QCOMPARE(payloads(complete.outputs), QList<QByteArray>({"a"})); // No duplicate empty tail.
-            const auto partial = invoke(*processor, "x");
-            QCOMPARE(partial.completions, 1);
-            if (tail == QByteArray("emit"))
+        auto partial = Framer::create(
             {
-                QCOMPARE(payloads(partial.outputs), QList<QByteArray>({"x"}));
-            }
-            else if (tail == QByteArray("error"))
-            {
-                QVERIFY(!partial.error.isEmpty());
-                QCOMPARE(invoke(*processor, "\r").accepted, Processor::AcceptResult::Rejected);
-                continue;
-            }
-            else
-            {
-                QVERIFY(partial.outputs.isEmpty());
-            }
-            const auto next = invoke(*processor, "\r");
-            QCOMPARE(payloads(next.outputs),
-                     tail == QByteArray("preserve") ? QList<QByteArray>({"x"}) : QList<QByteArray>({""}));
-        }
-        auto noEmpty = Framer::create(
-            {
-                { "emitEmpty",  false},
-                {"packetTail", "emit"}
+                {"frameSize",        3},
+                {   "ending", "\\r\\n"}
         },
             {});
-        QVERIFY(invoke(*noEmpty, {}).outputs.isEmpty());
+        QCOMPARE(payloads(invoke(*partial, "AB\r\n\r\n").outputs), QList<QByteArray>({"AB\r", "\n"}));
+    }
+
+    void defaultsKeepLongPartialFramesAndEmptyPolicy()
+    {
+        auto processor = Framer::create({}, {});
+        QVERIFY(invoke(*processor, QByteArray(128, 'x')).outputs.isEmpty());
+        QVERIFY(invoke(*processor, {}).outputs.isEmpty());
+        QCOMPARE(payloads(invoke(*processor, "\r\r").outputs), QList<QByteArray>({QByteArray(128, 'x'), ""}));
+        auto noEmpty = Framer::create(
+            {
+                {"emitEmpty", false}
+        },
+            {});
         QCOMPARE(payloads(invoke(*noEmpty, "\r\ra\r\r").outputs), QList<QByteArray>({"a"}));
-        auto include = Framer::create(
+        auto included = Framer::create(
             {
                 {"includeEnding",  true},
                 {    "emitEmpty", false}
         },
             {});
-        QCOMPARE(payloads(invoke(*include, "\r").outputs), QList<QByteArray>({"\r"}));
-        auto streamOnly = Framer::create(
-            {
-                {"packetTail", "error"}
-        },
-            {});
-        QVERIFY(!invoke(*streamOnly, "packet tail").error.isEmpty());
-    }
-
-    void packetTailResetsPartialDelimiterState()
-    {
-        for (const auto& tail : {"discard", "emit"})
-        {
-            auto processor = Framer::create(
-                {
-                    {    "ending", "\\r\\n"},
-                    {"packetTail",     tail}
-            },
-                {});
-            QVERIFY(processor);
-            const auto partial = invoke(*processor, "x\r");
-            QVERIFY(partial.error.isEmpty());
-            const auto next = invoke(*processor, "\n\r\n");
-            QVERIFY(next.error.isEmpty());
-            QCOMPARE(payloads(next.outputs), QList<QByteArray>({"\n"}));
-        }
+        QCOMPARE(payloads(invoke(*included, "\r").outputs), QList<QByteArray>({"\r"}));
     }
 
     void boundsFailAtomicallyAndStop()
@@ -230,42 +176,33 @@ private slots:
         limits.maxBytes  = 8;
         limits.maxChunks = 2;
         auto limited     = Framer::create({}, limits);
-        QVERIFY(limited); // A default 1 MiB setting is capped by the runtime, not rejected.
-        auto rejected = invoke(*limited, QByteArray(9, 'x'));
+        QVERIFY(limited);
+        const auto rejected = invoke(*limited, QByteArray(9, 'x'));
         QCOMPARE(rejected.accepted, Processor::AcceptResult::Rejected);
         QCOMPARE(rejected.completions, 0);
         QCOMPARE(payloads(invoke(*limited, "ok\r").outputs), QList<QByteArray>({"ok"}));
-        auto tooMany = invoke(*limited, "\r\r\r");
+        const auto tooMany = invoke(*limited, "\r\r\r");
         QCOMPARE(tooMany.completions, 1);
         QVERIFY(!tooMany.error.isEmpty());
         QVERIFY(tooMany.outputs.isEmpty());
         QCOMPARE(invoke(*limited, "\r").accepted, Processor::AcceptResult::Rejected);
-        auto accumulated = Framer::create(
-            {
-                {"maxFrameSize", 4}
-        },
-            limits);
-        QVERIFY(invoke(*accumulated, "1234").error.isEmpty());
+        auto accumulated = Framer::create({}, limits);
+        QVERIFY(invoke(*accumulated, "12345678").error.isEmpty());
         const auto overflow = invoke(*accumulated, "\r");
         QVERIFY(!overflow.error.isEmpty());
         QVERIFY(overflow.outputs.isEmpty());
-        auto atomic = Framer::create(
+        auto exact = Framer::create(
             {
-                {"maxFrameSize", 3}
+                {"ending", "\\r\\n"}
         },
             limits);
-        const auto result = invoke(*atomic, "a\r1234");
+        QVERIFY(invoke(*exact, "123456\r").error.isEmpty());
+        QCOMPARE(payloads(invoke(*exact, "\n").outputs), QList<QByteArray>({"123456"}));
+        auto atomic = Framer::create({}, limits);
+        QVERIFY(invoke(*atomic, "123456").error.isEmpty());
+        const auto result = invoke(*atomic, "\ra\rxyz");
         QVERIFY(!result.error.isEmpty());
-        QVERIFY(result.outputs.isEmpty()); // Even the earlier complete frame is withheld.
-        auto tailError = Framer::create(
-            {
-                {"packetTail", "error"}
-        },
-            limits);
-        const auto invalidTail = invoke(*tailError, "a\rz");
-        QVERIFY(!invalidTail.error.isEmpty());
-        QVERIFY(invalidTail.outputs.isEmpty());
-        // Buffered state plus this invocation's outputs must remain within maxBytes.
+        QVERIFY(result.outputs.isEmpty());
         auto combined = Framer::create({}, limits);
         QVERIFY(invoke(*combined, "123456").error.isEmpty());
         const auto combinedOverflow = invoke(*combined, "\rabc\r");
@@ -349,53 +286,39 @@ private slots:
                 &error));
             QVERIFY(!error.isEmpty());
         }
-        QVERIFY(!Framer::create(
-            {
-                {"mode", "other"}
-        },
-            {},
-            &error));
-        QVERIFY(!Framer::create(
-            {
-                {"packetTail", "other"}
-        },
-            {},
-            &error));
-        QVERIFY(!Framer::create(
-            {
-                {     "mode", "size"},
-                {"frameSize",      0}
-        },
-            {},
-            &error));
-        QVERIFY(!Framer::create(
-            {
-                {     "mode", "size"},
-                {"frameSize",    2.5}
-        },
-            {},
-            &error));
-        QVERIFY(!Framer::create(
-            {
-                {"maxFrameSize", true}
-        },
-            {},
-            &error));
+        for (const auto& value : {QVariant(-1), QVariant(2.5), QVariant(true), QVariant("3"), QVariant(2147483648LL)})
+        {
+            QVERIFY(!Framer::create(
+                {
+                    {"frameSize", value}
+            },
+                {},
+                &error));
+            QVERIFY(!error.isEmpty());
+        }
         QVERIFY(!Framer::create(
             {
                 {"includeEnding", 1}
         },
             {},
             &error));
-        auto unused = Framer::create(
+        auto unknown = Framer::create(
             {
-                {"frameSize", "unused"},
-                {   "opaque",   "kept"}
+                {        "mode", "other"},
+                {  "packetTail", "error"},
+                {"maxFrameSize",       1},
+                {      "opaque",  "kept"}
         },
-            {},
-            &error);
-        QVERIFY(unused);
-        QCOMPARE(unused->configuration().value("opaque").toString(), "kept");
+            {});
+        QVERIFY(unknown);
+        QCOMPARE(unknown->configuration().value("opaque").toString(), "kept");
+        QVERIFY(invoke(*unknown, "long partial").outputs.isEmpty());
+        QCOMPARE(payloads(invoke(*unknown, "\r").outputs), QList<QByteArray>({"long partial"}));
+        QVERIFY(Framer::create(
+            {
+                {"frameSize", 2147483647}
+        },
+            {}));
         auto escaped = Framer::create(
             {
                 {"ending", "\\r\\n\\0\\x41\\\\"}

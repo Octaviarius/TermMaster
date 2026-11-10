@@ -287,3 +287,10 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Finalize codecs per packet and make HEX pair accumulation explicitly optional.
 - [x] Keep Framer as an explicitly buffering stage and Pacer as configured timing transformation.
 - [x] Rebuild hosted modules and verify packet boundaries, lifecycle and affected application tests.
+
+## FLOW-13: Delimiter and timed framers
+
+- [x] Simplify delimiter framing to a terminator and optional byte count, default zero.
+- [x] Add idle-gap framing with asynchronous output during silence.
+- [x] Preserve host memory bounds, cancellation and callback lifetime contracts.
+- [x] Verify direct nodes, compositions, terminal routing and native settings forms.

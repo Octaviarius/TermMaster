@@ -172,6 +172,49 @@ class ProcessingTests : public QObject
 {
     Q_OBJECT
 private slots:
+    void timedFramerContinuesAfterInvocationCompletion()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        auto framing = native("native.timed-framer");
+        framing.insert("configuration",
+                       QVariantMap {
+                           {"gapMs", 250}
+        });
+        auto encode = native("native.hex-encoder");
+        encode.insert("configuration",
+                      QVariantMap {
+                          {"separator", ""}
+        });
+        QString    error;
+        const auto plan = Lineflow::prepare(blocks({framing, encode}), "root", registry, {}, &error);
+        QVERIFY2(plan, qPrintable(error));
+        auto runtime = plan->instantiate(registry, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QList<QByteArray> output;
+        runtime->setOutputHandler([&](Processor::Chunk chunk) { output.append(chunk.bytes); });
+        runtime->setErrorHandler([&](QString message) { error = message; });
+        int                        completed = 0;
+        const Processor::Callbacks callbacks {[&](Processor::Chunk) {
+                                                  QFAIL("Timed frames must use the lifecycle output channel");
+                                              },
+                                              [&](QString message) {
+                                                  QVERIFY2(message.isEmpty(), qPrintable(message));
+                                                  ++completed;
+                                              }};
+        QCOMPARE(runtime->accept({"A"}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 1);
+        QCOMPARE(runtime->accept({QByteArray("\0B", 2)}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 2);
+        QTRY_COMPARE(output, QList<QByteArray> {"410042"});
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(runtime->accept({"tail"}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 3);
+        runtime->cancel({});
+        QTest::qWait(300);
+        QCOMPARE(output.size(), 1);
+    }
+
     void nativeStreamsAndIndependentState()
     {
         ProcessorRegistry registry;
