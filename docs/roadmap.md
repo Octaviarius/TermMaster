@@ -321,3 +321,10 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Render actual substitutions with editable sample bytes and template-only ANSI coloring.
 - [x] Refresh current time on randomized 100–1000 ms intervals while visible.
 - [x] Verify draft updates, bounded output, timer shutdown and native plain/color rendering.
+## FLOW-20: Prepared formatting and typed slots
+
+- [x] Pin fmt 12.2.1 as an initialized submodule with no configure-time downloads.
+- [x] Add Core Formatting schema, typed values, immutable prepared formatters and per-plan usage masks.
+- [x] Evaluate only requested Timestamp clocks/date text while always advancing accepted packet indices.
+- [x] Integrate datetime, Unix/boot units, standard number formatting and persistent live preview state.
+- [x] Verify Debug/Release behavior and record a reproducible Release formatting benchmark.

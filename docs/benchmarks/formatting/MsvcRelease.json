@@ -1,0 +1,409 @@
+{
+    "benchmark": "FormattingBenchmark",
+    "checksum": 260546723,
+    "fmt_version": 120201,
+    "outputs": "Prepared: QByteArray with atomic replacement and byte limit. fmt runtime: reused owning std::string, without atomic replacement or byte limit. No output conversion. Binary payload uses explicit lengths.",
+    "results": [
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 195918,
+                "max_ns_per_packet": 75.58876672893761,
+                "median_ns_per_packet": 75.29221408956809,
+                "min_ns_per_packet": 74.72207760389551,
+                "output_bytes_per_second": 212505372.48069635,
+                "packets_per_second": 13281585.780043522,
+                "payload_bytes_per_second": 212505372.48069635,
+                "samples": 5
+            },
+            "packet_bytes": 16,
+            "pattern": "{packet}",
+            "prepared": {
+                "iterations_per_sample": 228844,
+                "max_ns_per_packet": 65.43365786299837,
+                "median_ns_per_packet": 65.18414290958033,
+                "min_ns_per_packet": 64.53828809145095,
+                "output_bytes_per_second": 245458470.20178318,
+                "packets_per_second": 15341154.387611449,
+                "payload_bytes_per_second": 245458470.20178318,
+                "samples": 5
+            },
+            "prepared_compile_ns": 42000
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 152380,
+                "max_ns_per_packet": 79.40477752985956,
+                "median_ns_per_packet": 78.15658222863892,
+                "min_ns_per_packet": 77.49310933193333,
+                "output_bytes_per_second": 1637737940.2997608,
+                "packets_per_second": 12794827.658591881,
+                "payload_bytes_per_second": 1637737940.2997608,
+                "samples": 5
+            },
+            "packet_bytes": 128,
+            "pattern": "{packet}",
+            "prepared": {
+                "iterations_per_sample": 220846,
+                "max_ns_per_packet": 67.34194868822618,
+                "median_ns_per_packet": 67.07796382999919,
+                "min_ns_per_packet": 66.49203517383154,
+                "output_bytes_per_second": 1908227273.0341096,
+                "packets_per_second": 14908025.570578981,
+                "payload_bytes_per_second": 1908227273.0341096,
+                "samples": 5
+            },
+            "prepared_compile_ns": 3400
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 165517,
+                "max_ns_per_packet": 92.01048834862884,
+                "median_ns_per_packet": 90.87948669925143,
+                "min_ns_per_packet": 90.526048683821,
+                "output_bytes_per_second": 11267669274.901777,
+                "packets_per_second": 11003583.276271267,
+                "payload_bytes_per_second": 11267669274.901777,
+                "samples": 5
+            },
+            "packet_bytes": 1024,
+            "pattern": "{packet}",
+            "prepared": {
+                "iterations_per_sample": 188485,
+                "max_ns_per_packet": 82.9169429928111,
+                "median_ns_per_packet": 82.79916173700825,
+                "min_ns_per_packet": 82.47022309467597,
+                "output_bytes_per_second": 12367274964.117285,
+                "packets_per_second": 12077416.957145786,
+                "payload_bytes_per_second": 12367274964.117285,
+                "samples": 5
+            },
+            "prepared_compile_ns": 4000
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 2876,
+                "max_ns_per_packet": 5162.413073713491,
+                "median_ns_per_packet": 5158.101529902642,
+                "min_ns_per_packet": 5146.105702364395,
+                "output_bytes_per_second": 12705449790.019348,
+                "packets_per_second": 193869.77829009015,
+                "payload_bytes_per_second": 12705449790.019348,
+                "samples": 5
+            },
+            "packet_bytes": 65536,
+            "pattern": "{packet}",
+            "prepared": {
+                "iterations_per_sample": 651,
+                "max_ns_per_packet": 23888.9400921659,
+                "median_ns_per_packet": 8707.21966205837,
+                "min_ns_per_packet": 7332.411674347159,
+                "output_bytes_per_second": 7526627619.786889,
+                "packets_per_second": 114847.22320231459,
+                "payload_bytes_per_second": 7526627619.786889,
+                "samples": 5
+            },
+            "prepared_compile_ns": 4200
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 110344,
+                "max_ns_per_packet": 140.17708257811933,
+                "median_ns_per_packet": 138.52316392372944,
+                "min_ns_per_packet": 138.06187921409412,
+                "output_bytes_per_second": 151599193.99157354,
+                "packets_per_second": 7219009.237693978,
+                "payload_bytes_per_second": 115504147.80310364,
+                "samples": 5
+            },
+            "packet_bytes": 16,
+            "pattern": "#{index:03} {packet}",
+            "prepared": {
+                "iterations_per_sample": 124675,
+                "max_ns_per_packet": 131.06877882494484,
+                "median_ns_per_packet": 130.80168437938642,
+                "min_ns_per_packet": 130.64046520954483,
+                "output_bytes_per_second": 160548391.25075883,
+                "packets_per_second": 7645161.488131373,
+                "payload_bytes_per_second": 122322583.81010197,
+                "samples": 5
+            },
+            "prepared_compile_ns": 28200
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 106666,
+                "max_ns_per_packet": 143.99714998218738,
+                "median_ns_per_packet": 142.67714173213582,
+                "min_ns_per_packet": 141.96838730242064,
+                "output_bytes_per_second": 932174547.2704812,
+                "packets_per_second": 7008831.182484821,
+                "payload_bytes_per_second": 897130391.3580571,
+                "samples": 5
+            },
+            "packet_bytes": 128,
+            "pattern": "#{index:03} {packet}",
+            "prepared": {
+                "iterations_per_sample": 117083,
+                "max_ns_per_packet": 130.78243639127797,
+                "median_ns_per_packet": 129.50214804882006,
+                "min_ns_per_packet": 128.8795128242358,
+                "output_bytes_per_second": 1027009991.7559769,
+                "packets_per_second": 7721879.637262985,
+                "payload_bytes_per_second": 988400593.5696621,
+                "samples": 5
+            },
+            "prepared_compile_ns": 6500
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 98969,
+                "max_ns_per_packet": 152.8397781123382,
+                "median_ns_per_packet": 152.56999666562257,
+                "min_ns_per_packet": 152.04660045064617,
+                "output_bytes_per_second": 6744445320.105698,
+                "packets_per_second": 6554368.629840328,
+                "payload_bytes_per_second": 6711673476.956496,
+                "samples": 5
+            },
+            "packet_bytes": 1024,
+            "pattern": "#{index:03} {packet}",
+            "prepared": {
+                "iterations_per_sample": 106904,
+                "max_ns_per_packet": 137.13144503479757,
+                "median_ns_per_packet": 136.0126842774826,
+                "min_ns_per_packet": 135.48697897178778,
+                "output_bytes_per_second": 7565470863.737337,
+                "packets_per_second": 7352255.455527052,
+                "payload_bytes_per_second": 7528709586.459702,
+                "samples": 5
+            },
+            "prepared_compile_ns": 7000
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 2586,
+                "max_ns_per_packet": 5905.916473317865,
+                "median_ns_per_packet": 5893.1554524361945,
+                "min_ns_per_packet": 5834.184068058778,
+                "output_bytes_per_second": 11121546093.427036,
+                "packets_per_second": 169688.37969251364,
+                "payload_bytes_per_second": 11120697651.528574,
+                "samples": 5
+            },
+            "packet_bytes": 65536,
+            "pattern": "#{index:03} {packet}",
+            "prepared": {
+                "iterations_per_sample": 3512,
+                "max_ns_per_packet": 3952.9612756264237,
+                "median_ns_per_packet": 3776.8792710706152,
+                "min_ns_per_packet": 3749.3735763097948,
+                "output_bytes_per_second": 17353215524.260426,
+                "packets_per_second": 264768.85498024785,
+                "payload_bytes_per_second": 17351891679.985523,
+                "samples": 5
+            },
+            "prepared_compile_ns": 5300
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 52173,
+                "max_ns_per_packet": 286.51793073045445,
+                "median_ns_per_packet": 285.78191785022904,
+                "min_ns_per_packet": 284.6261476242501,
+                "output_bytes_per_second": 227446160.65619949,
+                "packets_per_second": 3499171.702403069,
+                "payload_bytes_per_second": 55986747.238449104,
+                "samples": 5
+            },
+            "packet_bytes": 16,
+            "pattern": "[{datetime}] #{index:03} {unix:.6f} {packet}",
+            "prepared": {
+                "iterations_per_sample": 56158,
+                "max_ns_per_packet": 264.00156700737205,
+                "median_ns_per_packet": 263.682823462374,
+                "min_ns_per_packet": 262.5271555254817,
+                "output_bytes_per_second": 246508282.74096936,
+                "packets_per_second": 3792435.1190918363,
+                "payload_bytes_per_second": 60678961.90546938,
+                "samples": 5
+            },
+            "prepared_compile_ns": 12200
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 50526,
+                "max_ns_per_packet": 292.89078890076394,
+                "median_ns_per_packet": 290.49004472944625,
+                "min_ns_per_packet": 289.82899893124335,
+                "output_bytes_per_second": 609315201.0247116,
+                "packets_per_second": 3442458.7628514776,
+                "payload_bytes_per_second": 440634721.64498913,
+                "samples": 5
+            },
+            "packet_bytes": 128,
+            "pattern": "[{datetime}] #{index:03} {unix:.6f} {packet}",
+            "prepared": {
+                "iterations_per_sample": 54545,
+                "max_ns_per_packet": 272.1129342744523,
+                "median_ns_per_packet": 267.0620588504904,
+                "min_ns_per_packet": 265.9400495004125,
+                "output_bytes_per_second": 662767301.2102782,
+                "packets_per_second": 3744448.0294365995,
+                "payload_bytes_per_second": 479289347.76788473,
+                "samples": 5
+            },
+            "prepared_compile_ns": 8000
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 49740,
+                "max_ns_per_packet": 312.50100522718134,
+                "median_ns_per_packet": 305.5166867712103,
+                "min_ns_per_packet": 302.44471250502613,
+                "output_bytes_per_second": 3512083124.9506464,
+                "packets_per_second": 3273143.639282988,
+                "payload_bytes_per_second": 3351699086.6257796,
+                "samples": 5
+            },
+            "packet_bytes": 1024,
+            "pattern": "[{datetime}] #{index:03} {unix:.6f} {packet}",
+            "prepared": {
+                "iterations_per_sample": 37500,
+                "max_ns_per_packet": 279.3093333333333,
+                "median_ns_per_packet": 278.272,
+                "min_ns_per_packet": 277.832,
+                "output_bytes_per_second": 3855939512.419503,
+                "packets_per_second": 3593606.25574977,
+                "payload_bytes_per_second": 3679852805.8877645,
+                "samples": 5
+            },
+            "prepared_compile_ns": 8700
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 4790,
+                "max_ns_per_packet": 3177.724425887265,
+                "median_ns_per_packet": 3167.9123173277662,
+                "min_ns_per_packet": 3153.695198329854,
+                "output_bytes_per_second": 20702908865.64784,
+                "packets_per_second": 315665.3025180733,
+                "payload_bytes_per_second": 20687441265.82445,
+                "samples": 5
+            },
+            "packet_bytes": 65536,
+            "pattern": "[{datetime}] #{index:03} {unix:.6f} {packet}",
+            "prepared": {
+                "iterations_per_sample": 3510,
+                "max_ns_per_packet": 2860.712250712251,
+                "median_ns_per_packet": 2826.809116809117,
+                "min_ns_per_packet": 2816.837606837607,
+                "output_bytes_per_second": 23201071345.783653,
+                "packets_per_second": 353755.75734975457,
+                "payload_bytes_per_second": 23183737313.673515,
+                "samples": 5
+            },
+            "prepared_compile_ns": 9400
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 31372,
+                "max_ns_per_packet": 491.3170980492159,
+                "median_ns_per_packet": 485.78031365548895,
+                "min_ns_per_packet": 484.80810914191,
+                "output_bytes_per_second": 201737281.74069384,
+                "packets_per_second": 2058543.6912315697,
+                "payload_bytes_per_second": 32936699.059705116,
+                "samples": 5
+            },
+            "packet_bytes": 16,
+            "pattern": "[{datetime}] #{index:08x}/{index:06d} {unix:.6f}/{unix:020.3f} {packet}",
+            "prepared": {
+                "iterations_per_sample": 37065,
+                "max_ns_per_packet": 415.78847969782817,
+                "median_ns_per_packet": 412.2973155267773,
+                "min_ns_per_packet": 410.28463510049914,
+                "output_bytes_per_second": 237692549.3070188,
+                "packets_per_second": 2425434.1766022327,
+                "payload_bytes_per_second": 38806946.825635724,
+                "samples": 5
+            },
+            "prepared_compile_ns": 11500
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 23762,
+                "max_ns_per_packet": 510.7398367140813,
+                "median_ns_per_packet": 496.27135762982914,
+                "min_ns_per_packet": 494.20924164632606,
+                "output_bytes_per_second": 423155591.737051,
+                "packets_per_second": 2015026.6273192903,
+                "payload_bytes_per_second": 257923408.29686916,
+                "samples": 5
+            },
+            "packet_bytes": 128,
+            "pattern": "[{datetime}] #{index:08x}/{index:06d} {unix:.6f}/{unix:020.3f} {packet}",
+            "prepared": {
+                "iterations_per_sample": 36090,
+                "max_ns_per_packet": 444.8046550290939,
+                "median_ns_per_packet": 430.21335550013856,
+                "min_ns_per_packet": 412.72374619008036,
+                "output_bytes_per_second": 488129894.8887057,
+                "packets_per_second": 2324428.0708985985,
+                "payload_bytes_per_second": 297526793.0750206,
+                "samples": 5
+            },
+            "prepared_compile_ns": 9200
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 28742,
+                "max_ns_per_packet": 524.2119546308538,
+                "median_ns_per_packet": 522.2775033052676,
+                "min_ns_per_packet": 521.2302553754088,
+                "output_bytes_per_second": 2117648171.7106445,
+                "packets_per_second": 1914690.9328306008,
+                "payload_bytes_per_second": 1960643515.2185352,
+                "samples": 5
+            },
+            "packet_bytes": 1024,
+            "pattern": "[{datetime}] #{index:08x}/{index:06d} {unix:.6f}/{unix:020.3f} {packet}",
+            "prepared": {
+                "iterations_per_sample": 28402,
+                "max_ns_per_packet": 433.5751003450461,
+                "median_ns_per_packet": 426.8572635729878,
+                "min_ns_per_packet": 424.04760228152946,
+                "output_bytes_per_second": 2591030057.078756,
+                "packets_per_second": 2342703.48741298,
+                "payload_bytes_per_second": 2398928371.1108913,
+                "samples": 5
+            },
+            "prepared_compile_ns": 10700
+        },
+        {
+            "fmt_runtime": {
+                "iterations_per_sample": 3937,
+                "max_ns_per_packet": 3823.2410464820928,
+                "median_ns_per_packet": 3819.583439166878,
+                "min_ns_per_packet": 3805.4102108204215,
+                "output_bytes_per_second": 17179360274.510065,
+                "packets_per_second": 261808.65424898756,
+                "payload_bytes_per_second": 17157891964.861649,
+                "samples": 5
+            },
+            "packet_bytes": 65536,
+            "pattern": "[{datetime}] #{index:08x}/{index:06d} {unix:.6f}/{unix:020.3f} {packet}",
+            "prepared": {
+                "iterations_per_sample": 4608,
+                "max_ns_per_packet": 3058.2248263888887,
+                "median_ns_per_packet": 2956.684027777778,
+                "min_ns_per_packet": 2925.3255208333335,
+                "output_bytes_per_second": 22193105311.05957,
+                "packets_per_second": 338216.728810076,
+                "payload_bytes_per_second": 22165371539.297142,
+                "samples": 5
+            },
+            "prepared_compile_ns": 10200
+        }
+    ],
+    "timing": "Render, index update, owning output and sampled-byte checksum; no I/O. Prepared parsing excluded; fmt runtime parsing included. Five samples after warmup."
+}

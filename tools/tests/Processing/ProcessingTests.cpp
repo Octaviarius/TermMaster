@@ -257,8 +257,8 @@ private slots:
         auto timestamp = native("native.timestamp");
         timestamp.insert("configuration",
                          QVariantMap {
-                             {  "format",                               "'TIME'"},
-                             {"template", R"(\e[90m${timestamp}\e[0m ${packet})"}
+                             {  "format",                            "'TIME'"},
+                             {"template", R"(\e[90m{datetime}\e[0m {packet})"}
         });
         QString    error;
         const auto plan = Lineflow::prepare(blocks({native("native.framer"), timestamp}), "root", registry, {}, &error);

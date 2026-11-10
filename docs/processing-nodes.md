@@ -38,59 +38,61 @@ prepared-instance replacement contract rather than mutating another instance.
 
 ## Timestamp
 
-`native.timestamp`, group Timing, emits one packet for each accepted input packet.
-It samples the system wall clock when the node processes the packet, rather than
-recording transport arrival time. Place a Framer before Timestamp to label complete
-frames instead of individual read chunks. It does not buffer input.
+`native.timestamp`, group Timing, formats each accepted packet with a prepared
+[Core Formatting](formatting.md) plan. It does not buffer packets. Place a Framer
+before it to stamp whole frames rather than transport read chunks.
 
-Settings:
+The separate `format` field applies only to `{datetime}` and uses Qt date/time
+syntax, default `yyyy-MM-dd HH:mm:ss.zzz`, maximum 512 UTF-16 units. `timeZone`
+is `local` by default or `utc`; it affects only calendar output. `template` is
+at most 4096 UTF-16 units and defaults to `[{datetime}] {packet}`.
 
-- `format`: Qt date/time format, default `yyyy-MM-dd HH:mm:ss.zzz`, at most 512
-  characters. Single-quoted portions are literal text.
-- `timeZone`: `local` (default) or `utc`.
-- `template`: output composition, default `[${timestamp}] ${packet}`, at most
-  4096 characters. `${timestamp}` inserts the formatted time; `${packet}` inserts
-  the original raw bytes. Either may occur anywhere, repeatedly, or be omitted.
-  Repeated timestamp placeholders use the same sampled time within a packet.
+| Variable | Value |
+| --- | --- |
+| `datetime` | Calendar text using the separate Qt format and time zone |
+| `unix` | Floating-point seconds from the Unix epoch |
+| `unix_ms`, `unix_us`, `unix_ns` | Signed integer milliseconds, microseconds, nanoseconds from Unix epoch |
+| `steady` | Floating-point boot-relative seconds, including system sleep |
+| `steady_ms`, `steady_us`, `steady_ns` | Signed integer boot-relative values in the selected units |
+| `index` | Unsigned packet index starting at 1 for each new instance |
+| `packet` | Original raw byte view, preserving NUL and invalid UTF-8 |
 
-Literal template text is UTF-8. `$$` inserts a dollar. Byte escapes are `\r`,
-`\n`, `\t`, `\0`, `\e` (ESC), `\\` and `\xHH`. Unknown placeholders, incomplete
-references and invalid escapes fail configuration before runtime. Packet contents
-are never decoded or interpreted as template syntax. ANSI sequences may color
-the timestamp, payload or surrounding text:
+Formats follow fmt: `{unix:.6f}` gives six decimal places, `{unix:.6g}` six
+significant digits, `{index:3}` space-pads and `{index:03}` zero-pads. Exact
+integer unit variables avoid the precision loss of a large epoch stored as a
+double; decimal formatting never increases the accuracy of the system clock.
 
 ```yaml
 format: 'HH:mm:ss.zzz'
 timeZone: utc
-template: '\e[90m[${timestamp}]\e[0m ${packet}'
+template: '\e[90m[{datetime}]\e[0m #{index:03} {unix:.6f} {packet}'
 ```
 
-This dims the timestamp and restores the terminal's attributes before the packet.
-Color interpretation belongs to the terminal endpoint; on Tx these remain actual
-bytes sent downstream. No reset or line ending is appended implicitly. An empty
-template emits an empty packet. Binary ownership, cancellation and output byte
-limits follow the shared synchronous node lifecycle; oversized expansion fails
-atomically without partial output. Unknown configuration values remain preserved.
+Each packet uses one wall-clock sample for all wall-clock variables and one
+boot-relative sample for all steady variables. Calendar conversion and individual
+unit calculations happen only when the compiled plan uses the slot. The index
+advances on every accepted packet, including empty packets and packets whose
+output fails, even when `{index}` is absent. Rejected inputs do not advance it.
+Recreating an instance resets its index. Output expansion errors stop the
+processing lane through the existing router without closing the transport.
 
-FLOW-18 acceptance used Qt 6.12.0 / MSVC x64 Debug. The complete build and all
-50 CTest suites passed. After tightening borrowed-buffer ownership, Timestamp,
-Processing and LineflowEditor suites passed again. Native Windows form capture
-verified the time format, time zone and output template controls. Release and
-real-device acceptance were not run.
+Windows uses QueryInterruptTimePrecise (100 ns units), Linux uses CLOCK_BOOTTIME.
+These have boot-relative semantics, independent of civil-clock adjustments.
+Other platforms currently report an explicit error when a steady field is used.
+Unix nanoseconds use the signed 64-bit range of the platform duration conversion;
+current supported runtime dates fit this range. Qt calendar output has millisecond
+precision. No steady clock is read if the template does not request one.
 
-Timestamp's schema selects the `timestampPreview` auxiliary settings widget through
-`x-widget`. The preview runs the actual node against editable synthetic UTF-8
-packet text and renders its output through TerminalDisplay. It adds no syntax
-coloring; only ANSI sequences produced by the configured template affect colors.
-Draft format, zone and template changes render immediately without Apply. Sample
-text belongs only to the widget and is neither persisted nor sent to a transport.
-While visible, a single-shot precise timer samples a fresh interval from 100 to
-1000 ms inclusive after each update. Hiding or destroying the widget stops it.
-Invalid templates show a local diagnostic; preview output is bounded to 8192 bytes.
-FLOW-19 acceptance passed all 50 MSVC x64 Debug CTest suites. Native Windows
-captures verified plain output and template-provided true-color ANSI output.
-Form tests verified immediate draft updates, sampled timer intervals, hidden-state
-cancellation and that sample text never writes settings. Release was not tested.
+The schema selects the `timestampPreview` auxiliary widget through `x-widget`.
+It runs the real node and terminal renderer, with editable synthetic sample text.
+It adds no syntax coloring; only output ANSI sequences affect colors. Samples
+are neither saved nor sent. A visible preview refreshes at randomly chosen
+100–1000 ms intervals, retaining its compiled node and counter until the draft
+changes. Hidden widgets stop their timers. Output is bounded to 8192 bytes.
+
+The current development format uses `{datetime}` and `{packet}`; previous
+Timestamp dollar-brace templates are not compatibility aliases. Pattern Framer's
+capture substitution language is separate and unchanged.
 
 ## Framers
 

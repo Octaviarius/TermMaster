@@ -80,6 +80,11 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/Nodes/TimedFramer.cpp
     src/Processing/Nodes/Timestamp.h
     src/Processing/Nodes/Timestamp.cpp
+    inc/Termaster/Core/Formatting/FormatSchema.h
+    inc/Termaster/Core/Formatting/CompiledFormat.h
+    src/Formatting/FormatSchema.cpp
+    src/Formatting/CompiledFormat.cpp
+    src/Formatting/FormatSchemaData.h
     src/Gui/Settings/TimestampPreviewEditor.h
     src/Gui/Settings/TimestampPreviewEditor.cpp
     src/Processing/Nodes/PatternFramer.h
@@ -149,12 +154,19 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     yaml-cpp
     valijson
     pcre2-8-static
+    fmt::fmt
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     PCRE2_STATIC
     PCRE2_CODE_UNIT_WIDTH=8
 )
+
+if(WIN32)
+    target_link_libraries(Core PRIVATE
+        Mincore
+    )
+endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}/src"

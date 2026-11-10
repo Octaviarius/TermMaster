@@ -79,6 +79,10 @@ No module-root `Gui/` directories are used.
 The module layout does not change the existing static-library application graph
 into runtime plugins. `termaster_add_plugin` remains the explicit SHARED module
 build helper. Source headers use `inc/`; assembled SDKs expose `include/`.
+fmt 12.2.1 is pinned at `208219daff58f2a7438f6931cc2ddc358acf33ef` under
+`components/fmt`. Initialize it with `git submodule update --init components/fmt`.
+Core links its static target; upstream code is unmodified and CMake never downloads it.
+
 The YAML dependency remains at its original pinned commit after its directory
 and submodule registration are moved to `components/yaml-cpp`.
 
