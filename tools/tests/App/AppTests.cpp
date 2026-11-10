@@ -1,3 +1,4 @@
+#include "../SettingsVariantFixture.h"
 #include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorCatalogTree.h"
 #include "Gui/Session/SessionPicker.h"
@@ -2636,6 +2637,54 @@ content:
         QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("bypass"));
         QCOMPARE(probe->device->state(), SerialDevice::State::Open);
         QCOMPARE(probe->attempts, 1);
+    }
+
+    Q_SLOT void terminalVariantEffectiveConfiguration()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Variants.termaster")), "Variants", &error));
+        QVERIFY(_app.createSession("Variants", &error));
+        auto&      host       = _app.pluginHost();
+        auto&      controller = static_cast<TerminalController&>(host);
+        const auto cleanup    = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("variantFixture");
+        });
+        auto       probe      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available      = true;
+        PluginHost::TerminalType type;
+        type.id             = "variantFixture";
+        type.title          = "Variant fixture";
+        type.plugin         = "Synthetic";
+        type.settingsSchema = settingsVariantFixture();
+        type.settingsSchema.replace("title: Width,", "title: Width, x-settings-path: transport/packet/width,");
+        type.settingsSchema.replace("title: Maximum bytes,",
+                                    "title: Maximum bytes, x-settings-path: transport/packet/maxBytes,");
+        type.settingsSchema.replace("const: fixed, title: Encoding,",
+                                    "const: fixed, title: Encoding, x-settings-path: transport/packet/encoding,");
+        type.settingsSchema.replace("title: Options,", "title: Options, x-settings-path: transport/options,");
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        const QVariantMap transport {
+            {"packet", QVariantMap {{"encoding", "varint"}, {"width", 7}, {"maxBytes", 8}, {"future", 99}}}
+        };
+        QVERIFY2(_app.createTerminal("variantFixture",
+                                     {
+                                         {"transport", transport}
+        },
+                                     "Variant",
+                                     &error),
+                 qPrintable(error));
+        host.connectSelectedTerminal();
+        QCOMPARE(probe->attempts, 1);
+        const auto packet = probe->openConfiguration.value("packet").toMap();
+        QCOMPARE(packet.value("encoding").toString(), QString("varint"));
+        QCOMPARE(packet.value("maxBytes").toInt(), 8);
+        QCOMPARE(packet.value("future").toInt(), 99);
+        QVERIFY(!packet.contains("width"));
+        QVERIFY(!probe->openConfiguration.contains("options"));
+        QCOMPARE(controller.selectedSettings().value("transport/packet/width").toInt(), 7);
     }
 
     Q_SLOT void terminalLocalEchoActionTracksSelection()

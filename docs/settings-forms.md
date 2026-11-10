@@ -71,6 +71,126 @@ point values, must be within the inclusive exact-double range
 supported 64-bit integers, but this does not mean all such integers can be
 validated against a schema. These limits apply to descriptor and form YAML values.
 
+## Discriminated variant forms
+
+Status: implemented for the bounded root `oneOf` subset below. The form still
+represents a single flat object; it does not create recursive property layouts.
+Common root `properties` remain visible, and each branch contributes its own
+independent fields. For example, a descriptor without root `properties` is valid:
+
+```yaml
+version: 1
+type: termaster.settings-schema
+description: Packet encoding configuration
+content:
+  type: object
+  oneOf:
+    - title: Fixed width
+      required: [encoding, width]
+      properties:
+        encoding: {const: fixed, title: Encoding, x-order: 0}
+        width: {type: integer, minimum: 1, maximum: 8, default: 2, x-order: 1}
+    - title: Variable width
+      required: [encoding, maxBytes]
+      properties:
+        encoding: {const: varint}
+        maxBytes: {type: integer, minimum: 1, maximum: 10, default: 5, x-order: 1}
+```
+
+Every branch must require the same explicit property with a unique string
+`const`. There must be exactly one such shared discriminator and at least two
+branches. Numeric, boolean and null discriminator constants are outside this
+initial GUI subset. The selector is a normal enum editor whose values are the
+constants and whose labels are branch titles, falling back to the constants.
+Its annotations come from the root property when declared, otherwise from the
+first branch's discriminator. A missing default selects the first branch only
+when no configured value exists. An unknown or incorrectly typed loaded selector
+is retained and fails validation until explicitly changed. A declared selector
+default must name a branch; its optional enum must list every branch constant in
+branch order. The selector is editable and cannot have a root `const`. Without
+an explicit `x-order`, it precedes other fields in its group.
+
+Local `$ref` resolution, `x-settings-path`, `x-widget`, `x-widget-options`,
+`x-group` and `x-order` retain the existing field contract. Root and branch
+`x-groups` are merged; repeated group IDs must have identical titles and order.
+A field repeated across branches or in common root properties must have an
+identical resolved definition, including binding and presentation annotations.
+Repeated branch fields must also agree on required status. Required status of a
+common field belongs to the root. Unsupported overlap is rejected when loading
+the descriptor instead of choosing an arbitrary editor or silently ignoring it.
+Field paths remain globally unique and cannot overlap as parent and child paths.
+
+The original Draft 7 schema remains authoritative. Validation receives the
+common fields, discriminator and selected branch fields. Inactive known fields
+are excluded; `oneOf`, branch `required`, bounds and closed-object constraints
+are checked by Valijson. Draft 7 `additionalProperties: false` at the root cannot
+admit properties declared only inside a branch, so that layout is rejected.
+Closed branches may use `additionalProperties: false`, but must redeclare all
+common root fields identically. Unknown settings outside the recognized field
+projection retain the existing persistence contract and are not deleted to make
+a schema validate.
+
+Switching branches keeps existing editor instances, draft values and invalid
+editor text alive. Inactive editor errors do not block Apply. Returning to a
+branch restores its draft and errors. Search and group visibility include only
+active fields. Hidden custom editors retain their registry/provider lifetime
+protection until destroyed. Apply validates the active projection atomically,
+writes active changes, and removes recognized inactive values owned by the active
+scope, including inactive read-only fields. It preserves inherited owners and
+unrelated unknown settings. Apply or explicit reload replaces the retained draft
+from the resulting settings. A concurrent selector or selector-ownership change
+requires reload before any patch; concurrent changes at fields being written or
+removed retain the existing conflict checks.
+
+Processor registration, resolution, preparation, per-occurrence properties,
+Lineflow node forms and terminal quick properties use the same active projection.
+Factories receive selected-branch defaults and values. Terminal effective copies
+remove inactive known binding paths while retaining unknown sibling keys; the
+borrowed settings layers are unchanged by that projection. No processor backend
+or encoding algorithm is added by this form-generation feature.
+
+Nested variant layouts, branch-dependent definitions for the same field,
+`anyOf` layouts and `if`/`then`/`else` layouts are unsupported. Layouts introducing
+undeclared fields through these constructs are rejected. Existing flat schemas
+may continue using combinators to constrain already declared fields, and complex
+object/array fields continue using YAML or custom editors. No `x-visible-if`
+annotation or conditional-expression language is introduced.
+
+### Variant form verification
+
+Verified on 2026-11-10 with Windows x64, Qt 6.12.0 and MSVC 19.44 Debug.
+The complete Debug build passed, including Termaster and all configured test
+targets. All 12 affected CTest suites passed: SettingsSchemaTests,
+SettingsFormTests, AppTests, ProcessingTests, ProcessorDefaultsTests,
+ProcessorCatalogTests, ProcessorRefactoringTests, ProcessorPropertiesTests,
+ProcessingRoutingTests, LineflowPersistenceTests, LineflowEditorTests and
+TerminalProcessingTests. Initial full-build attempts encountered transient
+LNK1104 locks on unrelated test executables; the final serial build succeeded.
+The remaining configured suites and Release were not rerun for this change.
+
+Regression checks cover propertyless branch schemas, common properties, local
+references, branch groups, ambiguous/unsupported layouts, closed branches,
+strong selector types, unknown configured selections, both switch directions,
+invalid YAML drafts, inactive read-only cleanup, inheritance/reset, selector
+concurrency, unknown setting preservation, custom-editor unload protection,
+processor resolution/preparation/instantiation, actual Lineflow forms and nested
+terminal backend configuration projection. Transport acceptance uses an in-memory
+backend; no real device or external endpoint was opened.
+
+Native Windows SettingsFormTests passed at scale factors 1 and 2. The native
+Lineflow variant fixture also passed at both scales, using the same 1100 by 760
+logical-pixel dialog and a resized properties panel. The compact fixture shows
+common label settings and integer branch fields; YAML draft retention is covered
+separately by the generated-form regression. Both variants were visually inspected
+for readable labels, selector titles, active rows, groups, reset placement and
+layout. Scale 1 references are [Fixed width](images/preferences/VariantForms/Fixed.png)
+and [Variable width](images/preferences/VariantForms/Variable.png). Scale 2
+captures were checked from the temporary acceptance directory and are not tracked.
+The initial fixed-branch form at scale 2 retains the existing minimum-geometry
+scrollbars in the properties viewport; all labels and controls remain readable.
+The variable branch fits after selection. No general form-layout change is included.
+No dependencies were added or downloaded.
+
 ## Presentation annotations and editors
 
 Root `x-groups` is an ordered sequence of `{id, title, order}` mappings. A field's

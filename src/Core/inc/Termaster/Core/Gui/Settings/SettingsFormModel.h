@@ -12,9 +12,12 @@ class SettingsFormModel : public QObject
 public:
     SettingsFormModel(std::shared_ptr<const SettingsSchema> schema, Settings::Node target, QObject* parent = nullptr);
     SettingsFormModel(std::shared_ptr<const SettingsSchema> schema, SettingsOverlay target, QObject* parent = nullptr);
-    const SettingsSchema&        schema() const;
-    QVariant                     value(const QString& key) const;
-    bool                         contains(const QString& key) const;
+    const SettingsSchema& schema() const;
+    QVariant              value(const QString& key) const;
+    bool                  contains(const QString& key) const;
+    bool                  isActive(const QString& key) const;
+    /** Active effective draft, with literal schema keys; inactive editor drafts remain private. */
+    QVariantMap                  values() const;
     bool                         supportsInheritance() const;
     bool                         hasOverride(const QString& key) const;
     bool                         canReset(const QString& key) const;

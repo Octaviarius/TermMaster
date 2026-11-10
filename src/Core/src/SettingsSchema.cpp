@@ -499,12 +499,59 @@ QVariantMap resolvedField(QVariantMap definition, const QVariantMap& root)
     }
     return result;
 }
+/** Detect object layout introduced by conditions without inspecting complex field editors. */
+bool introducesFields(const QVariantMap& schema, const QVariantMap& common, const QVariantMap& root)
+{
+    const auto resolved   = resolvedField(schema, root);
+    const auto properties = mapMember(resolved, "properties");
+    for (auto it = properties.cbegin(); it != properties.cend(); ++it)
+    {
+        if (!common.contains(it.key()))
+        {
+            return true;
+        }
+    }
+    for (const auto& keyword : {"allOf", "anyOf", "oneOf", "if", "then", "else", "dependencies"})
+    {
+        const auto value = resolved.value(keyword);
+        if (value.typeId() == QMetaType::QVariantList)
+        {
+            for (const auto& item : value.toList())
+            {
+                if (item.typeId() == QMetaType::QVariantMap && introducesFields(item.toMap(), common, root))
+                {
+                    return true;
+                }
+            }
+        }
+        else if (value.typeId() == QMetaType::QVariantMap)
+        {
+            if (QString(keyword) == "dependencies")
+            {
+                for (const auto& item : value.toMap())
+                {
+                    if (item.typeId() == QMetaType::QVariantMap && introducesFields(item.toMap(), common, root))
+                    {
+                        return true;
+                    }
+                }
+            }
+            else if (introducesFields(value.toMap(), common, root))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 struct SettingsSchema::Data
 {
     QList<Field>     fields;
     QList<Group>     groups;
+    QString          discriminator;
     QString          widget;
     QVariantMap      presentation;
     valijson::Schema schema;
@@ -593,12 +640,205 @@ SettingsSchema::SettingsSchema(const QByteArray& yamlDescriptor) : _data(std::ma
         auto        required = root.value("required").toList();
         QStringList paths;
         auto        properties = mapMember(root, "properties");
+        const auto  common     = properties;
+        for (const auto& keyword : {"anyOf", "allOf", "if", "then", "else", "dependencies"})
+        {
+            require(!introducesFields(
+                        {
+                            {keyword, root.value(keyword)}
+            },
+                        common,
+                        root),
+                    "Conditional form fields require a root oneOf with a string const discriminator");
+        }
+        const auto         branches = root.value("oneOf").toList();
+        QList<QVariantMap> resolvedBranches;
+        bool               branchLayout = false;
+        QSet<QString>      discriminatorCandidates;
+        bool               firstBranch = true;
+        for (const auto& value : branches)
+        {
+            require(value.typeId() == QMetaType::QVariantMap || value.typeId() == QMetaType::Bool,
+                    "Invalid oneOf branch");
+            if (value.typeId() == QMetaType::Bool)
+            {
+                resolvedBranches.append(QVariantMap {});
+                discriminatorCandidates.clear();
+                firstBranch = false;
+                continue;
+            }
+            const auto branch = resolvedField(value.toMap(), root);
+            resolvedBranches.append(branch);
+            branchLayout                   |= introducesFields(branch, common, root);
+            const auto    branchProperties  = mapMember(branch, "properties");
+            QSet<QString> candidates;
+            for (auto it = branchProperties.cbegin(); it != branchProperties.cend(); ++it)
+            {
+                branchLayout |= !common.contains(it.key());
+                if (it.value().typeId() == QMetaType::QVariantMap)
+                {
+                    const auto definition = resolvedField(it.value().toMap(), root);
+                    if (definition.value("const").typeId() == QMetaType::QString
+                        && branch.value("required").toList().contains(it.key()))
+                    {
+                        candidates.insert(it.key());
+                    }
+                }
+            }
+            if (firstBranch)
+            {
+                discriminatorCandidates = candidates;
+                firstBranch             = false;
+            }
+            else
+            {
+                discriminatorCandidates.intersect(candidates);
+            }
+        }
+        QHash<QString, QStringList> memberships;
+        if (branchLayout || discriminatorCandidates.size() == 1)
+        {
+            require(branches.size() >= 2 && discriminatorCandidates.size() == 1,
+                    "Variant forms require one unambiguous required string const discriminator in every oneOf branch");
+            _data->discriminator     = *discriminatorCandidates.cbegin();
+            const auto discriminator = _data->discriminator;
+            require(root.value("additionalProperties") != QVariant(false) || !branchLayout,
+                    "Root additionalProperties false cannot admit fields declared only in oneOf branches");
+            QVariantList         choices;
+            QVariantMap          titles;
+            QHash<QString, bool> branchRequired;
+            for (const auto& branch : resolvedBranches)
+            {
+                if (branch.contains("x-groups"))
+                {
+                    require(branch.value("x-groups").typeId() == QMetaType::QVariantList,
+                            "UI groups must be a sequence");
+                    QSet<QString> branchGroups;
+                    for (const auto& value : branch.value("x-groups").toList())
+                    {
+                        require(value.typeId() == QMetaType::QVariantMap, "UI group must be a mapping");
+                        const auto group = value.toMap();
+                        const auto id    = stringMember(group, "id");
+                        const auto title = stringMember(group, "title", id);
+                        const auto order = orderMember(group);
+                        require(!id.isEmpty() && !branchGroups.contains(id),
+                                "UI group identifiers must be nonempty and unique");
+                        branchGroups.insert(id);
+                        if (groupIds.contains(id))
+                        {
+                            const auto existing = std::find_if(_data->groups.cbegin(),
+                                                               _data->groups.cend(),
+                                                               [&id](const Group& item) { return item.id == id; });
+                            require(existing->title == title && existing->order == order,
+                                    "Overlapping variant groups must have identical title and order");
+                        }
+                        else
+                        {
+                            groupIds.insert(id);
+                            _data->groups.append({id, title, order});
+                        }
+                    }
+                }
+                const auto branchProperties = mapMember(branch, "properties");
+                require(!branch.contains("type") || branch.value("type") == "object",
+                        "Variant branches must be object schemas");
+                for (const auto& key : branch.value("required").toList())
+                {
+                    require(branchProperties.contains(key.toString()) || common.contains(key.toString()),
+                            "Required variant fields must be declared in the branch or common root properties");
+                }
+                if (branch.value("additionalProperties") == QVariant(false))
+                {
+                    for (auto it = common.cbegin(); it != common.cend(); ++it)
+                    {
+                        require(branchProperties.contains(it.key()),
+                                "Closed variant branches must redeclare every common root field");
+                    }
+                }
+                require(!introducesFields(branch, branchProperties, root),
+                        "Nested conditional form fields are unsupported");
+                const auto selector = resolvedField(branchProperties.value(discriminator).toMap(), root);
+                const auto choice   = selector.value("const");
+                require(!choices.contains(choice), "Variant discriminator constants must be unique");
+                choices.append(choice);
+                titles.insert(choice.toString(), stringMember(branch, "title", choice.toString()));
+                for (auto it = branchProperties.cbegin(); it != branchProperties.cend(); ++it)
+                {
+                    require(it.value().typeId() == QMetaType::QVariantMap, "Variant fields must be schema mappings");
+                    if (it.key() == discriminator)
+                    {
+                        continue;
+                    }
+                    const auto definition = resolvedField(it.value().toMap(), root);
+                    const bool isRequired = branch.value("required").toList().contains(it.key());
+                    if (properties.contains(it.key()))
+                    {
+                        require(resolvedField(properties.value(it.key()).toMap(), root) == definition,
+                                "Overlapping variant field definitions must be identical");
+                        require(!common.contains(it.key()) || !isRequired || required.contains(it.key()),
+                                "Common field required status must be declared at the root");
+                        require(!branchRequired.contains(it.key()) || branchRequired.value(it.key()) == isRequired,
+                                "Overlapping variant fields must have identical required status");
+                    }
+                    else
+                    {
+                        properties.insert(it.key(), definition);
+                    }
+                    if (!common.contains(it.key()))
+                    {
+                        memberships[it.key()].append(choice.toString());
+                        branchRequired.insert(it.key(), isRequired);
+                        if (isRequired && !required.contains(it.key()))
+                        {
+                            required.append(it.key());
+                        }
+                    }
+                }
+            }
+            auto selector = common.contains(discriminator) ?
+                                resolvedField(common.value(discriminator).toMap(), root) :
+                                resolvedField(mapMember(resolvedBranches.first(), "properties")
+                                                  .value(discriminator)
+                                                  .toMap(),
+                                              root);
+            if (!common.contains(discriminator))
+            {
+                selector.remove("const");
+            }
+            require(!selector.value("readOnly").toBool() && !selector.contains("const"),
+                    "Variant discriminator must be editable and cannot have a root const");
+            require(!selector.contains("type") || selector.value("type") == "string",
+                    "Variant discriminator must have string type");
+            require(!selector.contains("enum") || selector.value("enum").toList() == choices,
+                    "Variant discriminator enum must list branch constants in branch order");
+            if (!selector.contains("x-order"))
+            {
+                selector.insert("x-order", std::numeric_limits<int>::min());
+            }
+            selector.insert("type", "string");
+            selector.insert("enum", choices);
+            selector.insert("x-widget", "enumCombo");
+            auto options = mapMember(selector, "x-widget-options");
+            options.insert("variantTitles", titles);
+            selector.insert("x-widget-options", options);
+            if (!selector.contains("default"))
+            {
+                selector.insert("default", choices.first());
+            }
+            require(choices.contains(selector.value("default")), "Variant discriminator default must name a branch");
+            properties.insert(discriminator, selector);
+            if (!required.contains(discriminator))
+            {
+                required.append(discriminator);
+            }
+        }
         for (auto it = properties.cbegin(); it != properties.cend(); ++it)
         {
             require(it.value().typeId() == QMetaType::QVariantMap, "Form fields must be schema mappings");
             auto  definition = resolvedField(it.value().toMap(), root);
             Field field;
             field.key          = it.key();
+            field.variants     = memberships.value(field.key);
             field.definition   = definition;
             field.settingsPath = stringMember(definition, "x-settings-path", field.key);
             require(validPath(field.settingsPath), "Invalid field settings path");
@@ -685,6 +925,53 @@ const QList<SettingsSchema::Field>& SettingsSchema::fields() const
 const QList<SettingsSchema::Group>& SettingsSchema::groups() const
 {
     return _data->groups;
+}
+
+QString SettingsSchema::discriminator() const
+{
+    return _data->discriminator;
+}
+
+bool SettingsSchema::isActive(const QString& key, const QVariantMap& document) const
+{
+    for (const auto& field : _data->fields)
+    {
+        if (field.key == key)
+        {
+            const auto selection = document.value(_data->discriminator);
+            return field.variants.isEmpty()
+                || (selection.typeId() == QMetaType::QString && field.variants.contains(selection.toString()));
+        }
+    }
+    return false;
+}
+
+QVariantMap SettingsSchema::activeValues(const QVariantMap& document) const
+{
+    auto       result    = document;
+    const auto selection = document.value(_data->discriminator);
+    for (const auto& field : _data->fields)
+    {
+        if (!field.variants.isEmpty()
+            && (selection.typeId() != QMetaType::QString || !field.variants.contains(selection.toString())))
+        {
+            result.remove(field.key);
+        }
+    }
+    return result;
+}
+
+QVariantMap SettingsSchema::withDefaults(const QVariantMap& document) const
+{
+    auto result = document;
+    for (const auto& field : _data->fields)
+    {
+        if (!result.contains(field.key) && field.hasDefault)
+        {
+            result.insert(field.key, field.defaultValue);
+        }
+    }
+    return activeValues(result);
 }
 
 QString SettingsSchema::widget() const

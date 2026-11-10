@@ -937,7 +937,7 @@ bool LineflowEditorDialog::_refreshDraft(Draft& draft, const ProcessorCatalog::T
         QStringList removed;
         for (const auto& field : draft.schema->fields())
         {
-            if (draft.form->hasOverride(field.key))
+            if (draft.form->isActive(field.key) && draft.form->hasOverride(field.key))
             {
                 values.insert(field.settingsPath, draft.form->value(field.key));
             }

@@ -67,6 +67,29 @@ void put(QVariantMap& map, const QStringList& parts, qsizetype index, const QVar
     put(child, parts, index + 1, value);
     map.insert(parts.at(index), child);
 }
+void removePath(QVariantMap& map, const QStringList& parts, qsizetype index = 0)
+{
+    const auto key = parts.at(index);
+    if (index == parts.size() - 1)
+    {
+        map.remove(key);
+        return;
+    }
+    if (map.value(key).typeId() != QMetaType::QVariantMap)
+    {
+        return;
+    }
+    auto child = map.value(key).toMap();
+    removePath(child, parts, index + 1);
+    if (child.isEmpty())
+    {
+        map.remove(key);
+    }
+    else
+    {
+        map.insert(key, child);
+    }
+}
 class EditorAdapter final : public SettingsFieldEditor
 {
 public:
@@ -582,9 +605,23 @@ void TerminalController::refreshTerminalActions()
 
 QVariantMap TerminalController::_effective(const Type& type, SettingsOverlay settings) const
 {
-    auto values = settings.values();
+    auto        values = settings.values();
+    QVariantMap document;
     for (const auto& field : type.schema->fields())
     {
+        if (settings.contains(field.settingsPath))
+        {
+            document.insert(field.key, settings.value(field.settingsPath));
+        }
+    }
+    document = type.schema->withDefaults(document);
+    for (const auto& field : type.schema->fields())
+    {
+        if (!type.schema->isActive(field.key, document))
+        {
+            removePath(values, field.settingsPath.split('/'));
+            continue;
+        }
         if (!settings.contains(field.settingsPath) && field.hasDefault)
         {
             put(values, field.settingsPath.split('/'), 0, field.defaultValue);
@@ -606,7 +643,7 @@ bool TerminalController::_validate(const Type& type, SettingsOverlay settings, Q
             document.insert(field.key, field.defaultValue);
         }
     }
-    const auto errors = type.schema->validate(document);
+    const auto errors = type.schema->validate(type.schema->activeValues(document));
     return errors.isEmpty() || fail(error, errors.first().path + ": " + errors.first().message);
 }
 
