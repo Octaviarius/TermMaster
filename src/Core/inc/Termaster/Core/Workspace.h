@@ -71,9 +71,13 @@ private:
     QVariantMap                                       _publishedProcessors;
     bool                                              _processorsPublished = false;
     std::function<bool(const QVariantMap&, QString*)> _processorValidator;
-    bool _validate(const Settings& settings, const Path& file, QString* error) const;
-    bool _readProcessorFiles(const Path& file, QVariantMap& values, ProcessorFiles& files, QString* error) const;
-    bool _validateProcessors(const QVariantMap& values, QString* error) const;
-    void _publishProcessors();
+    bool                _validate(const Settings& settings, const Path& file, QString* error) const;
+    bool                _readProcessorFiles(const Path&     file,
+                                            QVariantMap&    values,
+                                            ProcessorFiles& files,
+                                            QString*        error,
+                                            bool            parse = true) const;
+    bool                _validateProcessors(const QVariantMap& values, QString* error) const;
+    void                _publishProcessors();
     std::optional<Path> _directory(const QString& key) const;
 };

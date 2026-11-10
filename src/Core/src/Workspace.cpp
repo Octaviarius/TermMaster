@@ -348,7 +348,7 @@ bool Workspace::diskUnchanged(QString* error) const
     }
     QVariantMap    values;
     ProcessorFiles files;
-    if (!_readProcessorFiles(_file, values, files, error))
+    if (!_readProcessorFiles(_file, values, files, error, false))
     {
         return false;
     }
@@ -379,8 +379,24 @@ bool Workspace::sync(QString* error)
         return false;
     }
     const auto values = processorDefinitions().values();
-    const auto main   = prepareProcessorDefinitions(values, error);
-    const auto files  = prepareProcessorFiles(values, error);
+    if (!_validateProcessors(values, error))
+    {
+        return false;
+    }
+    const auto journal = WorkspaceFileTransaction::journalPath(_file);
+    if (QFileInfo::exists(journal) || QFileInfo(journal).isSymLink())
+    {
+        return fail(error, "An interrupted processing transaction must be recovered before editing");
+    }
+    if (!isDirty())
+    {
+        return true;
+    }
+
+    const bool processorsChanged = _processors->isDirty();
+    const auto main              = prepareProcessorDefinitions(values, error);
+    const auto files             = processorsChanged ? prepareProcessorFiles(values, error) :
+                                                       std::optional<ProcessorFiles>(_processorDisk);
     if (!main || !files)
     {
         return false;
@@ -425,7 +441,8 @@ bool Workspace::sync(QString* error)
     const bool mainDirty         = _settings->isDirty();
     const bool processorDirty    = _processors->isDirty();
     QString    failure;
-    if (!acceptPreparedDocument(*main, &failure) || !acceptProcessorDefinitions(values, *files, &failure)
+    if (!acceptPreparedDocument(*main, &failure)
+        || (processorsChanged && !acceptProcessorDefinitions(values, *files, &failure))
         || !WorkspaceFileTransaction::finish(_file, &failure))
     {
         QString    rollback;
@@ -438,7 +455,10 @@ bool Workspace::sync(QString* error)
         {
             _settings->replaceSerialized(*snapshot, &rollback, mainDirty);
         }
-        acceptProcessorDefinitions(processorSnapshot, diskSnapshot, &rollback, processorDirty);
+        if (processorsChanged)
+        {
+            acceptProcessorDefinitions(processorSnapshot, diskSnapshot, &rollback, processorDirty);
+        }
         if (restored)
         {
             captureDiskBaseline(&rollback);
@@ -821,7 +841,11 @@ bool Workspace::_validateProcessors(const QVariantMap& values, QString* error) c
     return ProcessorRegistry::parseDefinitions(values, error).has_value()
         && (!_processorValidator || _processorValidator(values, error));
 }
-bool Workspace::_readProcessorFiles(const Path& file, QVariantMap& values, ProcessorFiles& files, QString* error) const
+bool Workspace::_readProcessorFiles(const Path&     file,
+                                    QVariantMap&    values,
+                                    ProcessorFiles& files,
+                                    QString*        error,
+                                    bool            parse) const
 {
     const auto    workspacePath = QDir::fromNativeSeparators(file.toString());
     const QString root          = workspacePath + ".d/processors";
@@ -873,6 +897,11 @@ bool Workspace::_readProcessorFiles(const Path& file, QVariantMap& values, Proce
             return fail(error, "Cannot read bounded processor document");
         }
         total += bytes.size();
+        if (!parse)
+        {
+            files.insert(entry.absoluteFilePath(), bytes);
+            continue;
+        }
         Settings document(entry.absoluteFilePath(),
                           Settings::Info {"termaster.processor-definition", "Workspace processor definition"});
         if (!document.replaceSerialized(bytes, error))
@@ -888,7 +917,7 @@ bool Workspace::_readProcessorFiles(const Path& file, QVariantMap& values, Proce
         values.insert(id, definition);
         files.insert(entry.absoluteFilePath(), bytes);
     }
-    return ProcessorRegistry::parseDefinitions(values, error).has_value();
+    return !parse || ProcessorRegistry::parseDefinitions(values, error).has_value();
 }
 
 std::optional<Path> Workspace::_directory(const QString& key) const
