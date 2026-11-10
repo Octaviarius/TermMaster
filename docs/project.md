@@ -39,8 +39,14 @@ and [plugin mechanism](plugins.md) describe the affected examples and their scop
 
 ## Source organization
 
-Dependencies are pinned submodules under root-level `components/`. The application
-entry point, resource directory and application CMake assembly are directly in
+Dependencies are pinned submodules under root-level `components/`. PCRE2 10.49
+is pinned at `6f9d7c1373262c541324a16a358785b33ef116cf`; its SLJIT submodule is pinned
+at `de0259c7aaf36aa40cba8014f3fad3edde9307f9`. Initialize it with
+`git submodule update --init --recursive components/pcre2`. CMake configures the
+8-bit static library with JIT and never downloads source dependencies. Upstream
+source files remain unmodified.
+
+The application entry point, resource directory and application CMake assembly are directly in
 `src/`. Each application module uses this layout:
 
 ```text

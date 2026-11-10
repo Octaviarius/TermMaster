@@ -2,7 +2,7 @@
 
 Built-in processing implementations live in `src/Core/src/Processing/Nodes`.
 Each node owns its algorithm, state, schema and factory: Bypass, Stub, Gate, Framer, HexEncoder,
-HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer and Pacer. NativeProcessors only registers the
+HexDecoder, Base64Encoder, Base64Decoder, HexCodec, Base64Codec, TimedFramer, PatternFramer and Pacer. NativeProcessors only registers the
 catalog entries. Codec, Bypass and Stub nodes share bounded synchronous invocation plumbing, not
 an algorithm dispatcher or mutable state.
 
@@ -88,6 +88,69 @@ flowchart LR
     T --> G{Idle gap expired?}
     G -->|Yes| H[One asynchronous frame packet]
 ```
+
+### Pattern Framer
+
+`native.pattern-framer` uses PCRE2-8 JIT with hard partial matching to accumulate
+binary packets and detect frames across input boundaries. Its two settings are:
+
+| Parameter | Default | Behavior |
+|---|---|---|
+| pattern | `(?<payload>[^\r\n]+)\r?\n` | PCRE2 byte pattern defining a complete frame |
+| outputTemplate | empty | Empty emits the complete match; otherwise composes one output packet from captures and literal bytes |
+
+Example configuration:
+
+```yaml
+pattern: '<(?<header>[A-Z]):(?<payload>[^>]+)>'
+outputTemplate: '${payload}abcdef${header}END\r\n'
+```
+
+Input `noise<H:123>tail` emits `123abcdefHEND` followed by CRLF. The whole matched
+`<H:123>` and preceding noise are consumed; the trailing bytes remain pending.
+An explicit `${0}` also emits the whole match. A whitespace-only template is a
+literal template rather than an empty setting.
+
+Capture references are `${name}` or `${number}`. Number zero is the complete
+match; remaining numbers follow opening capturing parentheses from left to right,
+including nested groups. For `(A(B))(C(D(E)))`, groups 1 through 5 contain AB, B,
+CDE, DE and E. Noncapturing `(?:...)` does not allocate a capture number. Named
+captures use `(?<name>...)` and may be nested. Optional groups that did not
+participate substitute no bytes. Unknown/ambiguous names, nonexistent numbers,
+incomplete references and malformed escapes reject instance creation before I/O.
+
+`$$` emits one dollar. Supported byte escapes are `\\`, `\r`, `\n`, `\t`, `\0`
+and `\xHH`. Other template text is encoded once as UTF-8; captured data is copied
+as original bytes, including NUL and invalid UTF-8. No decoding/re-encoding of
+captured payload occurs. The output template is parsed once into literal/capture
+parts when preparing the instance.
+
+Patterns use 8-bit byte semantics with dot matching every byte; UTF/UCP mode
+switches are disabled. Patterns must compile for JIT and must not match empty
+frames. Compilation is bounded to 4096 UTF-8 bytes / 64 nested parentheses;
+templates are bounded to 16384 UTF-8 bytes. PCRE matching uses at most 100,000
+match steps (also capped by maxSteps), a 128 KiB JIT stack cap and an 8 MiB heap
+limit. Between searches, a 20 ms invocation watchdog bounds multi-match work.
+It does not preempt an individual PCRE call; that call has its own match/stack
+bounds. Input buffers, aggregate output bytes and packet counts retain the host
+Processor limits. Failure suppresses this invocation's outputs and stops the
+processor, while the terminal transport remains connected.
+
+Pending input is retained for lookbehind/history within the current frame. Each
+consumed frame starts a fresh logical subject, so anchors and lookbehind cannot
+inspect an already consumed frame even when two frames arrive in one packet.
+Hard-partial search resumes at its first viable start while keeping preceding
+bytes for lookbehind; patterns containing `\G` retain offset-zero matching to
+preserve that anchor's semantics. An unmatched prefix remains bounded by the
+runtime buffer cap rather than being silently discarded. Frame/noise buffering
+is discarded on cancellation, with no implicit end-of-stream flush.
+
+The node follows PCRE2 ordered-alternative/greediness semantics. Prefer a finite
+terminator or a lazy body such as `(?<payload>.*?)END` when a frame must be emitted
+at its first ending. Greedy open-ended expressions and end-of-subject anchors can
+keep waiting for more input. JIT partial matching can rescan long pending frames;
+the [benchmark](regex-benchmark.md) records that performance tradeoff. Automatic
+DFA fallback is not enabled because it supports a different pattern subset.
 
 ## Pacer
 
@@ -294,3 +357,29 @@ external endpoint or elevated shell was used. Release was not built.
 - [Timed Framer](images/framers/TimedFramer.png)
 - [Delimiter Framer at scale 2](images/framers/Framer2x.png)
 - [Timed Framer at scale 2](images/framers/TimedFramer2x.png)
+
+## FLOW-15 pattern framing acceptance
+
+PCRE2 10.49 and the pinned SLJIT submodule were initialized as real Git submodules;
+upstream sources remain clean. The complete MSVC/Qt 6.12 Debug build succeeded,
+with `SUPPORT_JIT=1` in the generated PCRE2 configuration. Direct tests cover every
+binary split, nested named/numeric capture composition, default whole matches,
+optional groups, escaped byte literals, borrowed input ownership, invalid templates,
+lookbehind history, fresh-subject anchors, `\G` start-offset semantics, resource
+bounds, atomic failure, cancellation, reentry and callback-driven destruction.
+
+A composition test verifies binary templating across input invocations. The App
+fixture exercises Pattern Framer on both Rx and Tx through the existing synthetic
+terminal host and keeps the device connected. Native Windows generated-form
+captures at scales 1 and 2 passed without skips.
+
+The complete test run passed 48 of 49 executables, including all new/affected
+processing, editor and App suites. The pre-existing ConsoleElevationTests crash
+recurred in both the full run and an isolated retry (invalid-parameter/heap exits).
+Console production code was unchanged; the failure remains an unresolved
+verification limitation rather than a green full-suite claim. No real serial
+hardware, external endpoint or elevation was used. Release was not rebuilt for
+this feature.
+
+- [Pattern Framer settings](images/framers/PatternFramer.png)
+- [Pattern Framer settings at scale 2](images/framers/PatternFramer2x.png)

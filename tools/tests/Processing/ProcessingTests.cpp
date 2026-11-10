@@ -215,6 +215,41 @@ private slots:
         QCOMPARE(output.size(), 1);
     }
 
+    void patternFramerBuildsBinaryOutputAcrossPackets()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        auto pattern = native("native.pattern-framer");
+        pattern.insert("configuration",
+                       QVariantMap {
+                           {       "pattern", "<(?<header>[A-Z]):(?<payload>[^>]+)>"},
+                           {"outputTemplate",  "${payload}abcdef${header}\\0${0}END"}
+        });
+        QString    error;
+        const auto plan = Lineflow::prepare(blocks({pattern, native("native.gate")}), "root", registry, {}, &error);
+        QVERIFY2(plan, qPrintable(error));
+        auto runtime = plan->instantiate(registry, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QList<QByteArray>          output;
+        int                        completed = 0;
+        const Processor::Callbacks callbacks {[&](Processor::Chunk chunk) { output.append(chunk.bytes); },
+                                              [&](QString message) {
+                                                  QVERIFY2(message.isEmpty(), qPrintable(message));
+                                                  ++completed;
+                                              }};
+        QCOMPARE(runtime->accept({"noise<H:"}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 1);
+        QVERIFY(output.isEmpty());
+        QCOMPARE(runtime->accept({QByteArray("A\0B>", 4)}, callbacks), Processor::AcceptResult::Accepted);
+        QTRY_COMPARE(completed, 2);
+        QByteArray expected("A\0B", 3);
+        expected.append("abcdefH");
+        expected.append('\0');
+        expected.append(QByteArray("<H:A\0B>END", 10));
+        QCOMPARE(output, QList<QByteArray> {expected});
+        runtime->cancel({});
+    }
+
     void nativeStreamsAndIndependentState()
     {
         ProcessorRegistry registry;

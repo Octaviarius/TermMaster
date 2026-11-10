@@ -2921,6 +2921,34 @@ content:
         draft->setPlainText("command");
         QTest::keyClick(draft, Qt::Key_Return);
         QTRY_COMPARE(probe->output, QByteArray("\033[0ncommand\r\n"));
+        const QVariantMap framed {
+            {         "type","native.pattern-framer"                },
+            {"configuration",
+             QVariantMap {{"pattern", "<(?<header>[A-Z]):(?<payload>[^>]+)>"},
+             {"outputTemplate", "${payload}abcdef${header}END"}}}
+        };
+        QVERIFY(controller.selectedSettings().setValue("processing",
+                                                       QVariantMap {
+                                                           {"mode", "simplex"},
+                                                           {  "rx",    framed},
+                                                           {  "tx",    framed}
+        }));
+        controller.applySettings();
+        QTest::qWait(30);
+        display->clear();
+        probe->output.clear();
+        probe->device->injectReceive("noise<H:hello");
+        QTest::qWait(30);
+        QVERIFY(display->text().isEmpty());
+        probe->device->injectReceive(">tail");
+        QTRY_COMPARE(display->text(), QString("helloabcdefHEND"));
+        display->outputBytes("noise<S:go", TerminalDisplay::OutputKind::Reply, {});
+        QTest::qWait(30);
+        QVERIFY(probe->output.isEmpty());
+        display->outputBytes(">", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_COMPARE(probe->output, QByteArray("goabcdefSEND"));
+        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QVERIFY(host.connectionRequested("processingFixture"));
         QVERIFY(_app.closeWorkspace(&error));
         QTRY_VERIFY(registry.canRemoveOwner("core.processing"));
     }

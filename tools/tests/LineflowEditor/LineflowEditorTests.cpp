@@ -1486,6 +1486,23 @@ private slots:
         QVERIFY(dialog.grab().save(
             QDir(destination).filePath(dialog.devicePixelRatioF() > 1.5 ? "TimedFramer2x.png" : "TimedFramer.png")));
 
+        const auto patterned     = dialog.model().createBlock("Pattern framing", 1);
+        const auto patternedName = dialog.model().insertNodeAt(patterned, 0, "native.pattern-framer", "rx");
+        QVERIFY(!patternedName.isEmpty());
+        QVERIFY(dialog.model().setNodeConfiguration(patterned,
+                                                    patternedName,
+                                                    {
+                                                        {       "pattern", "<(?<header>[A-Z]):(?<payload>[^>]+)>"},
+                                                        {"outputTemplate",   "${payload}abcdef${header}END\\r\\n"}
+        }));
+        tree->setCurrentIndex(dialog.model().index(0, 0));
+        QTest::qWait(50);
+        auto* patternForm = dialog.findChild<SettingsFormWidget*>("nodeSettingsForm");
+        QVERIFY(patternForm && patternForm->editor("outputTemplate"));
+        QVERIFY(patternForm->editor("outputTemplate")->value().toString().startsWith("${payload}"));
+        QVERIFY(dialog.grab().save(
+            QDir(destination)
+                .filePath(dialog.devicePixelRatioF() > 1.5 ? "PatternFramer2x.png" : "PatternFramer.png")));
         registerDuplex(registry);
         const auto paired = dialog.model().createBlock("Device protocol · Rx / Tx", 2);
         QVERIFY(!paired.isEmpty());
