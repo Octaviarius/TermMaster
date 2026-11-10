@@ -16,6 +16,7 @@
 #include <QMimeData>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QScrollBar>
 #include <QSignalBlocker>
 #include <QSignalSpy>
 #include <QTreeWidget>
@@ -228,6 +229,50 @@ private slots:
                                    .toMap();
         QCOMPARE(overrides.value("first").toMap().value("marker").toInt(), 2);
         QCOMPARE(overrides.value("second").toMap().value("marker").toInt(), 1);
+    }
+
+    void insertedNodeNamesUseNumberedCatalogTitlesAcrossInsertionPaths()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        LineflowEditorModel model({}, registry);
+        const auto          block = model.createBlock("Root");
+        QCOMPARE(model.insertNodeAt(block, 0, "native.gate", "rx"), QString("Gate"));
+        QCOMPARE(model.insertNode(block, 1, "native.gate"), QString("Gate 2"));
+        QVERIFY(model.renameNode(block, "Gate 2", "Gate 3"));
+        QCOMPARE(model.insertNode(block, 2, "native.gate"), QString("Gate 2"));
+        QCOMPARE(model.insertNode(block, 3, "native.gate"), QString("Gate 4"));
+        QCOMPARE(model.insertNode(block, 4, "native.hex-encoder"), QString("HEX Encoder"));
+        QMimeData palette;
+        palette.setData("application/x-termaster-processor", "native.gate");
+        QVERIFY(model.canDropAt(&palette, 5, "rx"));
+        QVERIFY(model.dropAt(&palette, 5, "rx"));
+        QCOMPARE(model.index(5, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate 5"));
+        QVERIFY(model.canDropMimeData(&palette, Qt::CopyAction, 6, 0, {}));
+        QVERIFY(model.dropMimeData(&palette, Qt::CopyAction, 6, 0, {}));
+        QCOMPARE(model.index(6, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate 6"));
+        std::unique_ptr<QMimeData> move(model.mimeData({model.index(0, 0)}));
+        QVERIFY(model.dropAt(move.get(), 7, "rx"));
+        QCOMPARE(model.index(6, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate"));
+        std::unique_ptr<QMimeData> oldMove(model.mimeData({model.index(6, 0)}));
+        QVERIFY(model.dropMimeData(oldMove.get(), Qt::MoveAction, 0, 0, {}));
+        QCOMPARE(model.index(0, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate"));
+
+        const auto nested = model.createBlock("My block");
+        model.setSelectedBlock(block);
+        QCOMPARE(model.insertNode(block, 7, nested), QString("My block"));
+        palette.setData("application/x-termaster-processor", nested.toUtf8());
+        QVERIFY(model.dropAt(&palette, 8, "rx"));
+        QCOMPARE(model.index(8, 0).data(LineflowEditorModel::NodeRole).toString(), QString("My block 2"));
+        const auto longBlock = model.createBlock(QString(256, 'X'));
+        const auto longName  = model.insertNode(block, 9, longBlock);
+        QCOMPARE(longName.size(), 256);
+        QCOMPARE(longName, QString(256, 'X'));
+        QCOMPARE(model.insertNode(block, 10, longBlock), QString(254, 'X') + " 2");
+        const auto slashBlock = model.createBlock("Wire / protocol");
+        QCOMPARE(model.insertNode(block, 11, slashBlock), QString("Wire   protocol"));
+        QString error;
+        QVERIFY2(model.validate(&error), qPrintable(error));
     }
 
     void viewportDropReordersInsertsAndRejectsCycle()
@@ -811,7 +856,7 @@ private slots:
         std::unique_ptr<QMimeData> move(dialog.model().mimeData({dialog.model().index(0, 0)}));
         QVERIFY(drop(move.get(), canvas->viewport()->width() * 3 / 4, 3, Qt::MoveAction));
         QCOMPARE(dialog.model().index(2, 0).data(LineflowEditorModel::LaneRole).toString(), QString("tx"));
-        QCOMPARE(dialog.model().index(2, 0).data(LineflowEditorModel::NodeRole).toString(), QString("operation"));
+        QCOMPARE(dialog.model().index(2, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate"));
         std::unique_ptr<QMimeData> moveDuplex(dialog.model().mimeData({dialog.model().index(1, 0)}));
         QVERIFY(drop(moveDuplex.get(), canvas->viewport()->width() / 4, 3, Qt::MoveAction));
         QCOMPARE(dialog.model().index(2, 0).data(LineflowEditorModel::LaneRole).toString(), QString("duplex"));
@@ -833,6 +878,65 @@ private slots:
         const auto paired = dialog.model().createBlock("Nested paired", 2);
         QVERIFY(!dialog.model().insertNodeAt(paired, 0, block, "duplex", &error).isEmpty());
         QCOMPARE(dialog.model().processorShape(block), qMakePair(2, 2));
+    }
+
+    void narrowCanvasDropsFollowVisibleLaneEdges()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        LineflowEditorDialog dialog({}, registry, widgets, LineflowEditorDialog::Apply {});
+        const auto           block = dialog.model().createBlock("Paired", 2);
+        QVERIFY(!dialog.model().insertNodeAt(block, 0, "native.gate", "rx").isEmpty());
+        QVERIFY(!dialog.model().insertNodeAt(block, 1, "native.gate", "tx").isEmpty());
+        dialog.show();
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        canvas->setFixedWidth(300);
+        QTRY_VERIFY(canvas->viewport()->width() <= 300);
+        const auto rxRect = canvas->visualRect(dialog.model().index(0, 0));
+        const auto txRect = canvas->visualRect(dialog.model().index(1, 0));
+        const auto drop   = [&](int x) {
+            QMimeData palette;
+            palette.setData("application/x-termaster-processor", "native.gate");
+            const QPoint    position(x, rxRect.top() - 4);
+            QDragEnterEvent enter(position, Qt::CopyAction, &palette, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(canvas->viewport(), &enter);
+            if (!enter.isAccepted())
+            {
+                return false;
+            }
+            QDropEvent event(QPointF(position), Qt::CopyAction, &palette, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(canvas->viewport(), &event);
+            return event.isAccepted();
+        };
+        QVERIFY(drop(rxRect.right() - 2));
+        QCOMPARE(dialog.model().node(block, "Gate 3").value("lane").toString(), QString("rx"));
+        QVERIFY(drop(txRect.left() + 2));
+        QCOMPARE(dialog.model().node(block, "Gate 4").value("lane").toString(), QString("tx"));
+    }
+
+    void largeFontCanvasCanScrollToWholeTerminalFooter()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        LineflowEditorDialog dialog({}, registry, widgets, LineflowEditorDialog::Apply {});
+        const auto           block = dialog.model().createBlock("Long flow");
+        for (int row = 0; row < 6; ++row)
+        {
+            QVERIFY(!dialog.model().insertNode(block, row, "native.gate").isEmpty());
+        }
+        dialog.show();
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        canvas->setFixedHeight(220);
+        auto font = canvas->font();
+        font.setPointSizeF(font.pointSizeF() * 2);
+        canvas->setFont(font);
+        QTRY_VERIFY(canvas->verticalScrollBar()->maximum() > 0);
+        canvas->verticalScrollBar()->setValue(canvas->verticalScrollBar()->maximum());
+        const auto lastCard     = canvas->visualRect(dialog.model().index(5, 0));
+        const int  footerBottom = lastCard.bottom() + qMax(44, canvas->fontMetrics().height() + 32) + 35;
+        QVERIFY2(footerBottom < canvas->viewport()->height(), "The Terminal footer must be fully scrollable into view");
     }
 
     void duplexDropPartitionsIndependentLaneOrderAtVisualPosition()
@@ -904,15 +1008,18 @@ private slots:
             for (const auto& port : portGeometry)
             {
                 QVERIFY(card.contains(port.label));
-                QVERIFY(!card.intersects(port.marker));
+                QCOMPARE(port.marker.center(), port.point);
+                QVERIFY(card.intersects(port.marker));
                 QVERIFY(port.marker.left() <= port.point.x() && port.marker.right() >= port.point.x());
                 if (port.top)
                 {
-                    QCOMPARE(port.marker.bottom(), card.top() - 3);
+                    QVERIFY(port.marker.top() < card.top());
+                    QVERIFY(port.marker.bottom() > card.top());
                 }
                 else
                 {
-                    QCOMPARE(port.marker.top(), card.bottom() + 3);
+                    QVERIFY(port.marker.top() < card.bottom());
+                    QVERIFY(port.marker.bottom() > card.bottom());
                 }
                 QCOMPARE(port.point.y(), port.top ? card.top() : card.bottom());
                 QVERIFY(!port.label.contains(port.point));
@@ -929,6 +1036,11 @@ private slots:
         QVERIFY(!txPorts[1].top && txPorts[1].input);
         const auto original = canvas->ports(dialog.model().index(1, 0));
         QCOMPARE(original.size(), 4);
+        QCOMPARE(rxPorts[0].point.x(), original[0].point.x());
+        QCOMPARE(rxPorts[1].point.x(), original[2].point.x());
+        QCOMPARE(txPorts[0].point.x(), original[1].point.x());
+        QCOMPARE(txPorts[1].point.x(), original[3].point.x());
+        QVERIFY(original[0].point.x() < original[1].point.x());
         QCOMPARE(original[0].name, QString("Device RX"));
         QCOMPARE(original[1].name, QString("Device TX"));
         QCOMPARE(original[2].name, QString("Terminal RX"));
@@ -972,6 +1084,11 @@ private slots:
         const auto preview = dialog.model().index(0, 0, dialog.model().index(0, 0));
         QVERIFY(preview.data(LineflowEditorModel::LinkedRole).toBool());
         QVERIFY(canvas->ports(preview).isEmpty());
+        const auto previewRect = canvas->visualRect(preview);
+        for (const auto& port : canvas->ports(dialog.model().index(0, 0)))
+        {
+            QVERIFY(!port.label.intersects(previewRect));
+        }
         auto customNames = dialog.model().definitions();
         auto namedBlock  = customNames.value(block).toMap();
         namedBlock.insert("inputNames", QStringList {"Wire", "User"});
@@ -1020,7 +1137,8 @@ private slots:
             for (const auto& port : ports)
             {
                 QVERIFY(card.adjusted(6, 6, -6, -6).contains(port.label));
-                QVERIFY(!card.intersects(port.marker));
+                QCOMPARE(port.marker.center(), port.point);
+                QVERIFY(card.intersects(port.marker));
                 QVERIFY(!port.name.isEmpty());
             }
             if (scale == 1)
@@ -1080,13 +1198,46 @@ private slots:
         QVERIFY(!dialog.model().node(block, name).value("flipped").toBool());
     }
 
+    void canvasFlipButtonSelectsAndTogglesOnlyItsDuplexNode()
+    {
+        ProcessorRegistry      registry;
+        SettingsWidgetRegistry widgets;
+        registerNativeProcessors(registry, "native");
+        registerDuplex(registry);
+        LineflowEditorDialog dialog({}, registry, widgets, LineflowEditorDialog::Apply {});
+        const auto           block  = dialog.model().createBlock("Paired", 2);
+        const auto           duplex = dialog.model().insertNodeAt(block, 0, "fixture.duplex", "duplex");
+        const auto           unary  = dialog.model().insertNodeAt(block, 1, "native.gate", "rx");
+        QVERIFY(!duplex.isEmpty() && !unary.isEmpty());
+        dialog.show();
+        auto* canvas = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
+        canvas->setCurrentIndex(dialog.model().index(1, 0));
+        const auto configuration = dialog.model().node(block, duplex).value("configuration");
+        const auto clickFlip     = [&] {
+            const auto card       = canvas->visualRect(dialog.model().index(0, 0));
+            const int  bodyHeight = qMax(62, 3 * canvas->fontMetrics().height() + 14);
+            QTest::mouseClick(canvas->viewport(),
+                              Qt::LeftButton,
+                              Qt::NoModifier,
+                              QPoint(card.right() - 17, card.top() + bodyHeight / 2));
+        };
+        clickFlip();
+        QCOMPARE(canvas->currentIndex(), dialog.model().index(0, 0));
+        QVERIFY(dialog.model().node(block, duplex).value("flipped").toBool());
+        QCOMPARE(dialog.model().node(block, duplex).value("configuration"), configuration);
+        QVERIFY(!dialog.model().node(block, unary).contains("flipped"));
+        clickFlip();
+        QVERIFY(!dialog.model().node(block, duplex).value("flipped").toBool());
+        QCOMPARE(dialog.model().node(block, duplex).value("configuration"), configuration);
+    }
+
     void unselectedCanvasCardsMaskWiresWithTransparentStyleColors()
     {
-        const auto   previous = QApplication::palette();
-        const auto   restore  = qScopeGuard([&] { QApplication::setPalette(previous); });
-        auto         colors   = previous;
-        const QColor cardColor(240, 245, 250);
+        const auto previous = QApplication::palette();
+        const auto restore  = qScopeGuard([&] { QApplication::setPalette(previous); });
+        auto       colors   = previous;
         colors.setColor(QPalette::Button, QColor(240, 245, 250, 0));
+        colors.setColor(QPalette::AlternateBase, QColor(240, 245, 250, 0));
         QApplication::setPalette(colors);
         ProcessorRegistry      registry;
         SettingsWidgetRegistry widgets;
@@ -1106,8 +1257,11 @@ private slots:
         const auto   pixmap = canvas->viewport()->grab();
         const auto   image  = pixmap.toImage();
         const qreal  scale  = pixmap.devicePixelRatioF();
-        const QPoint sample(qRound(rect.center().x() * scale), qRound(rect.center().y() * scale));
-        QCOMPARE(image.pixelColor(sample), cardColor);
+        const QPoint sample(qRound(rect.center().x() * scale), qRound((rect.top() + 4) * scale));
+        const QPoint adjacent(qRound((rect.center().x() + 8) * scale), qRound((rect.top() + 4) * scale));
+        QCOMPARE(image.pixelColor(sample), image.pixelColor(adjacent));
+        QCOMPARE(image.pixelColor(sample).alpha(), 255);
+        QVERIFY(image.pixelColor(sample) != colors.color(QPalette::Mid));
     }
 
     void selectedCanvasIconsKeepContrastAndCardsFollowFontMetrics()
@@ -1135,6 +1289,9 @@ private slots:
         dialog.show();
         auto*      canvas        = dialog.findChild<LineflowCanvas*>("lineflowCanvas");
         const auto initialHeight = canvas->visualRect(dialog.model().index(0, 0)).height();
+        QVERIFY(initialHeight >= 62);
+        QVERIFY(initialHeight <= qMax(62, 3 * canvas->fontMetrics().height() + 14));
+        QCOMPARE(canvas->visualRect(dialog.model().index(1, 0)).height(), initialHeight);
         for (int row = 0; row < 2; ++row)
         {
             const auto index = dialog.model().index(row, 0);
@@ -1145,30 +1302,28 @@ private slots:
             const auto  image  = pixmap.toImage();
             const qreal scale  = pixmap.devicePixelRatioF();
             const QRect iconRect(qRound((rect.left() + 10) * scale),
-                                 qRound((rect.top() + canvas->fontMetrics().height() + 16
-                                         + (canvas->fontMetrics().height() + 4 - 18) / 2)
-                                        * scale),
+                                 qRound((rect.center().y() - 9) * scale),
                                  qRound(18 * scale),
                                  qRound(18 * scale));
-            int         lightPixels = 0;
+            int         contrastPixels = 0;
             for (int y = iconRect.top(); y <= iconRect.bottom(); ++y)
             {
                 for (int x = iconRect.left(); x <= iconRect.right(); ++x)
                 {
                     const auto color = image.pixelColor(x, y);
-                    if (color.red() > 200 && color.green() > 200 && color.blue() > 200)
+                    if (color.red() < 150 && color.green() < 150 && color.blue() < 150)
                     {
-                        ++lightPixels;
+                        ++contrastPixels;
                     }
                 }
             }
-            QVERIFY(lightPixels > 5);
+            QVERIFY(contrastPixels > 5);
         }
         const auto index = dialog.model().index(0, 0);
         auto       font  = canvas->font();
         font.setPointSizeF(font.pointSizeF() * 2);
         canvas->setFont(font);
-        QTRY_VERIFY(canvas->visualRect(index).height() >= 4 * canvas->fontMetrics().height() + 44);
+        QTRY_VERIFY(canvas->visualRect(index).height() >= 2 * canvas->fontMetrics().height());
         QVERIFY(canvas->visualRect(index).height() > initialHeight);
     }
 
@@ -1269,7 +1424,8 @@ private slots:
             for (const auto& port : tree->ports(index))
             {
                 QVERIFY(card.adjusted(6, 6, -6, -6).contains(port.label));
-                QVERIFY(!card.intersects(port.marker));
+                QCOMPARE(port.marker.center(), port.point);
+                QVERIFY(card.intersects(port.marker));
             }
         }
         const auto pairedPath = QDir(destination)

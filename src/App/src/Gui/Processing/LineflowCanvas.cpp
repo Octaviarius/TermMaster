@@ -182,34 +182,58 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
     {
         bottom = qMax(bottom, item.rect.bottom() + qMax(44, fontMetrics().height() + 32));
     }
-    const int  left  = paired ? _contentWidth() / 4 : _contentWidth() / 2;
-    const int  right = _contentWidth() * 3 / 4;
+    const int  left  = _laneRect("rx", 0, 1).center().x();
+    const int  right = _laneRect("tx", 0, 1).center().x();
     const auto wire  = palette().color(QPalette::Mid);
-    painter.setPen(QPen(wire, 2));
-    painter.drawLine(left, 40, left, bottom);
+    painter.setPen(QPen(wire, 3));
+    painter.drawLine(left, 42, left, bottom);
     if (paired)
     {
-        painter.drawLine(right, 40, right, bottom);
+        painter.drawLine(right, 42, right, bottom);
     }
-    const auto endpoint = [&](int y, const QString& icon) {
-        const QRect rect(_contentWidth() / 2 - 12, y - 12, 24, 24);
-        painter.fillRect(rect.adjusted(-8, -2, 8, 2), palette().brush(QPalette::Base));
-        Icons::icon(icon).paint(&painter, rect);
+
+    const auto endpoint = [&](int y, const QString& text) {
+        const QRect band(0, y, _contentWidth(), 32);
+        painter.fillRect(band, palette().brush(QPalette::AlternateBase));
+        painter.setPen(palette().color(QPalette::PlaceholderText));
+        painter.drawText(band.adjusted(12, 0, -12, 0), Qt::AlignLeft | Qt::AlignVCenter, text);
+        painter.setPen(palette().color(QPalette::Text));
+        painter.drawText(QRect(left - 16, y, 32, 32), Qt::AlignCenter, tr("Rx"));
+        if (paired)
+        {
+            painter.drawText(QRect(right - 16, y, 32, 32), Qt::AlignCenter, tr("Tx"));
+        }
     };
-    endpoint(22, "cable");
-    endpoint(bottom + 16, "terminal");
+    endpoint(6, tr("Device"));
+    endpoint(bottom + 4, tr("Terminal"));
+
     const auto arrow = [&](int x, int y, bool down) {
         const int direction = down ? 1 : -1;
         painter.setPen(QPen(wire, 2));
-        painter.drawLine(x - 4, y - direction * 4, x, y);
-        painter.drawLine(x + 4, y - direction * 4, x, y);
+        painter.drawLine(x - 4, y - direction * 3, x, y + direction * 3);
+        painter.drawLine(x, y + direction * 3, x + 4, y - direction * 3);
     };
-    arrow(left, 50, true);
-    arrow(left, bottom - 4, true);
+    arrow(left, 44, true);
+    arrow(left, bottom - 2, true);
     if (paired)
     {
-        arrow(right, 50, false);
-        arrow(right, bottom - 4, false);
+        arrow(right, 44, false);
+        arrow(right, bottom - 2, false);
+    }
+
+    QList<int> stages;
+    for (const auto& item : items)
+    {
+        if (!item.index.parent().isValid() && !stages.contains(item.rect.top()))
+        {
+            stages.append(item.rect.top());
+        }
+    }
+    std::sort(stages.begin(), stages.end());
+    painter.setPen(palette().color(QPalette::PlaceholderText));
+    for (int row = 0; row < stages.size(); ++row)
+    {
+        painter.drawText(QRect(4, stages[row], 24, _bodyHeight()), Qt::AlignCenter, QString::number(row + 1));
     }
     for (const auto& item : items)
     {
@@ -220,67 +244,83 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
         }
         const bool linked     = item.index.data(LineflowEditorModel::LinkedRole).toBool();
         const bool selected   = item.index == currentIndex().siblingAtColumn(0);
-        auto       background = selected ? palette().color(QPalette::Highlight) :
-                                linked   ? palette().color(QPalette::AlternateBase) :
-                                           palette().color(QPalette::Button);
+        auto       background = palette().color(QPalette::Button);
+        const auto ink        = palette().color(QPalette::Text);
+        const auto accent     = palette().color(QPalette::Highlight);
+        background            = QColor::fromRgb((background.red() * 90 + ink.red() * 6 + accent.red() * 4) / 100,
+                                                (background.green() * 90 + ink.green() * 6 + accent.green() * 4) / 100,
+                                                (background.blue() * 90 + ink.blue() * 6 + accent.blue() * 4) / 100);
+        if (selected)
+        {
+            const auto highlight = palette().color(QPalette::Highlight);
+            background           = QColor::fromRgb((background.red() * 4 + highlight.red()) / 5,
+                                                   (background.green() * 4 + highlight.green()) / 5,
+                                                   (background.blue() * 4 + highlight.blue()) / 5);
+        }
         // Native styles may expose transparent button colors. A node masks the
         // transport wire beneath it even when its palette role is translucent.
         background.setAlpha(255);
         painter.setBrush(background);
         painter.setPen(QPen(selected ? palette().color(QPalette::Highlight) : palette().color(QPalette::Mid), 1));
         painter.drawRoundedRect(item.rect.adjusted(0, 0, -1, -1), 4, 4);
-        const auto foreground = selected ? palette().color(QPalette::HighlightedText) : palette().color(QPalette::Text);
+        const auto foreground = palette().color(QPalette::Text);
         painter.setPen(foreground);
-        const int  titleHeight   = fontMetrics().height() + 4;
-        const int  contentHeight = linked ? titleHeight : titleHeight * 2 + 4;
-        const int  bodyHeight    = linked ? item.rect.height() : qMax(104, fontMetrics().height() * 4 + 44);
-        const int  contentTop    = item.rect.top() + (bodyHeight - contentHeight) / 2;
-        const auto icon          = qvariant_cast<QIcon>(item.index.data(Qt::DecorationRole));
-        icon.paint(&painter,
-                   QRect(item.rect.left() + 10, contentTop + (titleHeight - 18) / 2, 18, 18),
-                   Qt::AlignCenter,
-                   selected ? QIcon::Selected : QIcon::Normal);
-        const bool flipped    = item.index.data(LineflowEditorModel::FlippedRole).toBool();
-        const int  titleWidth = qMax(20, item.rect.width() - 72);
-        auto       font       = painter.font();
-        font.setBold(!linked);
-        painter.setFont(font);
-        const auto titleRect = QRect(item.rect.left() + 36, contentTop, titleWidth, titleHeight);
-        painter.drawText(titleRect,
-                         Qt::AlignCenter,
-                         QFontMetrics(font).elidedText(item.index.data().toString(), Qt::ElideMiddle, titleWidth));
+        const int  titleHeight = fontMetrics().height() + 4;
+        const int  bodyHeight  = linked ? item.rect.height() : _bodyHeight();
+        const int  contentTop  = item.rect.top() + (bodyHeight - titleHeight) / 2;
+        const auto icon        = qvariant_cast<QIcon>(item.index.data(Qt::DecorationRole));
+        icon.paint(&painter, QRect(item.rect.left() + 8, contentTop + (titleHeight - 16) / 2, 16, 16));
+
+        auto titleFont = this->font();
+        titleFont.setBold(!linked);
+        painter.setFont(titleFont);
+        const QRect        titleRect(item.rect.left() + 30, contentTop, qMax(1, item.rect.width() - 60), titleHeight);
+        const QString      name      = item.index.data().toString();
+        const QString      typeLabel = linked ? QString() : item.index.siblingAtColumn(1).data().toString();
+        const QString      type      = typeLabel == name ? QString() : typeLabel;
+        const QFontMetrics titleMetrics(titleFont);
+        const int          nameWidth = titleMetrics.horizontalAdvance(name);
+        const int          typeWidth = fontMetrics().horizontalAdvance(type);
+        if (!type.isEmpty() && nameWidth + typeWidth + 8 <= titleRect.width())
+        {
+            const int start = titleRect.center().x() - (nameWidth + typeWidth + 8) / 2;
+            painter.drawText(QRect(start, contentTop, nameWidth, titleHeight), Qt::AlignCenter, name);
+            painter.setFont(this->font());
+            painter.setPen(palette().color(QPalette::PlaceholderText));
+            painter.drawText(QRect(start + nameWidth + 8, contentTop, typeWidth, titleHeight), Qt::AlignCenter, type);
+        }
+        else
+        {
+            painter.drawText(titleRect,
+                             Qt::AlignCenter,
+                             titleMetrics.elidedText(name, Qt::ElideMiddle, titleRect.width()));
+        }
+
         if (!linked)
         {
-            font.setBold(false);
-            painter.setFont(font);
-            painter.drawText(QRect(item.rect.left() + 12,
-                                   contentTop + 4 + titleHeight,
-                                   item.rect.width() - 24,
-                                   fontMetrics().height() + 4),
-                             Qt::AlignCenter,
-                             fontMetrics().elidedText(item.index.siblingAtColumn(1).data().toString(),
-                                                      Qt::ElideRight,
-                                                      item.rect.width() - 24));
-            if (flipped)
+            if (item.index.data(LineflowEditorModel::InputCountRole).toInt() == 2
+                && item.index.data(LineflowEditorModel::OutputCountRole).toInt() == 2)
             {
-                Icons::icon("rotate-cw")
-                    .paint(&painter,
-                           QRect(item.rect.right() - 25, contentTop + (titleHeight - 16) / 2, 16, 16),
-                           Qt::AlignCenter,
-                           selected ? QIcon::Selected : QIcon::Normal);
+                const auto flipRect = _flipRect(item.rect);
+                painter.setBrush(palette().brush(QPalette::Button));
+                painter.setPen(QPen(palette().color(QPalette::Mid), 1));
+                painter.drawRoundedRect(flipRect, 3, 3);
+                Icons::icon("rotate-cw").paint(&painter, flipRect.adjusted(3, 3, -3, -3));
             }
             for (const auto& port : _ports(item.index, item.rect))
             {
                 const int direction = (port.top ? port.input : !port.input) ? 1 : -1;
                 const int markerY   = port.marker.center().y();
-                painter.setPen(QPen(palette().color(QPalette::Text), 1.5));
+                painter.setPen(QPen(palette().color(QPalette::Text), 1));
                 painter.drawLine(port.point.x() - 4, markerY - direction * 3, port.point.x(), markerY + direction * 3);
                 painter.drawLine(port.point.x(), markerY + direction * 3, port.point.x() + 4, markerY - direction * 3);
                 painter.setPen(foreground);
                 painter.setFont(this->font());
                 painter.drawText(port.label,
                                  Qt::AlignCenter,
-                                 fontMetrics().elidedText(port.name, Qt::ElideMiddle, port.label.width()));
+                                 fontMetrics().elidedText(port.name + (port.input ? tr(" · in") : tr(" · out")),
+                                                          Qt::ElideMiddle,
+                                                          port.label.width()));
             }
         }
     }
@@ -307,7 +347,7 @@ void LineflowCanvas::updateGeometries()
     int height = 150;
     for (const auto& item : _items())
     {
-        height = qMax(height, item.rect.bottom() + 80);
+        height = qMax(height, item.rect.bottom() + qMax(44, fontMetrics().height() + 32) + 40);
     }
     verticalScrollBar()->setPageStep(viewport()->height());
     verticalScrollBar()->setRange(0, qMax(0, height - viewport()->height()));
@@ -379,6 +419,32 @@ void LineflowCanvas::dropEvent(QDropEvent* event)
     _clearDrop();
 }
 
+void LineflowCanvas::mousePressEvent(QMouseEvent* event)
+{
+    const auto index = indexAt(event->position().toPoint());
+    if (event->button() == Qt::LeftButton && index.isValid() && !index.data(LineflowEditorModel::LinkedRole).toBool()
+        && index.data(LineflowEditorModel::InputCountRole).toInt() == 2
+        && index.data(LineflowEditorModel::OutputCountRole).toInt() == 2
+        && _flipRect(visualRect(index)).contains(event->position().toPoint()))
+    {
+        setCurrentIndex(index);
+        const int row = index.row();
+        QString   error;
+        if (!_draft.setNodeFlipped(_draft.selectedBlock(),
+                                   index.data(LineflowEditorModel::NodeRole).toString(),
+                                   !index.data(LineflowEditorModel::FlippedRole).toBool(),
+                                   &error))
+        {
+            emit _draft.rejected(error);
+        }
+        setCurrentIndex(_draft.index(row, 0));
+        event->accept();
+        return;
+    }
+
+    QAbstractItemView::mousePressEvent(event);
+}
+
 void LineflowCanvas::mouseDoubleClickEvent(QMouseEvent* event)
 {
     const auto index = indexAt(event->position().toPoint());
@@ -423,7 +489,16 @@ bool LineflowCanvas::viewportEvent(QEvent* event)
     }
     if (event->type() == QEvent::ToolTip)
     {
-        auto* help = static_cast<QHelpEvent*>(event);
+        auto*      help   = static_cast<QHelpEvent*>(event);
+        const auto target = indexAt(help->pos());
+        if (target.isValid() && !target.data(LineflowEditorModel::LinkedRole).toBool()
+            && target.data(LineflowEditorModel::InputCountRole).toInt() == 2
+            && target.data(LineflowEditorModel::OutputCountRole).toInt() == 2
+            && _flipRect(visualRect(target)).contains(help->pos()))
+        {
+            QToolTip::showText(help->globalPos(), tr("Rotate port positions by 180°"), this);
+            return true;
+        }
         for (const auto& item : _items())
         {
             for (const auto& port : _ports(item.index, item.rect.translated(0, -verticalOffset())))
@@ -491,14 +566,14 @@ QList<LineflowCanvas::Port> LineflowCanvas::_ports(const QModelIndex& index, con
         const int     halfWidth  = qMin(x - rect.left() - 6, rect.right() - 6 - x);
         const int     labelWidth = qMax(1, qMin(width, 2 * halfWidth));
         const QRect   label(x - labelWidth / 2, top ? rect.top() + 6 : rect.bottom() - height - 6, labelWidth, height);
-        const int     markerY = point.y() + (top ? -6 : 6);
+        const int     markerY = point.y();
         const QRect   marker(point.x() - 4, markerY - 3, 9, 7);
         result.append({name, physical, input, top, point, marker, label});
     };
     if (duplex)
     {
-        const int left  = _contentWidth() / 4;
-        const int right = _contentWidth() * 3 / 4;
+        const int left  = _laneRect("rx", 0, 1).center().x();
+        const int right = _laneRect("tx", 0, 1).center().x();
         const int width = qMax(24, rect.width() / 2 - 20);
         add(true, true, 0, left, width);
         add(false, true, 1, right, width);
@@ -517,7 +592,17 @@ QList<LineflowCanvas::Port> LineflowCanvas::_ports(const QModelIndex& index, con
 
 int LineflowCanvas::_stageGap() const
 {
-    return qMax(28, fontMetrics().height() + 10);
+    return 8;
+}
+
+int LineflowCanvas::_bodyHeight() const
+{
+    return qMax(62, 3 * fontMetrics().height() + 14);
+}
+
+QRect LineflowCanvas::_flipRect(const QRect& rect) const
+{
+    return QRect(rect.right() - 28, rect.top() + (_bodyHeight() - 22) / 2, 22, 22);
 }
 
 int LineflowCanvas::_contentWidth() const
@@ -551,7 +636,7 @@ QList<LineflowCanvas::Item> LineflowCanvas::_items() const
 {
     QList<Item> result;
     const bool  paired = _draft.blockChannels(_draft.selectedBlock()) == 2;
-    int         yRx    = 74;
+    int         yRx    = 58;
     int         yTx    = yRx;
     for (int row = 0; row < _draft.rowCount(); ++row)
     {
@@ -560,12 +645,14 @@ QList<LineflowCanvas::Item> LineflowCanvas::_items() const
         const bool duplex       = paired && lane == "duplex";
         const bool tx           = paired && lane == "tx";
         const int  y            = duplex ? qMax(yRx, yTx) : tx ? yTx : yRx;
-        const int  cardHeight   = qMax(104, fontMetrics().height() * 4 + 44);
+        const int  cardHeight   = _bodyHeight();
         const int  linkedHeight = qMax(38, fontMetrics().height() + 16);
-        const int  height       = cardHeight + _linkedCount(index) * (linkedHeight + 4);
+        const int  linkedCount  = _linkedCount(index);
+        const int  footerHeight = linkedCount > 0 ? fontMetrics().height() + 12 : 0;
+        const int  height       = cardHeight + linkedCount * (linkedHeight + 4) + footerHeight;
         const auto rect         = _laneRect(lane, y, height);
         result.append({index, rect});
-        int childY = y + cardHeight - fontMetrics().height() - 14;
+        int childY = y + cardHeight;
         _appendLinked(result, index, rect, childY);
         if (duplex || !tx)
         {
@@ -581,14 +668,16 @@ QList<LineflowCanvas::Item> LineflowCanvas::_items() const
 
 QRect LineflowCanvas::_laneRect(const QString& lane, int y, int height) const
 {
-    const int width  = _contentWidth();
-    const int margin = 24;
+    const int width = _contentWidth();
+    const int left  = 36;
+    const int right = width - 12;
     if (_draft.blockChannels(_draft.selectedBlock()) != 2 || lane == "duplex")
     {
-        return QRect(margin, y, qMax(30, width - 2 * margin), height);
+        return QRect(left, y, qMax(30, right - left), height);
     }
-    const int half = width / 2;
-    return QRect(lane == "tx" ? half + margin : margin, y, qMax(30, half - 2 * margin), height);
+
+    const int laneWidth = qMax(30, (right - left - 6) / 2);
+    return QRect(lane == "tx" ? left + laneWidth + 6 : left, y, laneWidth, height);
 }
 
 QStringList LineflowCanvas::_visualOrder() const
@@ -638,7 +727,7 @@ int LineflowCanvas::_insertionY(int row, const QString& lane, const QStringList&
             items.insert(item.index.data(LineflowEditorModel::NodeRole).toString(), item);
         }
     }
-    int y = 74 - _stageGap() / 2;
+    int y = 58 - _stageGap() / 2;
     for (int index = 0; index < row; ++index)
     {
         const auto item     = items.value(order[index]);
@@ -670,7 +759,8 @@ QString LineflowCanvas::_laneAt(const QMimeData* data, int x) const
     {
         return "duplex";
     }
-    return _draft.blockChannels(_draft.selectedBlock()) == 2 && x > _contentWidth() / 2 ? "tx" : "rx";
+    const int boundary = (_laneRect("rx", 0, 1).right() + _laneRect("tx", 0, 1).left()) / 2;
+    return _draft.blockChannels(_draft.selectedBlock()) == 2 && x > boundary ? "tx" : "rx";
 }
 
 bool LineflowCanvas::_updateDrop(const QMimeData* data, const QPoint& point)

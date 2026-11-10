@@ -177,7 +177,7 @@ Release was not rebuilt. Changed C++ files were clang-formatted; local links and
 
 ## Named ports and flipping
 
-Wired node connectors use compact chevrons just outside the border, with port labels
+Wired node connectors use compact chevrons centered on the border, with port labels
 inside gently rounded blocks. Input chevrons point into the node and output
 chevrons away from it; tooltips state the full name and direction. Linked nested rows remain compact reference previews; opening
 the nested definition shows its actual wiring. A selected 2x2 node exposes an
@@ -193,7 +193,7 @@ arrow shaft. Qt palette colors, selection contrast and font metrics remain nativ
 Named-port checks cover registered/prepared/runtime label ownership and snapshots,
 invalid/duplicate/control-character labels, useful native labels and nested flips
 in both saved and standalone preparation. Editor checks verify labels inside the
-body, markers wholly outside it, a 6-pixel text inset, narrow canvases and doubled
+body, markers centered on its boundary, a 6-pixel text inset, narrow canvases and doubled
 fonts. Selected and flipped captures passed native 1x/2x checks. The application
 integration also verifies dock-layout restoration through the application settings
 owner. One earlier suite observed an intermittent ConsoleElevationTests heap failure;
@@ -211,3 +211,52 @@ own compact rows.
 The centered-label refinement passed the affected LineflowEditorTests suite and
 native Windows captures at scales 1 and 2 (three QtTest passes per capture run,
 no skips). The Debug application and affected targets built successfully.
+
+## Compact table layout
+
+The center canvas uses compact numbered stages with a small gap between rounded,
+opaque tinted blocks. Unary nodes occupy one Rx or Tx column; shared 2x2 nodes
+span both. Names and classes share one centered line when space permits; redundant
+class text is omitted when it exactly matches the occurrence name. Full metadata
+remains available in tooltips and properties. Font metrics determine the row height.
+Linked reference previews remain read-only inside their owning block.
+
+Device and terminal endpoint labels align with the same lane axes used by unary
+centers, duplex ports and three-pixel wires. Thin port chevrons sit on block borders
+and indicate input toward the body and output away from it. Port captions contain
+the name and in/out type, without repeated arrow characters. Endpoint chevrons use
+the wire color. Layout geometry is derived from the viewport and is not persisted.
+
+Each editable shared node has an inline rotation control in addition to the selected
+operation action. A 180-degree turn maps top-left to bottom-right and top-right to
+bottom-left while retaining port identity and input/output type. Text stays upright.
+The existing occurrence orientation flag and runtime mapping remain unchanged.
+Selection is restored after the model reset caused by changing orientation.
+
+Palette insertion and drag/drop retain topology validation and the draft model as
+the authority. Unary nodes can move between lanes; shared nodes move as full-width
+barriers. Drop indicators appear only during a valid drag. Keyboard selection,
+Delete, nested-definition opening and movable palette/property docks remain active.
+
+New occurrences use the registered processor title or referenced block name.
+The first available name is unnumbered, then a space and suffix starting at 2 is
+added: `Gate`, `Gate 2`, `Gate 3`. Names are unique within the containing block;
+existing and moved occurrences are not renamed. Slash/NUL removal and bounded
+truncation keep generated names valid for the current definition format.
+
+### FLOW-9 verification
+
+Qt 6.12.0 / MSVC2022 x64 Debug built the application, bundled modules and tests.
+The full configured suite passed 47 of 47 CTest executables in 102.79 seconds.
+After final lane-edge, footer-scroll and nested-label fixes, all four affected
+App/Lineflow persistence/editor/terminal-processing suites passed in 53.10 seconds.
+Native Windows captures at scales 1 and 2 each passed three QtTest checks with
+no skips. The paired, flipped and nested layouts were visually inspected; refreshed
+captures retain the same 1100 by 760 logical client size.
+
+Checks cover compact/font-scaled geometry, common lane axes, boundary-centered
+markers, inline rotation and configuration retention, narrow-canvas lane selection,
+large-font footer reachability, nested output-label clearance and unique names
+across insertion and drag/drop paths. Changed C++ files were clang-formatted and
+`git diff --check` passed. Release was not rebuilt. No real serial device, external
+endpoint or elevation was used; protocol nodes in captures remain synthetic fixtures.
