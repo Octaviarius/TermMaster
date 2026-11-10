@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-10",
+  "cpu": "AMD Ryzen 9 5900X, 12 cores / 24 logical processors",
+  "platform": "Windows-11-10.0.28000-SP0",
+  "compiler": "MSVC 19.44.35225.0 x64",
+  "qt": "6.12.0 msvc2022_64",
+  "configuration": "Release /O2 /Ob2 /DNDEBUG",
+  "samples": 5,
+  "warmups": 1,
+  "files": {
+    "build/Desktop_Qt_6_12_0_MSVC2022_64bit-Release/src/core/Core.lib": "ecb1b1c915fc62e55f7b4094ec4e271ac8217c5225afebb7860ca2c4e3d48655",
+    "build/ProcessingProfile/ProcessingProfile.exe": "e6f7d51a421fcf36a6e0727e0d398b99efd63ceed6c62713d15b299128bebcda",
+    "tools/benchmarks/ProcessingProfile/ProcessingProfile.cpp": "098fe8c948ad16d6e96bd23d0a4eda7fc6db7e1001623686e73a4df6510aaf15",
+    "src/Core/src/Processing/Lineflow.cpp": "1ca7a0fcdba78fee7d23b46833417390931c59894163bddbc9d6e26741efa06a",
+    "src/Core/src/Processing/Nodes/Framer.cpp": "89d0d4659cc754f7fb2234985b5d51a8a32fffa8d2fa68b463465c0d091b9d50",
+    "src/Core/src/Processing/Nodes/PatternFramer.cpp": "70455a2695bb5dba43436e02499504ef22648e840496cc39d252e7535fd67081"
+  }
+}

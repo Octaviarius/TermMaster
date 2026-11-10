@@ -1,0 +1,52 @@
+[
+  {
+    "rva": "0xef97c",
+    "symbol": "?_Do_call@?$_Func_impl_no_alloc@V<lambda_1>@?2???R1?1??_create@ProcessorRegistry@@CA?AV?$shared_ptr@VProcessor@@@std@@AEBV?$function@$$A6A?AV?$unique_ptr@VProcessor@@U?$default_delete@VProcessor@@@std@@@std@@AEBV?$QMap@VQString@@VQVariant@@@@AEBULimits@Processor@@PEAVQString@@@Z@5@AEBV?$QMap@VQString@@VQVariant@@@@AEBULimits@Processor@@V?$shared_ptr@$$CBX@5@HHV?$QList@VQString@@@@4PEAVQString@@@Z@QEBA@PEAV9@@Z@X$$V@std@@EEAAXXZ",
+    "offsetInSymbol": 140
+  },
+  {
+    "rva": "0x1b734c",
+    "symbol": "?cancel@Lineflow@@UEAAXV?$function@$$A6AXXZ@std@@@Z",
+    "offsetInSymbol": 76
+  },
+  {
+    "rva": "0xea848",
+    "symbol": "??R<lambda_1>@?1??_create@ProcessorRegistry@@CA?AV?$shared_ptr@VProcessor@@@std@@AEBV?$function@$$A6A?AV?$unique_ptr@VProcessor@@U?$default_delete@VProcessor@@@std@@@std@@AEBV?$QMap@VQString@@VQVariant@@@@AEBULimits@Processor@@PEAVQString@@@Z@4@AEBV?$QMap@VQString@@VQVariant@@@@AEBULimits@Processor@@V?$shared_ptr@$$CBX@4@HHV?$QList@VQString@@@@4PEAVQString@@@Z@QEBA@PEAV8@@Z",
+    "offsetInSymbol": 264
+  },
+  {
+    "rva": "0xef7e1",
+    "symbol": "?_Destroy@?$_Ref_count_resource@PEAVProcessor@@V<lambda_1>@?1??_create@ProcessorRegistry@@CA?AV?$shared_ptr@VProcessor@@@std@@AEBV?$function@$$A6A?AV?$unique_ptr@VProcessor@@U?$default_delete@VProcessor@@@std@@@std@@AEBV?$QMap@VQString@@VQVariant@@@@AEBULimits@Processor@@PEAVQString@@@Z@6@AEBV?$QMap@VQString@@VQVariant@@@@AEBULimits@1@V?$shared_ptr@$$CBX@6@HHV?$QList@VQString@@@@4PEAVQString@@@Z@@std@@EEAAXXZ",
+    "offsetInSymbol": 17
+  },
+  {
+    "rva": "0xeeca9",
+    "symbol": "??_GForwardProcessor@?A0xf8985b4e@@UEAAPEAXI@Z",
+    "offsetInSymbol": 169
+  },
+  {
+    "rva": "0x979dd",
+    "symbol": "?_Destroy@?$_Ref_count_obj2@V?$shared_ptr@VProcessor@@@std@@@std@@EEAAXXZ",
+    "offsetInSymbol": 45
+  },
+  {
+    "rva": "0x967d0",
+    "symbol": "??1Hold@?1??_create@ProcessorRegistry@@CA?AV?$shared_ptr@VProcessor@@@std@@AEBV?$function@$$A6A?AV?$unique_ptr@VProcessor@@U?$default_delete@VProcessor@@@std@@@std@@AEBV?$QMap@VQString@@VQVariant@@@@AEBULimits@Processor@@PEAVQString@@@Z@4@AEBV?$QMap@VQString@@VQVariant@@@@AEBULimits@Processor@@V?$shared_ptr@$$CBX@4@HHV?$QList@VQString@@@@4PEAVQString@@@Z@QEAA@XZ",
+    "offsetInSymbol": 80
+  },
+  {
+    "rva": "0x9a3ff",
+    "symbol": "?impl@?$QCallableObject@V<lambda_1>@?1???R1?1??_retire@ProcessingRouter@@CAXV?$shared_ptr@VProcessor@@@std@@V?$function@$$A6AXXZ@5@@Z@QEBA@XZ@U?$List@$$V@QtPrivate@@X@QtPrivate@@CAXHPEAVQSlotObjectBase@2@PEAVQObject@@PEAPEAXPEA_N@Z",
+    "offsetInSymbol": 143
+  },
+  {
+    "rva": "0x18ea6",
+    "symbol": "main",
+    "offsetInSymbol": 1014
+  },
+  {
+    "rva": "0x25494c",
+    "symbol": "?__scrt_common_main_seh@@YAHXZ",
+    "offsetInSymbol": 268
+  }
+]

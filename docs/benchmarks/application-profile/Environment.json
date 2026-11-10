@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-10",
+  "os": "Windows-11-10.0.28000-SP0",
+  "cpu": "AMD Ryzen 9 5900X",
+  "qt": "6.12.0",
+  "compiler": "MSVC 19.44.35225 x64",
+  "volumes": "F: and G: local NTFS fixed volumes",
+  "productionRevision": "754ecba10bec370353644c208c16dfa81fb7e3bb",
+  "fixture": {
+    "source": "G:/TMP/Tmaster",
+    "terminals": 6,
+    "sourceFiles": 3,
+    "workspaceProcessorDefinitions": 1
+  },
+  "methods": [
+    "uninstrumented wall/CPU/private-memory spans",
+    "temporary aggregate source scopes",
+    "bounded CDB shutdown stack with matching linker map",
+    "physical COM3 opt-in loopback"
+  ],
+  "unavailable": {
+    "systemCpuSampling": "WPR denied by policy 0xc5585011; no elevation attempted"
+  },
+  "sourceRestored": true,
+  "notes": [
+    "Scope timing includes instrumentation overhead",
+    "Qt native widget event draining excludes compositor presentation",
+    "No remote downloads or installs",
+    "Source workspace hashes unchanged for all recorded runs"
+  ]
+}

@@ -1,0 +1,182 @@
+[
+  {
+    "stage": "App::_activateSession",
+    "calls": 1,
+    "inclusiveMs": 258.3044,
+    "exclusiveMs": 0.4959
+  },
+  {
+    "stage": "App::_activateWorkspace",
+    "calls": 1,
+    "inclusiveMs": 305.7742,
+    "exclusiveMs": 2.0553
+  },
+  {
+    "stage": "App::_updateRecent",
+    "calls": 6,
+    "inclusiveMs": 5.7042,
+    "exclusiveMs": 1.482
+  },
+  {
+    "stage": "App::_updateSession",
+    "calls": 4,
+    "inclusiveMs": 52.0933,
+    "exclusiveMs": 0.5766
+  },
+  {
+    "stage": "Session::_validate",
+    "calls": 3,
+    "inclusiveMs": 0.9114,
+    "exclusiveMs": 0.193
+  },
+  {
+    "stage": "Session::load",
+    "calls": 2,
+    "inclusiveMs": 6.6584,
+    "exclusiveMs": 0.3297
+  },
+  {
+    "stage": "Session::sync",
+    "calls": 1,
+    "inclusiveMs": 0.5416,
+    "exclusiveMs": 0.1878
+  },
+  {
+    "stage": "Settings::applyValues",
+    "calls": 15,
+    "inclusiveMs": 1.4101,
+    "exclusiveMs": 1.4101
+  },
+  {
+    "stage": "Settings::load",
+    "calls": 8,
+    "inclusiveMs": 9.8093,
+    "exclusiveMs": 9.8093
+  },
+  {
+    "stage": "Settings::sync",
+    "calls": 5,
+    "inclusiveMs": 978.5436,
+    "exclusiveMs": 978.5436
+  },
+  {
+    "stage": "Settings::value",
+    "calls": 4404,
+    "inclusiveMs": 17.4089,
+    "exclusiveMs": 17.4089
+  },
+  {
+    "stage": "SettingsSchema::SettingsSchema",
+    "calls": 96,
+    "inclusiveMs": 88.2653,
+    "exclusiveMs": 88.2653
+  },
+  {
+    "stage": "SettingsSchema::validate",
+    "calls": 193,
+    "inclusiveMs": 1.7136,
+    "exclusiveMs": 1.7136
+  },
+  {
+    "stage": "SettingsSchema::withDefaults",
+    "calls": 54,
+    "inclusiveMs": 0.1073,
+    "exclusiveMs": 0.1073
+  },
+  {
+    "stage": "TerminalController::_effective",
+    "calls": 54,
+    "inclusiveMs": 30.3323,
+    "exclusiveMs": 17.7203
+  },
+  {
+    "stage": "TerminalController::_materialize",
+    "calls": 6,
+    "inclusiveMs": 183.0243,
+    "exclusiveMs": 69.7995
+  },
+  {
+    "stage": "TerminalController::_validate",
+    "calls": 6,
+    "inclusiveMs": 2.068,
+    "exclusiveMs": 1.1612
+  },
+  {
+    "stage": "TerminalController::applySettings",
+    "calls": 4,
+    "inclusiveMs": 45.6441,
+    "exclusiveMs": 13.8096
+  },
+  {
+    "stage": "TerminalController::closeAll",
+    "calls": 1,
+    "inclusiveMs": 0.0004,
+    "exclusiveMs": 0.0004
+  },
+  {
+    "stage": "TerminalDisplay::_updateGeometry",
+    "calls": 32,
+    "inclusiveMs": 1.8858,
+    "exclusiveMs": 1.242
+  },
+  {
+    "stage": "TerminalDisplay::setAppearance",
+    "calls": 24,
+    "inclusiveMs": 2.4841,
+    "exclusiveMs": 0.2929
+  },
+  {
+    "stage": "TerminalProcessingPanel::TerminalProcessingPanel",
+    "calls": 6,
+    "inclusiveMs": 96.0169,
+    "exclusiveMs": 27.1002
+  },
+  {
+    "stage": "TerminalProcessingPanel::_catalog",
+    "calls": 6,
+    "inclusiveMs": 21.2466,
+    "exclusiveMs": 21.0934
+  },
+  {
+    "stage": "TerminalProcessingPanel::_showProperties",
+    "calls": 6,
+    "inclusiveMs": 47.6701,
+    "exclusiveMs": 30.0172
+  },
+  {
+    "stage": "TerminalProcessingPanel::setConfiguration",
+    "calls": 12,
+    "inclusiveMs": 0.0778,
+    "exclusiveMs": 0.0778
+  },
+  {
+    "stage": "TerminalScreen::_recolor",
+    "calls": 24,
+    "inclusiveMs": 0.7927,
+    "exclusiveMs": 0.7927
+  },
+  {
+    "stage": "TerminalScreen::setLimits",
+    "calls": 32,
+    "inclusiveMs": 0.6438,
+    "exclusiveMs": 0.6438
+  },
+  {
+    "stage": "Workspace::_validateProcessors",
+    "calls": 7,
+    "inclusiveMs": 15.8085,
+    "exclusiveMs": 1.5912
+  },
+  {
+    "stage": "Workspace::load",
+    "calls": 1,
+    "inclusiveMs": 6.1446,
+    "exclusiveMs": 2.7195
+  },
+  {
+    "stage": "Workspace::sync",
+    "calls": 2,
+    "inclusiveMs": 83.5435,
+    "exclusiveMs": 66.3253
+  }
+]
