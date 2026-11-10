@@ -300,6 +300,15 @@ pixel in RGB at each scale when run with the same test sequence. The full-suite
 capture additionally exercised the focused cursor. clang-format and whitespace
 checks passed.
 
-Integrated performance remeasurement remains separate. These checks establish
-render/model contracts for the covered fixtures, not a measured application-wide
-speedup or exhaustive multi-monitor DPI-transition acceptance.
+The integrated Release build passed the same five terminal suites. On the copied
+six-terminal workspace, the quick native resize median was 10.39 ms (20 samples),
+versus the original 16.98 ms combined baseline. The warm/reset 10,000-history-line
+height increment measured 0.0019 ms; the unchanged-grid and width paths remain
+separate controls. The repaint probe now changes foreground by one RGB unit to
+force a real row-cache rebuild, then reapplies the identical appearance to measure
+the no-op path. Blank changed-appearance repaint median was 1.94 ms and its no-op
+repaint 0.623 ms (ten samples). Historical cold labels used an unchanged appearance
+call and must not be reused as a forced-cold control after this optimization.
+Raw records are in `benchmarks/application-profile/after-renderer/`. Original
+workspace hashes stayed unchanged. Multi-monitor DPI transitions remain outside
+this acceptance scope.

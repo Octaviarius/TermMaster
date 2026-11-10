@@ -435,8 +435,8 @@ tracing was unavailable under the current Windows policy.
 ## PERF-2: Prioritized performance remediation
 
 - [x] Finish processor cancellation/retirement before Qt event-queue destruction.
-- [ ] Reduce cold row-layout work, repeated glyph metrics and unnecessary renderer cache invalidation.
-- [ ] Avoid full-history repair for height-only terminal resize.
+- [x] Reduce cold row-layout work, repeated glyph metrics and unnecessary renderer cache invalidation.
+- [x] Avoid full-history repair for height-only terminal resize.
 - [ ] Separate session save from global terminal configuration application.
 - [ ] Cache parsed schemas/defaults and lazily construct hidden processing editors.
 - [ ] Narrow unchanged/metadata-only workspace persistence without weakening transactions.
