@@ -13,6 +13,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPolygonF>
 #include <QScrollBar>
 #include <QToolTip>
 #include <Termaster/Core/Gui/Icons.h>
@@ -261,7 +262,8 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
         // transport wire beneath it even when its palette role is translucent.
         background.setAlpha(255);
         painter.setBrush(background);
-        painter.setPen(QPen(selected ? palette().color(QPalette::Highlight) : palette().color(QPalette::Mid), 1));
+        const auto outline = selected ? palette().color(QPalette::Highlight) : palette().color(QPalette::Mid);
+        painter.setPen(QPen(outline, 1));
         painter.drawRoundedRect(item.rect.adjusted(0, 0, -1, -1), 4, 4);
         const auto foreground = palette().color(QPalette::Text);
         painter.setPen(foreground);
@@ -311,9 +313,11 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
             {
                 const int direction = (port.top ? port.input : !port.input) ? 1 : -1;
                 const int markerY   = port.marker.center().y();
-                painter.setPen(QPen(palette().color(QPalette::Text), 1));
-                painter.drawLine(port.point.x() - 4, markerY - direction * 3, port.point.x(), markerY + direction * 3);
-                painter.drawLine(port.point.x(), markerY + direction * 3, port.point.x() + 4, markerY - direction * 3);
+                painter.setPen(QPen(Qt::black, 1));
+                painter.setBrush(QColor("#B8D8F0"));
+                painter.drawPolygon(QPolygonF {QPointF(port.point.x() - 6, markerY - direction * 4),
+                                               QPointF(port.point.x(), markerY + direction * 4),
+                                               QPointF(port.point.x() + 6, markerY - direction * 4)});
                 painter.setPen(foreground);
                 painter.setFont(this->font());
                 painter.drawText(port.label,
@@ -567,7 +571,7 @@ QList<LineflowCanvas::Port> LineflowCanvas::_ports(const QModelIndex& index, con
         const int     labelWidth = qMax(1, qMin(width, 2 * halfWidth));
         const QRect   label(x - labelWidth / 2, top ? rect.top() + 6 : rect.bottom() - height - 6, labelWidth, height);
         const int     markerY = point.y();
-        const QRect   marker(point.x() - 4, markerY - 3, 9, 7);
+        const QRect   marker(point.x() - 6, markerY - 4, 13, 9);
         result.append({name, physical, input, top, point, marker, label});
     };
     if (duplex)

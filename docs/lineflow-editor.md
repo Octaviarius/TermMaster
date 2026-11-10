@@ -160,7 +160,7 @@ The dialog exposes layout state and change notifications; it performs no file I/
 
 Qt 6.12.0 / MSVC2022 x64 Debug built the application, bundled modules and tests.
 The final full run passed all 47 configured CTest executables in 112.48 seconds,
-including named ports, orientation mapping and external chevrons. The full
+including named ports, orientation mapping and external port markers. The full
 application and bundled plugins built after the final rendering changes.
 Native Windows capture fixtures passed at scales 1 and 2, with three QtTest passes
 and no skips per run, using 1100 by 760 logical client areas. Captures were inspected
@@ -183,9 +183,9 @@ Release was not rebuilt. Changed C++ files were clang-formatted; local links and
 
 ## Named ports and flipping
 
-Wired node connectors use compact chevrons centered on the border, with port labels
-inside gently rounded blocks. Input chevrons point into the node and output
-chevrons away from it; tooltips state the full name and direction. Linked nested rows remain compact reference previews; opening
+Wired node connectors use compact filled triangles centered on the border, with port labels
+inside gently rounded blocks. Input triangles point into the node and output
+triangles away from it; tooltips state the full name and direction. Linked nested rows remain compact reference previews; opening
 the nested definition shows its actual wiring. A selected 2x2 node exposes an
 icon-only Flip action. Its checked state and a small card icon indicate reversed
 orientation. Labels follow the effective port mapping after a flip. The action
@@ -233,8 +233,9 @@ remains available in tooltips and properties. Font metrics determine the row hei
 Linked reference previews remain read-only inside their owning block.
 
 Device and terminal endpoint labels align with the same lane axes used by unary
-centers, duplex ports and three-pixel wires. Thin port chevrons sit on block borders
-and indicate input toward the body and output away from it. Port captions contain
+centers, duplex ports and three-pixel wires. Filled port triangles sit on block borders
+and indicate input toward the body and output away from it. Their pastel-blue fill and one-logical-pixel black outline remain consistent
+across selection states. Port captions contain
 the name and in/out type, without repeated arrow characters. Endpoint chevrons use
 the wire color. Layout geometry is derived from the viewport and is not persisted.
 
@@ -290,3 +291,18 @@ large-font footer reachability, nested output-label clearance and unique names
 across insertion and drag/drop paths. Changed C++ files were clang-formatted and
 `git diff --check` passed. Release was not rebuilt. No real serial device, external
 endpoint or elevation was used; protocol nodes in captures remain synthetic fixtures.
+
+## FLOW-28 port triangle verification
+
+Node port markers use pastel-blue (`#B8D8F0`) fill, a one-logical-pixel black
+outline and 13 by 9 logical-pixel marker bounds. Their existing centers,
+directions and 180-degree orientation mapping are preserved. Device/terminal endpoint chevrons
+remain wire-colored and unchanged.
+
+The Qt 6.12 / MSVC x64 Debug application and LineflowEditorTests built successfully.
+The editor CTest suite passed; native visualCapture checks passed at display
+scales 1 and 2 (three QtTest results per run, no skips). Unary, duplex, selected,
+unselected and flipped nodes were visually inspected. The scale-1 reference is
+[port triangles](images/lineflow-ports/PortTriangles.png); scale-2 captures remain
+temporary. Changed C++ was clang-formatted and git diff --check passed. Other
+suites and Release were not rerun for this rendering-only change.
