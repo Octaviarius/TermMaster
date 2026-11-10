@@ -72,6 +72,7 @@
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
 #include <Termaster/Core/Workspace.h>
+#include <cstdlib>
 #include <stdexcept>
 
 /** Synthetic backend: every connection attempt is in-memory, never a device open. */
@@ -225,6 +226,50 @@ private:
             QVERIFY2(_app.session()->load(&error), qPrintable(error));
         }
         QVERIFY2(_app.closeWorkspace(&error), qPrintable(error));
+    }
+
+    Q_SLOT void mainWindowCloseExitsProcess_data()
+    {
+        QTest::addColumn<QString>("scenario");
+        for (const auto& scenario : {"empty", "auxiliary", "quitDisabled", "saveFailure", "console"})
+        {
+            QTest::newRow(scenario) << QString::fromLatin1(scenario);
+        }
+    }
+
+    Q_SLOT void mainWindowCloseExitsProcess()
+    {
+        QFETCH(QString, scenario);
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        QProcess child;
+        auto     environment = QProcessEnvironment::systemEnvironment();
+        environment.remove("TERMASTER_APP_RESTART_DATA");
+        environment.insert("TERMASTER_APP_CLOSE_CHILD", temporary.path());
+        environment.insert("TERMASTER_APP_CLOSE_SCENARIO", scenario);
+        child.setProcessEnvironment(environment);
+        child.start(QCoreApplication::applicationFilePath(), {});
+        QVERIFY(child.waitForStarted(5000));
+        const bool finished = child.waitForFinished(10000);
+        if (!finished)
+        {
+            child.kill();
+            child.waitForFinished(2000);
+        }
+        QFile markers(temporary.filePath("close-markers.txt"));
+        QVERIFY(markers.open(QIODevice::ReadOnly));
+        const auto observed   = markers.readAll();
+        const auto diagnostic = "Scenario " + scenario.toUtf8() + ": " + observed + child.readAllStandardError();
+        QVERIFY2(finished, diagnostic.constData());
+        QVERIFY2(child.exitStatus() == QProcess::NormalExit, diagnostic.constData());
+        QVERIFY2(child.exitCode() == 0, diagnostic.constData());
+        QVERIFY2(observed.contains("mainClosed\n"), diagnostic.constData());
+        QVERIFY2(observed.contains("loopExited\n"), diagnostic.constData());
+        QVERIFY2(observed.contains("destructorFinished\n"), diagnostic.constData());
+        if (scenario == "saveFailure")
+        {
+            QVERIFY2(observed.contains("saveVetoed\n"), diagnostic.constData());
+        }
     }
 
     Q_SLOT void shellAndCommands()
@@ -3364,6 +3409,160 @@ content:
 
 int main(int argc, char* argv[])
 {
+    const auto closeData = qEnvironmentVariable("TERMASTER_APP_CLOSE_CHILD");
+    if (!closeData.isEmpty())
+    {
+        const auto scenario = qEnvironmentVariable("TERMASTER_APP_CLOSE_SCENARIO");
+        const auto marker   = [&](const QByteArray& value) {
+            QFile file(QDir(closeData).filePath("close-markers.txt"));
+            if (file.open(QIODevice::WriteOnly | QIODevice::Append))
+            {
+                file.write(value + '\n');
+            }
+        };
+        App::Options options;
+        options.dataDirectory    = closeData + "/data";
+        options.pluginsDirectory = closeData + "/plugins";
+        if (scenario == "console")
+        {
+            QDir().mkpath(options.pluginsDirectory);
+            if (!QFile::copy(TERMASTER_CONSOLE_PLUGIN_FILE,
+                             QDir(options.pluginsDirectory)
+                                 .filePath(QFileInfo(TERMASTER_CONSOLE_PLUGIN_FILE).fileName())))
+            {
+                marker("consoleCopyFailed");
+                return 87;
+            }
+        }
+        int result = 1;
+        {
+            App                      app(argc, argv, options);
+            std::unique_ptr<QDialog> auxiliary;
+            QTimer::singleShot(4000, &app, [&] {
+                marker("eventLoopWatchdog");
+                std::_Exit(86);
+            });
+            QTimer::singleShot(0, &app, [&] {
+                marker("started");
+                QString error;
+                if (scenario != "empty")
+                {
+                    if (!app.createWorkspace(Path(QDir(closeData).filePath("Close.termaster")), "Close fixture", &error)
+                        || !app.createSession("Close fixture", &error))
+                    {
+                        marker("setupFailed: " + error.toUtf8());
+                        std::_Exit(87);
+                    }
+                    QString     typeId = "console";
+                    QVariantMap settings;
+                    if (scenario == "console")
+                    {
+#ifdef Q_OS_WIN
+                        settings.insert("transport",
+                                        QVariantMap {
+                                            {  "program", qEnvironmentVariable("SystemRoot") + "/System32/cmd.exe"},
+                                            {"arguments",                                 QStringList {"/D", "/Q"}}
+                        });
+#else
+                        settings.insert("transport", QVariantMap {{"program", "/bin/sh"}});
+#endif
+                    }
+                    else
+                    {
+                        auto probe       = std::make_shared<ReconnectDevice::Probe>();
+                        probe->available = true;
+                        PluginHost::TerminalType type;
+                        type.id     = "closeFixture";
+                        typeId      = type.id;
+                        type.title  = "Close fixture";
+                        type.plugin = "Synthetic";
+                        type.settingsSchema
+                            = "version: 1\ntype: termaster.settings-schema\ndescription: Close fixture\ncontent:\n  type: object\n  properties: {}\n";
+                        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+                        app.pluginHost().registerTerminalType(std::move(type));
+                    }
+                    if (!app.createTerminal(typeId, settings, "Close terminal", &error))
+                    {
+                        marker("terminalFailed: " + error.toUtf8());
+                        std::_Exit(87);
+                    }
+                    app.mainWindow().activateWindow();
+                    app.pluginHost().connectSelectedTerminal();
+                }
+                if (scenario == "auxiliary")
+                {
+                    app.commands().find("Application.Settings")->actions().first()->trigger();
+                    app.commands().find("Workspace.Processing")->actions().first()->trigger();
+                    // A separately owned primary window makes the main-window lifetime
+                    // contract independent of Qt's last-visible-window heuristic.
+                    auxiliary = std::make_unique<QDialog>();
+                    auxiliary->setWindowTitle("Auxiliary close fixture");
+                    auxiliary->show();
+                }
+                if (scenario == "quitDisabled")
+                {
+                    app.setQuitOnLastWindowClosed(false);
+                }
+                auto* closeTimer = new QTimer(&app);
+                closeTimer->setInterval(100);
+                QObject::connect(closeTimer, &QTimer::timeout, &app, [&, closeTimer] {
+                    if (scenario == "console")
+                    {
+                        app.pluginHost().connectSelectedTerminal();
+                        auto* device = app.pluginHost().selectedDevice("console");
+                        if (!device || device->state() != SerialDevice::State::Open)
+                        {
+                            return;
+                        }
+                        marker("consoleOpen");
+                    }
+                    closeTimer->stop();
+                    if (scenario == "saveFailure")
+                    {
+                        const auto path = app.settings().filePath();
+                        QDir().mkpath(QFileInfo(path).absolutePath());
+                        QFile::remove(path);
+                        if (!QDir().mkdir(path) || !app.settings().setValue("settings/closeFixture", true))
+                        {
+                            marker("saveFailureSetupFailed");
+                            std::_Exit(87);
+                        }
+                        QTimer::singleShot(50, &app, [&] {
+                            if (auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget()))
+                            {
+                                dialog->accept();
+                            }
+                        });
+                        if (app.mainWindow().close() || !app.mainWindow().isVisible())
+                        {
+                            marker("saveFailureDidNotVeto");
+                            std::_Exit(88);
+                        }
+                        marker("saveVetoed");
+                        QDir().rmdir(path);
+                    }
+                    if (!app.mainWindow().close())
+                    {
+                        marker("mainCloseRejected");
+                        std::_Exit(89);
+                    }
+                    marker("mainClosed");
+                    result = 0;
+                });
+                closeTimer->start();
+            });
+            const auto loopResult = app.run();
+            marker("loopExited");
+            if (loopResult != 0)
+            {
+                result = loopResult;
+            }
+            auxiliary.reset();
+        }
+        marker("destructorFinished");
+        return result;
+    }
+
     const QString restartData = qEnvironmentVariable("TERMASTER_APP_RESTART_DATA");
     if (!restartData.isEmpty())
     {

@@ -265,3 +265,9 @@ See [processing nodes](processing-nodes.md) and [terminal processing](terminal-p
 - [x] Edit local diagrams with the existing Lineflow editor and prepare them in isolated registry scopes.
 - [x] Preserve atomic saves, private occurrence refactoring, plugin leases and callback lifetimes.
 - [x] Verify synthetic routing/persistence, failure cases, native 1x/2x layouts and affected builds.
+
+## APP-12: Main-window shutdown
+
+- [x] Exit after an accepted main-window close independently of auxiliary windows.
+- [x] Preserve persistence-error close veto and normal resource destruction.
+- [x] Verify bounded subprocess exit, open-console shutdown and affected builds.

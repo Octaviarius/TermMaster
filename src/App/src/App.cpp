@@ -26,6 +26,7 @@
 #include <QSet>
 #include <QSignalBlocker>
 #include <QStatusBar>
+#include <QTimer>
 #include <QUuid>
 #include <Termaster/App/App.h>
 #include <Termaster/Core/ApplicationPaths.h>
@@ -483,6 +484,15 @@ bool App::eventFilter(QObject* watched, QEvent* event)
             _showError(error);
             return true;
         }
+
+        // Finish the close event before leaving the application event loop.
+        // Auxiliary windows must not keep a closed application shell alive.
+        QTimer::singleShot(0, this, [this] {
+            if (_data->window->isHidden())
+            {
+                quit();
+            }
+        });
     }
     if (watched == _data->window->statusBar() && (event->type() == QEvent::Show || event->type() == QEvent::Hide)
         && _data->statusAction)
