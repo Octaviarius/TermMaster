@@ -462,3 +462,8 @@ existing prepared-configuration path.
 Processor catalog trees use a shared 12-logical-pixel indentation per level in
 the Lineflow palette and terminal selector popup, preserving hierarchy while
 leaving more width for processor names.
+Processing actions use the module-owned Processing icon (two channels through a
+central block). Lineflow commands, Inplace editor buttons and the editor window
+use the Lineflow icon (two vertical lanes with staggered blocks). Both SVGs use
+palette-aware strokes through the existing icon engine. The editor offers Apply
+and Close; Close discards unapplied changes through the existing reject path.

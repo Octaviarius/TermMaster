@@ -82,7 +82,7 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
     auto inplaceButton = [this, bar](int direction) {
         auto* button = new QToolButton(this);
         button->setObjectName(direction == 2 ? "duplexInplace" : direction == 0 ? "rxInplace" : "txInplace");
-        button->setIcon(Icons::icon("pencil"));
+        button->setIcon(Icons::icon("Lineflow"));
         button->setToolTip(tr("Edit terminal-local Inplace diagram"));
         bar->addWidget(button);
         connect(button, &QToolButton::clicked, this, [this, direction] { _editInplace(direction); });
