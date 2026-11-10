@@ -93,7 +93,9 @@ ElevatedConsoleDevice::ElevatedConsoleDevice(Launcher launcher) : _launcher(std:
 {
     _startup.setSingleShot(true);
     connect(&_startup, &QTimer::timeout, this, [this] { _fail("Administrator console helper startup timed out"); });
-    connect(&_server, &QLocalServer::newConnection, this, [this] { _accept(); });
+    // Accept and protocol callbacks may release the final device owner. Deliver them
+    // after the native server/socket notification stack has unwound.
+    connect(&_server, &QLocalServer::newConnection, this, [this] { _accept(); }, Qt::QueuedConnection);
 }
 
 ElevatedConsoleDevice::~ElevatedConsoleDevice()
@@ -271,13 +273,35 @@ void ElevatedConsoleDevice::_accept()
         _socket = candidate;
         candidate->setParent(this);
         candidate->setReadBufferSize(ConsoleHostProtocol::MaxFrameSize + 4);
-        connect(candidate, &QLocalSocket::readyRead, this, [this] { _read(); });
-        connect(candidate, &QLocalSocket::disconnected, this, [this] {
-            if (_state == State::Open || _state == State::Opening)
-            {
-                _fail("Administrator console channel disconnected unexpectedly");
-            }
-        });
+        const auto generation = _generation;
+        connect(
+            candidate,
+            &QLocalSocket::readyRead,
+            this,
+            [this, generation] {
+                if (generation == _generation)
+                {
+                    _read();
+                }
+            },
+            Qt::QueuedConnection);
+        connect(
+            candidate,
+            &QLocalSocket::disconnected,
+            this,
+            [this, generation] {
+                const auto lifetime = weak_from_this().lock();
+                if (generation == _generation && (_state == State::Open || _state == State::Opening))
+                {
+                    // Drain complete final frames before diagnosing an unexpected close.
+                    _read();
+                    if (generation == _generation && (_state == State::Open || _state == State::Opening))
+                    {
+                        _fail("Administrator console channel disconnected unexpectedly");
+                    }
+                }
+            },
+            Qt::QueuedConnection);
         _read();
     }
 }
@@ -406,9 +430,9 @@ void ElevatedConsoleDevice::_cleanup()
             socket->waitForBytesWritten(250);
         }
         socket->abort();
-        // Deferring QObject destruction is safe inside readyRead. Its native pipe is
-        // already closed and its callbacks disconnected; this owner also destroys any
-        // deferred child before plugin unload.
+        // Protocol callbacks run outside native socket notifications. The pipe is
+        // already closed; retaining child ownership also drains deferred destruction
+        // before the device's plugin can unload.
         socket->deleteLater();
     }
 #ifdef Q_OS_WIN

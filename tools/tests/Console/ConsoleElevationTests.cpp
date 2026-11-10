@@ -199,14 +199,16 @@ private slots:
 
     void ownerReleaseInCallback_data()
     {
-        QTest::addColumn<bool>("onReceived");
-        QTest::newRow("open-state") << false;
-        QTest::newRow("received") << true;
+        QTest::addColumn<QString>("releaseOn");
+        QTest::newRow("open-state") << QString("open-state");
+        QTest::newRow("received") << QString("received");
+        QTest::newRow("closed-state") << QString("closed-state");
+        QTest::newRow("failed-state") << QString("failed-state");
     }
 
     void ownerReleaseInCallback()
     {
-        QFETCH(bool, onReceived);
+        QFETCH(QString, releaseOn);
         QProcess                                   replacementHelper;
         QByteArray                                 replacementOutput;
         QString                                    replacementError;
@@ -226,13 +228,24 @@ private slots:
         };
         SerialDevice::Callbacks callbacks;
         callbacks.stateChanged = [&](SerialDevice::State state) {
-            if (!onReceived && state == SerialDevice::State::Open)
+            if ((releaseOn == "open-state" && state == SerialDevice::State::Open)
+                || (releaseOn == "closed-state" && state == SerialDevice::State::Closed)
+                || (releaseOn == "failed-state" && state == SerialDevice::State::Failed))
             {
                 release();
             }
+            else if (state == SerialDevice::State::Open && releaseOn == "closed-state")
+            {
+                QString error;
+                QCOMPARE(device->write("exit\r\n", &error), qint64(6));
+            }
+            else if (state == SerialDevice::State::Open && releaseOn == "failed-state")
+            {
+                helper.kill();
+            }
         };
         callbacks.received = [&](const QByteArray&) {
-            if (onReceived)
+            if (releaseOn == "received")
             {
                 release();
             }

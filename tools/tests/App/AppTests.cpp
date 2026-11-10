@@ -231,7 +231,7 @@ private:
     Q_SLOT void mainWindowCloseExitsProcess_data()
     {
         QTest::addColumn<QString>("scenario");
-        for (const auto& scenario : {"empty", "auxiliary", "quitDisabled", "saveFailure", "console"})
+        for (const auto& scenario : {"empty", "auxiliary", "quitDisabled", "saveFailure", "console", "consoleInplace"})
         {
             QTest::newRow(scenario) << QString::fromLatin1(scenario);
         }
@@ -3641,7 +3641,7 @@ int main(int argc, char* argv[])
         App::Options options;
         options.dataDirectory    = closeData + "/data";
         options.pluginsDirectory = closeData + "/plugins";
-        if (scenario == "console")
+        if (scenario.startsWith("console"))
         {
             QDir().mkpath(options.pluginsDirectory);
             if (!QFile::copy(TERMASTER_CONSOLE_PLUGIN_FILE,
@@ -3673,7 +3673,7 @@ int main(int argc, char* argv[])
                     }
                     QString     typeId = "console";
                     QVariantMap settings;
-                    if (scenario == "console")
+                    if (scenario.startsWith("console"))
                     {
 #ifdef Q_OS_WIN
                         settings.insert("transport",
@@ -3724,7 +3724,7 @@ int main(int argc, char* argv[])
                 auto* closeTimer = new QTimer(&app);
                 closeTimer->setInterval(100);
                 QObject::connect(closeTimer, &QTimer::timeout, &app, [&, closeTimer] {
-                    if (scenario == "console")
+                    if (scenario.startsWith("console"))
                     {
                         app.pluginHost().connectSelectedTerminal();
                         auto* device = app.pluginHost().selectedDevice("console");
@@ -3733,6 +3733,31 @@ int main(int argc, char* argv[])
                             return;
                         }
                         marker("consoleOpen");
+                    }
+                    if (scenario == "consoleInplace")
+                    {
+                        auto* panel = app.mainWindow().findChild<TerminalProcessingPanel*>();
+                        panel->findChild<QComboBox*>("processingMode")->setCurrentIndex(2);
+                        panel->findChild<QToolButton*>("duplexInplace")->click();
+                        auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
+                        if (!editor || !editor->isVisible())
+                        {
+                            marker("inplaceSetupFailed");
+                            std::_Exit(87);
+                        }
+                        auto&      model = editor->model();
+                        const auto node  = model.insertNodeAt(model.selectedBlock(),
+                                                              0,
+                                                              "native.pattern-framer",
+                                                              "tx",
+                                                              &error);
+                        if (node.isEmpty())
+                        {
+                            marker("inplaceNodeFailed: " + error.toUtf8());
+                            std::_Exit(87);
+                        }
+                        editor->findChild<QAbstractItemView*>("lineflowCanvas")->setCurrentIndex(model.index(0, 0));
+                        marker("inplaceOpen");
                     }
                     closeTimer->stop();
                     if (scenario == "saveFailure")
