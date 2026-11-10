@@ -4,6 +4,8 @@
 #include <QList>
 #include <QPointer>
 #include <algorithm>
+#include <bitset>
+#include <optional>
 #include <pcre2.h>
 #include <vector>
 
@@ -14,12 +16,13 @@ struct PatternFramer::Data
         QByteArray literal;
         int        capture = -1;
     };
-    pcre2_code*          code    = nullptr;
-    pcre2_match_data*    match   = nullptr;
-    pcre2_match_context* context = nullptr;
-    pcre2_jit_stack*     stack   = nullptr;
-    std::vector<Part>    parts;
-    bool                 resumePartial = true;
+    pcre2_code*                     code    = nullptr;
+    pcre2_match_data*               match   = nullptr;
+    pcre2_match_context*            context = nullptr;
+    pcre2_jit_stack*                stack   = nullptr;
+    std::vector<Part>               parts;
+    bool                            resumePartial = true;
+    std::optional<std::bitset<256>> completionBytes;
 
     ~Data()
     {
@@ -56,6 +59,259 @@ int hexDigit(QChar character)
     }
     return -1;
 }
+
+std::optional<std::bitset<256>> atomBytes(const QByteArray& atom)
+{
+    std::bitset<256> bytes;
+    if (atom.size() == 1 && atom[0] != '.')
+    {
+        bytes.set(static_cast<unsigned char>(atom[0]));
+        return bytes;
+    }
+    int                                                     error  = 0;
+    PCRE2_SIZE                                              offset = 0;
+    std::unique_ptr<pcre2_code, decltype(&pcre2_code_free)> code(pcre2_compile(reinterpret_cast<PCRE2_SPTR>(
+                                                                                   atom.constData()),
+                                                                               size_t(atom.size()),
+                                                                               PCRE2_NEVER_UTF | PCRE2_NEVER_UCP
+                                                                                   | PCRE2_DOTALL,
+                                                                               &error,
+                                                                               &offset,
+                                                                               nullptr),
+                                                                 pcre2_code_free);
+    std::unique_ptr<pcre2_match_data, decltype(&pcre2_match_data_free)> match(pcre2_match_data_create(1, nullptr),
+                                                                              pcre2_match_data_free);
+    if (!code || !match)
+    {
+        return std::nullopt;
+    }
+    for (int value = 0; value < 256; ++value)
+    {
+        const auto byte = static_cast<PCRE2_UCHAR>(value);
+        const int
+            result = pcre2_match(code.get(), &byte, 1, 0, PCRE2_ANCHORED | PCRE2_ENDANCHORED, match.get(), nullptr);
+        if (result >= 0)
+        {
+            const auto* span = pcre2_get_ovector_pointer(match.get());
+            if (span[0] != 0 || span[1] != 1)
+            {
+                return std::nullopt;
+            }
+            bytes.set(value);
+        }
+        else if (result != PCRE2_ERROR_NOMATCH)
+        {
+            return std::nullopt;
+        }
+    }
+    return bytes.any() ? std::optional(bytes) : std::nullopt;
+}
+
+/** Conservative consuming-concatenation recognizer, not a replacement regex parser.
+ * Every quantified atom must stop at an unquantified suffix barrier. Without
+ * that barrier, PARTIAL_HARD may expose an old match after later backtracking.
+ * Assertions, alternation, group repetition and unknown constructs use PCRE2.
+ */
+std::optional<std::bitset<256>> completionBytes(const QByteArray& pattern)
+{
+    struct Atom
+    {
+        std::bitset<256> bytes;
+        bool             quantified = false;
+    };
+    std::vector<Atom> atoms;
+    int               depth       = 0;
+    bool              canQuantify = false;
+    qsizetype         index       = 0;
+    while (index < pattern.size())
+    {
+        const char character = pattern[index];
+        if (character == '(')
+        {
+            ++index;
+            if (index < pattern.size() && pattern[index] == '?')
+            {
+                if (pattern.mid(index, 2) == "?:")
+                {
+                    index += 2;
+                }
+                else if (pattern.mid(index, 2) == "?<")
+                {
+                    const auto end  = pattern.indexOf('>', index + 2);
+                    const auto name = pattern.mid(index + 2, end - index - 2);
+                    if (end < 0 || name.isEmpty()
+                        || !std::all_of(
+                            name.cbegin(),
+                            name.cend(),
+                            [](char c) {
+                                return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+                                    || c == '_';
+                            }))
+                    {
+                        return std::nullopt;
+                    }
+                    index = end + 1;
+                }
+                else
+                {
+                    return std::nullopt;
+                }
+            }
+            ++depth;
+            canQuantify = false;
+            continue;
+        }
+        if (character == ')')
+        {
+            if (--depth < 0)
+            {
+                return std::nullopt;
+            }
+            ++index;
+            canQuantify = false;
+            continue;
+        }
+        if (character == '*' || character == '+' || character == '?' || character == '{')
+        {
+            if (!canQuantify || atoms.empty())
+            {
+                return std::nullopt;
+            }
+            atoms.back().quantified = true;
+            canQuantify             = false;
+            if (character == '{')
+            {
+                const auto end = pattern.indexOf('}', index + 1);
+                if (end < 0)
+                {
+                    return std::nullopt;
+                }
+                const auto range  = pattern.mid(index + 1, end - index - 1);
+                const auto digits = [](const QByteArray& value) {
+                    return !value.isEmpty()
+                        && std::all_of(value.cbegin(), value.cend(), [](char c) { return c >= '0' && c <= '9'; });
+                };
+                const auto comma = range.indexOf(',');
+                if ((comma < 0 && !digits(range))
+                    || (comma >= 0
+                        && (!digits(range.first(comma))
+                            || (comma + 1 < range.size() && !digits(range.mid(comma + 1))))))
+                {
+                    return std::nullopt;
+                }
+                index = end + 1;
+            }
+            else
+            {
+                ++index;
+            }
+            if (index < pattern.size() && (pattern[index] == '?' || pattern[index] == '+'))
+            {
+                ++index;
+            }
+            continue;
+        }
+        if (QByteArrayLiteral("|^$]}").contains(character) || atoms.size() >= 64)
+        {
+            return std::nullopt;
+        }
+
+        const auto start = index;
+        if (character == '[')
+        {
+            ++index;
+            if (index < pattern.size() && pattern[index] == '^')
+            {
+                ++index;
+            }
+            if (index < pattern.size() && pattern[index] == ']')
+            {
+                ++index;
+            }
+            bool closed = false;
+            while (index < pattern.size())
+            {
+                if (pattern[index] == '\\')
+                {
+                    index += 2;
+                }
+                else if (pattern[index++] == ']')
+                {
+                    closed = true;
+                    break;
+                }
+            }
+            const auto token = pattern.mid(start, index - start);
+            if (!closed || token.contains("[:") || token.contains("[.") || token.contains("[="))
+            {
+                return std::nullopt;
+            }
+        }
+        else if (character == '\\')
+        {
+            if (++index >= pattern.size())
+            {
+                return std::nullopt;
+            }
+            const char escaped = pattern[index++];
+            if (escaped == 'x')
+            {
+                if (index + 1 >= pattern.size() || hexDigit(QChar::fromLatin1(pattern[index])) < 0
+                    || hexDigit(QChar::fromLatin1(pattern[index + 1])) < 0)
+                {
+                    return std::nullopt;
+                }
+                index += 2;
+            }
+            else if (escaped == '0')
+            {
+                if (index < pattern.size() && pattern[index] >= '0' && pattern[index] <= '9')
+                {
+                    return std::nullopt;
+                }
+            }
+            else if (!QByteArrayLiteral("dDsSwWhHvVnrtfae\\.^$*+?()[]{}|-/").contains(escaped))
+            {
+                return std::nullopt;
+            }
+        }
+        else
+        {
+            ++index;
+        }
+        auto bytes = atomBytes(pattern.mid(start, index - start));
+        if (!bytes)
+        {
+            return std::nullopt;
+        }
+        atoms.push_back({*bytes, false});
+        canQuantify = true;
+    }
+    if (depth != 0 || atoms.empty() || atoms.back().quantified || atoms.back().bytes.count() > 16)
+    {
+        return std::nullopt;
+    }
+
+    std::bitset<256> repeated;
+    size_t           suffix = 0;
+    for (size_t atom = 0; atom < atoms.size(); ++atom)
+    {
+        if (atoms[atom].quantified)
+        {
+            repeated |= atoms[atom].bytes;
+            suffix    = atom + 1;
+        }
+    }
+    for (size_t atom = suffix; atom < atoms.size(); ++atom)
+    {
+        if ((atoms[atom].bytes & repeated).none())
+        {
+            return atoms.back().bytes;
+        }
+    }
+    return std::nullopt;
+}
+
 } // namespace
 
 PatternFramer::PatternFramer(QVariantMap configuration, Limits limits, std::unique_ptr<Data> data) :
@@ -138,7 +394,8 @@ std::unique_ptr<Processor> PatternFramer::create(const QVariantMap& configuratio
     {
         return reject(QString("Invalid pattern at byte %1: %2").arg(offset).arg(regexError(code)));
     }
-    uint32_t empty = 0;
+    data->completionBytes = completionBytes(pattern);
+    uint32_t empty        = 0;
     pcre2_pattern_info(data->code, PCRE2_INFO_MATCHEMPTY, &empty);
     if (empty)
     {
@@ -312,8 +569,12 @@ Processor::AcceptResult PatternFramer::accept(Chunk input, Callbacks callbacks)
     }
     QElapsedTimer timer;
     timer.start();
-    qsizetype searches = 0;
-    while (error.isEmpty() && consumed < _buffer.size())
+    qsizetype  searches    = 0;
+    const bool mayComplete = !_data->completionBytes
+                          || std::any_of(input.bytes.cbegin(), input.bytes.cend(), [this](char byte) {
+                                 return (*_data->completionBytes)[static_cast<unsigned char>(byte)];
+                             });
+    while (mayComplete && error.isEmpty() && consumed < _buffer.size())
     {
         if (++searches > _limits.maxSteps || timer.elapsed() >= 20)
         {

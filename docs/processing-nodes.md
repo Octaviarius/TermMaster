@@ -875,3 +875,43 @@ used. Release was not rebuilt.
 - [HEX Encoder](images/processor-families/HexEncoder.png)
 - [HEX Codec](images/processor-families/HexCodec.png)
 - [Base64 Codec](images/processor-families/Base64Codec.png)
+
+## PERF-9 Pattern Framer completion prefilter
+
+Pattern Framer retains the full PCRE2 syntax and output-template behavior. An
+optional internal recognizer accelerates consuming concatenations with literal
+bytes, single-byte classes, plain/named/noncapturing groups and atom repetition.
+It requires a non-repeated suffix barrier that no repeated atom can consume, and
+a small non-repeated final byte set. New packets containing no possible final
+byte cannot complete such a frame, so they are appended and bounded without
+rescanning the retained prefix. Default CRLF framing and disjoint payload/ending
+patterns benefit. Unsupported constructs always use the existing general matcher;
+the recognizer never rejects an otherwise valid PCRE2 expression.
+
+Assertions, anchors, alternation, repeated groups, flags, backreferences, verbs
+and unknown escapes are excluded. Classes are checked by PCRE2 for exact
+single-byte consumption; POSIX/assertion-shaped classes are excluded. Recognition
+is bounded to 64 atoms. This is an optimization, not another regex engine.
+Capture extraction and output construction still use the original JIT code.
+
+Buffer/output bounds and accepted-call completion remain enforced on every
+packet. Matching/search budgets apply when matching is needed: skipped calls can
+avoid or defer PCRE2 resource errors that an eager failing search would have
+raised. Arbitrary expressions retain their previous matching complexity and
+bounds; this does not promise universal incremental matching.
+
+The Release PatternFramerProcessorTests, ProcessingTests and DuplexProcessorTests
+passed. Differential coverage compares each packet's output/captures/completion
+against semantically identical PCRE2 patterns with a leading comment that disables
+the recognizer. It covers every split and bytewise input for consuming, binary,
+lazy/possessive, finite/open repetition and fallback assertion/backreference
+patterns. A 64 KiB bytewise partial capture is retained and emitted exactly when
+its final marker arrives.
+
+Five filtered microbenchmark repetitions measured the 64 KiB growing partial
+case at about 16 ms total for one-byte packets, versus the original approximately
+995 ms. The delimiter control remained about 17 ms. This roughly 60-fold gain is
+specific to the recognized no-ending workload, not a general regex speed claim.
+Raw results and binary/source provenance are under
+`docs/benchmarks/pattern-completion/`. The standalone probe accepts
+`TERMASTER_PROCESSING_PROFILE_CASE` to select matching case-name substrings.
