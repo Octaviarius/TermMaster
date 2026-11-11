@@ -1003,7 +1003,7 @@ void TerminalDisplay::_drawImages(QPainter& painter, int first, bool behind)
     }
 }
 
-QPoint TerminalDisplay::_position(const QPoint& point) const
+QPoint TerminalDisplay::_position(const QPoint& point, bool snapToCell) const
 {
     const int   row    = std::clamp(verticalScrollBar()->value() + int(std::floor(point.y() / _lineHeight)),
                                     0,
@@ -1015,9 +1015,10 @@ QPoint TerminalDisplay::_position(const QPoint& point) const
         const auto& span = spans[i];
         if (column < span.count || i == spans.size() - 1)
         {
-            int         sourceColumn = span.column + std::min(column, span.count);
+            int         sourceColumn = span.column + (snapToCell ? std::min(column, span.count) : column);
             const auto& cells        = _screen.lines()[span.row].cells;
-            while (sourceColumn > span.column && sourceColumn < cells.size() && cells[sourceColumn].width == 0)
+            while (snapToCell && sourceColumn > span.column && sourceColumn < cells.size()
+                   && cells[sourceColumn].width == 0)
             {
                 --sourceColumn;
             }
@@ -1199,15 +1200,16 @@ bool TerminalDisplay::_sendMouse(int                   kind,
     }
     const int    screenRows = _terminalSize.height();
     const int    top        = std::max(0, static_cast<int>(_screen.lines().size()) - screenRows);
-    const QPoint source     = _position(point);
+    const QPoint source     = _position(point, false);
     const int    row        = source.y() - top;
-    if (row < 0 || row >= screenRows)
+    if (row < 0 || row >= screenRows || source.x() >= _terminalSize.width())
     {
         return false;
     }
-    const bool pixels = _screen.mouseEncoding() == 1016;
-    const int  x      = pixels ? qRound(source.x() * _cellWidth) : source.x();
-    const int  y      = pixels ? row * qRound(_lineHeight) + point.y() % std::max(1, qRound(_lineHeight)) : row;
+    const bool  pixels   = _screen.mouseEncoding() == 1016;
+    const qreal fraction = point.x() - std::floor(point.x() / _cellWidth) * _cellWidth;
+    const int   x        = pixels ? qRound(source.x() * _cellWidth + fraction) : source.x();
+    const int   y        = pixels ? row * qRound(_lineHeight) + point.y() % std::max(1, qRound(_lineHeight)) : row;
     _emit(TerminalInput::mouse(static_cast<TerminalInput::MouseEventKind>(kind),
                                button,
                                buttons,

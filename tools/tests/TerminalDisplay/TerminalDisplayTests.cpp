@@ -322,6 +322,28 @@ private:
         QVERIFY(expected.contains("\x1b[0n"));
         QVERIFY(expected.endsWith("R"));
     }
+    Q_SLOT void mouseReportsBlankCellsWideContinuationsAndExactPixels()
+    {
+        TerminalDisplay display;
+        display.resize(500, 200);
+        display.show();
+        display.receive(QString::fromUtf8("日").toUtf8() + "\x1b[?1000h\x1b[?1006h");
+        const qreal cell = QFontMetricsF(display.font(), display.viewport()).horizontalAdvance(QLatin1Char('M'));
+        QSignalSpy  output(&display, &TerminalDisplay::outputBytes);
+        QTest::mousePress(display.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(qRound(cell * 1.5), 5));
+        QCOMPARE(output.first().at(0).toByteArray(), QByteArray("\x1b[<0;2;1M"));
+        QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier);
+        output.clear();
+        QTest::mousePress(display.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(qRound(cell * 7.3), 5));
+        QCOMPARE(output.first().at(0).toByteArray(), QByteArray("\x1b[<0;8;1M"));
+        QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier);
+        output.clear();
+        display.receive("\x1b[?1006l\x1b[?1016h");
+        QTest::mousePress(display.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(73, 5));
+        QCOMPARE(output.first().at(0).toByteArray(), QByteArray("\x1b[<0;74;6M"));
+        QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier);
+    }
+
     Q_SLOT void selectionOverridesMouseReporting()
     {
         TerminalDisplay display;

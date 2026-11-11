@@ -188,7 +188,7 @@ private:
     CachedLine& _layout(int index);
     void        _drawRun(QPainter& painter, const Run& run, const QRectF& area);
     void        _drawImages(QPainter& painter, int first, bool behind);
-    QPoint      _position(const QPoint& point) const;
+    QPoint      _position(const QPoint& point, bool snapToCell = true) const;
     QRectF      _cursorRect() const;
     void        _emit(const QByteArray& bytes, OutputKind kind, const QByteArray& echo = {});
     bool        _sendMouse(int                   kind,
