@@ -1,5 +1,7 @@
 #pragma once
 
+#include "TerminalDockDrop.h"
+
 #include <QObject>
 #include <QPointer>
 #include <Termaster/Core/Plugin/PluginHost.h>
@@ -25,6 +27,7 @@ class TerminalDisplay;
 class QAction;
 class QToolButton;
 class QDockWidget;
+class DetachedTerminalWindow;
 
 /** GUI-thread runtime owner. Session definitions survive closed views and module unload. */
 class TerminalController final : public QObject, public PluginHost
@@ -122,14 +125,20 @@ private:
     bool                                        _batchSelectionChanged = false;
     QPointer<QWidget>                           _batchSelected;
 
-    std::optional<QString> _commandTarget;
-    bool                   _movingHost        = false;
-    bool                   _refreshingActions = false;
-    QString                _focusedTerminal;
-    QPointer<QWidget>      _mainSelected;
-    bool                   _dockLayoutRestored = false;
-    bool                   _restoringDocks     = false;
-    QByteArray             _initialDockLayout;
+    std::optional<QString>            _commandTarget;
+    bool                              _movingHost        = false;
+    bool                              _refreshingActions = false;
+    QString                           _focusedTerminal;
+    QPointer<QWidget>                 _mainSelected;
+    bool                              _dockLayoutRestored = false;
+    bool                              _restoringDocks     = false;
+    QByteArray                        _initialDockLayout;
+    std::unique_ptr<TerminalDockDrop> _dockDrop;
+    QPointer<DetachedTerminalWindow>  _dragWindow;
+    QPointer<QWidget>                 _dragPanel;
+    QString                           _dragTerminal;
+    QString                           _dragSession;
+    TerminalDockDrop::Target          _dragTarget;
 
     Runtime* _current() const;
     QString  _mainTerminalId() const;
@@ -142,6 +151,11 @@ private:
     void     _restoreDocks();
     bool     _setDockPlacement(const QString& id, bool docked, QString* error);
     QWidget* _releasePanel(Runtime& terminal);
+    void     _beginTabDrag(const QString& id, const QPoint& position, const QPoint& grabOffset);
+    void     _updateWindowDrag(DetachedTerminalWindow* source, const QPoint& position);
+    void     _finishWindowDrag(DetachedTerminalWindow* source, const QPoint& position, bool cancelled);
+    void     _clearWindowDrag();
+    void     _applyWindowDrop(const QString& id, const TerminalDockDrop::Target& target);
     bool     _activeWindow() const;
     bool     _materialize(const QString& id, QString* error);
     void     _restore();

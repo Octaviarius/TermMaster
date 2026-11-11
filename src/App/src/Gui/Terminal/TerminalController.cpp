@@ -13,6 +13,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QCursor>
 #include <QDesktopServices>
 #include <QEvent>
 #include <QFile>
@@ -29,6 +30,7 @@
 #include <QSignalBlocker>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QStyle>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
@@ -36,6 +38,7 @@
 #include <QToolButton>
 #include <QUuid>
 #include <QVBoxLayout>
+#include <QWindow>
 #include <Termaster/Core/CommandRegistry.h>
 #include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
@@ -231,6 +234,7 @@ TerminalController::TerminalController(MainWindow&                 window,
     _closeSettings(std::move(closeSettings)), _showSettings(std::move(showSettings))
 {
     _initialDockLayout = _window.terminalDockHost().saveState(1);
+    _dockDrop          = std::make_unique<TerminalDockDrop>(_window);
     connect(&_window.terminalTabs(), &QTabWidget::currentChanged, this, [this] {
         if (_movingHost)
         {
@@ -282,6 +286,7 @@ TerminalController::TerminalController(MainWindow&                 window,
             showMessage(error);
         }
     });
+    connect(&_window, &MainWindow::terminalTearOffRequested, this, &TerminalController::_beginTabDrag);
     connect(&_window.terminalDockHost(), &QMainWindow::tabifiedDockWidgetActivated, this, [this](QDockWidget* dock) {
         if (_movingHost)
         {
@@ -514,6 +519,18 @@ void TerminalController::setSession(Session* session)
     {
         return;
     }
+    {
+        const QScopedValueRollback moving(_movingHost, true);
+        // Native missing-dock placeholders belong to the previous session too.
+        if (!_window.terminalDockHost().restoreState(_initialDockLayout, 1))
+        {
+            qCWarning(terminalTrace) << "Could not reset the terminal dock layout";
+        }
+    }
+    if (!self)
+    {
+        return;
+    }
     _session            = session;
     _mainSelected       = nullptr;
     _dockLayoutRestored = false;
@@ -521,6 +538,7 @@ void TerminalController::setSession(Session* session)
 }
 void TerminalController::closeAll()
 {
+    _clearWindowDrag();
     _beginBatch();
     const QPointer<TerminalController> self(this);
     const auto                         finish = qScopeGuard([self] {
@@ -1827,6 +1845,215 @@ QMainWindow* TerminalController::detachedWindow(const QString& id) const
     return it == _terminals.end() ? nullptr : it->second->window.data();
 }
 
+void TerminalController::_beginTabDrag(const QString& id, const QPoint& position, const QPoint& grabOffset)
+{
+    const auto it = _terminals.find(id);
+    if (!_session || _movingHost || it == _terminals.end() || it->second->window || it->second->dock
+        || !(QApplication::mouseButtons() & Qt::LeftButton))
+    {
+        return;
+    }
+    const QPointer<TerminalController> self(this);
+    const QPointer<QWidget>            panel = it->second->panel;
+    QString                            error;
+    if (!detachTerminal(id, &error))
+    {
+        if (self)
+        {
+            showMessage(error);
+        }
+        return;
+    }
+    if (!self || !panel)
+    {
+        return;
+    }
+    const auto current = _terminals.find(id);
+    if (current == _terminals.end() || current->second->panel != panel || !current->second->window)
+    {
+        return;
+    }
+    const QPointer<DetachedTerminalWindow> host = current->second->window;
+    _window.terminalTabs().tabBar()->releaseMouse();
+    const int titleHeight = host->style()->pixelMetric(QStyle::PM_TitleBarHeight);
+    host->move(
+        position
+        - QPoint(std::clamp(grabOffset.x(), 24, std::max(24, host->width() - 40)), std::max(8, titleHeight / 2)));
+    if (!self || !host || !(QApplication::mouseButtons() & Qt::LeftButton))
+    {
+        return;
+    }
+    // The platform owns the still-held move. No synthetic press/release or
+    // per-mouse-move window positioning is involved in the transfer.
+    auto* handle = host->windowHandle();
+    if (!handle || !handle->startSystemMove())
+    {
+        if (self)
+        {
+            _clearWindowDrag();
+        }
+    }
+}
+
+void TerminalController::_clearWindowDrag()
+{
+    _dragWindow = nullptr;
+    _dragPanel  = nullptr;
+    _dragTerminal.clear();
+    _dragSession.clear();
+    _dragTarget = {};
+    if (_dockDrop)
+    {
+        _dockDrop->hide();
+    }
+}
+
+void TerminalController::_updateWindowDrag(DetachedTerminalWindow* source, const QPoint& position)
+{
+    if (!_session || _movingHost || !source)
+    {
+        _clearWindowDrag();
+        return;
+    }
+    const auto id = source->property("terminalId").toString();
+    const auto it = _terminals.find(id);
+    if (it == _terminals.end() || it->second->window != source)
+    {
+        _clearWindowDrag();
+        return;
+    }
+    if (_dragWindow != source)
+    {
+        _clearWindowDrag();
+        _dragWindow   = source;
+        _dragPanel    = it->second->panel;
+        _dragTerminal = id;
+        _dragSession  = _session->id();
+    }
+    _dragTarget = _dockDrop->mainUnderCursor(source) ? _dockDrop->targetAt(position) : TerminalDockDrop::Target {};
+    _dockDrop->show(_dragTarget);
+}
+
+void TerminalController::_finishWindowDrag(DetachedTerminalWindow* source, const QPoint& position, bool cancelled)
+{
+    if (_dragWindow && _dragWindow != source)
+    {
+        return;
+    }
+    const auto id         = _dragTerminal;
+    const auto panel      = _dragPanel;
+    const auto preview    = _dragTarget;
+    const auto session    = _dragSession;
+    const bool sameWindow = _dragWindow == source;
+    const auto target = !cancelled && sameWindow && _dockDrop->mainUnderCursor(source) ? _dockDrop->targetAt(position) :
+                                                                                         TerminalDockDrop::Target {};
+    _clearWindowDrag();
+
+    const auto it = _terminals.find(id);
+    if (!_session || _session->id() != session || !sameWindow || !panel || it == _terminals.end()
+        || it->second->panel != panel || it->second->window != source
+        || target.placement == TerminalDockDrop::Placement::None || target.placement != preview.placement
+        || target.dock != preview.dock || target.tabIndex != preview.tabIndex)
+    {
+        return;
+    }
+    _applyWindowDrop(id, target);
+}
+
+void TerminalController::_applyWindowDrop(const QString& id, const TerminalDockDrop::Target& target)
+{
+    using Placement = TerminalDockDrop::Placement;
+    const QPointer<TerminalController> self(this);
+    const QPointer<QDockWidget>        relative = target.dock;
+    if (relative)
+    {
+        const bool registered = std::any_of(_terminals.cbegin(), _terminals.cend(), [relative](const auto& entry) {
+            return entry.second->dock == relative;
+        });
+        if (!registered)
+        {
+            return;
+        }
+    }
+    QString error;
+    if (target.placement == Placement::Tabs)
+    {
+        if (!attachTerminal(id, &error))
+        {
+            if (self)
+            {
+                showMessage(error);
+            }
+            return;
+        }
+        if (!self)
+        {
+            return;
+        }
+        const auto it = _terminals.find(id);
+        if (it != _terminals.end())
+        {
+            auto&     tabs  = _window.terminalTabs();
+            const int index = tabs.indexOf(it->second->panel);
+            if (index >= 0)
+            {
+                tabs.tabBar()->moveTab(index, std::clamp(target.tabIndex, 0, tabs.count() - 1));
+            }
+        }
+        return;
+    }
+    if (!dockTerminal(id, &error))
+    {
+        if (self)
+        {
+            showMessage(error);
+        }
+        return;
+    }
+    if (!self)
+    {
+        return;
+    }
+    auto* dock = terminalDock(id);
+    if (!dock)
+    {
+        return;
+    }
+    auto& host = _window.terminalDockHost();
+    if (relative)
+    {
+        if (target.placement == Placement::Tabify)
+        {
+            host.tabifyDockWidget(relative, dock);
+        }
+        else
+        {
+            const bool horizontal  = target.placement == Placement::Left || target.placement == Placement::Right;
+            const auto orientation = horizontal ? Qt::Horizontal : Qt::Vertical;
+            host.splitDockWidget(relative, dock, orientation);
+            if (target.placement == Placement::Left || target.placement == Placement::Above)
+            {
+                host.splitDockWidget(dock, relative, orientation);
+            }
+            const int size = horizontal ? target.rectangle.width() : target.rectangle.height();
+            host.resizeDocks({relative, dock}, {size, size}, orientation);
+        }
+    }
+    else
+    {
+        const auto area = target.placement == Placement::Left  ? Qt::LeftDockWidgetArea :
+                          target.placement == Placement::Right ? Qt::RightDockWidgetArea :
+                          target.placement == Placement::Above ? Qt::TopDockWidgetArea :
+                                                                 Qt::BottomDockWidgetArea;
+        host.addDockWidget(area, dock);
+        const bool horizontal = area == Qt::LeftDockWidgetArea || area == Qt::RightDockWidgetArea;
+        host.resizeDocks({dock},
+                         {horizontal ? target.rectangle.width() : target.rectangle.height()},
+                         horizontal ? Qt::Horizontal : Qt::Vertical);
+    }
+    dock->raise();
+}
+
 bool TerminalController::_setDockPlacement(const QString& id, bool docked, QString* error)
 {
     if (!_session || _restoringDocks)
@@ -1865,7 +2092,13 @@ QWidget* TerminalController::_releasePanel(Runtime& terminal)
     if (window)
     {
         window->allowClose();
-        window->takeCentralWidget();
+        if (self && panel)
+        {
+            // Remove the layout item without making the panel a transient native
+            // top-level window (takeCentralWidget reparents it to nullptr).
+            window->layout()->removeWidget(panel);
+            panel->setParent(&_window, Qt::Widget);
+        }
         if (window)
         {
             window->hide();
@@ -1879,7 +2112,7 @@ QWidget* TerminalController::_releasePanel(Runtime& terminal)
         dock->setWidget(nullptr);
         if (self && panel)
         {
-            panel->setParent(&_window);
+            panel->setParent(&_window, Qt::Widget);
             _window.terminalDockHost().removeDockWidget(dock);
         }
         if (dock)
@@ -1979,6 +2212,43 @@ bool TerminalController::dockTerminal(const QString& id, QString* error)
                 QTimer::singleShot(0, this, selectDock);
             }
         });
+        connect(dock,
+                &TerminalDockWidget::floatingReleased,
+                this,
+                [this, id, guarded = QPointer<TerminalDockWidget>(dock)](const QRect& frame) {
+                    const auto current = _terminals.find(id);
+                    if (_movingHost || !guarded || guarded->window() == &_window || current == _terminals.end()
+                        || current->second->dock != guarded || QApplication::mouseButtons() != Qt::NoButton)
+                    {
+                        return;
+                    }
+                    const QPointer<TerminalController> self(this);
+                    const QPointer<QWidget>            panel = current->second->panel;
+                    QString                            error;
+                    if (!detachTerminal(id, &error))
+                    {
+                        if (self)
+                        {
+                            showMessage(error);
+                        }
+                        return;
+                    }
+                    if (!self || !panel)
+                    {
+                        return;
+                    }
+                    const auto moved = _terminals.find(id);
+                    if (moved != _terminals.end() && moved->second->panel == panel && moved->second->window)
+                    {
+                        const QPointer<DetachedTerminalWindow> window = moved->second->window;
+                        const QSize margins                           = window->frameGeometry().size() - window->size();
+                        window->resize((frame.size() - margins).expandedTo(window->minimumSizeHint()));
+                        if (self && window)
+                        {
+                            window->move(frame.topLeft());
+                        }
+                    }
+                });
         connect(dock, &TerminalDockWidget::returnRequested, this, [this, id] {
             QString error;
             if (!attachTerminal(id, &error))
@@ -2118,6 +2388,30 @@ bool TerminalController::detachTerminal(const QString& id, QString* error)
         });
         const QPointer<DetachedTerminalWindow> host   = new DetachedTerminalWindow(_commands, &_window);
         host->setProperty("terminalId", id);
+        connect(host,
+                &DetachedTerminalWindow::moveUpdated,
+                this,
+                [this, guarded = QPointer<DetachedTerminalWindow>(host)](const QPoint& position) {
+                    if (guarded)
+                    {
+                        _updateWindowDrag(guarded, position);
+                    }
+                });
+        connect(host,
+                &DetachedTerminalWindow::moveFinished,
+                this,
+                [this, guarded = QPointer<DetachedTerminalWindow>(host)](const QPoint& position, bool cancelled) {
+                    if (guarded)
+                    {
+                        _finishWindowDrag(guarded, position, cancelled);
+                    }
+                });
+        connect(host, &QObject::destroyed, this, [this, original = host.data()] {
+            if (!_dragWindow || _dragWindow.data() == original)
+            {
+                _clearWindowDrag();
+            }
+        });
         connect(host, &DetachedTerminalWindow::returnRequested, this, [this, id] {
             QString error;
             if (!attachTerminal(id, &error))
@@ -2129,6 +2423,8 @@ bool TerminalController::detachTerminal(const QString& id, QString* error)
         {
             host->restoreGeometry(QByteArray::fromBase64(saved.value("geometry").toString().toLatin1()));
         }
+        qCDebug(terminalTrace) << "Preparing detached host" << id << "size" << host->size() << "saved placement"
+                               << !saved.isEmpty();
         host->terminalToolbar().setVisible(saved.value("toolbarVisible", true).toBool());
         host->statusBar()->setVisible(saved.value("statusBarVisible", true).toBool());
         const QPointer<QWidget> panel   = terminal.panel;
@@ -2190,6 +2486,10 @@ bool TerminalController::detachTerminal(const QString& id, QString* error)
         return false;
     }
     _refreshHostActions(id);
+    if (self && _terminals.contains(id) && _terminals.at(id)->window)
+    {
+        qCDebug(terminalTrace) << "Detached host ready" << id << _terminals.at(id)->window->size();
+    }
     if (!self)
     {
         return false;
@@ -2650,6 +2950,10 @@ void TerminalController::_refreshHostActions(const QString& id)
 
 void TerminalController::_close(const QString& id, bool preservePlacement)
 {
+    if (_dragTerminal == id)
+    {
+        _clearWindowDrag();
+    }
     qCDebug(terminalTrace) << "Closing terminal" << id;
     auto it = _terminals.find(id);
     if (it == _terminals.end())
@@ -2680,7 +2984,10 @@ void TerminalController::_close(const QString& id, bool preservePlacement)
         const QScopedValueRollback moving(_movingHost, true);
         host->allowClose();
         host->hide();
-        host->takeCentralWidget();
+        if (it->second->panel)
+        {
+            host->layout()->removeWidget(it->second->panel);
+        }
     }
     if (!preservePlacement && _session)
     {
