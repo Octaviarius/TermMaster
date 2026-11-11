@@ -4,6 +4,7 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDockWidget>
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -93,10 +94,17 @@ MainWindow::MainWindow(QWidget* parent) :
     _terminalTabs->tabBar()->setElideMode(Qt::ElideNone);
     _terminalTabs->tabBar()->setExpanding(false);
     _terminalTabs->tabBar()->installEventFilter(this);
-    _central = new QStackedWidget(this);
+    _terminalDockHost = new QMainWindow(this);
+    _terminalDockHost->setWindowFlags(Qt::Widget);
+    _terminalDockHost->setObjectName("terminalDockHost");
+    _terminalDockHost->setDockOptions(QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks
+                                      | QMainWindow::GroupedDragging);
+    _terminalDockHost->setContextMenuPolicy(Qt::CustomContextMenu);
+    _central = new QStackedWidget(_terminalDockHost);
     _central->addWidget(_workspacePage);
     _central->addWidget(_terminalTabs);
-    setCentralWidget(_central);
+    _terminalDockHost->setCentralWidget(_central);
+    setCentralWidget(_terminalDockHost);
     connect(_workspacePage, &WorkspacePage::openRequested, this, &MainWindow::openWorkspaceRequested);
     connect(_workspacePage, &WorkspacePage::createRequested, this, &MainWindow::createWorkspaceRequested);
     connect(_workspacePage, &WorkspacePage::openSessionRequested, this, &MainWindow::openSessionRequested);
@@ -175,6 +183,11 @@ QTabWidget& MainWindow::terminalTabs()
 {
     return *_terminalTabs;
 }
+QMainWindow& MainWindow::terminalDockHost()
+{
+    return *_terminalDockHost;
+}
+
 void MainWindow::setTerminalTab(int            index,
                                 const QString& title,
                                 const QString& detail,
@@ -279,8 +292,20 @@ void MainWindow::setTerminalTab(int            index,
 
 void MainWindow::showTerminals(bool visible)
 {
-    _central->setCurrentWidget(visible && _terminalTabs->count() ? static_cast<QWidget*>(_terminalTabs) :
-                                                                   _workspacePage);
+    const bool attachedTabs = _terminalTabs->count() > 0;
+    _central->setCurrentWidget(visible && attachedTabs ? static_cast<QWidget*>(_terminalTabs) : _workspacePage);
+    bool dockVisible = false;
+    for (auto* dock : _terminalDockHost->findChildren<QDockWidget*>(QString(), Qt::FindDirectChildrenOnly))
+    {
+        if (!dock->isHidden())
+        {
+            dockVisible = true;
+            break;
+        }
+    }
+    // Hidden central widgets consume no central layout space, letting native
+    // dock panels fill the host when the tab strip has no attached terminals.
+    _central->setVisible(attachedTabs || !dockVisible);
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event)

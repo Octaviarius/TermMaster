@@ -22,6 +22,7 @@ public:
     MenubarActionContainer& mainMenu();
     ToolbarActionContainer& toolbar();
     QTabWidget&             terminalTabs();
+    QMainWindow&            terminalDockHost();
     void                    showTerminals(bool visible);
     void                    setTerminalTab(int            index,
                                            const QString& title,
@@ -46,6 +47,7 @@ private:
     WorkspacePage*         _workspacePage;
     QTabWidget*            _terminalTabs;
     QStackedWidget*        _central;
+    QMainWindow*           _terminalDockHost;
     QString                _dragTerminalId;
     QPointer<QWidget>      _dragPanel;
     QPoint                 _dragStart;
