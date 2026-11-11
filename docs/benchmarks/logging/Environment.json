@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-11",
+  "compiler": "MSVC 19.44.35225 x64",
+  "qt": "6.12.0",
+  "implementationRevision": "3bed4b10fd86eb877bbae65c76dd3327ad390723",
+  "profileRevision": "8579cc4",
+  "releaseConfiguredSuitesPassed": 40,
+  "debugAffectedSuitesPassed": 5,
+  "appSuitesRerunAfterStartupRecoveryFix": true,
+  "nativeScales": [
+    1,
+    2
+  ],
+  "releaseExeSha256": "716aa8c5d10a5a86e4fc0e25dacb3b4699146c3256b1a12524634e2133256965",
+  "debugExeSha256": "f373ae8b537c9ef85c1a382730c582d1abcfc72bd9b93c5eaea980d7ec790aa7",
+  "workspaceCopySourceUnchanged": true,
+  "restoredTerminalsDisconnected": true,
+  "hardware": false,
+  "downloads": false,
+  "rawLogsPublished": false,
+  "temporaryStorage": "G:/TMP/TermasterBuildTemp"
+}

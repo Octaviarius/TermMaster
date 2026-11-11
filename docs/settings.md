@@ -177,3 +177,6 @@ empty maps/sequences, signed and unsigned integer limits, overflowing integer te
 explicitly typed integral doubles, negative zero, maximum finite and subnormal
 doubles. Existing unknown-tag, alias, atomic-write and bounded-input checks passed.
 No external-device acceptance was performed.
+
+Application diagnostic preferences and workspace-aware output destinations are
+documented in [logging](logging.md).
