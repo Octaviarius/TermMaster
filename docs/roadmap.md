@@ -466,3 +466,13 @@ General regex complexity and worst-case custom validation costs remain explicit 
 - [x] Route active workspace logs beside its file and otherwise use the user application log directory.
 - [x] Instrument application, storage, plugin, transport, editor and processing lifecycle/trace boundaries without payloads.
 - [x] Verify file opt-out, routing/failure recovery, privacy, queue/rotation and shutdown in Debug/Release and native settings rendering.
+
+
+## PERF-4: Native resize and drawing reuse
+
+- [x] Measure empty and 10,000-history-line native width/height/diagonal resizing on isolated workspace copies.
+- [x] Review mature terminal rendering/resize approaches and retain the existing Qt Widgets engine.
+- [x] Remove full interior wide-cell repair on width changes and retain truncation/cursor/history contracts.
+- [x] Reuse bounded prepared shapes and opaque raster fragments; preserve decorations, graphics and fractional-DPI fallback.
+- [x] Cache unchanged palette SVG icons and avoid redundant viewport background preparation.
+- [x] Record native DPI/pixel comparison, passed Release/affected Debug suites, paired results and the host-blocked full Debug rebuild limitation.

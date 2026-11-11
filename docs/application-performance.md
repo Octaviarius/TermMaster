@@ -407,3 +407,139 @@ with the isolated prefilter result.
 - System CPU sampling remains unavailable under the existing WPR policy.
   Allocator stacks, long-duration memory stability, live multiport pressure and
   real multi-monitor DPI transitions were not established by these bounded runs.
+
+
+## PERF-4: Native window resize
+
+A new bounded probe separates one-pixel width/height changes from large diagonal
+changes on an isolated copy of `G:/TMP/Tmaster`. Six restored terminals remain
+disconnected. After 20 empty-window steps, the visible display receives synthetic
+ASCII packets directly: 10,040 lines, retaining 10,034 rows at the fixture's
+114-column, 34-row starting grid (Courier New, DPR 1). Each fresh process then
+performs 30 width steps, 30 height steps and 30 alternating 160x90 diagonal steps.
+This exercises real Widgets/window event delivery without contacting a device.
+`geometryMs` records synchronous resize; `eventsMs` records subsequent Qt event
+draining. Older baseline records contain their combined wall time only.
+
+### Reference-informed changes
+
+The implementation remains project-owned Qt Widgets code. Reference review used
+[QTermWidget's opaque drawing and resize handling](https://github.com/lxqt/qtermwidget/blob/master/lib/TerminalDisplay.cpp),
+[WezTerm's reuse of prepared line shapes](https://github.com/wezterm/wezterm/blob/main/wezterm-gui/src/termwindow/render/screen_line.rs),
+and [Alacritty's separate row grow/shrink work](https://github.com/alacritty/alacritty/blob/master/alacritty_terminal/src/grid/row.rs).
+No reference engine, source dependency or copied implementation was introduced.
+
+- Width changes initialize only appended cells and repair a potentially clipped
+  wide glyph at the right boundary. Retained interior pairs are already valid;
+  scanning every historical cell again is unnecessary. Historical truncation,
+  current-style blanks, cursor handling and model cell limits remain unchanged.
+- Prepared Qt text layouts and glyph runs are shared by exact text/rendition,
+  independently of row index. The per-display LRU charges 256 units per entry
+  plus two units per UTF-16 character against a 64 Ki-unit budget. This limits
+  cache population/text, not exact allocated memory: Qt internals and shapes
+  retained by visible rows have their own bounded lifetime.
+- Undecorated spaces need background painting, not text shaping. Mixed ASCII
+  runs keep their original grouping so glyph overhang and subpixel antialiasing
+  at internal spaces remain unchanged. Underline, strike and overline retain
+  the Qt text-layout decoration path.
+- Opaque, physically pixel-aligned text fragments use a per-display pixmap LRU
+  with an 8 MiB cost budget (pixel bytes plus text/entry allowance). It reuses
+  already rasterized glyphs across rows and resizes. Graphics placements,
+  translucent backgrounds, fractional device origins and oversized entries use
+  direct drawing. Selection/cursor overlays stay separate. Font/device metrics,
+  appearance changes and explicit clear invalidate shape/raster caches.
+- The viewport declares opaque painting only when its complete base fill is
+  opaque and synchronized output is not deferred. Transparent themes and mode
+  2026 keep the non-opaque path; the existing 150 ms timeout restores painting.
+- Palette icons previously parsed/rasterized SVG on every paint, including
+  unchanged toolbar/tab glyphs. They now use Qt's bounded application-wide
+  [QPixmapCache](https://doc.qt.io/qt-6/qpixmapcache.html) keyed by SVG digest,
+  resolved color, size, DPR and mode. Non-translating painter transforms retain
+  direct vector rendering. Palette/disabled appearance and component ownership
+  remain unchanged; no new application global cache or singleton was added.
+
+```mermaid
+flowchart LR
+    G[Grid resize] --> W[Resize changed edge cells]
+    W --> R[Visible row revisions]
+    R --> S[Shared prepared shapes]
+    S --> P{Opaque and pixel aligned?}
+    P -->|Yes, no graphics| C[Bounded fragment pixmaps]
+    P -->|Otherwise| D[Direct Qt glyphs or decorations]
+    C --> O[Selection, images and cursor layers]
+    D --> O
+```
+
+The temporary Release scope run attributed 435 ms to screen geometry and 287 ms
+to painting across 112 paints in the combined probe. After the initial shape/edge
+changes, the Debug diagnostic still spent 2,965 ms in paint versus 84 ms in row
+layout: cached layout alone did not remove repeated glyph drawing. These are
+aggregate instrumented diagnostics, not uninstrumented frame-time comparisons.
+Raw scope evidence is in `benchmarks/resize/attribution/` and
+`benchmarks/resize/attribution-debug/`; the latter precedes icon/glyph/raster fixes.
+
+
+### Paired results and verification
+
+Two fresh processes per configuration/phase supplied 40 empty-window and 60
+samples per loaded-window change. Medians in milliseconds:
+
+| Resize scenario | Release before | Release after | Debug before | Debug after |
+| --- | ---: | ---: | ---: | ---: |
+| Empty restored window | 14.353 | 7.712 | 55.490 | 26.987 |
+| Loaded, one-pixel width steps | 11.404 | 6.166 | 74.904 | 25.351 |
+| Loaded, one-pixel height steps | 9.888 | 5.382 | 68.153 | 19.252 |
+| Loaded, large diagonal changes | 23.965 | 9.681 | 151.698 | 37.847 |
+
+The loaded diagonal fixture improves about 2.5x in Release and 4.0x in Debug.
+These are scenario medians, not frame-rate or worst-case guarantees. Source
+workspace hashes remained unchanged, every measured operation succeeded and
+all paired processes exited normally. No serial/network connection was opened.
+The final after runs used C: scratch after host filesystem stalls affected G:
+temporary files and F: build-directory operations. Measurement JSON writes are
+outside each resize timer; resize itself performs no settings/file persistence.
+An earlier after-Release pair under G: scratch measured 13.4 ms for diagonal
+resize, illustrating host/run variation. It is not combined with the final pair.
+
+Release application/plugins and all 40 configured CTest suites passed (85.12 s).
+After the final fractional-origin icon guard, rebuilt application/profile/icon/
+App/display targets passed IconTests, AppTests and TerminalDisplayTests again
+(30.31 s). The SVG reference regression compares repeated cached painting with
+direct QSvgRenderer output at DPR 1/1.25/2 and translated fractional origins.
+Seven affected Debug suites passed (57.76 s): AppTests, SettingsFormTests,
+TerminalDisplayTests, TerminalScreenTests, VtParserTests, TerminalInputTests and
+TerminalGraphicsTests. Native focused display/icon tests passed at scales 1,
+1.25 and 2. Unicode, styled/colored spaces, decorations, selection, graphics,
+wide-cell truncation, font/device changes, translucency and synchronized-output
+timeout are covered. A native RGB capture matched the pre-change renderer
+pixel-for-pixel at scale 1; [normal text](images/resize/Text.png),
+[fractional-DPI text](images/resize/Text125.png) and
+[fractional-DPI icons](images/resize/Icons125.png) were visually inspected.
+clang-format and whitespace checks passed.
+
+Full final Debug rebuilding was interrupted by host file I/O stalls, including
+NtSetInformationFile/QSaveFile::commit, NtCreateFile/CreateDirectoryW and
+NtClose/FindClose observed with bounded non-invasive local stacks. A redundant
+Release AppTests rerun during this disturbance timed out; rerunning with C:
+temporary storage passed. Configuration/relink attempts were stopped rather
+than changing OS services or persistence guarantees. The retained Debug profile
+binary contains the resize/cache algorithm before the behavior-preserving helper
+extraction and final icon fractional-origin guard. The affected Debug suites
+cover the renderer changes; the last icon guard was verified in Release. The
+DPR-1 performance fixture does not exercise that fractional-origin fallback.
+No claim of a successful full final Debug build is made.
+
+Width changes still initialize/destroy changed edge cells across retained
+history; this is not zero-cost reflow. Highly diverse styled/Unicode rows, cache
+misses, graphics and fractional device positions can take the direct path.
+Remaining backend/GPU/DPI or allocator work requires separate evidence; no
+replacement engine or frame-dropping timer was introduced.
+
+Raw [summary](benchmarks/resize/Summary.json),
+[environment/binary identities](benchmarks/resize/Environment.json),
+[Release before](benchmarks/resize/before-release/Run1.json),
+[Release after](benchmarks/resize/after-release/Run1.json),
+[Debug before](benchmarks/resize/before-debug/Run1.json) and
+[Debug after](benchmarks/resize/after-debug/Run1.json) retain distributions,
+process status and source-preservation checks. Regenerate aggregates with
+`python tools/benchmarks/ApplicationProfile/SummarizeResize.py docs/benchmarks/resize`.

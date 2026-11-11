@@ -1,0 +1,38 @@
+[
+  {
+    "stage": "TerminalDisplay::_layout",
+    "calls": 6826,
+    "inclusiveMs": 89.657,
+    "exclusiveMs": 89.657
+  },
+  {
+    "stage": "TerminalDisplay::_updateGeometry",
+    "calls": 128,
+    "inclusiveMs": 436.8828,
+    "exclusiveMs": 1.931
+  },
+  {
+    "stage": "TerminalDisplay::paintEvent",
+    "calls": 112,
+    "inclusiveMs": 286.6197,
+    "exclusiveMs": 196.9627
+  },
+  {
+    "stage": "TerminalDisplay::setAppearance",
+    "calls": 18,
+    "inclusiveMs": 1.491,
+    "exclusiveMs": 0.1267
+  },
+  {
+    "stage": "TerminalScreen::_recolor",
+    "calls": 7,
+    "inclusiveMs": 0.0843,
+    "exclusiveMs": 0.0843
+  },
+  {
+    "stage": "TerminalScreen::setLimits",
+    "calls": 128,
+    "inclusiveMs": 434.9518,
+    "exclusiveMs": 434.9518
+  }
+]

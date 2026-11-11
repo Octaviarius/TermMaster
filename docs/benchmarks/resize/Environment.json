@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-11",
+  "compiler": "MSVC 19.44.35225 x64",
+  "qt": "6.12.0",
+  "baselineRevision": "eb3c811",
+  "implementationRevision": "6fc5edd",
+  "probeRevision": "b85d6e1",
+  "nativeScales": [
+    1,
+    1.25,
+    2
+  ],
+  "nativeRgbReferenceMatch": true,
+  "releaseFullSuitesPassed": 40,
+  "releaseFullSeconds": 85.12,
+  "releaseAfterIconAlignmentGuardSuitesPassed": 3,
+  "releaseFollowUpSeconds": 30.31,
+  "debugAffectedSuitesPassed": 7,
+  "debugAffectedSeconds": 57.76,
+  "debugFullRebuildCompleted": false,
+  "debugBinaryNote": "Profile binary predates helper extraction and final icon fractional-origin guard; same resize algorithm at DPR 1. Affected Debug suites cover renderer changes; final icon guard was verified in Release.",
+  "hostIssue": "Debug relink/configuration interrupted after kernel file create/rename/directory-close stalls; repeated Release AppTests passed using C: temporary storage.",
+  "beforeScratchDrive": "G:",
+  "afterScratchDrive": "C:",
+  "realSerialOrNetworkUsed": false,
+  "dependenciesDownloaded": false,
+  "sourceWorkspaceUnchanged": true,
+  "nativeReferenceRgbSha256": "50cb48a2c1d3172100f00f034a49ea99fa0e52da896c39c296ea56b188da521a",
+  "releaseProfileExeSha256": "81b246e97caaa87fa404f70bea0140b4a10b325307856ba0ec8ef4ac59920ac4",
+  "debugProfileExeSha256": "fff7195786226b1f73570bcdd91ae511d93a47bc51e7b7461b009ac0b7762387",
+  "releaseAppExeSha256": "bcf2ba1a746473a1aeac144740a41d75608d1d071fd13f90c4bd5b765edf5d3f",
+  "debugAppExeSha256": "8d078a56010a4824ee2c309cd530d828f6f1b4c07fb12e0c04ca7632cefb9ea4"
+}
