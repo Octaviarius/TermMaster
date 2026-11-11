@@ -501,4 +501,12 @@ Later stages:
 - [x] Add selected-terminal wrap controls to View and the terminal toolbar.
 - [x] Add Unicode double-click word selection across logical and visual wrapping.
 - [x] Specify complete detached terminal windows, host-aware commands and lifecycle in [terminal windows](terminal-windows.md).
-- [ ] Implement detached window hosts, per-window controls, placement persistence and Qt drag/drop.
+
+## APP-17: Detached terminal windows
+
+- [x] Move the existing terminal panel between native tabs and secondary windows without replacing runtime state.
+- [x] Provide host-aware menus, icon-only toolbars and status-bar controls.
+- [x] Support native tab drag-out, explicit return, X-to-return and explicit terminal closure.
+- [x] Persist detached geometry and toolbar/status visibility through the session owner; restore disconnected.
+- [x] Cover save veto, provider recovery, reentrant host moves and complete application shutdown.
+- [x] Verify Debug/Release builds and native interface at 100%, 125% and 200%; see [terminal windows](terminal-windows.md) for limits.
