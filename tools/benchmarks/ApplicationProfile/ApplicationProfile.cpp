@@ -85,6 +85,26 @@ void measure(const QString& name, const std::function<bool(QString&)>& action)
     saveReport();
 }
 
+void measureResize(const QString& name, QWidget& window, const QSize& size)
+{
+    double geometryMs = 0;
+    double eventsMs   = 0;
+    measure(name, [&](QString&) {
+        QElapsedTimer timer;
+        timer.start();
+        window.resize(size);
+        geometryMs = timer.nsecsElapsed() / 1e6;
+        timer.restart();
+        QApplication::processEvents();
+        eventsMs = timer.nsecsElapsed() / 1e6;
+        return true;
+    });
+    auto record = measurements.last().toObject();
+    record.insert("geometryMs", geometryMs);
+    record.insert("eventsMs", eventsMs);
+    measurements[measurements.size() - 1] = record;
+}
+
 void serialProbe()
 {
     QSerialPort port("COM3");
@@ -364,11 +384,50 @@ int main(int argc, char** argv)
             }
             for (int i = 0; i < 20; ++i)
             {
-                measure("window.resize.session.empty", [&](QString&) {
-                    app.mainWindow().resize(1000 + (i % 2) * 160, 700 + (i % 2) * 90);
+                measureResize("window.resize.session.empty",
+                              app.mainWindow(),
+                              QSize(1000 + (i % 2) * 160, 700 + (i % 2) * 90));
+            }
+            if (qEnvironmentVariableIsSet("TERMASTER_PROFILE_RESIZE_ONLY"))
+            {
+                for (auto* display : app.mainWindow().findChildren<TerminalDisplay*>())
+                {
+                    if (!display->isVisible())
+                    {
+                        continue;
+                    }
+                    display->receive((QByteArray(100, 'x') + "\r\n").repeated(10040));
                     QApplication::processEvents();
-                    return true;
-                });
+                    measurements.append(QJsonObject {
+                        {        "stage",                                             "resize.loaded.fixture"},
+                        {      "columns",                                     display->terminalSize().width()},
+                        {         "rows",                                    display->terminalSize().height()},
+                        {"retainedLines",                               int(display->screen().lines().size())},
+                        {         "font",                                            display->font().family()},
+                        {          "dpr",                                        display->devicePixelRatioF()},
+                        {           "ok", display->screen().lines().size() > display->terminalSize().height()}
+                    });
+                    for (int change = 0; change < 3; ++change)
+                    {
+                        for (int i = 0; i < 30; ++i)
+                        {
+                            measureResize(QString("window.resize.loaded.change%1").arg(change),
+                                          app.mainWindow(),
+                                          QSize(1000
+                                                    + (change == 0 ? i :
+                                                       change == 1 ? 0 :
+                                                                     (i % 2) * 160),
+                                                700
+                                                    + (change == 1 ? i :
+                                                       change == 2 ? (i % 2) * 90 :
+                                                                     0)));
+                        }
+                    }
+                    break;
+                }
+                measure("window.close.loaded", [&](QString&) { return app.mainWindow().close(); });
+                ApplicationProfileTrace::store().dump();
+                return;
             }
             for (int repeat = 0; repeat < 3; ++repeat)
             {

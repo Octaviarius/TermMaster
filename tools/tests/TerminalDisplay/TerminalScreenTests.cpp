@@ -183,6 +183,64 @@ private:
         QCOMPARE(screen.lines().size(), 2);
         QVERIFY(screen.cursorLine() < 2);
     }
+    Q_SLOT void widthResizeRepairsOnlyClippedWidePairs()
+    {
+        TerminalScreen screen;
+        screen.setLimits(12, 3, 20);
+        screen.receive(QString::fromUtf8("\x1b[31;1m日é😀AB日\x1b[0m\r\n").toUtf8().repeated(12));
+        for (const bool alternate : {false, true})
+        {
+            if (alternate)
+            {
+                screen.receive("\x1b[?1049h");
+                screen.receive(QString::fromUtf8("日😀AB日").toUtf8());
+            }
+            for (const int width : {11, 9, 7, 3, 1, 2, 5, 12, 17, 4, 12})
+            {
+                const auto before = screen.lines();
+                screen.setLimits(width, 3, 20);
+                QCOMPARE(screen.lines().size(), before.size());
+                for (int row = 0; row < before.size(); ++row)
+                {
+                    const auto& actual = screen.lines()[row].cells;
+                    QCOMPARE(actual.size(), width);
+                    for (int column = 0; column < width; ++column)
+                    {
+                        const auto& cell = actual[column];
+                        if (column < before[row].cells.size()
+                            && !(column == width - 1 && before[row].cells[column].width == 2))
+                        {
+                            const auto& expected = before[row].cells[column];
+                            QCOMPARE(cell.text, expected.text);
+                            QCOMPARE(cell.width, expected.width);
+                            QCOMPARE(cell.foreground, expected.foreground);
+                            QCOMPARE(cell.attributes, expected.attributes);
+                        }
+                        else
+                        {
+                            QCOMPARE(cell.text, QStringLiteral(" "));
+                            QCOMPARE(cell.width, 1);
+                        }
+                        if (cell.width == 2)
+                        {
+                            QVERIFY(column + 1 < width);
+                            QCOMPARE(actual[column + 1].width, 0);
+                        }
+                        if (cell.width == 0)
+                        {
+                            QVERIFY(column > 0);
+                            QCOMPARE(actual[column - 1].width, 2);
+                        }
+                    }
+                }
+            }
+        }
+        screen.receive("\x1b[?1049l");
+        for (const auto& line : screen.lines())
+        {
+            QCOMPARE(line.cells.size(), 12);
+        }
+    }
     Q_SLOT void heightResizePreservesRetainedWideStyledRows()
     {
         TerminalScreen screen;

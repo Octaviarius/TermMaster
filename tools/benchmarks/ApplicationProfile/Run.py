@@ -87,7 +87,7 @@ def main():
     unchanged = original == hashes(args.source)
     (args.output / 'Runs.json').write_text(json.dumps({'runs': statuses, 'sourceUnchanged': unchanged,
         'sourceFileCount': len(original), 'serialOptIn': args.serial,
-        'modes': {key: env.get(key) for key in ('TERMASTER_PROFILE_ONE_CYCLE', 'TERMASTER_PROFILE_RESIZE_QUICK', 'TERMASTER_PROFILE_SKIP_TERMINAL', 'TERMASTER_PROFILE_CLOSE_ONLY')},
+        'modes': {key: env.get(key) for key in ('TERMASTER_PROFILE_ONE_CYCLE', 'TERMASTER_PROFILE_RESIZE_QUICK', 'TERMASTER_PROFILE_SKIP_TERMINAL', 'TERMASTER_PROFILE_CLOSE_ONLY', 'TERMASTER_PROFILE_RESIZE_ONLY')},
         'exeSha256': hashlib.sha256((args.build/'ApplicationProfile.exe').read_bytes()).hexdigest()}, indent=2)+'\n',encoding='utf-8')
     if not unchanged:
         raise RuntimeError('Source workspace changed during profiling; inspect it before making a preservation claim')
