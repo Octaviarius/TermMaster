@@ -1,6 +1,7 @@
 #include "SocketDevice.h"
 
 #include <QHostAddress>
+#include <QLoggingCategory>
 #include <QMetaType>
 #include <QScopedValueRollback>
 #include <QTcpSocket>
@@ -9,6 +10,9 @@
 
 namespace
 {
+Q_LOGGING_CATEGORY(socketLog, "termaster.transport.socket")
+Q_LOGGING_CATEGORY(socketLogTrace, "termaster.transport.socket.trace", QtInfoMsg)
+
 constexpr qint64 maximumPending = 1024 * 1024;
 bool             fail(QString* error, const QString& message)
 {
@@ -116,6 +120,7 @@ bool SocketDevice::validate(const QVariantMap& map, QString* error)
 
 bool SocketDevice::open(const QVariantMap& configuration, QString* error)
 {
+    qCDebug(socketLogTrace) << "Open requested";
     const auto previousGeneration = _generation;
     close();
     if (_generation != previousGeneration + 1)
@@ -210,6 +215,7 @@ void SocketDevice::close()
 }
 qint64 SocketDevice::write(const QByteArray& data, QString* error)
 {
+    qCDebug(socketLogTrace) << "Write requested bytes" << data.size();
     if (error)
     {
         error->clear();
@@ -227,6 +233,7 @@ qint64 SocketDevice::write(const QByteArray& data, QString* error)
     const auto capacity = qMax<qint64>(0, maximumPending - pendingBytes());
     if (_pending.size() >= 1024)
     {
+        qCDebug(socketLogTrace) << "Output chunk limit reached";
         if (_udp && data.isEmpty())
         {
             // Zero is successful acceptance for an empty datagram, so report rejection explicitly.
@@ -237,6 +244,7 @@ qint64 SocketDevice::write(const QByteArray& data, QString* error)
     }
     if (_udp && data.size() > capacity)
     {
+        qCDebug(socketLogTrace) << "Output byte limit reached";
         return 0;
     }
     const auto accepted = qMin<qint64>(data.size(), capacity);
@@ -265,9 +273,18 @@ qint64 SocketDevice::pendingBytes() const
 }
 void SocketDevice::_setState(State state)
 {
+    qCDebug(socketLogTrace) << "State transition requested" << int(_state) << int(state);
     if (_state == state)
     {
         return;
+    }
+    if (state == State::Failed)
+    {
+        qCWarning(socketLog) << "Transport entered failed state";
+    }
+    else if (state == State::Open || state == State::Closed)
+    {
+        qCInfo(socketLog) << "Transport state" << int(state);
     }
     _state              = state;
     const auto callback = _callbacks.stateChanged;

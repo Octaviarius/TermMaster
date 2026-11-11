@@ -5,6 +5,7 @@
 #include "Gui/Processing/ProcessorFavorites.h"
 #include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/FavoritesEditor.h"
+#include "Gui/Settings/LoggingTagsEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
 #include "Gui/Settings/ShortcutEditor.h"
 #include "Gui/Terminal/TerminalController.h"
@@ -20,6 +21,7 @@
 #include <QIcon>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QLoggingCategory>
 #include <QMap>
 #include <QMessageBox>
 #include <QPointer>
@@ -37,6 +39,7 @@
 #include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Plugin/PluginManagerGui.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
+#include <Termaster/Core/Logging/Logging.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
@@ -50,9 +53,20 @@
 #include <array>
 #include <exception>
 
+namespace
+{
+Q_LOGGING_CATEGORY(appLifecycleLog, "termaster.app")
+Q_LOGGING_CATEGORY(appWorkspaceLog, "termaster.app.workspace")
+Q_LOGGING_CATEGORY(appSessionLog, "termaster.app.session")
+Q_LOGGING_CATEGORY(appSettingsTrace, "termaster.app.settings.trace", QtInfoMsg)
+Q_LOGGING_CATEGORY(appWorkspaceTrace, "termaster.app.workspace.trace", QtInfoMsg)
+Q_LOGGING_CATEGORY(appSessionTrace, "termaster.app.session.trace", QtInfoMsg)
+} // namespace
+
 struct App::Data
 {
     ApplicationPaths                                paths;
+    Logging                                         logging;
     Settings                                        defaults {QString {}};
     Settings                                        settings;
     Settings                                        pluginSettings;
@@ -61,6 +75,7 @@ struct App::Data
     CommandRegistry                                 commands;
     CommandShortcuts                                shortcuts {&commands};
     SettingsWidgetRegistry                          settingsWidgets;
+    std::shared_ptr<SettingsSchema>                 loggingSchema;
     std::unique_ptr<ProcessorFavorites>             processorFavorites;
     std::unique_ptr<MainWindow>                     window;
     std::unique_ptr<TerminalController>             terminals;
@@ -91,7 +106,7 @@ struct App::Data
     PluginManager plugins;
 
     explicit Data(const Options& options) :
-        paths(_paths(options)),
+        paths(_paths(options)), logging(paths.logsDirectory()),
         settings(paths.configFile("application"), {"termaster.application", "Termaster application settings"}),
         pluginSettings(paths.configFile("plugins"), {"termaster.plugins", "Plugin activation preferences"}),
         window(std::make_unique<MainWindow>()), plugins(pluginSettings, paths.pluginsDirectory().toString())
@@ -153,6 +168,9 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
     });
     _data->settingsWidgets.registerWidget("commandFavorites", [](const SettingsSchema::Field&, QWidget* parent) {
         return new FavoritesEditor(parent);
+    });
+    _data->settingsWidgets.registerWidget("loggingTags", [](const SettingsSchema::Field&, QWidget* parent) {
+        return new LoggingTagsEditor(parent);
     });
     connect(&_data->shortcuts, &CommandShortcuts::diagnostic, _data->window.get(), [this](const QString& error) {
         _data->window->statusBar()->showMessage(error);
@@ -217,11 +235,17 @@ App::~App()
     }
     QObject::disconnect(_data->window.get(), nullptr, this, nullptr);
 
+    qCInfo(appLifecycleLog) << "Application shutdown started";
     _data->terminals->closeAll();
     QString error;
     if (!_data->plugins.processors().shutdown(5000, &error))
     {
         qCritical().noquote() << error;
+    }
+    qCInfo(appLifecycleLog) << "Application shutdown completed";
+    if (!_data->logging.flush(&error))
+    {
+        _data->window->statusBar()->showMessage(error);
     }
 }
 
@@ -230,6 +254,7 @@ int App::run()
     QString error;
     if (!_ensureApplicationSettings(&error))
     {
+        _configureLogging(true);
         _data->window->statusBar()->showMessage(error);
     }
     if (!_data->plugins.start(&error))
@@ -380,6 +405,8 @@ bool App::restoreLastWorkspace(QString* error)
         _closeSettings(SettingsContext::Workspace);
         delete _data->lineflowWindow.data();
         _data->workspace = std::move(candidate);
+        _configureLogging();
+        qCInfo(appWorkspaceLog) << "Workspace activated";
         _bindWorkspaceProcessors();
         _updateWorkspace();
         if (hadSession)
@@ -402,6 +429,7 @@ bool App::restoreLastWorkspace(QString* error)
 
 bool App::openWorkspace(const Path& file, QString* error)
 {
+    qCDebug(appWorkspaceTrace) << "Opening workspace";
     if (!_ensureApplicationSettings(error))
     {
         return false;
@@ -431,6 +459,7 @@ bool App::createWorkspace(const Path& file, const QString& name, QString* error)
 
 bool App::saveWorkspace(QString* error)
 {
+    qCDebug(appWorkspaceTrace) << "Saving workspace";
     if (!_data->workspace)
     {
         if (error)
@@ -449,6 +478,7 @@ bool App::saveWorkspace(QString* error)
 
 bool App::closeWorkspace(QString* error)
 {
+    qCDebug(appWorkspaceTrace) << "Closing workspace";
     if (error)
     {
         error->clear();
@@ -473,7 +503,9 @@ bool App::closeWorkspace(QString* error)
     }
     delete _data->lineflowWindow.data();
     _data->processorFavorites.reset();
+    qCInfo(appWorkspaceLog) << "Workspace closed";
     _data->workspace.reset();
+    _configureLogging();
     _updateWorkspace();
     if (hadSession)
     {
@@ -935,6 +967,8 @@ bool App::_ensureApplicationSettings(QString* error)
         return false;
     }
     _data->settingsLoaded = true;
+    _configureLogging();
+    qCInfo(appLifecycleLog) << "Application settings loaded";
     return true;
 }
 
@@ -1010,6 +1044,8 @@ bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* erro
     _closeSettings(SettingsContext::Workspace);
     delete _data->lineflowWindow.data();
     _data->workspace = std::move(candidate);
+    _configureLogging();
+    qCInfo(appWorkspaceLog) << "Workspace activated";
     _bindWorkspaceProcessors();
     _updateWorkspace();
     if (hadSession)
@@ -1112,8 +1148,74 @@ void App::_updateWorkspace()
     _updateSession();
 }
 
+void App::_configureLogging(bool useDefaults)
+{
+    if (!_data->settingsLoaded && !useDefaults)
+    {
+        return;
+    }
+
+    QString error;
+    try
+    {
+        if (!_data->loggingSchema)
+        {
+            QFile file(":/Termaster/App/Logging.yaml");
+            if (!file.open(QIODevice::ReadOnly))
+            {
+                throw std::runtime_error(file.errorString().toStdString());
+            }
+            _data->loggingSchema = std::make_shared<SettingsSchema>(file.readAll());
+        }
+        const auto& schema   = *_data->loggingSchema;
+        const auto  snapshot = useDefaults ? QVariant(QVariantMap {}) :
+                                             _data->settings.value("settings/logging", QVariantMap {});
+        if (snapshot.typeId() != QMetaType::QVariantMap)
+        {
+            throw std::runtime_error("Logging settings must be a mapping.");
+        }
+        const auto values = schema.withDefaults(snapshot.toMap());
+        const auto errors = schema.validate(values);
+        if (!errors.isEmpty())
+        {
+            error = tr("Invalid logging setting %1: %2").arg(errors.first().path, errors.first().message);
+        }
+        else
+        {
+            const QStringList levels {"trace", "debug", "info", "warning", "error", "critical"};
+            Logger::Settings  policy;
+            policy.minimumLevel = static_cast<Logger::Level>(levels.indexOf(values.value("minimumLevel").toString()));
+            policy.console      = values.value("console").toBool();
+            policy.file         = values.value("file").toBool();
+            policy.gui          = false;
+            policy.maximumFileBytes = values.value("maximumFileBytes").toULongLong();
+            policy.retainedFiles    = values.value("retainedFiles").toULongLong();
+            const auto tags         = values.value("tagLevels").toMap();
+            for (auto it = tags.cbegin(); it != tags.cend(); ++it)
+            {
+                policy.tagLevels.emplace(it.key().toStdString(),
+                                         static_cast<Logger::Level>(levels.indexOf(it.value().toString())));
+            }
+            const auto directory = _data->workspace ? _data->workspace->filePath().parent().join("logs") :
+                                                      _data->paths.logsDirectory();
+            _data->logging.configure(policy, directory, &error);
+        }
+    }
+    catch (const std::exception& exception)
+    {
+        error = QString::fromUtf8(exception.what());
+    }
+    if (!error.isEmpty())
+    {
+        _data->window->statusBar()->showMessage(tr("Logging: %1").arg(error));
+        qCWarning(appLifecycleLog).noquote() << "Logging configuration failed:" << error;
+    }
+}
+
 void App::_applyConfiguration()
 {
+    qCDebug(appSettingsTrace) << "Applying application configuration";
+    _configureLogging();
     const QScopedValueRollback guard(_data->applyingConfiguration, true);
     const bool                 toolbarVisible = _data->applicationSettings().value("ui/toolbarVisible", true).toBool();
     const bool                 statusVisible = _data->applicationSettings().value("ui/statusBarVisible", true).toBool();
@@ -1313,6 +1415,7 @@ bool App::createSession(const QString& requestedName, QString* error)
 
 bool App::openSession(const QString& id, QString* error)
 {
+    qCDebug(appSessionTrace) << "Opening session";
     if (error)
     {
         error->clear();
@@ -1352,6 +1455,7 @@ bool App::openSession(const QString& id, QString* error)
 
 bool App::saveSession(QString* error)
 {
+    qCDebug(appSessionTrace) << "Saving session";
     if (error)
     {
         error->clear();
@@ -1402,6 +1506,7 @@ bool App::renameSession(const QString& name, QString* error)
 
 bool App::closeSession(QString* error)
 {
+    qCDebug(appSessionTrace) << "Closing session";
     if (error)
     {
         error->clear();
@@ -1429,6 +1534,7 @@ bool App::closeSession(QString* error)
     _closeSettings(SettingsContext::Session);
     _closeSettings(SettingsContext::Terminal);
     _data->session.reset();
+    qCInfo(appSessionLog) << "Session closed";
     _updateSession();
     emit sessionChanged();
     return true;
@@ -1497,6 +1603,7 @@ bool App::_activateSession(std::unique_ptr<Session> candidate, QString* error)
     _data->terminals->setSession(nullptr);
     _closeSettings(SettingsContext::Session);
     _data->session = std::move(candidate);
+    qCInfo(appSessionLog) << "Session activated" << _data->session->id();
     _data->terminals->setSession(_data->session.get());
     _updateSession();
     emit sessionChanged();
@@ -1686,6 +1793,12 @@ void App::_showSettings(SettingsContext context)
                                 "Global command shortcuts. Changes take effect after Apply.",
                                 schema("Shortcuts.yaml"),
                                 _data->settings.node("settings"));
+                dialog->addPage("application.logging",
+                                "Application",
+                                "Logging",
+                                "Diagnostic outputs and tag-specific minimum levels.",
+                                schema("Logging.yaml"),
+                                _data->settings.node("settings/logging"));
                 dialog->addPage("application.appearance",
                                 "Application",
                                 "Interface",

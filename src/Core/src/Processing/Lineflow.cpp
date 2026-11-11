@@ -1,4 +1,5 @@
 #include <QJsonDocument>
+#include <QLoggingCategory>
 #include <QPointer>
 #include <QSet>
 #include <QTimer>
@@ -9,6 +10,9 @@
 
 namespace
 {
+Q_LOGGING_CATEGORY(lineflowLog, "termaster.processing.lineflow")
+Q_LOGGING_CATEGORY(lineflowLogTrace, "termaster.processing.lineflow.trace", QtInfoMsg)
+
 QVariant ownedValue(const QVariant& value)
 {
     if (value.metaType().id() == QMetaType::QString)
@@ -180,6 +184,7 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
                                                             Limits             limits,
                                                             QString*           error)
 {
+    qCDebug(lineflowLogTrace) << "Preparation requested";
     auto fail = [error](QString message) {
         if (error)
         {
@@ -423,6 +428,7 @@ QString Lineflow::outputName(int port) const
 
 Processor::AcceptResult Lineflow::accept(Chunk input, Callbacks callbacks)
 {
+    qCDebug(lineflowLogTrace) << "Invocation submitted port/bytes" << input.port << input.bytes.size();
     if (_stopped || input.port < 0 || input.port >= _channels || input.bytes.size() > _limits.maxBytes)
     {
         return AcceptResult::Rejected;
@@ -431,6 +437,7 @@ Processor::AcceptResult Lineflow::accept(Chunk input, Callbacks callbacks)
     if (root.active || _queue.size() >= size_t(_limits.maxChunks)
         || input.bytes.size() > _limits.maxBytes - _queuedBytes)
     {
+        qCDebug(lineflowLogTrace) << "Invocation backpressure";
         return AcceptResult::WouldBlock;
     }
     const auto origin  = input.port;
@@ -712,6 +719,7 @@ void Lineflow::_pump()
 
 void Lineflow::_finish(int index)
 {
+    qCDebug(lineflowLogTrace) << "Invocation completed port" << index;
     auto& root     = _roots[size_t(index)];
     root.active    = false;
     auto completed = std::move(root.callbacks.completed);
@@ -735,6 +743,7 @@ QString Lineflow::_nodeError(size_t stage, const QString& error) const
 
 void Lineflow::_fail(QString error)
 {
+    qCWarning(lineflowLog) << "Lineflow execution failed";
     _failure = std::move(error);
     _stopped = true;
     _cancelNodes();
@@ -742,6 +751,7 @@ void Lineflow::_fail(QString error)
 
 void Lineflow::cancel(std::function<void()> quiescent)
 {
+    qCDebug(lineflowLogTrace) << "Cancellation requested";
     if (_quiescent)
     {
         if (quiescent)
@@ -805,6 +815,7 @@ void Lineflow::_cancelNodes()
 
 void Lineflow::_cancelled()
 {
+    qCDebug(lineflowLogTrace) << "Cancellation acknowledged";
     _quiescent = true;
     for (auto& stage : _stages)
     {

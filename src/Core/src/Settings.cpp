@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QLoggingCategory>
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QSet>
@@ -15,6 +16,9 @@
 
 namespace
 {
+Q_LOGGING_CATEGORY(storageTrace, "termaster.storage.settings.trace", QtInfoMsg)
+Q_LOGGING_CATEGORY(storageLog, "termaster.storage.settings")
+
 constexpr qint64 MaxSettingsBytes = 4 * 1024 * 1024;
 
 void validateTree(const YAML::Node& node, qsizetype& remaining, int depth = 0)
@@ -494,6 +498,7 @@ bool Settings::isDirty() const
 
 bool Settings::load(QString* error)
 {
+    qCDebug(storageTrace) << "Settings load requested";
     if (error)
     {
         error->clear();
@@ -540,12 +545,14 @@ bool Settings::load(QString* error)
     }
     catch (const std::exception& exception)
     {
+        qCWarning(storageLog) << "Settings read failed";
         return failure(error, "read", _data->path, exception);
     }
 }
 
 bool Settings::sync(QString* error)
 {
+    qCDebug(storageTrace) << "Settings sync requested";
     if (error)
     {
         error->clear();
@@ -567,6 +574,7 @@ bool Settings::sync(QString* error)
         {
             throw std::runtime_error(file.errorString().toStdString());
         }
+        qCDebug(storageTrace) << "Atomic settings write completed bytes" << bytes.size();
         _data->dirty             = false;
         _data->diskDigest        = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
         _data->diskExists        = true;
@@ -575,6 +583,7 @@ bool Settings::sync(QString* error)
     }
     catch (const std::exception& exception)
     {
+        qCWarning(storageLog) << "Settings write failed";
         return failure(error, "write", _data->path, exception);
     }
 }

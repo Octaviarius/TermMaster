@@ -5,6 +5,7 @@
 #include <QEvent>
 #include <QEventLoop>
 #include <QJsonDocument>
+#include <QLoggingCategory>
 #include <QPointer>
 #include <QRegularExpression>
 #include <QScopeGuard>
@@ -19,6 +20,9 @@
 
 namespace
 {
+Q_LOGGING_CATEGORY(registryLog, "termaster.processing.registry")
+Q_LOGGING_CATEGORY(registryLogTrace, "termaster.processing.registry.trace", QtInfoMsg)
+
 bool fail(QString* error, const QString& text)
 {
     if (error)
@@ -486,6 +490,7 @@ ProcessorRegistry::~ProcessorRegistry() = default;
 
 bool ProcessorRegistry::shutdown(int timeoutMs, QString* error)
 {
+    qCDebug(registryLogTrace) << "Shutdown drain requested timeout" << timeoutMs;
     if (error)
     {
         error->clear();
@@ -1070,6 +1075,7 @@ bool ProcessorRegistry::validatePublicationDraft(const QString&     owner,
 
 bool ProcessorRegistry::publishDefinitions(const QString& owner, const QList<Definition>& definitions, QString* error)
 {
+    qCDebug(registryLogTrace) << "Definitions publication requested count" << definitions.size();
     if (!validatePublication(owner, definitions, error))
     {
         return false;
@@ -1261,6 +1267,7 @@ bool ProcessorRegistry::canRemoveOwner(const QString& owner, QString* error) con
 
 bool ProcessorRegistry::removeOwner(const QString& owner, QString* error)
 {
+    qCDebug(registryLogTrace) << "Owner removal requested";
     if (!canRemoveOwner(owner, error))
     {
         return false;
@@ -1746,6 +1753,7 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
                                                       QStringList                 outputNames,
                                                       QString*                    error)
 {
+    qCDebug(registryLogTrace) << "Processor instantiation requested";
     if (!lifetime->accepting)
     {
         fail(error, "Processor registry is shutting down");
@@ -1796,7 +1804,7 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
         auto pin = new std::shared_ptr<Hold>(hold);
         if (lifetime->finished)
         {
-            qCritical() << "Processor released after shutdown; instance remains pinned";
+            qCCritical(registryLog) << "Processor released after shutdown; instance remains pinned";
             return;
         }
         auto acknowledged = std::make_shared<bool>(false);
@@ -1810,7 +1818,7 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
                 *acknowledged = true;
                 if (lifetime->finished)
                 {
-                    qCritical() << "Processor acknowledged after shutdown; instance remains pinned";
+                    qCCritical(registryLog) << "Processor acknowledged after shutdown; instance remains pinned";
                     return;
                 }
                 QTimer::singleShot(0, processor, [pin, processor, lifetime] {
@@ -1822,7 +1830,7 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
         }
         catch (...)
         {
-            qCritical() << "Processor cancellation threw; instance remains pinned";
+            qCCritical(registryLog) << "Processor cancellation threw; instance remains pinned";
         }
     });
     if (leased->inputCount() != inputCount || leased->outputCount() != outputCount)
@@ -1838,6 +1846,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::prepare(co
                                                                               const Processor::Limits& limits,
                                                                               QString*                 error)
 {
+    qCDebug(registryLogTrace) << "Preparation requested" << id;
     if (error)
     {
         error->clear();

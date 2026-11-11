@@ -1,6 +1,8 @@
 #include "ConsoleDevice.h"
 
 #include "ConsoleEnvironment.h"
+
+#include <QLoggingCategory>
 #if defined(Q_OS_WIN) && !defined(TERMASTER_CONSOLE_HOST)
 #include "Elevation/ElevatedConsoleDevice.h"
 #endif
@@ -37,6 +39,9 @@
 
 namespace
 {
+Q_LOGGING_CATEGORY(consoleLog, "termaster.transport.console")
+Q_LOGGING_CATEGORY(consoleLogTrace, "termaster.transport.console.trace", QtInfoMsg)
+
 constexpr qsizetype QueueLimit = 1024 * 1024;
 constexpr qsizetype ChunkSize  = 16384;
 
@@ -853,6 +858,7 @@ bool ConsoleDevice::validate(const QVariantMap& configuration, QString* error)
 
 bool ConsoleDevice::open(const QVariantMap& configuration, QString* error)
 {
+    qCDebug(consoleLogTrace) << "Open requested";
     close();
     QString message;
     if (!validate(configuration, &message))
@@ -952,6 +958,7 @@ void ConsoleDevice::close()
 
 qint64 ConsoleDevice::write(const QByteArray& data, QString* error)
 {
+    qCDebug(consoleLogTrace) << "Write requested bytes" << data.size();
     if (_elevated)
     {
         return _elevated->write(data, error);
@@ -1028,9 +1035,18 @@ void ConsoleDevice::setReadPaused(bool paused)
 
 void ConsoleDevice::_setState(State state)
 {
+    qCDebug(consoleLogTrace) << "State transition requested" << int(_state) << int(state);
     if (_state == state)
     {
         return;
+    }
+    if (state == State::Failed)
+    {
+        qCWarning(consoleLog) << "Transport entered failed state";
+    }
+    else if (state == State::Open || state == State::Closed)
+    {
+        qCInfo(consoleLog) << "Transport state" << int(state);
     }
     _state = state;
     if (_callbacks.stateChanged)

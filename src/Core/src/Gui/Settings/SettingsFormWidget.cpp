@@ -296,6 +296,8 @@ void SettingsFormWidget::_refresh(const QString& key)
         presence->setChecked(_model->supportsInheritance() ? _model->hasOverride(key) : _model->contains(key));
     }
     _updating = false;
+    // Loaded and programmatic values must satisfy custom editor semantics too.
+    _model->setInputError(key, fieldEditor->inputError());
     _refreshState(key);
     _refreshContext();
 }

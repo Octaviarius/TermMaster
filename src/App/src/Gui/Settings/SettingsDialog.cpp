@@ -239,7 +239,8 @@ void SettingsDialog::_addPage(const QString&     id,
         parent->setData(category, SearchRole);
         _treeModel->appendRow(parent);
     }
-    const auto pageIcon = id.endsWith("shortcuts")                          ? "keyboard" :
+    const auto pageIcon = id.endsWith("logging")                            ? "scan-text" :
+                          id.endsWith("shortcuts")                          ? "keyboard" :
                           id.endsWith("appearance")                         ? "panels-top-left" :
                           id.endsWith("terminal") || id.endsWith("display") ? "text-cursor" :
                           id.endsWith("serial")                             ? "cable" :

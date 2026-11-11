@@ -1,6 +1,7 @@
 #include "LineflowEditorModel.h"
 
 #include <QJsonDocument>
+#include <QLoggingCategory>
 #include <QMimeData>
 #include <QUuid>
 #include <Termaster/Core/Gui/Icons.h>
@@ -8,6 +9,8 @@
 
 namespace
 {
+Q_LOGGING_CATEGORY(editorTrace, "termaster.ui.lineflow.trace", QtInfoMsg)
+
 bool fail(QString* error, const QString& message)
 {
     if (error)
@@ -254,6 +257,7 @@ QVariantMap LineflowEditorModel::node(const QString& block, const QString& name)
 }
 bool LineflowEditorModel::_commit(QVariantMap draft, QString* error)
 {
+    qCDebug(editorTrace) << "Draft commit requested definitions" << draft.size();
     auto parsed = ProcessorRegistry::parseDefinitions(draft, error);
     if (!parsed || !_registry.validatePublication("workspace", *parsed, error))
     {
@@ -456,6 +460,7 @@ bool LineflowEditorModel::canDropAt(const QMimeData* data, int row, const QStrin
     {
         return _laneProbe->accepted;
     }
+    qCDebug(editorTrace) << "Drop validation requested row" << row;
     QMimeData snapshot;
     if (key)
     {
@@ -913,6 +918,7 @@ bool LineflowEditorModel::canDropMimeData(const QMimeData*   data,
     {
         return _modelProbe->accepted;
     }
+    qCDebug(editorTrace) << "Drop validation requested row" << row;
     QMimeData snapshot;
     if (key)
     {

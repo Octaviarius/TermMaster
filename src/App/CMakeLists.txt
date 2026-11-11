@@ -35,6 +35,8 @@ qt_add_library(App STATIC
     src/Gui/Help/ThirdPartyDialog.cpp
     src/Gui/Settings/SettingsDialog.h
     src/Gui/Settings/SettingsDialog.cpp
+    src/Gui/Settings/LoggingTagsEditor.h
+    src/Gui/Settings/LoggingTagsEditor.cpp
     src/Gui/Settings/FavoritesEditor.h
     src/Gui/Settings/FavoritesEditor.cpp
     src/Gui/Settings/ShortcutEditor.h
@@ -78,6 +80,7 @@ qt_add_resources(App "appSettingsSchema"
     FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/SettingsSchema.yaml"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/Shortcuts.yaml"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Res/Logging.yaml"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/TerminalAppearance.yaml"
 )
 

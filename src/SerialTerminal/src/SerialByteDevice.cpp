@@ -1,5 +1,6 @@
 #include "SerialByteDevice.h"
 
+#include <QLoggingCategory>
 #include <QMetaType>
 #include <QScopedValueRollback>
 #include <QSerialPort>
@@ -7,6 +8,9 @@
 
 namespace
 {
+Q_LOGGING_CATEGORY(serialLog, "termaster.transport.serial")
+Q_LOGGING_CATEGORY(serialLogTrace, "termaster.transport.serial.trace", QtInfoMsg)
+
 constexpr qint64 maximumPending = 1024 * 1024;
 bool             fail(QString* error, const QString& text)
 {
@@ -157,6 +161,7 @@ bool SerialByteDevice::validate(const QVariantMap& map, QString* error)
 }
 bool SerialByteDevice::open(const QVariantMap& configuration, QString* error)
 {
+    qCDebug(serialLogTrace) << "Open requested";
     if (error)
     {
         error->clear();
@@ -230,6 +235,7 @@ void SerialByteDevice::close()
 }
 qint64 SerialByteDevice::write(const QByteArray& data, QString* error)
 {
+    qCDebug(serialLogTrace) << "Write requested bytes" << data.size();
     if (error)
     {
         error->clear();
@@ -242,6 +248,7 @@ qint64 SerialByteDevice::write(const QByteArray& data, QString* error)
     const auto accepted = qMin<qint64>(data.size(), qMax<qint64>(0, maximumPending - pendingBytes()));
     if (accepted == 0)
     {
+        qCDebug(serialLogTrace) << "Output backpressure";
         return 0;
     }
     _pending.append(data.constData(), accepted);
@@ -272,9 +279,18 @@ void SerialByteDevice::transportError(const QString& error)
 }
 void SerialByteDevice::_setState(State state)
 {
+    qCDebug(serialLogTrace) << "State transition requested" << int(_state) << int(state);
     if (_state == state)
     {
         return;
+    }
+    if (state == State::Failed)
+    {
+        qCWarning(serialLog) << "Transport entered failed state";
+    }
+    else if (state == State::Open || state == State::Closed)
+    {
+        qCInfo(serialLog) << "Transport state" << int(state);
     }
     _state              = state;
     const auto callback = _callbacks.stateChanged;

@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLibrary>
+#include <QLoggingCategory>
 #include <QRegularExpression>
 #include <QScopeGuard>
 #include <QScopedValueRollback>
@@ -18,6 +19,12 @@
 #include <algorithm>
 #include <exception>
 #include <stdexcept>
+
+namespace
+{
+Q_LOGGING_CATEGORY(pluginsLog, "termaster.plugins")
+Q_LOGGING_CATEGORY(pluginsLogTrace, "termaster.plugins.trace", QtInfoMsg)
+} // namespace
 
 PluginManager::PluginManager(Settings& settings, QString directory, QObject* parent) :
     QAbstractListModel(parent), _settings(settings), _directory(QDir(directory).absolutePath()), _watcher(this),
@@ -41,7 +48,7 @@ PluginManager::~PluginManager()
     {
         if (record->loader && record->loader->isLoaded())
         {
-            qCritical() << "Plugin remains pinned at process shutdown:" << path << record->entry.error;
+            qCCritical(pluginsLog) << "Plugin remains pinned at process shutdown";
             record->loader.release();
         }
     }
@@ -146,6 +153,7 @@ bool PluginManager::isActive() const
 
 bool PluginManager::start(QString* error)
 {
+    qCDebug(pluginsLogTrace) << "Plugin manager start requested";
     if (!_checkCall(error))
     {
         return false;
@@ -174,6 +182,7 @@ bool PluginManager::start(QString* error)
 
 bool PluginManager::stop(QString* error)
 {
+    qCDebug(pluginsLogTrace) << "Plugin manager stop requested";
     if (!_checkCall(error))
     {
         return false;
@@ -780,6 +789,7 @@ void PluginManager::_validateGraph(QStringList& order, QHash<QString, Record*>& 
 
 bool PluginManager::_startRecord(Record& record)
 {
+    qCDebug(pluginsLogTrace) << "Plugin startup requested" << record.entry.info.id;
     auto& entry   = record.entry;
     entry.status  = Status::Starting;
     record.loader = std::make_unique<QPluginLoader>();
@@ -833,7 +843,7 @@ bool PluginManager::_startRecord(Record& record)
                 {
                     _loadedOrder.append(entry.path);
                     entry.status = Status::Running;
-                    qInfo() << "Plugin started:" << entry.info.id;
+                    qCInfo(pluginsLog) << "Plugin started" << entry.info.id;
                     emit pluginStarted(entry.info.id);
                     return true;
                 }
@@ -874,6 +884,7 @@ bool PluginManager::_startRecord(Record& record)
 
 bool PluginManager::_stopRecord(Record& record)
 {
+    qCDebug(pluginsLogTrace) << "Plugin shutdown requested" << record.entry.info.id;
     if (!record.loader)
     {
         return true;
@@ -932,7 +943,7 @@ bool PluginManager::_stopRecord(Record& record)
         record.failed           = false;
         _loadedOrder.removeAll(entry.path);
         entry.status = entry.enabled ? Status::Stopped : Status::Disabled;
-        qInfo() << "Plugin stopped:" << entry.info.id;
+        qCInfo(pluginsLog) << "Plugin stopped" << entry.info.id;
         emit pluginStopped(entry.info.id);
         return true;
     }
@@ -1069,14 +1080,14 @@ void PluginManager::_updateWatches(const QStringList& paths)
     {
         if (!_watcher.addPath(path))
         {
-            qWarning() << "Cannot watch plugin path; polling remains active:" << path;
+            qCWarning(pluginsLog) << "Cannot watch plugin path; polling remains active";
         }
     }
 }
 
 void PluginManager::_report(const QString& error)
 {
-    qWarning().noquote() << error;
+    qCWarning(pluginsLog) << "Plugin lifecycle operation failed";
     emit errorOccurred(error);
 }
 
