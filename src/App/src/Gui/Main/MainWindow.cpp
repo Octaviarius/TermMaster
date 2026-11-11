@@ -7,11 +7,13 @@
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMouseEvent>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -90,6 +92,7 @@ MainWindow::MainWindow(QWidget* parent) :
     _terminalTabs->setDocumentMode(true);
     _terminalTabs->tabBar()->setElideMode(Qt::ElideNone);
     _terminalTabs->tabBar()->setExpanding(false);
+    _terminalTabs->tabBar()->installEventFilter(this);
     _central = new QStackedWidget(this);
     _central->addWidget(_workspacePage);
     _central->addWidget(_terminalTabs);
@@ -278,4 +281,55 @@ void MainWindow::showTerminals(bool visible)
 {
     _central->setCurrentWidget(visible && _terminalTabs->count() ? static_cast<QWidget*>(_terminalTabs) :
                                                                    _workspacePage);
+}
+
+bool MainWindow::eventFilter(QObject* watched, QEvent* event)
+{
+    auto* bar = _terminalTabs->tabBar();
+    if (watched == bar && event->type() == QEvent::MouseButtonPress)
+    {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        if (mouse->button() == Qt::LeftButton)
+        {
+            _dragTerminalId.clear();
+            _dragPanel      = nullptr;
+            _dragStart      = mouse->globalPosition().toPoint();
+            const int index = bar->tabAt(mouse->position().toPoint());
+            if (auto* panel = _terminalTabs->widget(index))
+            {
+                _dragTerminalId = panel->property("terminalId").toString();
+                _dragPanel      = panel;
+            }
+        }
+    }
+    else if (watched == bar && event->type() == QEvent::MouseButtonRelease)
+    {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        if (mouse->button() == Qt::LeftButton)
+        {
+            const QString           terminalId = _dragTerminalId;
+            const QPointer<QWidget> panel      = _dragPanel;
+            _dragTerminalId.clear();
+            _dragPanel           = nullptr;
+            const int  threshold = QApplication::startDragDistance();
+            const bool moved     = (mouse->globalPosition().toPoint() - _dragStart).manhattanLength() >= threshold;
+            const bool outside   = !bar->rect()
+                                        .adjusted(-threshold, -threshold, threshold, threshold)
+                                        .contains(mouse->position().toPoint());
+            _dragStart           = QPoint();
+            if (panel && !terminalId.isEmpty() && moved && outside)
+            {
+                // Let the native tab bar finish its release and reorder first.
+                QTimer::singleShot(0, this, [this, terminalId, panel] {
+                    // A replacement session may reuse an ID, but never this live page.
+                    if (panel && _terminalTabs->indexOf(panel.data()) >= 0
+                        && panel->property("terminalId").toString() == terminalId)
+                    {
+                        emit terminalDetachRequested(terminalId);
+                    }
+                });
+            }
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
