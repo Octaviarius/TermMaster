@@ -476,3 +476,19 @@ General regex complexity and worst-case custom validation costs remain explicit 
 - [x] Reuse bounded prepared shapes and opaque raster fragments; preserve decorations, graphics and fractional-DPI fallback.
 - [x] Cache unchanged palette SVG icons and avoid redundant viewport background preparation.
 - [x] Record native DPI/pixel comparison, passed Release/affected Debug suites, paired results and the host-blocked full Debug rebuild limitation.
+
+
+## VIEW-2: Lossless retained rows and visual wrapping
+
+- [x] Retain the project renderer and start directly from dev; preserve VIEW-1 experiments in history.
+- [x] Analyze VS Code/Scintilla source/display separation and retain scripted reference evidence.
+- [x] Preserve history cells/revisions on width changes and budget actual retained cells.
+- [x] Track automatic wrap boundaries and project source rows into independent visual rows.
+- [x] Add a persisted visual-wrap setting and horizontal scrolling with wrapping disabled.
+- [x] Map selection, copying, cursor, IME, mouse and image origins through the visual index.
+- [x] Complete correctness, native visual/DPI, Debug/Release and resize/scroll verification; record the unrelated Pacer timing failure.
+
+Later stages:
+
+- [ ] Incremental/paged mapping and configurable disk-backed unlimited history.
+- [ ] Whole-history search, word/line/rectangle selection, font zoom and whitespace/control visualization.

@@ -32,6 +32,7 @@ public:
     };
     Q_ENUM(OutputKind)
     explicit TerminalDisplay(QWidget* parent = nullptr);
+    ~TerminalDisplay() override;
     void                  receive(const QByteArray& bytes);
     void                  localEcho(const QByteArray& bytes);
     void                  setAppearance(const QVariantMap& appearance);
@@ -115,6 +116,39 @@ private:
         bool             blinking = false;
         std::vector<Run> runs;
     };
+    struct Span
+    {
+        int row    = 0;
+        int column = 0;
+        int count  = 0;
+    };
+    struct VisualRow
+    {
+        QVector<Span> spans;
+    };
+    struct Extent
+    {
+        quint64 revision    = ~quint64(0);
+        int     columns     = 0;
+        int     maximum     = 0;
+        int     contentRows = 0;
+    };
+    struct IndexState
+    {
+        int     columns   = 0;
+        int     rows      = 0;
+        int     sources   = 0;
+        bool    primary   = false;
+        bool    wrap      = false;
+        quint64 discarded = 0;
+        quint64 reset     = 0;
+    };
+    QVector<VisualRow>    _visualRows;
+    QVector<int>          _sourceVisualRows;
+    IndexState            _index;
+    int                   _visualContentRows = 0;
+    QVector<Extent>       _extents;
+    bool                  _wrapLines             = true;
     bool                  _appearanceInitialized = false;
     QFont                 _metricsFont;
     int                   _metricsDpiX = 0;
@@ -147,12 +181,14 @@ private:
     quint64                                  _graphicsReset = 0;
     QSize                                    _terminalSize {80, 24};
     void                                     _updateGeometry();
+    void                                     _rebuildVisualRows(int columns);
+    QPoint                                   _visualPosition(const QPoint& source) const;
     void                                     _updateOpacity();
-    void        _afterInput(quint64 discarded, bool alternate, bool reverse, bool atBottom, int scrollPosition);
+    void        _afterInput(quint64 discarded, bool alternate, bool reverse, bool atBottom, QPoint scrollAnchor);
     CachedLine& _layout(int index);
     void        _drawRun(QPainter& painter, const Run& run, const QRectF& area);
     void        _drawImages(QPainter& painter, int first, bool behind);
-    QPoint      _position(const QPoint& point) const;
+    QPoint      _position(const QPoint& point, bool snapToCell = true) const;
     QRectF      _cursorRect() const;
     void        _emit(const QByteArray& bytes, OutputKind kind, const QByteArray& echo = {});
     bool        _sendMouse(int                   kind,

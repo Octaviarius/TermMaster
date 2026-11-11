@@ -119,6 +119,7 @@ struct App::Data
                 {     "appearance/foreground",                                                    "#e5e7eb"},
                 {     "appearance/background",                                                    "#15191f"},
                 {"appearance/scrollbackLines",                                                        10000},
+                {      "appearance/wrapLines",                                                         true},
                 {           "input/localEcho",                                                        false},
                 {         "ui/toolbarVisible",                                                         true},
                 {       "ui/statusBarVisible",                                                         true}

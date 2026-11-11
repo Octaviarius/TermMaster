@@ -1,5 +1,6 @@
 #include "ProfileTrace.h"
 
+#include <QCryptographicHash>
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
@@ -9,10 +10,13 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMainWindow>
+#include <QPaintEvent>
+#include <QScrollBar>
 #include <QSerialPort>
 #include <QTabWidget>
 #include <QThread>
 #include <QTimer>
+#include <QWheelEvent>
 #include <Termaster/App/App.h>
 #include <Termaster/Core/CommandRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
@@ -82,7 +86,10 @@ void measure(const QString& name, const std::function<bool(QString&)>& action)
     });
     fprintf(stderr, "%s: %.3f ms %s\n", qPrintable(name), ms, ok ? "ok" : qPrintable(error));
     fflush(stderr);
-    saveReport();
+    if (!qEnvironmentVariableIsSet("TERMASTER_PROFILE_DISPLAY_COMPARE") || measurements.size() % 10 == 0)
+    {
+        saveReport();
+    }
 }
 
 void measureResize(const QString& name, QWidget& window, const QSize& size)
@@ -103,6 +110,256 @@ void measureResize(const QString& name, QWidget& window, const QSize& size)
     record.insert("geometryMs", geometryMs);
     record.insert("eventsMs", eventsMs);
     measurements[measurements.size() - 1] = record;
+}
+
+class PresentationProbe final : public QObject
+{
+public:
+    explicit PresentationProbe(QWidget& viewport)
+    {
+        viewport.installEventFilter(this);
+    }
+
+    int paints() const
+    {
+        return _paints;
+    }
+    qint64 pixels() const
+    {
+        return _pixels;
+    }
+
+protected:
+    bool eventFilter(QObject*, QEvent* event) override
+    {
+        if (event->type() == QEvent::Paint)
+        {
+            ++_paints;
+            for (const auto& rect : static_cast<QPaintEvent*>(event)->region())
+            {
+                _pixels += qint64(rect.width()) * rect.height();
+            }
+        }
+        return false;
+    }
+
+private:
+    int    _paints = 0;
+    qint64 _pixels = 0;
+};
+
+void finishPresentation()
+{
+    // Drain queued geometry and paint delivery without forcing whole-view repaints.
+    for (int pass = 0; pass < 3; ++pass)
+    {
+        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        QApplication::sendPostedEvents(nullptr, QEvent::UpdateRequest);
+    }
+}
+
+void compareDisplay(QMainWindow& window, TerminalDisplay& display)
+{
+    const auto        kind     = qEnvironmentVariable("TERMASTER_PROFILE_DISPLAY_CONTENT", "ascii");
+    auto*             viewport = display.viewport();
+    auto*             scroll   = display.verticalScrollBar();
+    PresentationProbe paints(*viewport);
+    display.setAppearance({
+        {     "fontFamily",                                                       "Courier New"},
+        {       "fontSize",                                                                  12},
+        {"scrollbackLines",                                                               12000},
+        {      "wrapLines", qEnvironmentVariableIntValue("TERMASTER_PROFILE_DISPLAY_WRAP") != 0}
+    });
+    display.clear();
+    window.resize(1160, 790);
+    window.raise();
+    window.activateWindow();
+    finishPresentation();
+    display.clearFocus();
+
+    QByteArray input = "\x1b[?25l";
+    QString    expected;
+    for (int row = 0; row < 10000; ++row)
+    {
+        const auto prefix  = QByteArray::number(row).rightJustified(6, '0') + " | ";
+        input             += prefix;
+        input    += kind == "mixed" ?
+                        QString::fromUtf8("\x1b[31mred\x1b[0m \x1b[1mbold\x1b[0m Русский 日本語 é 😀 ").toUtf8() :
+                        QByteArray("plain ASCII text ");
+        input    += QByteArray(28, 'a' + row % 26) + "\r\n";
+        expected += QString::fromLatin1(prefix)
+                  + (kind == "mixed" ? QString::fromUtf8("red bold Русский 日本語 é 😀 ") :
+                                       QStringLiteral("plain ASCII text "))
+                  + QString(28, QChar('a' + row % 26)) + '\n';
+    }
+    expected.chop(1);
+    const auto expectedHash = QString::fromLatin1(
+        QCryptographicHash::hash(expected.toUtf8(), QCryptographicHash::Sha256).toHex());
+    measure("compare.load", [&](QString&) {
+        display.receive(input);
+        finishPresentation();
+        return true;
+    });
+    const auto sourceHash = [&] {
+        return QString::fromLatin1(
+            QCryptographicHash::hash(display.text().toUtf8(), QCryptographicHash::Sha256).toHex());
+    };
+    const auto initialHash = sourceHash();
+    const auto topRow      = [&] { return scroll->value(); };
+    const auto fixture     = [&](const QString& stage) {
+        measurements.append(QJsonObject {
+            {"stage", stage},
+            {"renderer", QStringLiteral("grid")},
+            {"content", kind},
+            {"inputSha256", QString::fromLatin1(QCryptographicHash::hash(input, QCryptographicHash::Sha256).toHex())},
+            {"sourceSha256", sourceHash()},
+            {"expectedSha256", expectedHash},
+
+            {"font", display.font().family()},
+            {"pointSize", display.font().pointSizeF()},
+            {"dpr", viewport->devicePixelRatioF()},
+            {"viewportWidth", viewport->width()},
+            {"viewportHeight", viewport->height()},
+            {"columns", display.terminalSize().width()},
+            {"rows", display.terminalSize().height()},
+            {"retainedLines", display.screen().lines().size()},
+
+            {"platform", QGuiApplication::platformName()},
+            {"ok",
+             window.isVisible() && !window.isMinimized() && viewport->isVisible()
+                 && QGuiApplication::platformName() == "windows" && display.screen().lines().size() >= 10001
+                 && sourceHash() == initialHash && initialHash == expectedHash
+                 && (kind == "ascii" || kind == "mixed")}
+        });
+    };
+    fixture("compare.fixture.loaded");
+
+    const auto resize = [&](const QString& name, const QSize& size) {
+        const auto before       = display.terminalSize();
+        const int  beforePaints = paints.paints();
+        double     geometryMs   = 0;
+        double     eventsMs     = 0;
+        measure(name, [&](QString& error) {
+            QElapsedTimer timer;
+            timer.start();
+            window.resize(size);
+            geometryMs = timer.nsecsElapsed() / 1e6;
+            timer.restart();
+            finishPresentation();
+            eventsMs = timer.nsecsElapsed() / 1e6;
+            if (paints.paints() == beforePaints)
+            {
+                error = "Resize did not paint the active viewport";
+                return false;
+            }
+            return true;
+        });
+        auto record = measurements.last().toObject();
+        record.insert("geometryMs", geometryMs);
+        record.insert("eventsMs", eventsMs);
+        record.insert("gridChanged", before != display.terminalSize());
+        record.insert("paintEvents", paints.paints() - beforePaints);
+        record.insert("columns", display.terminalSize().width());
+        record.insert("rows", display.terminalSize().height());
+        measurements[measurements.size() - 1] = record;
+    };
+    for (int phase = 0; phase < 3; ++phase)
+    {
+        window.resize(1160, 790);
+        finishPresentation();
+        for (int step = 0; step < 30; ++step)
+        {
+            resize(phase == 0 ? "compare.resize.width" :
+                   phase == 1 ? "compare.resize.height" :
+                                "compare.resize.diagonal",
+                   phase == 0    ? QSize(1161 + step, 790) :
+                   phase == 1    ? QSize(1160, 791 + step) :
+                   step % 2 == 0 ? QSize(1320, 880) :
+                                   QSize(1160, 790));
+        }
+        saveReport();
+    }
+    window.resize(1160, 790);
+    finishPresentation();
+    fixture("compare.fixture.scroll");
+    const int  page     = display.terminalSize().height();
+    const auto position = [&](int row) {
+        scroll->setValue(row);
+        finishPresentation();
+    };
+    const auto scrollStep = [&](const QString& name, int target, const std::function<void()>& action) {
+        const int    before       = topRow();
+        const int    beforePaints = paints.paints();
+        const qint64 beforePixels = paints.pixels();
+        measure(name, [&](QString& error) {
+            action();
+            finishPresentation();
+            const int actual = topRow();
+            if (actual == before || (target >= 0 && actual != target) || paints.paints() == beforePaints)
+            {
+                error = QString("Scroll validation failed: before %1, expected %2, actual %3, paints %4")
+                            .arg(before)
+                            .arg(target)
+                            .arg(actual)
+                            .arg(paints.paints() - beforePaints);
+                return false;
+            }
+            return true;
+        });
+        auto record = measurements.last().toObject();
+        record.insert("topBefore", before);
+        record.insert("topAfter", topRow());
+        record.insert("paintEvents", paints.paints() - beforePaints);
+        record.insert("paintedViewportFraction",
+                      double(paints.pixels() - beforePixels) / (viewport->width() * viewport->height()));
+        measurements[measurements.size() - 1] = record;
+    };
+    const auto stepTo = [&](const QString& name, int row) { scrollStep(name, row, [&] { scroll->setValue(row); }); };
+    position(3000);
+    for (int i = 1; i <= 30; ++i)
+    {
+        stepTo("compare.scroll.line.forward", 3000 + i);
+    }
+    for (int i = 29; i >= 0; --i)
+    {
+        stepTo("compare.scroll.line.reverse", 3000 + i);
+    }
+    position(2000);
+    for (int i = 1; i <= 20; ++i)
+    {
+        stepTo("compare.scroll.page.forward", 2000 + i * page);
+    }
+    for (int i = 19; i >= 0; --i)
+    {
+        stepTo("compare.scroll.page.reverse", 2000 + i * page);
+    }
+    for (int i = 0; i < 30; ++i)
+    {
+        stepTo("compare.scroll.jump.first", 50 + i * 271);
+    }
+    position(9000);
+    for (int i = 29; i >= 0; --i)
+    {
+        stepTo("compare.scroll.jump.revisit", 50 + i * 271);
+    }
+    position(5000);
+    for (int i = 0; i < 30; ++i)
+    {
+        scrollStep("compare.scroll.wheel", -1, [&] {
+            const auto  point = viewport->rect().center();
+            QWheelEvent wheel(point,
+                              viewport->mapToGlobal(point),
+                              QPoint(),
+                              QPoint(0, i % 2 ? 120 : -120),
+                              Qt::NoButton,
+                              Qt::NoModifier,
+                              Qt::NoScrollPhase,
+                              false);
+            QApplication::sendEvent(viewport, &wheel);
+        });
+    }
+    fixture("compare.fixture.final");
+    saveReport();
 }
 
 void serialProbe()
@@ -382,6 +639,25 @@ int main(int argc, char** argv)
                 measure("window.close.loaded", [&](QString&) { return app.mainWindow().close(); });
                 return;
             }
+            if (qEnvironmentVariableIsSet("TERMASTER_PROFILE_DISPLAY_COMPARE"))
+            {
+                bool found = false;
+                for (auto* display : app.mainWindow().findChildren<TerminalDisplay*>())
+                {
+                    if (display->isVisible())
+                    {
+                        compareDisplay(app.mainWindow(), *display);
+                        found = true;
+                        break;
+                    }
+                }
+                measurements.append(QJsonObject {
+                    {"stage", "compare.target"},
+                    {   "ok",            found}
+                });
+                measure("window.close.loaded", [&](QString&) { return app.mainWindow().close(); });
+                return;
+            }
             for (int i = 0; i < 20; ++i)
             {
                 measureResize("window.resize.session.empty",
@@ -399,6 +675,7 @@ int main(int argc, char** argv)
                     display->receive((QByteArray(100, 'x') + "\r\n").repeated(10040));
                     QApplication::processEvents();
                     measurements.append(QJsonObject {
+                        {     "renderer",                                              QStringLiteral("grid")},
                         {        "stage",                                             "resize.loaded.fixture"},
                         {      "columns",                                     display->terminalSize().width()},
                         {         "rows",                                    display->terminalSize().height()},

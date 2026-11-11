@@ -75,6 +75,14 @@ content:
       x-settings-path: appearance/scrollbackLines
       x-group: screen
       x-order: 4
+    wrapLines:
+      type: boolean
+      title: Wrap lines to window width
+      default: true
+      description: Reflow displayed text without changing terminal protocol wrapping.
+      x-settings-path: appearance/wrapLines
+      x-group: screen
+      x-order: 5
     localEcho:
       type: boolean
       title: Local echo

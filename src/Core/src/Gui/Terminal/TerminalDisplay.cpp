@@ -101,9 +101,12 @@ TerminalDisplay::TerminalDisplay(QWidget* parent) : QAbstractScrollArea(parent)
         _updateOpacity();
         viewport()->update();
     });
+    connect(horizontalScrollBar(), &QScrollBar::valueChanged, viewport(), qOverload<>(&QWidget::update));
     connect(verticalScrollBar(), &QScrollBar::valueChanged, viewport(), qOverload<>(&QWidget::update));
     setAppearance({});
 }
+
+TerminalDisplay::~TerminalDisplay() = default;
 
 void TerminalDisplay::receive(const QByteArray& bytes)
 {
@@ -111,7 +114,7 @@ void TerminalDisplay::receive(const QByteArray& bytes)
     const bool    alternate     = _screen.alternateScreen();
     const bool    reverse       = _screen.mode(5);
     const bool    atBottom      = verticalScrollBar()->value() == verticalScrollBar()->maximum();
-    const int     position      = verticalScrollBar()->value();
+    const QPoint  position      = _position(QPoint(0, 0));
     const QString previousTitle = _screen.title();
     _screen.receive(bytes);
     _afterInput(discarded, alternate, reverse, atBottom, position);
@@ -127,9 +130,9 @@ void TerminalDisplay::receive(const QByteArray& bytes)
 
 void TerminalDisplay::localEcho(const QByteArray& bytes)
 {
-    const auto discarded = _screen.discardedLines();
-    const bool atBottom  = verticalScrollBar()->value() == verticalScrollBar()->maximum();
-    const int  position  = verticalScrollBar()->value();
+    const auto   discarded = _screen.discardedLines();
+    const bool   atBottom  = verticalScrollBar()->value() == verticalScrollBar()->maximum();
+    const QPoint position  = _position(QPoint(0, 0));
     _screen.echo(bytes);
     _afterInput(discarded, _screen.alternateScreen(), _screen.mode(5), atBottom, position);
 }
@@ -154,20 +157,26 @@ void TerminalDisplay::setAppearance(const QVariantMap& appearance)
     const int requestedHistory = appearance.value("scrollbackLines", 10000).toInt(&ok);
     const int history          = ok ? std::clamp(requestedHistory, 1, 100000) : 10000;
     if (_appearanceInitialized && selected == font() && foreground == _foreground && background == _background
-        && history == _history)
+        && history == _history && appearance.value("wrapLines", true).toBool() == _wrapLines)
     {
         return;
     }
 
+    const bool wrapOnly    = _appearanceInitialized && selected == font() && foreground == _foreground
+                          && background == _background && history == _history;
     _appearanceInitialized = true;
     setFont(selected);
     _foreground = foreground;
     _background = background;
     _history    = history;
+    _wrapLines  = appearance.value("wrapLines", true).toBool();
     _screen.setColors(_foreground, _background);
     _updateOpacity();
-    _anchor = _selection = QPoint(-1, -1);
-    _selecting           = false;
+    if (!wrapOnly)
+    {
+        _anchor = _selection = QPoint(-1, -1);
+        _selecting           = false;
+    }
     _cache.clear();
     _shapes.clear();
     _rasters.clear();
@@ -256,13 +265,17 @@ void TerminalDisplay::copy()
     QString selected;
     for (int row = a.y(); row <= b.y() && row < _screen.lines().size(); ++row)
     {
-        if (row > a.y())
+        if (row > a.y() && !_screen.lines()[row - 1].softWrapped)
         {
             selected += '\n';
         }
         const auto& cells = _screen.lines()[row].cells;
         QString     line;
-        const int end = std::min(row == b.y() ? b.x() : static_cast<int>(cells.size()), static_cast<int>(cells.size()));
+        const auto& source = _screen.lines()[row];
+        const int   extent = source.softWrapped && source.wrappedColumns > 0 ?
+                                 std::min(int(cells.size()), source.wrappedColumns) :
+                                 int(cells.size());
+        const int   end    = std::min(row == b.y() ? b.x() : extent, extent);
         for (int column = row == a.y() ? a.x() : 0; column < end; ++column)
         {
             if (cells[column].width > 0)
@@ -270,7 +283,7 @@ void TerminalDisplay::copy()
                 line += cells[column].text.isEmpty() ? " " : cells[column].text;
             }
         }
-        while (line.endsWith(' '))
+        while (!_screen.lines()[row].softWrapped && line.endsWith(' '))
         {
             line.chop(1);
         }
@@ -328,7 +341,7 @@ bool TerminalDisplay::focusNextPrevChild(bool)
     return false;
 }
 
-void TerminalDisplay::paintEvent(QPaintEvent* event)
+void TerminalDisplay::paintEvent(QPaintEvent*)
 {
     if (_screen.mode(2026) && !_syncTimedOut)
     {
@@ -337,8 +350,7 @@ void TerminalDisplay::paintEvent(QPaintEvent* event)
     QPainter painter(viewport());
     painter.fillRect(viewport()->rect(), _screen.mode(5) ? _foreground : _background);
     const int first = verticalScrollBar()->value();
-    const int last  = std::min(static_cast<int>(_screen.lines().size()),
-                               first + static_cast<int>(viewport()->height() / _lineHeight) + 2);
+    const int last  = std::min(int(_visualRows.size()), first + int(viewport()->height() / _lineHeight) + 2);
     for (auto it = _cache.begin(); it != _cache.end();)
     {
         if (it->first < first || it->first >= last)
@@ -350,14 +362,12 @@ void TerminalDisplay::paintEvent(QPaintEvent* event)
             ++it;
         }
     }
-    const QRect dirty      = event->rect();
-    const int   paintFirst = std::max(first, first + static_cast<int>(dirty.top() / _lineHeight));
-    const int   paintLast  = std::min(last, first + static_cast<int>(dirty.bottom() / _lineHeight) + 1);
-    for (int row = paintFirst; row < paintLast; ++row)
+    const qreal offset = horizontalScrollBar()->value() * _cellWidth;
+    for (int row = first; row < last; ++row)
     {
         for (const auto& run : _layout(row).runs)
         {
-            painter.fillRect(QRectF(run.column * _cellWidth,
+            painter.fillRect(QRectF(run.column * _cellWidth - offset,
                                     (row - first) * _lineHeight,
                                     run.columns * _cellWidth,
                                     _lineHeight),
@@ -371,22 +381,29 @@ void TerminalDisplay::paintEvent(QPaintEvent* event)
     {
         std::swap(a, b);
     }
-    for (int row = paintFirst; row < paintLast; ++row)
+    for (int row = first; row < last; ++row)
     {
-        auto&       cached = _layout(row);
-        const qreal y      = (row - first) * _lineHeight;
-        for (const auto& run : cached.runs)
+        const qreal y = (row - first) * _lineHeight;
+        for (const auto& run : _layout(row).runs)
         {
-            _drawRun(painter, run, QRectF(run.column * _cellWidth, y, run.columns * _cellWidth, _lineHeight));
+            _drawRun(painter, run, QRectF(run.column * _cellWidth - offset, y, run.columns * _cellWidth, _lineHeight));
         }
-        if (a.y() >= 0 && row >= a.y() && row <= b.y())
+        int visualColumn = 0;
+        for (const auto& span : _visualRows[row].spans)
         {
-            const int start     = row == a.y() ? a.x() : 0;
-            const int end       = row == b.y() ? b.x() : _screen.lines()[row].cells.size();
-            QColor    highlight = palette().highlight().color();
-            highlight.setAlpha(100);
-            painter.fillRect(QRectF(start * _cellWidth, y, std::max(0, end - start) * _cellWidth, _lineHeight),
-                             highlight);
+            if (a.y() >= 0 && span.row >= a.y() && span.row <= b.y())
+            {
+                const int start     = std::max(span.column, span.row == a.y() ? a.x() : 0);
+                const int end       = std::min(span.column + span.count, span.row == b.y() ? b.x() : INT_MAX);
+                QColor    highlight = palette().highlight().color();
+                highlight.setAlpha(100);
+                painter.fillRect(QRectF((visualColumn + start - span.column) * _cellWidth - offset,
+                                        y,
+                                        std::max(0, end - start) * _cellWidth,
+                                        _lineHeight),
+                                 highlight);
+            }
+            visualColumn += span.count;
         }
     }
     _drawImages(painter, first, false);
@@ -490,9 +507,7 @@ void TerminalDisplay::mousePressEvent(QMouseEvent* event)
         if (event->modifiers() & Qt::ControlModifier)
         {
             const auto& cells = _screen.lines()[position.y()].cells;
-            int         hit   = std::clamp(static_cast<int>(event->position().x() / _cellWidth),
-                                           0,
-                                           static_cast<int>(cells.size()) - 1);
+            int         hit   = std::clamp(position.x(), 0, static_cast<int>(cells.size()) - 1);
             while (hit > 0 && cells[hit].width == 0)
             {
                 --hit;
@@ -626,6 +641,17 @@ void TerminalDisplay::_updateOpacity()
 
 void TerminalDisplay::_updateGeometry()
 {
+    const bool atBottom = verticalScrollBar()->value() == verticalScrollBar()->maximum();
+    QPoint     anchor(0, 0);
+    if (!_visualRows.isEmpty())
+    {
+        const auto& spans = _visualRows[std::clamp(verticalScrollBar()->value(), 0, int(_visualRows.size()) - 1)].spans;
+        if (!spans.isEmpty())
+        {
+            anchor = QPoint(spans.front().column, spans.front().row);
+        }
+    }
+
     if (_metricsFont != font() || _metricsDpiX != viewport()->logicalDpiX() || _metricsDpiY != viewport()->logicalDpiY()
         || _metricsDpr != viewport()->devicePixelRatioF())
     {
@@ -644,24 +670,25 @@ void TerminalDisplay::_updateGeometry()
         _shapes.clear();
         _rasters.clear();
     }
-    const int rows    = std::clamp(static_cast<int>(viewport()->height() / _lineHeight), 1, 256);
-    const int columns = std::clamp(static_cast<int>(viewport()->width() / _cellWidth), 1, 4096);
+    const auto* area    = viewport();
+    const int   rows    = std::clamp(static_cast<int>(area->height() / _lineHeight), 1, 256);
+    const int   columns = std::clamp(static_cast<int>(area->width() / _cellWidth), 1, 4096);
     _screen.setLimits(columns, rows, _history);
     const bool sizeChanged = _terminalSize != QSize(columns, rows);
     _terminalSize          = QSize(columns, rows);
     _graphics.setCellSize(QSize(std::max(1, qRound(_cellWidth)), std::max(1, qRound(_lineHeight))));
-    const auto count = static_cast<int>(_screen.lines().size());
+    _rebuildVisualRows(columns);
+    const auto count = _visualContentRows;
     verticalScrollBar()->setRange(0, std::max(0, count - rows));
     verticalScrollBar()->setPageStep(rows);
+    verticalScrollBar()->setValue(atBottom ? verticalScrollBar()->maximum() : _visualPosition(anchor).y());
     if (sizeChanged)
     {
-        _anchor = _selection = QPoint(-1, -1);
-        _selecting           = false;
         emit terminalSizeChanged(columns, rows);
     }
 }
 
-void TerminalDisplay::_afterInput(quint64 discarded, bool alternate, bool reverse, bool atBottom, int scrollPosition)
+void TerminalDisplay::_afterInput(quint64 discarded, bool alternate, bool reverse, bool atBottom, QPoint scrollAnchor)
 {
     const bool reset = _seenReset != _screen.resetRevision();
     _seenReset       = _screen.resetRevision();
@@ -691,10 +718,10 @@ void TerminalDisplay::_afterInput(quint64 discarded, bool alternate, bool revers
     {
         verticalScrollBar()->setValue(verticalScrollBar()->maximum());
     }
-    else if (removed)
+    else
     {
-        verticalScrollBar()->setValue(
-            std::max(0, scrollPosition - static_cast<int>(std::min<quint64>(removed, scrollPosition))));
+        scrollAnchor.ry() = std::max(0, scrollAnchor.y() - int(std::min<quint64>(removed, INT_MAX)));
+        verticalScrollBar()->setValue(_visualPosition(scrollAnchor).y());
     }
     if (_screen.mode(2026))
     {
@@ -718,8 +745,38 @@ void TerminalDisplay::_afterInput(quint64 discarded, bool alternate, bool revers
 
 TerminalDisplay::CachedLine& TerminalDisplay::_layout(int index)
 {
-    auto&       cached = _cache[index];
-    const auto& row    = _screen.lines()[index];
+    auto&                cached = _cache[index];
+    TerminalScreen::Line row;
+    // Source spans are cheap index metadata. Materialize only the horizontal
+    // viewport, even when a logical line joins a long soft-wrapped history.
+    const int firstColumn = std::max(0, horizontalScrollBar()->value() - 1);
+    const int lastColumn  = firstColumn + _terminalSize.width() + 3;
+    row.revision          = qHashMulti(size_t(0), firstColumn, lastColumn);
+    int visualColumn      = 0;
+    int layoutColumn      = firstColumn;
+    for (const auto& span : _visualRows[index].spans)
+    {
+        const int start = std::max(firstColumn, visualColumn);
+        const int end   = std::min(lastColumn, visualColumn + span.count);
+        if (start < end)
+        {
+            const auto& source = _screen.lines()[span.row];
+            row.revision       = qHashMulti(row.revision, source.revision, span.row, span.column, start, end);
+            if (row.cells.isEmpty())
+            {
+                layoutColumn = start;
+            }
+            for (int column = start; column < end; ++column)
+            {
+                row.cells.append(source.cells[span.column + column - visualColumn]);
+            }
+        }
+        visualColumn += span.count;
+        if (visualColumn >= lastColumn)
+        {
+            break;
+        }
+    }
     if (cached.revision == row.revision)
     {
         return cached;
@@ -775,7 +832,7 @@ TerminalDisplay::CachedLine& TerminalDisplay::_layout(int index)
             // Background-only spaces need no shaping or glyph draw, including
             // colored/inverse blanks. Decorations retain the QTextLayout path.
             Run run;
-            run.column     = column;
+            run.column     = column + layoutColumn;
             run.columns    = end - column;
             run.background = background;
             cached.runs.push_back(std::move(run));
@@ -807,7 +864,7 @@ TerminalDisplay::CachedLine& TerminalDisplay::_layout(int index)
             }
         }
         Run run;
-        run.column          = column;
+        run.column          = column + layoutColumn;
         run.columns         = end - column;
         run.foreground      = foreground;
         run.background      = background;
@@ -934,7 +991,10 @@ void TerminalDisplay::_drawImages(QPainter& painter, int first, bool behind)
         }
         const QSizeF size = image.pixelSize.isValid() ? QSizeF(image.pixelSize) :
                                                         QSizeF(image.columns * _cellWidth, image.rows * _lineHeight);
-        const QRectF target(QPointF(image.column * _cellWidth, (image.row - first) * _lineHeight), size);
+        const QPoint position = _visualPosition(QPoint(image.column, image.row));
+        const QRectF target(QPointF((position.x() - horizontalScrollBar()->value()) * _cellWidth,
+                                    (position.y() - first) * _lineHeight),
+                            size);
         if (!target.intersects(viewport()->rect()))
         {
             continue;
@@ -943,34 +1003,181 @@ void TerminalDisplay::_drawImages(QPainter& painter, int first, bool behind)
     }
 }
 
-QPoint TerminalDisplay::_position(const QPoint& point) const
+QPoint TerminalDisplay::_position(const QPoint& point, bool snapToCell) const
 {
-    const int   row   = std::clamp(verticalScrollBar()->value() + static_cast<int>(point.y() / _lineHeight),
-                                   0,
-                                   static_cast<int>(_screen.lines().size()) - 1);
-    const auto& cells = _screen.lines()[row].cells;
-    int column = std::clamp(static_cast<int>(std::floor(point.x() / _cellWidth)), 0, static_cast<int>(cells.size()));
-    if (column < cells.size())
+    const int   row    = std::clamp(verticalScrollBar()->value() + int(std::floor(point.y() / _lineHeight)),
+                                    0,
+                                    int(_visualRows.size()) - 1);
+    int         column = std::max(0, int(std::floor(point.x() / _cellWidth)) + horizontalScrollBar()->value());
+    const auto& spans  = _visualRows[row].spans;
+    for (int i = 0; i < spans.size(); ++i)
     {
-        while (column > 0 && cells[column].width == 0)
+        const auto& span = spans[i];
+        if (column < span.count || i == spans.size() - 1)
         {
-            --column;
+            int         sourceColumn = span.column + (snapToCell ? std::min(column, span.count) : column);
+            const auto& cells        = _screen.lines()[span.row].cells;
+            while (snapToCell && sourceColumn > span.column && sourceColumn < cells.size()
+                   && cells[sourceColumn].width == 0)
+            {
+                --sourceColumn;
+            }
+            return QPoint(sourceColumn, span.row);
         }
-        const int width = std::max(1, cells[column].width);
-        if (point.x() > (column + width * 0.5) * _cellWidth)
+        column -= span.count;
+    }
+    return QPoint(0, 0);
+}
+
+QPoint TerminalDisplay::_visualPosition(const QPoint& source) const
+{
+    for (int row = _sourceVisualRows.value(source.y(), 0); row < _visualRows.size(); ++row)
+    {
+        int column = 0;
+        for (const auto& span : _visualRows[row].spans)
         {
-            column += width;
+            if (span.row == source.y() && source.x() >= span.column && source.x() < span.column + span.count)
+            {
+                return QPoint(column + source.x() - span.column, row);
+            }
+            if (span.row == source.y() && source.x() == span.column + span.count)
+            {
+                if (row + 1 < _visualRows.size() && !_visualRows[row + 1].spans.isEmpty())
+                {
+                    const auto& next = _visualRows[row + 1].spans.front();
+                    if (next.row == source.y() && next.column == source.x())
+                    {
+                        return QPoint(0, row + 1);
+                    }
+                }
+                return QPoint(column + span.count, row);
+            }
+            column += span.count;
+        }
+        if (!_visualRows[row].spans.isEmpty() && _visualRows[row].spans.front().row > source.y())
+        {
+            break;
         }
     }
-    return QPoint(column, row);
+    return QPoint(source.x(), _sourceVisualRows.value(source.y(), 0));
 }
 
 QRectF TerminalDisplay::_cursorRect() const
 {
-    return QRectF(_screen.cursorColumn() * _cellWidth,
-                  (_screen.cursorLine() - verticalScrollBar()->value()) * _lineHeight,
+    const QPoint position = _visualPosition(QPoint(_screen.cursorColumn(), _screen.cursorLine()));
+    return QRectF((position.x() - horizontalScrollBar()->value()) * _cellWidth,
+                  (position.y() - verticalScrollBar()->value()) * _lineHeight,
                   _cellWidth,
                   _lineHeight);
+}
+
+void TerminalDisplay::_rebuildVisualRows(int columns)
+{
+    const int  sourceCount = int(_screen.lines().size());
+    const int  rows        = _terminalSize.height();
+    const bool primary     = !_screen.alternateScreen();
+    const bool wrap        = _wrapLines && primary;
+    int        firstSource = 0;
+    if (_index.columns == columns && _index.primary == primary && _index.wrap == wrap
+        && _index.discarded == _screen.discardedLines() && _index.reset == _screen.resetRevision()
+        && !_visualRows.isEmpty())
+    {
+        firstSource = std::min(std::max(0, _index.sources - _index.rows), std::max(0, sourceCount - rows));
+        // History before the previous/current active grid is immutable. Keep
+        // complete logical lines so a continuation never loses its prefix.
+        while (firstSource > 0 && _screen.lines()[firstSource - 1].softWrapped)
+        {
+            --firstSource;
+        }
+    }
+    const int prefixRows = firstSource > 0 ? _sourceVisualRows[firstSource] : 0;
+    int       maximum    = firstSource > 0 ? _extents[firstSource - 1].maximum : columns;
+    _visualContentRows   = firstSource > 0 ? _extents[firstSource - 1].contentRows : 0;
+    _visualRows.resize(prefixRows);
+    _sourceVisualRows.resize(sourceCount);
+    _extents.resize(sourceCount);
+    int used = 0;
+    for (int row = firstSource; row < sourceCount; ++row)
+    {
+        const auto& source = _screen.lines()[row];
+        if (!row || !primary || !_screen.lines()[row - 1].softWrapped)
+        {
+            _visualRows.append(VisualRow {});
+            used = 0;
+        }
+        _sourceVisualRows[row] = int(_visualRows.size()) - 1;
+        int count              = int(source.cells.size());
+        if (primary && source.softWrapped && source.wrappedColumns > 0)
+        {
+            count = std::min(count, source.wrappedColumns);
+        }
+        if (primary && !source.softWrapped)
+        {
+            auto& extent = _extents[row];
+            if (extent.revision != source.revision)
+            {
+                extent.columns = count;
+                while (extent.columns > 0
+                       && (source.cells[extent.columns - 1].text.isEmpty()
+                           || source.cells[extent.columns - 1].text == QLatin1String(" "))
+                       && source.cells[extent.columns - 1].width == 1
+                       && source.cells[extent.columns - 1].attributes == 0
+                       && source.cells[extent.columns - 1].defaultBackground
+                       && !source.cells[extent.columns - 1].protectedCell
+                       && source.cells[extent.columns - 1].hyperlink.isEmpty())
+                {
+                    --extent.columns;
+                }
+                extent.revision = source.revision;
+            }
+            count = extent.columns;
+            if (row == _screen.cursorLine())
+            {
+                count = std::min(int(source.cells.size()), std::max(count, _screen.cursorColumn() + 1));
+            }
+        }
+        if (!count)
+        {
+            _visualRows.back().spans.append({row, 0, 0});
+        }
+        for (int column = 0; column < count;)
+        {
+            if (wrap && used >= columns)
+            {
+                _visualRows.append(VisualRow {});
+                used = 0;
+            }
+            int take = wrap ? std::min(count - column, columns - used) : count;
+            if (wrap && column + take < count && source.cells[column + take].width == 0 && take > 1)
+            {
+                --take;
+            }
+            if (take == 1 && source.cells[column].width > 1 && used > 0)
+            {
+                _visualRows.append(VisualRow {});
+                used = 0;
+                continue;
+            }
+            if (source.cells[column].width > take)
+            {
+                take = std::min(count - column, source.cells[column].width);
+            }
+            _visualRows.back().spans.append({row, column, take});
+            used   += take;
+            column += take;
+        }
+        maximum = std::max(maximum, used);
+        if (count > 0)
+        {
+            _visualContentRows = int(_visualRows.size());
+        }
+        _extents[row].maximum     = maximum;
+        _extents[row].contentRows = _visualContentRows;
+    }
+    _index             = {columns, rows, sourceCount, primary, wrap, _screen.discardedLines(), _screen.resetRevision()};
+    _visualContentRows = primary ? _visualContentRows : int(_visualRows.size());
+    horizontalScrollBar()->setRange(0, wrap ? 0 : std::max(0, maximum - columns));
+    horizontalScrollBar()->setPageStep(columns);
 }
 
 void TerminalDisplay::_emit(const QByteArray& bytes, OutputKind kind, const QByteArray& echo)
@@ -991,16 +1198,18 @@ bool TerminalDisplay::_sendMouse(int                   kind,
     {
         return false;
     }
-    const int screenRows = verticalScrollBar()->pageStep();
-    const int top        = std::max(0, static_cast<int>(_screen.lines().size()) - screenRows);
-    const int row        = verticalScrollBar()->value() + static_cast<int>(point.y() / _lineHeight) - top;
-    if (row < 0 || row >= screenRows)
+    const int    screenRows = _terminalSize.height();
+    const int    top        = std::max(0, static_cast<int>(_screen.lines().size()) - screenRows);
+    const QPoint source     = _position(point, false);
+    const int    row        = source.y() - top;
+    if (row < 0 || row >= screenRows || source.x() >= _terminalSize.width())
     {
         return false;
     }
-    const bool pixels = _screen.mouseEncoding() == 1016;
-    const int  x      = pixels ? point.x() : static_cast<int>(point.x() / _cellWidth);
-    const int  y      = pixels ? row * qRound(_lineHeight) + point.y() % std::max(1, qRound(_lineHeight)) : row;
+    const bool  pixels   = _screen.mouseEncoding() == 1016;
+    const qreal fraction = point.x() - std::floor(point.x() / _cellWidth) * _cellWidth;
+    const int   x        = pixels ? qRound(source.x() * _cellWidth + fraction) : source.x();
+    const int   y        = pixels ? row * qRound(_lineHeight) + point.y() % std::max(1, qRound(_lineHeight)) : row;
     _emit(TerminalInput::mouse(static_cast<TerminalInput::MouseEventKind>(kind),
                                button,
                                buttons,

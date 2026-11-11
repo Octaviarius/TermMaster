@@ -87,3 +87,24 @@ non-invasive main-thread stack command and local symbol path only. Logs stay in
 scratch. MSVC writes `ApplicationProfile.map` for matching project-frame lookup;
 retain the exact map alongside its captured binary until addresses are resolved.
 No network symbol server, downloads, elevation or policy changes are involved.
+
+
+## Project renderer and visual wrapping
+
+Only the project renderer is built. Experimental renderers remain in the historical
+VIEW-1 branch. The native 10,000-record resize/scroll fixture supports both visual
+wrap settings; source hashes, actual paints, scrollbar movement, normal exit and
+unchanged source workspace are required. No serial connection is opened.
+
+```powershell
+python tools/benchmarks/ApplicationProfile/RunDisplayBenchmark.py `
+    --source G:/TMP/Tmaster `
+    --scratch C:/Users/octaviarius/AppData/Local/Temp/TermasterResizeVerification/FreshWrapRun `
+    --output docs/benchmarks/terminal-wrap/Release `
+    --build build/Desktop_Qt_6_12_0_MSVC2022_64bit-Release
+```
+
+Run sequentially without concurrent builds or benchmarks. Both roots must be fresh.
+Measurements end at Qt event/paint delivery, rather than compositor presentation.
+The short records fit the fixture's smallest width; correctness tests separately
+exercise long source rows, automatic-wrap joins, selection and width changes.
