@@ -1,5 +1,6 @@
 find_package(Qt6 REQUIRED COMPONENTS
     Network
+    Svg
     Test
     Widgets
 )
@@ -10,6 +11,7 @@ qt_add_executable(IconTests
 target_compile_features(IconTests PRIVATE cxx_std_20)
 target_link_libraries(IconTests PRIVATE
     Core
+    Qt6::Svg
     Qt6::Test
     Qt6::Widgets
 )

@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QDir>
+#include <QFile>
 #include <QImage>
 #include <QLineEdit>
 #include <QMenu>
@@ -8,6 +9,7 @@
 #include <QStandardItemModel>
 #include <QStyle>
 #include <QStyleFactory>
+#include <QSvgRenderer>
 #include <QTest>
 #include <QToolBar>
 #include <QTreeView>
@@ -74,6 +76,42 @@ class IconTests final : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void cachedPaintingMatchesVectorAtFractionalOrigins()
+    {
+        const auto icon = Icons::icon("square-terminal", QColor(Qt::black));
+        QFile      source(":/Termaster/Core/Icons/square-terminal.svg");
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        auto svg = source.readAll();
+        svg.replace("currentColor", "#000000");
+        QSvgRenderer renderer(svg);
+        QVERIFY(renderer.isValid());
+        for (const qreal dpr : {1.0, 1.25, 2.0})
+        {
+            for (const qreal shift : {0.0, 0.5})
+            {
+                QImage expected(QSize(48, 48) * dpr, QImage::Format_ARGB32_Premultiplied);
+                expected.setDevicePixelRatio(dpr);
+                expected.fill(Qt::transparent);
+                auto        actual = expected;
+                const QRect target(5, 7, 24, 24);
+                {
+                    QPainter painter(&expected);
+                    painter.translate(shift, shift);
+                    painter.setRenderHint(QPainter::Antialiasing);
+                    renderer.render(&painter, target);
+                }
+                for (int repeat = 0; repeat < 2; ++repeat)
+                {
+                    actual.fill(Qt::transparent);
+                    QPainter painter(&actual);
+                    painter.translate(shift, shift);
+                    icon.paint(&painter, target);
+                    painter.end();
+                    QCOMPARE(actual, expected);
+                }
+            }
+        }
+    }
     Q_SLOT void followsPaletteAndDeviceScale()
     {
         const auto original = QApplication::palette();

@@ -230,6 +230,61 @@ private:
         const QRect pixels(0, qRound(strip.top() * dpr), qRound(strip.width() * dpr), qRound(strip.height() * dpr));
         QCOMPARE(partial.copy(pixels), full.copy(pixels));
     }
+    Q_SLOT void synchronizedPresentationFinishesAfterTimeout()
+    {
+        TerminalDisplay display;
+        display.resize(500, 200);
+        display.show();
+        display.clearFocus();
+        display.receive("\x1b[?25lbefore\x1b[?2026h\r\x1b[31mafter ");
+        QTest::qWait(200);
+        const auto timedOut = display.viewport()->grab().toImage();
+        display.receive("\x1b[?2026l");
+        QCOMPARE(display.viewport()->grab().toImage(), timedOut);
+        display.setAppearance({
+            {"background", "#8015191f"}
+        });
+        display.resize(550, 200);
+        QCoreApplication::processEvents();
+        const auto translucent = display.viewport()->grab().toImage();
+        display.viewport()->update();
+        QCoreApplication::processEvents();
+        QCOMPARE(display.viewport()->grab().toImage(), translucent);
+    }
+    Q_SLOT void resizeRetainsStyledSpacesAndSharedShapes()
+    {
+        TerminalDisplay display;
+        display.resize(803, 353);
+        display.show();
+        display.clearFocus();
+        const auto content = QString::fromUtf8("\x1b[?25lRepeated ASCII 日本 é 😀\r\n"
+                                               "\x1b[31mRepeated ASCII 日本 é 😀\r\n"
+                                               "\x1b[32;44m    \x1b[7m    \x1b[0m\r\n"
+                                               "\x1b[4;31m    \x1b[0m \x1b[9m    \x1b[0m \x1b[53m    \x1b[0m\r\n"
+                                               "\x1b[4:2m    \x1b[4:3m    \x1b[4:4m    \x1b[4:5m    \x1b[0m")
+                                 .toUtf8();
+        display.receive(content);
+        QCoreApplication::processEvents();
+        const auto original = display.viewport()->grab().toImage();
+        const auto text     = display.text();
+        for (int repeat = 0; repeat < 3; ++repeat)
+        {
+            display.resize(853, 353);
+            QCoreApplication::processEvents();
+            display.resize(803, 353);
+            QCoreApplication::processEvents();
+            QCOMPARE(display.viewport()->grab().toImage(), original);
+            QCOMPARE(display.text(), text);
+        }
+        display.clear();
+        display.receive(content);
+        QCOMPARE(display.viewport()->grab().toImage(), original);
+        const auto capture = qEnvironmentVariable("TERMASTER_RESIZE_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(original.save(capture));
+        }
+    }
     Q_SLOT void fontAndDeviceEventsRefreshGeometryWithoutResize()
     {
         TerminalDisplay display;

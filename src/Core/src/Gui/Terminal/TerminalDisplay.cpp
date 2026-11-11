@@ -47,6 +47,7 @@ TerminalDisplay::TerminalDisplay(QWidget* parent) : QAbstractScrollArea(parent)
     setAttribute(Qt::WA_InputMethodEnabled);
     setMouseTracking(true);
     viewport()->setMouseTracking(true);
+    viewport()->setAutoFillBackground(false);
     _seenReset = _graphicsReset = _screen.resetRevision();
     const auto collectReply     = [this](const QByteArray& bytes) {
         if (bytes.size() <= 64 * 1024 - _pendingReplies.size())
@@ -97,6 +98,7 @@ TerminalDisplay::TerminalDisplay(QWidget* parent) : QAbstractScrollArea(parent)
     _syncTimer.setInterval(150);
     connect(&_syncTimer, &QTimer::timeout, this, [this] {
         _syncTimedOut = true;
+        _updateOpacity();
         viewport()->update();
     });
     connect(verticalScrollBar(), &QScrollBar::valueChanged, viewport(), qOverload<>(&QWidget::update));
@@ -163,9 +165,12 @@ void TerminalDisplay::setAppearance(const QVariantMap& appearance)
     _background = background;
     _history    = history;
     _screen.setColors(_foreground, _background);
+    _updateOpacity();
     _anchor = _selection = QPoint(-1, -1);
     _selecting           = false;
     _cache.clear();
+    _shapes.clear();
+    _rasters.clear();
     _updateGeometry();
     viewport()->update();
 }
@@ -177,12 +182,15 @@ void TerminalDisplay::clear()
     _seenReset = _graphicsReset = _screen.resetRevision();
     _graphics.clear();
     _cache.clear();
+    _shapes.clear();
+    _rasters.clear();
     _anchor = _selection = QPoint(-1, -1);
     _selecting           = false;
     _preedit.clear();
     _syncLatched  = false;
     _syncTimedOut = false;
     _syncTimer.stop();
+    _updateOpacity();
     _updateGeometry();
     emit textChanged();
     emit selectionChanged();
@@ -367,29 +375,9 @@ void TerminalDisplay::paintEvent(QPaintEvent* event)
     {
         auto&       cached = _layout(row);
         const qreal y      = (row - first) * _lineHeight;
-        for (auto& run : cached.runs)
+        for (const auto& run : cached.runs)
         {
-            const QRectF area(run.column * _cellWidth, y, run.columns * _cellWidth, _lineHeight);
-            if (!run.layout->lineCount())
-            {
-                continue;
-            }
-            const qreal naturalWidth = run.layout->lineAt(0).naturalTextWidth();
-            painter.save();
-            painter.setClipRect(area);
-            painter.translate(area.topLeft());
-            if (naturalWidth > area.width() + 0.1)
-            {
-                painter.scale(area.width() / naturalWidth, 1.0);
-            }
-            run.layout->draw(&painter, QPointF());
-            painter.restore();
-            if (run.doubleUnderline)
-            {
-                painter.setPen(run.foreground);
-                painter.drawLine(QPointF(area.left(), area.bottom() - 2), QPointF(area.right(), area.bottom() - 2));
-                painter.drawLine(QPointF(area.left(), area.bottom() - 4), QPointF(area.right(), area.bottom() - 4));
-            }
+            _drawRun(painter, run, QRectF(run.column * _cellWidth, y, run.columns * _cellWidth, _lineHeight));
         }
         if (a.y() >= 0 && row >= a.y() && row <= b.y())
         {
@@ -627,6 +615,15 @@ QVariant TerminalDisplay::inputMethodQuery(Qt::InputMethodQuery query) const
     return QAbstractScrollArea::inputMethodQuery(query);
 }
 
+void TerminalDisplay::_updateOpacity()
+{
+    // Qt can omit ancestor/background preparation when this paint fills every
+    // pixel. Deferred synchronized output and translucent themes cannot promise it.
+    const auto background = _screen.mode(5) ? _foreground : _background;
+    viewport()->setAttribute(Qt::WA_OpaquePaintEvent,
+                             background.alpha() == 255 && (!_screen.mode(2026) || _syncTimedOut));
+}
+
 void TerminalDisplay::_updateGeometry()
 {
     if (_metricsFont != font() || _metricsDpiX != viewport()->logicalDpiX() || _metricsDpiY != viewport()->logicalDpiY()
@@ -644,6 +641,8 @@ void TerminalDisplay::_updateGeometry()
             _fixedAscii[character] = std::abs(metrics.horizontalAdvance(QChar(character)) - _cellWidth) < 0.02;
         }
         _cache.clear();
+        _shapes.clear();
+        _rasters.clear();
     }
     const int rows    = std::clamp(static_cast<int>(viewport()->height() / _lineHeight), 1, 256);
     const int columns = std::clamp(static_cast<int>(viewport()->width() / _cellWidth), 1, 4096);
@@ -711,6 +710,7 @@ void TerminalDisplay::_afterInput(quint64 discarded, bool alternate, bool revers
         _syncTimedOut = false;
         _syncTimer.stop();
     }
+    _updateOpacity();
     emit textChanged();
     emit selectionChanged();
     viewport()->update();
@@ -753,6 +753,35 @@ TerminalDisplay::CachedLine& TerminalDisplay::_layout(int index)
         {
             foreground = background;
         }
+        const auto plainSpace = [](const TerminalScreen::Cell& item) {
+            return item.width == 1 && (item.text.isEmpty() || item.text == QLatin1String(" "))
+                && !(item.attributes & (TerminalScreen::Underline | TerminalScreen::Strike | TerminalScreen::Overline));
+        };
+        if (plainSpace(cell))
+        {
+            int end = column + 1;
+            while (end < row.cells.size())
+            {
+                const auto& next           = row.cells[end];
+                const auto  nextBackground = bool(next.attributes & TerminalScreen::Inverse) != _screen.mode(5) ?
+                                                 next.foreground :
+                                                 next.background;
+                if (!plainSpace(next) || nextBackground != background)
+                {
+                    break;
+                }
+                ++end;
+            }
+            // Background-only spaces need no shaping or glyph draw, including
+            // colored/inverse blanks. Decorations retain the QTextLayout path.
+            Run run;
+            run.column     = column;
+            run.columns    = end - column;
+            run.background = background;
+            cached.runs.push_back(std::move(run));
+            column = end;
+            continue;
+        }
         const auto format = formatFor(cell, foreground);
         QString    text   = cell.text.isEmpty() ? QString(" ") : cell.text;
         int        end    = column + std::max(1, cell.width);
@@ -784,27 +813,115 @@ TerminalDisplay::CachedLine& TerminalDisplay::_layout(int index)
         run.background      = background;
         run.doubleUnderline = (cell.attributes & TerminalScreen::Underline)
                            && cell.underlineStyle == TerminalScreen::UnderlineStyle::Double;
-        run.layout          = std::make_unique<QTextLayout>(text, font(), viewport());
-        run.layout->setCacheEnabled(true);
-        QTextOption option;
-        option.setTextDirection(Qt::LeftToRight);
-        option.setWrapMode(QTextOption::NoWrap);
-        run.layout->setTextOption(option);
-        run.layout->setFormats({
-            {0, static_cast<int>(text.size()), format}
-        });
-        run.layout->beginLayout();
-        auto line = run.layout->createLine();
-        if (line.isValid())
+        const ShapeKey key {text, format};
+        if (const auto* shape = _shapes.object(key))
         {
-            line.setLineWidth(1000000);
+            run.shape = *shape;
         }
-        run.layout->endLayout();
+        else
+        {
+            run.shape         = std::make_shared<Shape>();
+            run.shape->key    = key;
+            run.shape->layout = std::make_unique<QTextLayout>(text, font(), viewport());
+            run.shape->layout->setCacheEnabled(true);
+            QTextOption option;
+            option.setTextDirection(Qt::LeftToRight);
+            option.setWrapMode(QTextOption::NoWrap);
+            run.shape->layout->setTextOption(option);
+            run.shape->layout->setFormats({
+                {0, static_cast<int>(text.size()), format}
+            });
+            run.shape->layout->beginLayout();
+            auto line = run.shape->layout->createLine();
+            if (line.isValid())
+            {
+                line.setLineWidth(1000000);
+            }
+            run.shape->layout->endLayout();
+            run.shape->directGlyphs = !(
+                cell.attributes & (TerminalScreen::Underline | TerminalScreen::Strike | TerminalScreen::Overline));
+            if (run.shape->directGlyphs)
+            {
+                run.shape->glyphs = run.shape->layout->glyphRuns();
+            }
+            _shapes.insert(key, new std::shared_ptr<Shape>(run.shape), 256 + int(text.size()) * 2);
+        }
         cached.runs.push_back(std::move(run));
         column = end;
     }
     cached.revision = row.revision;
     return cached;
+}
+
+void TerminalDisplay::_drawRun(QPainter& painter, const Run& run, const QRectF& area)
+{
+    if (!run.shape || !run.shape->layout->lineCount())
+    {
+        return;
+    }
+    const qreal naturalWidth = run.shape->layout->lineAt(0).naturalTextWidth();
+    const qreal dpr          = viewport()->devicePixelRatioF();
+    const auto  aligned      = [dpr](qreal value) { return std::abs(value * dpr - std::round(value * dpr)) < 0.001; };
+    if (run.shape->directGlyphs && run.background.alpha() == 255 && _graphics.placements().isEmpty()
+        && aligned(area.x()) && aligned(area.y()) && aligned(area.width()) && aligned(area.height()))
+    {
+        const QSize     pixels(qRound(area.width() * dpr), qRound(area.height() * dpr));
+        const RasterKey key {run.shape->key, run.background.rgb(), pixels};
+        if (const auto* image = _rasters.object(key))
+        {
+            painter.drawPixmap(area.topLeft(), *image);
+            return;
+        }
+        const qint64 cost = qint64(pixels.width()) * pixels.height() * 4 + run.shape->key.text.size() * 2 + 256;
+        if (cost > 0 && cost <= _rasters.maxCost())
+        {
+            QPixmap image(pixels);
+            image.setDevicePixelRatio(dpr);
+            image.fill(run.background);
+            {
+                QPainter target(&image);
+                target.setClipRect(QRectF(QPointF(), area.size()));
+                if (naturalWidth > area.width() + 0.1)
+                {
+                    target.scale(area.width() / naturalWidth, 1.0);
+                }
+                target.setPen(run.foreground);
+                for (const auto& glyphs : run.shape->glyphs)
+                {
+                    target.drawGlyphRun(QPointF(), glyphs);
+                }
+            }
+            painter.drawPixmap(area.topLeft(), image);
+            _rasters.insert(key, new QPixmap(std::move(image)), int(cost));
+            return;
+        }
+    }
+    painter.save();
+    painter.setClipRect(area);
+    painter.translate(area.topLeft());
+    if (naturalWidth > area.width() + 0.1)
+    {
+        painter.scale(area.width() / naturalWidth, 1.0);
+    }
+    if (run.shape->directGlyphs)
+    {
+        painter.setPen(run.foreground);
+        for (const auto& glyphs : run.shape->glyphs)
+        {
+            painter.drawGlyphRun(QPointF(), glyphs);
+        }
+    }
+    else
+    {
+        run.shape->layout->draw(&painter, QPointF());
+    }
+    painter.restore();
+    if (run.doubleUnderline)
+    {
+        painter.setPen(run.foreground);
+        painter.drawLine(QPointF(area.left(), area.bottom() - 2), QPointF(area.right(), area.bottom() - 2));
+        painter.drawLine(QPointF(area.left(), area.bottom() - 4), QPointF(area.right(), area.bottom() - 4));
+    }
 }
 
 void TerminalDisplay::_drawImages(QPainter& painter, int first, bool behind)

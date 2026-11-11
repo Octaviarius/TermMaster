@@ -363,13 +363,13 @@ void TerminalScreen::setLimits(int columns, int rows, int history)
         {
             for (auto& line : lines)
             {
-                const int previousColumns = int(line.cells.size());
-                line.cells.resize(_columns);
-                for (int c = previousColumns; c < _columns; ++c)
+                line.cells.resize(_columns, _blank());
+                // Existing pairs are valid. Only truncation can split a wide glyph;
+                // appended blanks cannot invalidate any retained interior cell.
+                if (line.cells.back().width == 2)
                 {
-                    line.cells[c] = _blank();
+                    line.cells.back() = _blank();
                 }
-                _repair(line);
                 line.revision = ++_revision;
             }
         }
