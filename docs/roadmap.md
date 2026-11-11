@@ -516,3 +516,10 @@ Later stages:
 - [x] Remove full-document settings updates from native geometry events.
 - [x] Capture presentation explicitly before save and provider unload.
 - [x] Verify geometry-only changes preserve session metadata until capture and remain independent of metadata size.
+
+## APP-18: Native terminal docking
+
+- [x] Host existing terminal panels in native split/tabbed docks inside the main window.
+- [x] Keep commands targeted to the focused terminal, with tab/dock/secondary-window transfers.
+- [x] Persist bounded native dock layout and restore provider placement disconnected.
+- [x] Verify identity, live connections, lifecycle, native gestures/appearance and Debug/Release builds.
