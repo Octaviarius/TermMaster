@@ -24,6 +24,7 @@ class SettingsDialog;
 class TerminalDisplay;
 class QAction;
 class QToolButton;
+class QDockWidget;
 
 /** GUI-thread runtime owner. Session definitions survive closed views and module unload. */
 class TerminalController final : public QObject, public PluginHost
@@ -44,6 +45,8 @@ public:
     void            setProcessorFavorites(ProcessorFavorites& favorites);
     void            setSession(Session* session);
     void            closeAll();
+    bool            dockTerminal(const QString& id, QString* error = nullptr);
+    QDockWidget*    terminalDock(const QString& id) const;
     bool            detachTerminal(const QString& id, QString* error = nullptr);
     bool            attachTerminal(const QString& id, QString* error = nullptr);
     QMainWindow*    detachedWindow(const QString& id) const;
@@ -123,6 +126,10 @@ private:
     bool                   _movingHost        = false;
     bool                   _refreshingActions = false;
     QString                _focusedTerminal;
+    QPointer<QWidget>      _mainSelected;
+    bool                   _dockLayoutRestored = false;
+    bool                   _restoringDocks     = false;
+    QByteArray             _initialDockLayout;
 
     Runtime* _current() const;
     QString  _mainTerminalId() const;
@@ -132,6 +139,9 @@ private:
     bool     _actionChecked(const QString& command, const Runtime* terminal) const;
     bool     _captureDetached(const QString& id, QString* error);
     void     _restoreDetached();
+    void     _restoreDocks();
+    bool     _setDockPlacement(const QString& id, bool docked, QString* error);
+    QWidget* _releasePanel(Runtime& terminal);
     bool     _activeWindow() const;
     bool     _materialize(const QString& id, QString* error);
     void     _restore();

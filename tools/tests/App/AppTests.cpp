@@ -319,6 +319,7 @@ private:
         for (const auto& scenario : {"empty",
                                      "auxiliary",
                                      "detached",
+                                     "docked",
                                      "quitDisabled",
                                      "saveFailure",
                                      "console",
@@ -365,6 +366,10 @@ private:
         if (scenario == "detached")
         {
             QVERIFY2(observed.contains("detachedReady\n"), diagnostic.constData());
+        }
+        if (scenario == "docked")
+        {
+            QVERIFY2(observed.contains("dockedReady\n"), diagnostic.constData());
         }
     }
 
@@ -1077,6 +1082,21 @@ content:
         QVERIFY(controller.terminalIds().isEmpty());
         QVERIFY(!controller.detachedWindow(id));
         QCOMPARE(probe->attempts, 0);
+
+        QVERIFY(_app.createSession("Dock reentry", &error));
+        QVERIFY(_app.createTerminal(type.id, {}, "Dock reentry", &error));
+        const auto dockId = _app.selectedTerminal();
+        closed            = false;
+        probe->resized    = [&] {
+            probe->resized = {};
+            closed         = _app.closeSession(&error);
+        };
+        QVERIFY(!controller.dockTerminal(dockId, &error));
+        QVERIFY(closed);
+        QVERIFY(!_app.session());
+        QVERIFY(controller.terminalIds().isEmpty());
+        QVERIFY(!controller.terminalDock(dockId));
+        QCOMPARE(probe->attempts, 0);
     }
 
     Q_SLOT void detachedPresentationPersistsAndRecoversWithoutConnections()
@@ -1217,6 +1237,271 @@ content:
         QVERIFY(_app.openSession(sessionId, &error));
         QVERIFY(controller.detachedWindow(ids[0]));
         QVERIFY(controller.detachedWindow(ids[1]));
+        QCOMPARE(probe->attempts, 0);
+    }
+
+    Q_SLOT void dockedTerminalViewsRetainIdentityAndFocusedCommands()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Dock.termaster")), "Dock", &error));
+        QVERIFY(_app.createSession("Dock", &error));
+        auto& host       = _app.pluginHost();
+        auto& controller = static_cast<TerminalController&>(host);
+        auto  probe      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available = true;
+        PluginHost::TerminalType type;
+        type.id             = "dockFixture";
+        type.title          = "Dock fixture";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Synthetic docking fixture
+content:
+  type: object
+  properties: {}
+)";
+        type.plugin         = "Synthetic";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        const auto cleanup  = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType(type.id);
+        });
+        host.registerTerminalType(type);
+        auto* tabs     = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        auto* dockHost = _app.mainWindow().findChild<QMainWindow*>("terminalDockHost");
+        QVERIFY(tabs && dockHost);
+        QStringList             ids;
+        QList<QWidget*>         panels;
+        QList<TerminalDisplay*> displays;
+        QList<QPlainTextEdit*>  drafts;
+        SerialDevice*           openDevice = nullptr;
+        for (int index = 0; index < 3; ++index)
+        {
+            QVERIFY(_app.createTerminal(type.id,
+                                        {
+                                            {"input", QVariantMap {{"mode", "buffered"}, {"localEcho", false}}}
+            },
+                                        QString::number(index),
+                                        &error));
+            ids.append(_app.selectedTerminal());
+            panels.append(tabs->currentWidget());
+            displays.append(panels.last()->findChild<TerminalDisplay*>("terminalDisplay"));
+            drafts.append(panels.last()->findChild<QPlainTextEdit*>("commandDraft"));
+            QVERIFY(displays.last() && drafts.last());
+            displays.last()->receive(QByteArray("dock-text-") + QByteArray::number(index));
+            drafts.last()->setPlainText(QString("dock-draft-%1").arg(index));
+            if (index == 0)
+            {
+                _app.mainWindow().activateWindow();
+                QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+                openDevice = host.selectedDevice(type.id);
+                QVERIFY(openDevice);
+                host.connectSelectedTerminal();
+                QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+            }
+        }
+        const int  closes = probe->closes;
+        const auto order  = _app.session()->presentation().value("tabOrder");
+        QVERIFY2(controller.dockTerminal(ids[0], &error), qPrintable(error));
+        QVERIFY2(controller.dockTerminal(ids[1], &error), qPrintable(error));
+        auto* first  = controller.terminalDock(ids[0]);
+        auto* second = controller.terminalDock(ids[1]);
+        QVERIFY(first && second);
+        QCOMPARE(first->objectName(), "terminalDock-" + ids[0]);
+        QCOMPARE(first->widget(), panels[0]);
+        QCOMPARE(second->widget(), panels[1]);
+        QVERIFY(!first->features().testFlag(QDockWidget::DockWidgetFloatable));
+        dockHost->splitDockWidget(first, second, Qt::Horizontal);
+        QCoreApplication::processEvents();
+        QVERIFY(first->isVisible() && second->isVisible());
+        const auto capture = qEnvironmentVariable("TERMASTER_DOCK_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            _app.mainWindow().repaint();
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("DockedSplit.png")));
+        }
+        drafts[1]->setFocus();
+        QTRY_COMPARE(_app.selectedTerminal(), ids[1]);
+        const QPoint titlePoint(first->width() / 3, std::max(1, first->widget()->y() / 2));
+        QTest::mouseClick(first, Qt::LeftButton, Qt::NoModifier, titlePoint);
+        QTRY_COMPARE(_app.selectedTerminal(), ids[0]);
+        QCOMPARE(first->widget(), panels[0]);
+        QCOMPARE(host.selectedDevice(type.id), openDevice);
+        if (qEnvironmentVariableIsSet("TERMASTER_DOCK_GESTURE"))
+        {
+            const auto dragStart = first->mapToGlobal(titlePoint);
+            const auto dragEnd   = dockHost->mapToGlobal(QPoint(8, dockHost->height() / 2));
+            QTest::mousePress(first, Qt::LeftButton, Qt::NoModifier, titlePoint);
+            for (int step = 1; step <= 12; ++step)
+            {
+                const auto point = dragStart + (dragEnd - dragStart) * step / 12;
+                QTest::mouseMove(first, first->mapFromGlobal(point), 15);
+            }
+            QTest::mouseRelease(first, Qt::LeftButton, Qt::NoModifier, first->mapFromGlobal(dragEnd));
+            QTRY_COMPARE(dockHost->dockWidgetArea(first), Qt::LeftDockWidgetArea);
+            QTRY_VERIFY(!first->isFloating());
+            QTRY_COMPARE(_app.selectedTerminal(), ids[0]);
+            QCOMPARE(first->widget(), panels[0]);
+            QCOMPARE(panels[0]->findChild<TerminalDisplay*>("terminalDisplay"), displays[0]);
+            QCOMPARE(panels[0]->findChild<QPlainTextEdit*>("commandDraft"), drafts[0]);
+            QCOMPARE(host.selectedDevice(type.id), openDevice);
+            QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+            QCOMPARE(probe->closes, closes);
+        }
+        QCOMPARE(tabs->count(), 1);
+        QCOMPARE(tabs->currentWidget(), panels[2]);
+        drafts[0]->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), drafts[0]);
+        QTRY_COMPARE(_app.selectedTerminal(), ids[0]);
+        QCOMPARE(host.selectedDevice(type.id), openDevice);
+        QCOMPARE(controller.selectedWindow(), &_app.mainWindow());
+        host.refreshTerminalActions();
+        auto* wrap = _app.mainWindow().findChild<QAction*>("View.WrapLines");
+        auto* echo = _app.mainWindow().findChild<QAction*>("Terminal.LocalEcho");
+        QVERIFY(wrap && echo);
+        QVERIFY(wrap->isChecked());
+        QVERIFY(!echo->isChecked());
+        wrap->trigger();
+        echo->trigger();
+        const auto settings = _app.session()->objects().value(ids[0]).toMap().value("settings").toMap();
+        QCOMPARE(settings.value("appearance").toMap().value("wrapLines").toBool(), false);
+        QCOMPARE(settings.value("input").toMap().value("localEcho").toBool(), true);
+        QCOMPARE(tabs->currentWidget(), panels[2]);
+        drafts[1]->setFocus();
+        QTRY_COMPARE(_app.selectedTerminal(), ids[1]);
+        QVERIFY(wrap->isChecked());
+        QVERIFY(!echo->isChecked());
+        dockHost->tabifyDockWidget(first, second);
+        second->raise();
+        QCoreApplication::processEvents();
+        QVERIFY(dockHost->tabifiedDockWidgets(first).contains(second));
+        const auto dockTabsVisible = [&] {
+            for (auto* bar : dockHost->findChildren<QTabBar*>(QString(), Qt::FindDirectChildrenOnly))
+            {
+                if (bar->isVisible() && bar->count() == 2)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        QTRY_VERIFY(dockTabsVisible());
+        QCoreApplication::processEvents();
+        if (!capture.isEmpty())
+        {
+            _app.mainWindow().repaint();
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("DockedTabbed.png")));
+        }
+        QVERIFY(controller.detachTerminal(ids[0], &error));
+        QVERIFY(!controller.terminalDock(ids[0]));
+        QVERIFY(controller.detachedWindow(ids[0]));
+        QCOMPARE(controller.detachedWindow(ids[0])->centralWidget(), panels[0]);
+        QVERIFY(controller.dockTerminal(ids[0], &error));
+        QVERIFY(!controller.detachedWindow(ids[0]));
+        QCOMPARE(controller.terminalDock(ids[0])->widget(), panels[0]);
+        QCOMPARE(panels[0]->findChild<TerminalDisplay*>("terminalDisplay"), displays[0]);
+        QCOMPARE(panels[0]->findChild<QPlainTextEdit*>("commandDraft"), drafts[0]);
+        QCOMPARE(drafts[0]->toPlainText(), QString("dock-draft-0"));
+        QVERIFY(displays[0]->text().contains("dock-text-0"));
+        QVERIFY(controller.attachTerminal(ids[0], &error));
+        QVERIFY(!controller.terminalDock(ids[0]));
+        QCOMPARE(tabs->widget(0), panels[0]);
+        controller.terminalDock(ids[1])->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(!controller.terminalDock(ids[1]));
+        QCOMPARE(tabs->count(), 3);
+        QCOMPARE(tabs->widget(1), panels[1]);
+        QCOMPARE(_app.session()->presentation().value("tabOrder"), order);
+        QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+        QCOMPARE(probe->attempts, 1);
+        QCOMPARE(probe->closes, closes);
+    }
+
+    Q_SLOT void dockLayoutPersistsAndProviderRecoveryStaysDisconnected()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("DockSave.termaster")), "Dock save", &error));
+        QVERIFY(_app.createSession("Dock save", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        auto                     probe      = std::make_shared<ReconnectDevice::Probe>();
+        PluginHost::TerminalType type;
+        type.id             = "dockSaveFixture";
+        type.title          = "Dock save fixture";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Synthetic docking fixture
+content:
+  type: object
+  properties: {}
+)";
+        type.plugin         = "Synthetic";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        const auto cleanup  = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType(type.id);
+        });
+        host.registerTerminalType(type);
+        QStringList ids;
+        for (int index = 0; index < 3; ++index)
+        {
+            QVERIFY(_app.createTerminal(type.id, {}, QString::number(index), &error));
+            ids.append(_app.selectedTerminal());
+        }
+        const auto sessionId = _app.session()->id();
+        const auto path      = _app.session()->filePath();
+        QVERIFY(controller.dockTerminal(ids[0], &error));
+        QVERIFY(controller.dockTerminal(ids[1], &error));
+        QVERIFY(controller.detachTerminal(ids[2], &error));
+        auto* dockHost = _app.mainWindow().findChild<QMainWindow*>("terminalDockHost");
+        QVERIFY(dockHost);
+        QVERIFY(dockHost->centralWidget()->isHidden());
+        dockHost->addDockWidget(Qt::LeftDockWidgetArea, controller.terminalDock(ids[0]));
+        dockHost->splitDockWidget(controller.terminalDock(ids[0]), controller.terminalDock(ids[1]), Qt::Vertical);
+        QCoreApplication::processEvents();
+        QVERIFY(controller.capturePresentation(&error));
+        const auto presentation = _app.session()->presentation().values();
+        const auto docked       = presentation.value("dockedTerminals").toList();
+        QCOMPARE(docked.size(), 2);
+        QVERIFY(docked.contains(ids[0]) && docked.contains(ids[1]));
+        const auto layout = presentation.value("dockLayout").toString().toLatin1();
+        QVERIFY(!layout.isEmpty());
+        QCOMPARE(QByteArray::fromBase64(layout).toBase64(), layout);
+        const auto oldSize = _app.mainWindow().size();
+        for (int index = 0; index < 12; ++index)
+        {
+            _app.mainWindow().resize(oldSize + QSize(index % 3, index % 4));
+            QCoreApplication::processEvents();
+        }
+        QCOMPARE(_app.session()->presentation().values(), presentation);
+        QVERIFY(_app.saveSession(&error));
+        const auto saved = _app.session()->presentation().values();
+        Settings   persisted(path, {"termaster.session", "Termaster session"});
+        QVERIFY(persisted.load(&error));
+        QCOMPARE(persisted.value("presentation").toMap(), saved);
+        QPointer<QDockWidget> first(controller.terminalDock(ids[0]));
+        QPointer<QDockWidget> second(controller.terminalDock(ids[1]));
+        QVERIFY(host.unregisterTerminalType(type.id, &error));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(first.isNull() && second.isNull());
+        QCOMPARE(_app.session()->presentation().values(), saved);
+        host.registerTerminalType(type);
+        QVERIFY(controller.terminalDock(ids[0]) && controller.terminalDock(ids[1]));
+        QCOMPARE(dockHost->dockWidgetArea(controller.terminalDock(ids[0])), Qt::LeftDockWidgetArea);
+        QCOMPARE(dockHost->dockWidgetArea(controller.terminalDock(ids[1])), Qt::LeftDockWidgetArea);
+        QVERIFY(controller.detachedWindow(ids[2]));
+        QVERIFY(_app.saveSession(&error));
+        QVERIFY(_app.closeSession(&error));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(_app.openSession(sessionId, &error));
+        QVERIFY(controller.terminalDock(ids[0]) && controller.terminalDock(ids[1]));
+        QCOMPARE(dockHost->dockWidgetArea(controller.terminalDock(ids[0])), Qt::LeftDockWidgetArea);
+        QCOMPARE(dockHost->dockWidgetArea(controller.terminalDock(ids[1])), Qt::LeftDockWidgetArea);
+        QVERIFY(controller.detachedWindow(ids[2]));
+        QVERIFY(!controller.terminalDock(ids[0])->isFloating());
+        QVERIFY(!controller.terminalDock(ids[1])->isFloating());
         QCOMPARE(probe->attempts, 0);
     }
 
@@ -5039,6 +5324,20 @@ int main(int argc, char* argv[])
                         std::_Exit(87);
                     }
                     marker("detachedReady");
+                }
+                if (scenario == "docked")
+                {
+                    auto&      controller = static_cast<TerminalController&>(app.pluginHost());
+                    const auto first      = app.selectedTerminal();
+                    if (!controller.dockTerminal(first, &error)
+                        || !app.createTerminal("closeFixture", {}, "Second dock", &error)
+                        || !controller.dockTerminal(app.selectedTerminal(), &error) || !controller.terminalDock(first)
+                        || !controller.terminalDock(app.selectedTerminal()))
+                    {
+                        marker("dockFailed: " + error.toUtf8());
+                        std::_Exit(87);
+                    }
+                    marker("dockedReady");
                 }
                 if (scenario == "auxiliary")
                 {

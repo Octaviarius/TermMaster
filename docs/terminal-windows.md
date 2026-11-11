@@ -61,6 +61,7 @@ flowchart TB
     Panel --> Placement{Exactly one presentation host}
     Placement --> Tabs[Main QTabWidget]
     Placement --> Window[Detached QMainWindow]
+    Placement --> Dock[Native QDockWidget in main terminal dock host]
     MainCommands[Main window actions] --> Target[Resolve and validate target UUID]
     WindowCommands[Detached window actions] --> Target
     Target --> Controller
@@ -163,3 +164,50 @@ asserts zero presentation changes before capture. It took 56.7 ms for the small
 session and 63.8 ms with 256 KiB of unknown metadata on the verification host.
 These are offscreen loop wall times, not native input latency or a before/after
 speedup claim. Detached identity, persistence and reentrant closure checks passed.
+
+## Internal terminal docking (APP-18)
+
+Terminal > Dock terminal moves the same terminal panel into a native QDockWidget.
+The command is also available in a central tab's context menu and in a detached
+window. Drag the dock title bar to another edge to split the main area, or onto
+another dock to form tabs. Native separators resize adjacent panels. Clicking a
+dock title, its tab or a terminal/editor chooses that terminal for the main
+window's menu, toolbar and status controls. The ordinary central tab selection
+remains independent of the focused dock.
+
+Dock title context menus offer Detach terminal and Return to terminal tabs.
+The dock close button also returns the panel to its global tab-order slot.
+Detaching uses the existing complete secondary window. Native bare floating docks
+are disabled, so floating terminals retain their own menus, toolbar and status bar.
+
+A dedicated child QMainWindow hosts terminal docks and the original central tab
+stack. Its saveState(1) contains terminal layout only, separate from application
+menu/toolbar/status preferences. When no central tabs remain, the central stack
+hides and dock panels occupy the whole terminal area. Dock animation is disabled.
+No transport, screen, parser or processing object is recreated for a host change.
+
+Session presentation stores dockedTerminals (safe unique object IDs) and dockLayout
+(canonical bounded Base64 native state). Detached and docked IDs are disjoint.
+Explicit capture at save/lifecycle boundaries retains unavailable-provider IDs,
+unknown metadata and native missing-dock placeholders. Factories reconstruct views
+disconnected; restoring docking never opens a transport. Native layout restoration
+failure leaves a usable default arrangement and reports the concrete failure.
+Geometry and splitter movement do not write session YAML on each event.
+
+APP-18 verification (Windows 11, Qt 6.12.0, MSVC 2022):
+
+- Debug/Release application builds and full AppTests, SessionTests,
+  CommandEditorTests and TerminalDisplayTests passed. Two pre-existing symlink
+  checks remain unavailable without symlink privileges.
+- Final targeted checks cover both host types closing their session from a
+  backend resize callback, saved left-side dock placement after provider reload
+  and session reopen, live synthetic transport continuity and process shutdown.
+- Native title-click targeting, title-bar drag from the right to the left area,
+  tabification, split and visible native tab-bar captures passed at 100%, 125%
+  and 200% scale. Drag completion waits for Qt's asynchronous plug operation.
+- Fresh sessions reset the native dock host to its initial empty state, keeping
+  missing-provider layout placeholders local to their original session.
+- No physical device or external network connection was used. Mixed physical
+  monitor DPI transfers were not exercised. Full secondary windows dock through
+  the Dock terminal command; dragging their native OS title bar into another
+  window is not a docking gesture in this version.
