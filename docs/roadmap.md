@@ -523,3 +523,11 @@ Later stages:
 - [x] Keep commands targeted to the focused terminal, with tab/dock/secondary-window transfers.
 - [x] Persist bounded native dock layout and restore provider placement disconnected.
 - [x] Verify identity, live connections, lifecycle, native gestures/appearance and Debug/Release builds.
+
+## APP-19: Sticky terminal dragging
+
+- [x] Tear ordinary tabs into complete windows during the held gesture after a sticky threshold.
+- [x] Preview return, split, tabification and outer-edge docking destinations on Windows.
+- [x] Convert unaccepted native dock tear-outs into complete secondary windows.
+- [x] Preserve panel identity, live runtime state, focused commands and explicit presentation persistence.
+- [x] Verify native gestures at 100%, 125% and 200%, Debug/Release builds and lifecycle scenarios; see [terminal windows](terminal-windows.md) for the Qt offscreen limitation.
