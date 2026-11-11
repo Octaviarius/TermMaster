@@ -1,0 +1,7662 @@
+[
+  {
+    "editor": "Notepad++",
+    "rows": 10000,
+    "content": "ascii",
+    "round": 1,
+    "documentLines": 10001,
+    "fileBytes": 550000,
+    "sha256": "777b816d747919f29678483d493a67339d2050fabf3a0786a0d8262a3f46d8ec",
+    "styleIds": [
+      0
+    ],
+    "lexer": 1,
+    "technology": 1,
+    "layoutCache": 1,
+    "fontPoints": 12,
+    "dpi": 96,
+    "editorViewport": [
+      1119,
+      651
+    ],
+    "pageLines": 34,
+    "samples": [
+      {
+        "stage": "resize.width",
+        "wallMs": 14.6735,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 18.3004,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.257,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.8763,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.8824,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 19.2846,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.011,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 20.7557,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.5132,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 12.321,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.3951,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 26.2935,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 19.7589,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 19.5002,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.7769,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 18.0201,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 23.0234,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 20.0972,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.5329,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.6207,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.2453,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 26.0855,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.9859,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.7185,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.7191,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.9575,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 21.6745,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.3378,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.0719,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.4395,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.7879,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.9952,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.2845,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.1343,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.2518,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.6347,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.7329,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.0876,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.4876,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.531,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.752,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.2585,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.332,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.6201,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.6207,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 20.1257,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 12.8044,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.5317,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.2086,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.9195,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.0729,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.711,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.5871,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7202,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.5551,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 36.4417,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.2945,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 13.7902,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.3682,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.9517,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.5871,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.6894,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.5241,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.4662,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.2682,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.6871,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.5563,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.0116,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.4781,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.5714,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.2434,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.1768,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.3676,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.9697,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.9235,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.4741,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.9922,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.5684,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.8472,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.3086,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.4201,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.7021,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.2469,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.1477,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.2039,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.7964,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.0568,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.9413,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.6304,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.846,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.4789,
+        "guiCpuMs": 31.25,
+        "topRow": 3001
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.5373,
+        "guiCpuMs": 0.0,
+        "topRow": 3002
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.6599,
+        "guiCpuMs": 0.0,
+        "topRow": 3003
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.5068,
+        "guiCpuMs": 0.0,
+        "topRow": 3004
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.0973,
+        "guiCpuMs": 0.0,
+        "topRow": 3005
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.7836,
+        "guiCpuMs": 0.0,
+        "topRow": 3006
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.4703,
+        "guiCpuMs": 0.0,
+        "topRow": 3007
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.2672,
+        "guiCpuMs": 0.0,
+        "topRow": 3008
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 35.8151,
+        "guiCpuMs": 15.625,
+        "topRow": 3009
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.7381,
+        "guiCpuMs": 0.0,
+        "topRow": 3010
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.3083,
+        "guiCpuMs": 0.0,
+        "topRow": 3011
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.5483,
+        "guiCpuMs": 0.0,
+        "topRow": 3012
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.9503,
+        "guiCpuMs": 0.0,
+        "topRow": 3013
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.5799,
+        "guiCpuMs": 0.0,
+        "topRow": 3014
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.353,
+        "guiCpuMs": 0.0,
+        "topRow": 3015
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.9169,
+        "guiCpuMs": 31.25,
+        "topRow": 3016
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.0166,
+        "guiCpuMs": 0.0,
+        "topRow": 3017
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3273,
+        "guiCpuMs": 0.0,
+        "topRow": 3018
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3963,
+        "guiCpuMs": 0.0,
+        "topRow": 3019
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.5747,
+        "guiCpuMs": 0.0,
+        "topRow": 3020
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.1077,
+        "guiCpuMs": 0.0,
+        "topRow": 3021
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.8828,
+        "guiCpuMs": 0.0,
+        "topRow": 3022
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3941,
+        "guiCpuMs": 15.625,
+        "topRow": 3023
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3957,
+        "guiCpuMs": 0.0,
+        "topRow": 3024
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3267,
+        "guiCpuMs": 0.0,
+        "topRow": 3025
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.9169,
+        "guiCpuMs": 0.0,
+        "topRow": 3026
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3709,
+        "guiCpuMs": 0.0,
+        "topRow": 3027
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 35.5813,
+        "guiCpuMs": 0.0,
+        "topRow": 3028
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.5038,
+        "guiCpuMs": 0.0,
+        "topRow": 3029
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.5037,
+        "guiCpuMs": 0.0,
+        "topRow": 3030
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.9505,
+        "guiCpuMs": 0.0,
+        "topRow": 2034
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.5526,
+        "guiCpuMs": 0.0,
+        "topRow": 2068
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.4774,
+        "guiCpuMs": 0.0,
+        "topRow": 2102
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3951,
+        "guiCpuMs": 0.0,
+        "topRow": 2136
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.7984,
+        "guiCpuMs": 0.0,
+        "topRow": 2170
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3491,
+        "guiCpuMs": 0.0,
+        "topRow": 2204
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.9519,
+        "guiCpuMs": 0.0,
+        "topRow": 2238
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.9914,
+        "guiCpuMs": 0.0,
+        "topRow": 2272
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.6195,
+        "guiCpuMs": 0.0,
+        "topRow": 2306
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.9641,
+        "guiCpuMs": 0.0,
+        "topRow": 2340
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 35.1522,
+        "guiCpuMs": 0.0,
+        "topRow": 2374
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.8486,
+        "guiCpuMs": 0.0,
+        "topRow": 2408
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.5098,
+        "guiCpuMs": 0.0,
+        "topRow": 2442
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.4999,
+        "guiCpuMs": 31.25,
+        "topRow": 2476
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3755,
+        "guiCpuMs": 0.0,
+        "topRow": 2510
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 34.0991,
+        "guiCpuMs": 0.0,
+        "topRow": 2544
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.5395,
+        "guiCpuMs": 0.0,
+        "topRow": 2578
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.1428,
+        "guiCpuMs": 0.0,
+        "topRow": 2612
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.2058,
+        "guiCpuMs": 0.0,
+        "topRow": 2646
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.2583,
+        "guiCpuMs": 0.0,
+        "topRow": 2680
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2693,
+        "guiCpuMs": 0.0,
+        "topRow": 50
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.8162,
+        "guiCpuMs": 15.625,
+        "topRow": 7969
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.913,
+        "guiCpuMs": 0.0,
+        "topRow": 5988
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.804,
+        "guiCpuMs": 0.0,
+        "topRow": 4007
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.3411,
+        "guiCpuMs": 0.0,
+        "topRow": 2026
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.3019,
+        "guiCpuMs": 0.0,
+        "topRow": 9945
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.3352,
+        "guiCpuMs": 0.0,
+        "topRow": 7964
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.7704,
+        "guiCpuMs": 0.0,
+        "topRow": 5983
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.5935,
+        "guiCpuMs": 31.25,
+        "topRow": 4002
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2658,
+        "guiCpuMs": 0.0,
+        "topRow": 2021
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.3885,
+        "guiCpuMs": 0.0,
+        "topRow": 9940
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.0829,
+        "guiCpuMs": 0.0,
+        "topRow": 7959
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.9174,
+        "guiCpuMs": 0.0,
+        "topRow": 5978
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.4898,
+        "guiCpuMs": 0.0,
+        "topRow": 3997
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 34.5761,
+        "guiCpuMs": 0.0,
+        "topRow": 2016
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.6608,
+        "guiCpuMs": 15.625,
+        "topRow": 9935
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.8611,
+        "guiCpuMs": 0.0,
+        "topRow": 7954
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.7745,
+        "guiCpuMs": 0.0,
+        "topRow": 5973
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 34.2011,
+        "guiCpuMs": 0.0,
+        "topRow": 3992
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 31.1796,
+        "guiCpuMs": 0.0,
+        "topRow": 2011
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.9052,
+        "guiCpuMs": 0.0,
+        "topRow": 9930
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.179,
+        "guiCpuMs": 0.0,
+        "topRow": 7949
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.8835,
+        "guiCpuMs": 0.0,
+        "topRow": 5968
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.8704,
+        "guiCpuMs": 31.25,
+        "topRow": 3987
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.0729,
+        "guiCpuMs": 0.0,
+        "topRow": 2006
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2765,
+        "guiCpuMs": 0.0,
+        "topRow": 9925
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1703,
+        "guiCpuMs": 0.0,
+        "topRow": 7944
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.6241,
+        "guiCpuMs": 0.0,
+        "topRow": 5963
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.0803,
+        "guiCpuMs": 0.0,
+        "topRow": 3982
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.4164,
+        "guiCpuMs": 0.0,
+        "topRow": 2001
+      }
+    ],
+    "ok": true
+  },
+  {
+    "editor": "Notepad++",
+    "rows": 10000,
+    "content": "ascii",
+    "round": 2,
+    "documentLines": 10001,
+    "fileBytes": 550000,
+    "sha256": "777b816d747919f29678483d493a67339d2050fabf3a0786a0d8262a3f46d8ec",
+    "styleIds": [
+      0
+    ],
+    "lexer": 1,
+    "technology": 1,
+    "layoutCache": 1,
+    "fontPoints": 12,
+    "dpi": 96,
+    "editorViewport": [
+      1119,
+      651
+    ],
+    "pageLines": 34,
+    "samples": [
+      {
+        "stage": "resize.width",
+        "wallMs": 17.7211,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.0017,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 18.6622,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.311,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 20.9702,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.0762,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 13.0986,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.1874,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.7874,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.3423,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.7206,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.5239,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.0958,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.0862,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 19.4844,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.8537,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.5721,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 21.1138,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.8737,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 12.0099,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.6325,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.6425,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 32.8866,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 20.7826,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 12.4702,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.229,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 18.0213,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.1937,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.3447,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.6392,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 12.1677,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 19.7497,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.3621,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.1369,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.2557,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.0589,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 11.9767,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.9577,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.9219,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.6489,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 12.0464,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.1667,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.4369,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.2559,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.4253,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.0507,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.6316,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.7246,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.5735,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.8581,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.9037,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.7309,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 22.0539,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 13.2951,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 12.1752,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 19.2403,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 34.0967,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.3601,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.0609,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 20.4834,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.7039,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.8656,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.0173,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 14.9716,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.2565,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.3105,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.3047,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 20.3922,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 13.4291,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 21.982,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 23.9482,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 14.7587,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 13.7383,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 13.517,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 13.302,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.3488,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 13.8814,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 21.6489,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.3813,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 14.9004,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 14.9163,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 14.7527,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.3588,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.5039,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.553,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.4557,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.4303,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.5137,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.9865,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.6896,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.4822,
+        "guiCpuMs": 0.0,
+        "topRow": 3001
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.0749,
+        "guiCpuMs": 0.0,
+        "topRow": 3002
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.125,
+        "guiCpuMs": 0.0,
+        "topRow": 3003
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.7386,
+        "guiCpuMs": 0.0,
+        "topRow": 3004
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.6277,
+        "guiCpuMs": 15.625,
+        "topRow": 3005
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.9284,
+        "guiCpuMs": 0.0,
+        "topRow": 3006
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.1556,
+        "guiCpuMs": 0.0,
+        "topRow": 3007
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.0758,
+        "guiCpuMs": 0.0,
+        "topRow": 3008
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.5265,
+        "guiCpuMs": 0.0,
+        "topRow": 3009
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.0147,
+        "guiCpuMs": 0.0,
+        "topRow": 3010
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.5491,
+        "guiCpuMs": 0.0,
+        "topRow": 3011
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.5475,
+        "guiCpuMs": 0.0,
+        "topRow": 3012
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.6055,
+        "guiCpuMs": 15.625,
+        "topRow": 3013
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.7163,
+        "guiCpuMs": 0.0,
+        "topRow": 3014
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.0093,
+        "guiCpuMs": 0.0,
+        "topRow": 3015
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.2709,
+        "guiCpuMs": 0.0,
+        "topRow": 3016
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.8192,
+        "guiCpuMs": 0.0,
+        "topRow": 3017
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.2686,
+        "guiCpuMs": 0.0,
+        "topRow": 3018
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.3263,
+        "guiCpuMs": 0.0,
+        "topRow": 3019
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.1266,
+        "guiCpuMs": 15.625,
+        "topRow": 3020
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.4287,
+        "guiCpuMs": 0.0,
+        "topRow": 3021
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.2133,
+        "guiCpuMs": 0.0,
+        "topRow": 3022
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.0477,
+        "guiCpuMs": 0.0,
+        "topRow": 3023
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.0729,
+        "guiCpuMs": 0.0,
+        "topRow": 3024
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.4662,
+        "guiCpuMs": 0.0,
+        "topRow": 3025
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.2077,
+        "guiCpuMs": 0.0,
+        "topRow": 3026
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.0042,
+        "guiCpuMs": 0.0,
+        "topRow": 3027
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.9736,
+        "guiCpuMs": 0.0,
+        "topRow": 3028
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.0261,
+        "guiCpuMs": 0.0,
+        "topRow": 3029
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.7565,
+        "guiCpuMs": 0.0,
+        "topRow": 3030
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.8748,
+        "guiCpuMs": 0.0,
+        "topRow": 2034
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.4645,
+        "guiCpuMs": 0.0,
+        "topRow": 2068
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.4036,
+        "guiCpuMs": 0.0,
+        "topRow": 2102
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.8487,
+        "guiCpuMs": 0.0,
+        "topRow": 2136
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.4739,
+        "guiCpuMs": 15.625,
+        "topRow": 2170
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.192,
+        "guiCpuMs": 0.0,
+        "topRow": 2204
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.7573,
+        "guiCpuMs": 0.0,
+        "topRow": 2238
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3685,
+        "guiCpuMs": 0.0,
+        "topRow": 2272
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.4708,
+        "guiCpuMs": 0.0,
+        "topRow": 2306
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.9651,
+        "guiCpuMs": 0.0,
+        "topRow": 2340
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 35.3197,
+        "guiCpuMs": 0.0,
+        "topRow": 2374
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.6243,
+        "guiCpuMs": 0.0,
+        "topRow": 2408
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.0392,
+        "guiCpuMs": 0.0,
+        "topRow": 2442
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.5276,
+        "guiCpuMs": 0.0,
+        "topRow": 2476
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.6965,
+        "guiCpuMs": 0.0,
+        "topRow": 2510
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.4378,
+        "guiCpuMs": 0.0,
+        "topRow": 2544
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 35.1864,
+        "guiCpuMs": 0.0,
+        "topRow": 2578
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.0314,
+        "guiCpuMs": 15.625,
+        "topRow": 2612
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.5849,
+        "guiCpuMs": 31.25,
+        "topRow": 2646
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3011,
+        "guiCpuMs": 0.0,
+        "topRow": 2680
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.091,
+        "guiCpuMs": 0.0,
+        "topRow": 50
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.7303,
+        "guiCpuMs": 0.0,
+        "topRow": 7969
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.7883,
+        "guiCpuMs": 0.0,
+        "topRow": 5988
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1035,
+        "guiCpuMs": 0.0,
+        "topRow": 4007
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 0.4373,
+        "guiCpuMs": 0.0,
+        "topRow": 2026
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.5413,
+        "guiCpuMs": 0.0,
+        "topRow": 9945
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.25,
+        "guiCpuMs": 31.25,
+        "topRow": 7964
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2058,
+        "guiCpuMs": 0.0,
+        "topRow": 5983
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.7788,
+        "guiCpuMs": 0.0,
+        "topRow": 4002
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1421,
+        "guiCpuMs": 0.0,
+        "topRow": 2021
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2309,
+        "guiCpuMs": 0.0,
+        "topRow": 9940
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1843,
+        "guiCpuMs": 0.0,
+        "topRow": 7959
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1629,
+        "guiCpuMs": 15.625,
+        "topRow": 5978
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.0443,
+        "guiCpuMs": 15.625,
+        "topRow": 3997
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.0378,
+        "guiCpuMs": 0.0,
+        "topRow": 2016
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 34.6729,
+        "guiCpuMs": 0.0,
+        "topRow": 9935
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.7152,
+        "guiCpuMs": 0.0,
+        "topRow": 7954
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.0738,
+        "guiCpuMs": 0.0,
+        "topRow": 5973
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.2925,
+        "guiCpuMs": 0.0,
+        "topRow": 3992
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 34.358,
+        "guiCpuMs": 0.0,
+        "topRow": 2011
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 30.8261,
+        "guiCpuMs": 0.0,
+        "topRow": 9930
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.3244,
+        "guiCpuMs": 15.625,
+        "topRow": 7949
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.9353,
+        "guiCpuMs": 0.0,
+        "topRow": 5968
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.5775,
+        "guiCpuMs": 0.0,
+        "topRow": 3987
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.8662,
+        "guiCpuMs": 0.0,
+        "topRow": 2006
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.5918,
+        "guiCpuMs": 0.0,
+        "topRow": 9925
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.9932,
+        "guiCpuMs": 0.0,
+        "topRow": 7944
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.542,
+        "guiCpuMs": 0.0,
+        "topRow": 5963
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.295,
+        "guiCpuMs": 0.0,
+        "topRow": 3982
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.8515,
+        "guiCpuMs": 0.0,
+        "topRow": 2001
+      }
+    ],
+    "ok": true
+  },
+  {
+    "editor": "Notepad++",
+    "rows": 10000,
+    "content": "json-unicode",
+    "round": 1,
+    "documentLines": 10002,
+    "fileBytes": 1083892,
+    "sha256": "5e479955e968713f77b384422b489ddbf7e9ae3603ec7e909b79ae27a0b51c1e",
+    "styleIds": [
+      0,
+      1,
+      2,
+      4,
+      8,
+      11
+    ],
+    "lexer": 120,
+    "technology": 1,
+    "layoutCache": 1,
+    "fontPoints": 12,
+    "dpi": 96,
+    "editorViewport": [
+      1119,
+      651
+    ],
+    "pageLines": 34,
+    "samples": [
+      {
+        "stage": "resize.width",
+        "wallMs": 56.5119,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 50.436,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 53.1813,
+        "guiCpuMs": 62.5
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 54.4799,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 48.556,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 49.3328,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 47.4971,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 48.9008,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 47.2553,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.0813,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.4439,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.1711,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.6012,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 55.9284,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.0817,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.0919,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 45.7389,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.6231,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 47.5237,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 45.2874,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 46.4597,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.8388,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.911,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 48.9174,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 41.5804,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 41.0046,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 40.6211,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 55.4762,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 41.9788,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.2963,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.9084,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.1849,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.1371,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 45.2327,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.8628,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.6619,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.8673,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.5724,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 45.3773,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.673,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.4878,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.7718,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.2654,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 44.4868,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.7976,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.8201,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 44.279,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.2074,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 45.204,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.0249,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.3037,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 44.2858,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.7865,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.4599,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 49.2421,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.3578,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.0197,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.339,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.5466,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.4643,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.7362,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.1904,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.0625,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.6525,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.8425,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.3998,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 53.9387,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.1451,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.9568,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.2181,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 49.2881,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.9315,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.0066,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.8957,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.0106,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 42.8683,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.6407,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.9171,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.1791,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.4428,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 61.0037,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 41.7934,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.3781,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.9672,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 50.1334,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 42.7332,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.1648,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.6221,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 49.131,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.3362,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 87.6589,
+        "guiCpuMs": 62.5,
+        "topRow": 3001
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7004,
+        "guiCpuMs": 31.25,
+        "topRow": 3002
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.6157,
+        "guiCpuMs": 62.5,
+        "topRow": 3003
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.1499,
+        "guiCpuMs": 31.25,
+        "topRow": 3004
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.6259,
+        "guiCpuMs": 31.25,
+        "topRow": 3005
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0987,
+        "guiCpuMs": 31.25,
+        "topRow": 3006
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0227,
+        "guiCpuMs": 31.25,
+        "topRow": 3007
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.9973,
+        "guiCpuMs": 46.875,
+        "topRow": 3008
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.5639,
+        "guiCpuMs": 31.25,
+        "topRow": 3009
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7387,
+        "guiCpuMs": 31.25,
+        "topRow": 3010
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.5389,
+        "guiCpuMs": 31.25,
+        "topRow": 3011
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.6431,
+        "guiCpuMs": 31.25,
+        "topRow": 3012
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 51.4818,
+        "guiCpuMs": 46.875,
+        "topRow": 3013
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.7289,
+        "guiCpuMs": 31.25,
+        "topRow": 3014
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 47.4245,
+        "guiCpuMs": 31.25,
+        "topRow": 3015
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.9381,
+        "guiCpuMs": 31.25,
+        "topRow": 3016
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.1099,
+        "guiCpuMs": 31.25,
+        "topRow": 3017
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.6044,
+        "guiCpuMs": 46.875,
+        "topRow": 3018
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7473,
+        "guiCpuMs": 31.25,
+        "topRow": 3019
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.9209,
+        "guiCpuMs": 31.25,
+        "topRow": 3020
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.1,
+        "guiCpuMs": 31.25,
+        "topRow": 3021
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.9786,
+        "guiCpuMs": 31.25,
+        "topRow": 3022
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.717,
+        "guiCpuMs": 46.875,
+        "topRow": 3023
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.9536,
+        "guiCpuMs": 31.25,
+        "topRow": 3024
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.9372,
+        "guiCpuMs": 31.25,
+        "topRow": 3025
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.194,
+        "guiCpuMs": 31.25,
+        "topRow": 3026
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0123,
+        "guiCpuMs": 31.25,
+        "topRow": 3027
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.0209,
+        "guiCpuMs": 46.875,
+        "topRow": 3028
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7087,
+        "guiCpuMs": 31.25,
+        "topRow": 3029
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.2183,
+        "guiCpuMs": 31.25,
+        "topRow": 3030
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.098,
+        "guiCpuMs": 31.25,
+        "topRow": 2034
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.5456,
+        "guiCpuMs": 46.875,
+        "topRow": 2068
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.7721,
+        "guiCpuMs": 31.25,
+        "topRow": 2102
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.2255,
+        "guiCpuMs": 31.25,
+        "topRow": 2136
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 48.9793,
+        "guiCpuMs": 31.25,
+        "topRow": 2170
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.7832,
+        "guiCpuMs": 31.25,
+        "topRow": 2204
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.0185,
+        "guiCpuMs": 46.875,
+        "topRow": 2238
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.9879,
+        "guiCpuMs": 31.25,
+        "topRow": 2272
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.1622,
+        "guiCpuMs": 31.25,
+        "topRow": 2306
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 51.2465,
+        "guiCpuMs": 31.25,
+        "topRow": 2340
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.553,
+        "guiCpuMs": 31.25,
+        "topRow": 2374
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.1786,
+        "guiCpuMs": 46.875,
+        "topRow": 2408
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.6601,
+        "guiCpuMs": 31.25,
+        "topRow": 2442
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.4979,
+        "guiCpuMs": 31.25,
+        "topRow": 2476
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.5708,
+        "guiCpuMs": 31.25,
+        "topRow": 2510
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.7668,
+        "guiCpuMs": 31.25,
+        "topRow": 2544
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.767,
+        "guiCpuMs": 46.875,
+        "topRow": 2578
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.6821,
+        "guiCpuMs": 31.25,
+        "topRow": 2612
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.5363,
+        "guiCpuMs": 31.25,
+        "topRow": 2646
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 48.6296,
+        "guiCpuMs": 31.25,
+        "topRow": 2680
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 66.0935,
+        "guiCpuMs": 62.5,
+        "topRow": 50
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 66.1935,
+        "guiCpuMs": 78.125,
+        "topRow": 7969
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 36.631,
+        "guiCpuMs": 31.25,
+        "topRow": 5988
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.1126,
+        "guiCpuMs": 31.25,
+        "topRow": 4007
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.4747,
+        "guiCpuMs": 46.875,
+        "topRow": 2026
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.5219,
+        "guiCpuMs": 31.25,
+        "topRow": 9945
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9956,
+        "guiCpuMs": 31.25,
+        "topRow": 7964
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 51.1309,
+        "guiCpuMs": 31.25,
+        "topRow": 5983
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 47.2586,
+        "guiCpuMs": 31.25,
+        "topRow": 4002
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.7831,
+        "guiCpuMs": 46.875,
+        "topRow": 2021
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9932,
+        "guiCpuMs": 46.875,
+        "topRow": 9940
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8933,
+        "guiCpuMs": 15.625,
+        "topRow": 7959
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9844,
+        "guiCpuMs": 31.25,
+        "topRow": 5978
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8775,
+        "guiCpuMs": 31.25,
+        "topRow": 3997
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8357,
+        "guiCpuMs": 46.875,
+        "topRow": 2016
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.3273,
+        "guiCpuMs": 46.875,
+        "topRow": 9935
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.068,
+        "guiCpuMs": 31.25,
+        "topRow": 7954
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9351,
+        "guiCpuMs": 46.875,
+        "topRow": 5973
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.475,
+        "guiCpuMs": 31.25,
+        "topRow": 3992
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8277,
+        "guiCpuMs": 46.875,
+        "topRow": 2011
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.2082,
+        "guiCpuMs": 46.875,
+        "topRow": 9930
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 51.7768,
+        "guiCpuMs": 31.25,
+        "topRow": 7949
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.4523,
+        "guiCpuMs": 46.875,
+        "topRow": 5968
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.158,
+        "guiCpuMs": 46.875,
+        "topRow": 3987
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.3389,
+        "guiCpuMs": 46.875,
+        "topRow": 2006
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8282,
+        "guiCpuMs": 31.25,
+        "topRow": 9925
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.414,
+        "guiCpuMs": 31.25,
+        "topRow": 7944
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.6821,
+        "guiCpuMs": 31.25,
+        "topRow": 5963
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.4424,
+        "guiCpuMs": 31.25,
+        "topRow": 3982
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.4482,
+        "guiCpuMs": 31.25,
+        "topRow": 2001
+      }
+    ],
+    "ok": true
+  },
+  {
+    "editor": "Notepad++",
+    "rows": 10000,
+    "content": "json-unicode",
+    "round": 2,
+    "documentLines": 10002,
+    "fileBytes": 1083892,
+    "sha256": "5e479955e968713f77b384422b489ddbf7e9ae3603ec7e909b79ae27a0b51c1e",
+    "styleIds": [
+      0,
+      1,
+      2,
+      4,
+      8,
+      11
+    ],
+    "lexer": 120,
+    "technology": 1,
+    "layoutCache": 1,
+    "fontPoints": 12,
+    "dpi": 96,
+    "editorViewport": [
+      1119,
+      651
+    ],
+    "pageLines": 34,
+    "samples": [
+      {
+        "stage": "resize.width",
+        "wallMs": 42.249,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.5415,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 46.0545,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 46.8713,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.0106,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.7596,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.0458,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.5391,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.1335,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 41.9988,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.1182,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.3213,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 45.731,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 45.5602,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.236,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 46.262,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 48.4904,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 41.2133,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.5158,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.5766,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.0197,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.5097,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.6127,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.2206,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 47.2908,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 45.4378,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 53.4292,
+        "guiCpuMs": 62.5
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 47.4923,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 45.9689,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.1168,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 45.5433,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.547,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 48.0261,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.5559,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 48.2569,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.0259,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 46.7258,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.4994,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.084,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 48.4694,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 47.9349,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 54.8042,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 44.919,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 47.652,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.9291,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 44.9051,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 49.2132,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 47.6984,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.996,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.6099,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 51.7772,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 46.1153,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 47.5926,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 46.0638,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 62.2319,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 50.4453,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.6711,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 46.7642,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 48.4217,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 48.8105,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 54.1263,
+        "guiCpuMs": 62.5
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.8017,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.6082,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.1884,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.4613,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.9204,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 67.1386,
+        "guiCpuMs": 62.5
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.1192,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.6375,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.8248,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.5754,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.5053,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.8686,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.7637,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.7268,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.1991,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.8852,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.6034,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.6071,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 42.7297,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.148,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.4268,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 56.1944,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.0575,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.2199,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 50.524,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 49.7761,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.601,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 49.6136,
+        "guiCpuMs": 62.5
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 51.7517,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 79.0014,
+        "guiCpuMs": 78.125,
+        "topRow": 3001
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.5621,
+        "guiCpuMs": 31.25,
+        "topRow": 3002
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0521,
+        "guiCpuMs": 31.25,
+        "topRow": 3003
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.7688,
+        "guiCpuMs": 31.25,
+        "topRow": 3004
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.9655,
+        "guiCpuMs": 31.25,
+        "topRow": 3005
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.8835,
+        "guiCpuMs": 46.875,
+        "topRow": 3006
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 51.2917,
+        "guiCpuMs": 31.25,
+        "topRow": 3007
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 47.8858,
+        "guiCpuMs": 31.25,
+        "topRow": 3008
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.9108,
+        "guiCpuMs": 31.25,
+        "topRow": 3009
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 47.5669,
+        "guiCpuMs": 46.875,
+        "topRow": 3010
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7022,
+        "guiCpuMs": 46.875,
+        "topRow": 3011
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.1714,
+        "guiCpuMs": 31.25,
+        "topRow": 3012
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.3881,
+        "guiCpuMs": 31.25,
+        "topRow": 3013
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.6843,
+        "guiCpuMs": 31.25,
+        "topRow": 3014
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.4749,
+        "guiCpuMs": 31.25,
+        "topRow": 3015
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.9386,
+        "guiCpuMs": 46.875,
+        "topRow": 3016
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.3222,
+        "guiCpuMs": 46.875,
+        "topRow": 3017
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.466,
+        "guiCpuMs": 31.25,
+        "topRow": 3018
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.8619,
+        "guiCpuMs": 31.25,
+        "topRow": 3019
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.3262,
+        "guiCpuMs": 31.25,
+        "topRow": 3020
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.8684,
+        "guiCpuMs": 46.875,
+        "topRow": 3021
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 51.2171,
+        "guiCpuMs": 31.25,
+        "topRow": 3022
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0455,
+        "guiCpuMs": 31.25,
+        "topRow": 3023
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.5649,
+        "guiCpuMs": 31.25,
+        "topRow": 3024
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.1653,
+        "guiCpuMs": 46.875,
+        "topRow": 3025
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.0923,
+        "guiCpuMs": 46.875,
+        "topRow": 3026
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.5729,
+        "guiCpuMs": 46.875,
+        "topRow": 3027
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.4206,
+        "guiCpuMs": 31.25,
+        "topRow": 3028
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.502,
+        "guiCpuMs": 31.25,
+        "topRow": 3029
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.5629,
+        "guiCpuMs": 31.25,
+        "topRow": 3030
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.5229,
+        "guiCpuMs": 31.25,
+        "topRow": 2034
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.3303,
+        "guiCpuMs": 31.25,
+        "topRow": 2068
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.2113,
+        "guiCpuMs": 31.25,
+        "topRow": 2102
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.14,
+        "guiCpuMs": 31.25,
+        "topRow": 2136
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.2853,
+        "guiCpuMs": 46.875,
+        "topRow": 2170
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.3952,
+        "guiCpuMs": 46.875,
+        "topRow": 2204
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.0843,
+        "guiCpuMs": 31.25,
+        "topRow": 2238
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 51.9466,
+        "guiCpuMs": 31.25,
+        "topRow": 2272
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.884,
+        "guiCpuMs": 31.25,
+        "topRow": 2306
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.4657,
+        "guiCpuMs": 31.25,
+        "topRow": 2340
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.882,
+        "guiCpuMs": 31.25,
+        "topRow": 2374
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.1438,
+        "guiCpuMs": 31.25,
+        "topRow": 2408
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.2648,
+        "guiCpuMs": 31.25,
+        "topRow": 2442
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.5973,
+        "guiCpuMs": 31.25,
+        "topRow": 2476
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.9083,
+        "guiCpuMs": 46.875,
+        "topRow": 2510
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.4502,
+        "guiCpuMs": 31.25,
+        "topRow": 2544
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.2156,
+        "guiCpuMs": 31.25,
+        "topRow": 2578
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 48.2043,
+        "guiCpuMs": 31.25,
+        "topRow": 2612
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.8685,
+        "guiCpuMs": 31.25,
+        "topRow": 2646
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.569,
+        "guiCpuMs": 31.25,
+        "topRow": 2680
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 66.3764,
+        "guiCpuMs": 78.125,
+        "topRow": 50
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 65.9605,
+        "guiCpuMs": 62.5,
+        "topRow": 7969
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 54.9595,
+        "guiCpuMs": 46.875,
+        "topRow": 5988
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8527,
+        "guiCpuMs": 31.25,
+        "topRow": 4007
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.902,
+        "guiCpuMs": 31.25,
+        "topRow": 2026
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 48.7018,
+        "guiCpuMs": 31.25,
+        "topRow": 9945
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9556,
+        "guiCpuMs": 31.25,
+        "topRow": 7964
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.7112,
+        "guiCpuMs": 31.25,
+        "topRow": 5983
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8701,
+        "guiCpuMs": 46.875,
+        "topRow": 4002
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.0608,
+        "guiCpuMs": 31.25,
+        "topRow": 2021
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.7925,
+        "guiCpuMs": 31.25,
+        "topRow": 9940
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8113,
+        "guiCpuMs": 31.25,
+        "topRow": 7959
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.904,
+        "guiCpuMs": 31.25,
+        "topRow": 5978
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.1927,
+        "guiCpuMs": 46.875,
+        "topRow": 3997
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.637,
+        "guiCpuMs": 31.25,
+        "topRow": 2016
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8694,
+        "guiCpuMs": 31.25,
+        "topRow": 9935
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.0261,
+        "guiCpuMs": 31.25,
+        "topRow": 7954
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9317,
+        "guiCpuMs": 31.25,
+        "topRow": 5973
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 52.4727,
+        "guiCpuMs": 46.875,
+        "topRow": 3992
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 48.3804,
+        "guiCpuMs": 31.25,
+        "topRow": 2011
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.0634,
+        "guiCpuMs": 31.25,
+        "topRow": 9930
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 0.6481,
+        "guiCpuMs": 0.0,
+        "topRow": 7949
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 48.8699,
+        "guiCpuMs": 46.875,
+        "topRow": 5968
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.5771,
+        "guiCpuMs": 46.875,
+        "topRow": 3987
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.4862,
+        "guiCpuMs": 31.25,
+        "topRow": 2006
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.7405,
+        "guiCpuMs": 31.25,
+        "topRow": 9925
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.1454,
+        "guiCpuMs": 31.25,
+        "topRow": 7944
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.755,
+        "guiCpuMs": 31.25,
+        "topRow": 5963
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.5174,
+        "guiCpuMs": 31.25,
+        "topRow": 3982
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 48.9858,
+        "guiCpuMs": 31.25,
+        "topRow": 2001
+      }
+    ],
+    "ok": true
+  },
+  {
+    "editor": "Notepad++",
+    "rows": 100000,
+    "content": "ascii",
+    "round": 1,
+    "documentLines": 100001,
+    "fileBytes": 5500000,
+    "sha256": "8d3a84680facee736feab1bb1fad3c94c0d773177c367a3a34a19bc20325c40c",
+    "styleIds": [
+      0
+    ],
+    "lexer": 1,
+    "technology": 1,
+    "layoutCache": 1,
+    "fontPoints": 12,
+    "dpi": 96,
+    "editorViewport": [
+      1119,
+      651
+    ],
+    "pageLines": 34,
+    "samples": [
+      {
+        "stage": "resize.width",
+        "wallMs": 15.8137,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 20.8806,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.5016,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 24.8197,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.1665,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 13.8563,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.2121,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 30.2956,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.4849,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 19.7075,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.129,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.4536,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.1723,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 18.2418,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.7391,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 18.4921,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.0885,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.1871,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.3299,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 28.0167,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 21.1932,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.2421,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 30.6301,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 13.0543,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.4785,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.4263,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.6273,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 22.1252,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 21.4491,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.1886,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.3377,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.1586,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.0519,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7058,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 21.8611,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 12.8415,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.3191,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.0912,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.4366,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.3714,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.531,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.5599,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.7639,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.3899,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7123,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7786,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.4074,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.0226,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7566,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7278,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 20.4283,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.5536,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.6493,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 32.5338,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.374,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7799,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.1565,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 13.4794,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.2206,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 21.9714,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.0579,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.7507,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.5596,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.1916,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 13.7792,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.8861,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 20.8703,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.6871,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 21.6883,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 25.6768,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 20.0257,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.1802,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 25.2948,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 24.4564,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.2054,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.5746,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 20.068,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.5218,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.3997,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.5339,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.2393,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 23.6002,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 21.1708,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.1502,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 14.7324,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 31.1413,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.685,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.4041,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.18,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.4115,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.1462,
+        "guiCpuMs": 0.0,
+        "topRow": 3001
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.0383,
+        "guiCpuMs": 0.0,
+        "topRow": 3002
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3581,
+        "guiCpuMs": 15.625,
+        "topRow": 3003
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.8412,
+        "guiCpuMs": 0.0,
+        "topRow": 3004
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.1213,
+        "guiCpuMs": 0.0,
+        "topRow": 3005
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.1842,
+        "guiCpuMs": 0.0,
+        "topRow": 3006
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.0001,
+        "guiCpuMs": 0.0,
+        "topRow": 3007
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.5699,
+        "guiCpuMs": 0.0,
+        "topRow": 3008
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 30.8091,
+        "guiCpuMs": 15.625,
+        "topRow": 3009
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.9546,
+        "guiCpuMs": 0.0,
+        "topRow": 3010
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.5967,
+        "guiCpuMs": 15.625,
+        "topRow": 3011
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.2506,
+        "guiCpuMs": 0.0,
+        "topRow": 3012
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.8823,
+        "guiCpuMs": 0.0,
+        "topRow": 3013
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.6272,
+        "guiCpuMs": 0.0,
+        "topRow": 3014
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.9448,
+        "guiCpuMs": 0.0,
+        "topRow": 3015
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3957,
+        "guiCpuMs": 0.0,
+        "topRow": 3016
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.0269,
+        "guiCpuMs": 15.625,
+        "topRow": 3017
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.5207,
+        "guiCpuMs": 0.0,
+        "topRow": 3018
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.9257,
+        "guiCpuMs": 0.0,
+        "topRow": 3019
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.322,
+        "guiCpuMs": 0.0,
+        "topRow": 3020
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.1903,
+        "guiCpuMs": 0.0,
+        "topRow": 3021
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.1753,
+        "guiCpuMs": 0.0,
+        "topRow": 3022
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3717,
+        "guiCpuMs": 0.0,
+        "topRow": 3023
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.8894,
+        "guiCpuMs": 0.0,
+        "topRow": 3024
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.5687,
+        "guiCpuMs": 15.625,
+        "topRow": 3025
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3481,
+        "guiCpuMs": 0.0,
+        "topRow": 3026
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.0013,
+        "guiCpuMs": 0.0,
+        "topRow": 3027
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.4617,
+        "guiCpuMs": 0.0,
+        "topRow": 3028
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.3663,
+        "guiCpuMs": 0.0,
+        "topRow": 3029
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.2982,
+        "guiCpuMs": 0.0,
+        "topRow": 3030
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 34.1419,
+        "guiCpuMs": 0.0,
+        "topRow": 2034
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 31.2876,
+        "guiCpuMs": 0.0,
+        "topRow": 2068
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3096,
+        "guiCpuMs": 0.0,
+        "topRow": 2102
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.9293,
+        "guiCpuMs": 0.0,
+        "topRow": 2136
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.1419,
+        "guiCpuMs": 0.0,
+        "topRow": 2170
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3362,
+        "guiCpuMs": 0.0,
+        "topRow": 2204
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.044,
+        "guiCpuMs": 0.0,
+        "topRow": 2238
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 35.1946,
+        "guiCpuMs": 0.0,
+        "topRow": 2272
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.843,
+        "guiCpuMs": 15.625,
+        "topRow": 2306
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 0.4639,
+        "guiCpuMs": 0.0,
+        "topRow": 2340
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 34.0895,
+        "guiCpuMs": 0.0,
+        "topRow": 2374
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.0792,
+        "guiCpuMs": 0.0,
+        "topRow": 2408
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.0133,
+        "guiCpuMs": 0.0,
+        "topRow": 2442
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.9591,
+        "guiCpuMs": 0.0,
+        "topRow": 2476
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.6025,
+        "guiCpuMs": 0.0,
+        "topRow": 2510
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.1297,
+        "guiCpuMs": 0.0,
+        "topRow": 2544
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.4381,
+        "guiCpuMs": 0.0,
+        "topRow": 2578
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.903,
+        "guiCpuMs": 0.0,
+        "topRow": 2612
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.6313,
+        "guiCpuMs": 0.0,
+        "topRow": 2646
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.0294,
+        "guiCpuMs": 0.0,
+        "topRow": 2680
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1857,
+        "guiCpuMs": 0.0,
+        "topRow": 50
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.4687,
+        "guiCpuMs": 0.0,
+        "topRow": 7969
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.0115,
+        "guiCpuMs": 0.0,
+        "topRow": 15888
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.4009,
+        "guiCpuMs": 15.625,
+        "topRow": 23807
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.0452,
+        "guiCpuMs": 0.0,
+        "topRow": 31726
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2895,
+        "guiCpuMs": 0.0,
+        "topRow": 39645
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.44,
+        "guiCpuMs": 0.0,
+        "topRow": 47564
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 34.0167,
+        "guiCpuMs": 0.0,
+        "topRow": 55483
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2496,
+        "guiCpuMs": 0.0,
+        "topRow": 63402
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.9675,
+        "guiCpuMs": 0.0,
+        "topRow": 71321
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.63,
+        "guiCpuMs": 15.625,
+        "topRow": 79240
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 35.1884,
+        "guiCpuMs": 0.0,
+        "topRow": 87159
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.9916,
+        "guiCpuMs": 0.0,
+        "topRow": 95078
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.5794,
+        "guiCpuMs": 0.0,
+        "topRow": 3097
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1584,
+        "guiCpuMs": 0.0,
+        "topRow": 11016
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.8734,
+        "guiCpuMs": 0.0,
+        "topRow": 18935
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.4239,
+        "guiCpuMs": 0.0,
+        "topRow": 26854
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.8118,
+        "guiCpuMs": 0.0,
+        "topRow": 34773
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.4454,
+        "guiCpuMs": 0.0,
+        "topRow": 42692
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1891,
+        "guiCpuMs": 0.0,
+        "topRow": 50611
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1853,
+        "guiCpuMs": 0.0,
+        "topRow": 58530
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.4938,
+        "guiCpuMs": 0.0,
+        "topRow": 66449
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.5467,
+        "guiCpuMs": 0.0,
+        "topRow": 74368
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1476,
+        "guiCpuMs": 0.0,
+        "topRow": 82287
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.8008,
+        "guiCpuMs": 15.625,
+        "topRow": 90206
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.9317,
+        "guiCpuMs": 0.0,
+        "topRow": 98125
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.4541,
+        "guiCpuMs": 0.0,
+        "topRow": 6144
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.8845,
+        "guiCpuMs": 0.0,
+        "topRow": 14063
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 30.9171,
+        "guiCpuMs": 0.0,
+        "topRow": 21982
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.9846,
+        "guiCpuMs": 0.0,
+        "topRow": 29901
+      }
+    ],
+    "ok": true
+  },
+  {
+    "editor": "Notepad++",
+    "rows": 100000,
+    "content": "ascii",
+    "round": 2,
+    "documentLines": 100001,
+    "fileBytes": 5500000,
+    "sha256": "8d3a84680facee736feab1bb1fad3c94c0d773177c367a3a34a19bc20325c40c",
+    "styleIds": [
+      0
+    ],
+    "lexer": 1,
+    "technology": 1,
+    "layoutCache": 1,
+    "fontPoints": 12,
+    "dpi": 96,
+    "editorViewport": [
+      1119,
+      651
+    ],
+    "pageLines": 34,
+    "samples": [
+      {
+        "stage": "resize.width",
+        "wallMs": 12.3922,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 13.7413,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.1735,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.5621,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 18.6602,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 20.8224,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.6823,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 19.1115,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.2956,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.0485,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.226,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.3977,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.2467,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 18.2256,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.5906,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.9831,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.0112,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 12.5096,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 13.5597,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 14.7571,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.9099,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 33.0878,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.5195,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.3535,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.0549,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.6228,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.7833,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 16.3996,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 17.6163,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 15.5721,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7882,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.3221,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.1053,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.8045,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.0822,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.6362,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.8771,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7867,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.0419,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.5092,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 14.7148,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.443,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.1489,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.0861,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.8712,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.5929,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.9109,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.7903,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.8925,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.7365,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 19.1015,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 13.7201,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 17.6365,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 15.7367,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.2184,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 33.317,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.631,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.757,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 16.4384,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 18.1366,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 19.6103,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 14.7834,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.1273,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.5101,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.8403,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.144,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.2937,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.8336,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.0678,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.1797,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.0408,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 18.1844,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.903,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.9142,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 14.8651,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.8849,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.6977,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.3501,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.5409,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.6596,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.2144,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.6231,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 19.7774,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 15.0447,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.6418,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 14.3387,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.1008,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 16.4295,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 17.4743,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 32.8342,
+        "guiCpuMs": 0.0
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.1672,
+        "guiCpuMs": 0.0,
+        "topRow": 3001
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.2061,
+        "guiCpuMs": 0.0,
+        "topRow": 3002
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.4801,
+        "guiCpuMs": 0.0,
+        "topRow": 3003
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.6557,
+        "guiCpuMs": 0.0,
+        "topRow": 3004
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.0391,
+        "guiCpuMs": 0.0,
+        "topRow": 3005
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.1977,
+        "guiCpuMs": 0.0,
+        "topRow": 3006
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.3116,
+        "guiCpuMs": 0.0,
+        "topRow": 3007
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.335,
+        "guiCpuMs": 0.0,
+        "topRow": 3008
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.2177,
+        "guiCpuMs": 0.0,
+        "topRow": 3009
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.6427,
+        "guiCpuMs": 0.0,
+        "topRow": 3010
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.8959,
+        "guiCpuMs": 0.0,
+        "topRow": 3011
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3334,
+        "guiCpuMs": 0.0,
+        "topRow": 3012
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.1533,
+        "guiCpuMs": 0.0,
+        "topRow": 3013
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.0815,
+        "guiCpuMs": 0.0,
+        "topRow": 3014
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.281,
+        "guiCpuMs": 0.0,
+        "topRow": 3015
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.6693,
+        "guiCpuMs": 0.0,
+        "topRow": 3016
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 35.0761,
+        "guiCpuMs": 15.625,
+        "topRow": 3017
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.5646,
+        "guiCpuMs": 0.0,
+        "topRow": 3018
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.1811,
+        "guiCpuMs": 0.0,
+        "topRow": 3019
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.2276,
+        "guiCpuMs": 0.0,
+        "topRow": 3020
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.2869,
+        "guiCpuMs": 0.0,
+        "topRow": 3021
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 31.8277,
+        "guiCpuMs": 0.0,
+        "topRow": 3022
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.5831,
+        "guiCpuMs": 0.0,
+        "topRow": 3023
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3582,
+        "guiCpuMs": 0.0,
+        "topRow": 3024
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.6953,
+        "guiCpuMs": 15.625,
+        "topRow": 3025
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.4446,
+        "guiCpuMs": 0.0,
+        "topRow": 3026
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 34.0787,
+        "guiCpuMs": 0.0,
+        "topRow": 3027
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.7518,
+        "guiCpuMs": 0.0,
+        "topRow": 3028
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 32.0746,
+        "guiCpuMs": 0.0,
+        "topRow": 3029
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 33.3379,
+        "guiCpuMs": 0.0,
+        "topRow": 3030
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.1626,
+        "guiCpuMs": 31.25,
+        "topRow": 2034
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 34.0131,
+        "guiCpuMs": 0.0,
+        "topRow": 2068
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.9354,
+        "guiCpuMs": 0.0,
+        "topRow": 2102
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3369,
+        "guiCpuMs": 0.0,
+        "topRow": 2136
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3104,
+        "guiCpuMs": 0.0,
+        "topRow": 2170
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 13.1484,
+        "guiCpuMs": 0.0,
+        "topRow": 2204
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 12.7131,
+        "guiCpuMs": 0.0,
+        "topRow": 2238
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 17.7707,
+        "guiCpuMs": 0.0,
+        "topRow": 2272
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 31.525,
+        "guiCpuMs": 15.625,
+        "topRow": 2306
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 17.2316,
+        "guiCpuMs": 15.625,
+        "topRow": 2340
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.1092,
+        "guiCpuMs": 0.0,
+        "topRow": 2374
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3404,
+        "guiCpuMs": 0.0,
+        "topRow": 2408
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.7974,
+        "guiCpuMs": 0.0,
+        "topRow": 2442
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 16.6536,
+        "guiCpuMs": 0.0,
+        "topRow": 2476
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.1333,
+        "guiCpuMs": 0.0,
+        "topRow": 2510
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.8934,
+        "guiCpuMs": 0.0,
+        "topRow": 2544
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3885,
+        "guiCpuMs": 0.0,
+        "topRow": 2578
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 32.7509,
+        "guiCpuMs": 31.25,
+        "topRow": 2612
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.3862,
+        "guiCpuMs": 0.0,
+        "topRow": 2646
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 33.1981,
+        "guiCpuMs": 0.0,
+        "topRow": 2680
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.0902,
+        "guiCpuMs": 0.0,
+        "topRow": 50
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.8048,
+        "guiCpuMs": 0.0,
+        "topRow": 7969
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1718,
+        "guiCpuMs": 0.0,
+        "topRow": 15888
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.9741,
+        "guiCpuMs": 31.25,
+        "topRow": 23807
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.739,
+        "guiCpuMs": 0.0,
+        "topRow": 31726
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.8992,
+        "guiCpuMs": 0.0,
+        "topRow": 39645
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.4815,
+        "guiCpuMs": 0.0,
+        "topRow": 47564
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 31.9169,
+        "guiCpuMs": 0.0,
+        "topRow": 55483
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.3372,
+        "guiCpuMs": 0.0,
+        "topRow": 63402
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.0705,
+        "guiCpuMs": 0.0,
+        "topRow": 71321
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.3755,
+        "guiCpuMs": 0.0,
+        "topRow": 79240
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2405,
+        "guiCpuMs": 15.625,
+        "topRow": 87159
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.3045,
+        "guiCpuMs": 0.0,
+        "topRow": 95078
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1523,
+        "guiCpuMs": 0.0,
+        "topRow": 3097
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.255,
+        "guiCpuMs": 0.0,
+        "topRow": 11016
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2816,
+        "guiCpuMs": 0.0,
+        "topRow": 18935
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 34.171,
+        "guiCpuMs": 0.0,
+        "topRow": 26854
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.5271,
+        "guiCpuMs": 0.0,
+        "topRow": 34773
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.1234,
+        "guiCpuMs": 0.0,
+        "topRow": 42692
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.5068,
+        "guiCpuMs": 0.0,
+        "topRow": 50611
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.6654,
+        "guiCpuMs": 0.0,
+        "topRow": 58530
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.5932,
+        "guiCpuMs": 0.0,
+        "topRow": 66449
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.8203,
+        "guiCpuMs": 0.0,
+        "topRow": 74368
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.4516,
+        "guiCpuMs": 0.0,
+        "topRow": 82287
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2926,
+        "guiCpuMs": 0.0,
+        "topRow": 90206
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.3516,
+        "guiCpuMs": 15.625,
+        "topRow": 98125
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.3919,
+        "guiCpuMs": 0.0,
+        "topRow": 6144
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.2588,
+        "guiCpuMs": 0.0,
+        "topRow": 14063
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 33.7772,
+        "guiCpuMs": 0.0,
+        "topRow": 21982
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 32.7809,
+        "guiCpuMs": 0.0,
+        "topRow": 29901
+      }
+    ],
+    "ok": true
+  },
+  {
+    "editor": "Notepad++",
+    "rows": 100000,
+    "content": "json-unicode",
+    "round": 1,
+    "documentLines": 100002,
+    "fileBytes": 10938892,
+    "sha256": "6097ae5e775ed12d14cf06b95fdf4bac3e6a9407cfe4e5cf120d0f2118117ef8",
+    "styleIds": [
+      0,
+      1,
+      2,
+      4,
+      8,
+      11
+    ],
+    "lexer": 120,
+    "technology": 1,
+    "layoutCache": 1,
+    "fontPoints": 12,
+    "dpi": 96,
+    "editorViewport": [
+      1119,
+      651
+    ],
+    "pageLines": 34,
+    "samples": [
+      {
+        "stage": "resize.width",
+        "wallMs": 39.8618,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 48.5019,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 49.9521,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 47.0575,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 50.0184,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 50.3203,
+        "guiCpuMs": 62.5
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 46.8736,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 61.8179,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.5939,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 47.5545,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.0507,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 39.3566,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 39.3713,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.1586,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 40.773,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.0066,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 40.7402,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.9816,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.4258,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 52.9846,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 40.3849,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 50.3108,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 52.2556,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 46.1578,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 45.5636,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.5985,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.9257,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.2811,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 41.4448,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 40.9987,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 40.6276,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 46.6518,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 40.4881,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 47.4339,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 52.0413,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 46.6819,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.8693,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 47.336,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.071,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 40.4821,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 40.9494,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.4581,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.9515,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.2274,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.3138,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.5255,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.7337,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 53.6773,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.5974,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.0591,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.2818,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.6267,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.1824,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.9674,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.2309,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.0266,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.713,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 40.951,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 40.8499,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 40.7939,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.0646,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.9209,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.7511,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 41.9947,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.0576,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.174,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.2678,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.201,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 49.9382,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.5076,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.8245,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 42.8613,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.1444,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.0039,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.9591,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.7827,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.7884,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.6287,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.0027,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 40.9975,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.5802,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 41.6701,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.3911,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 41.8246,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.3762,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 42.1489,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.8761,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 42.5248,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.623,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.5964,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 74.3454,
+        "guiCpuMs": 78.125,
+        "topRow": 3001
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.4934,
+        "guiCpuMs": 46.875,
+        "topRow": 3002
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.1294,
+        "guiCpuMs": 62.5,
+        "topRow": 3003
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7521,
+        "guiCpuMs": 31.25,
+        "topRow": 3004
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.9981,
+        "guiCpuMs": 31.25,
+        "topRow": 3005
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.5677,
+        "guiCpuMs": 46.875,
+        "topRow": 3006
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.5193,
+        "guiCpuMs": 46.875,
+        "topRow": 3007
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7011,
+        "guiCpuMs": 46.875,
+        "topRow": 3008
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.9385,
+        "guiCpuMs": 31.25,
+        "topRow": 3009
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.4115,
+        "guiCpuMs": 31.25,
+        "topRow": 3010
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.5129,
+        "guiCpuMs": 31.25,
+        "topRow": 3011
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.1808,
+        "guiCpuMs": 46.875,
+        "topRow": 3012
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.8738,
+        "guiCpuMs": 46.875,
+        "topRow": 3013
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 51.6413,
+        "guiCpuMs": 31.25,
+        "topRow": 3014
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.2728,
+        "guiCpuMs": 46.875,
+        "topRow": 3015
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.6804,
+        "guiCpuMs": 46.875,
+        "topRow": 3016
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.4878,
+        "guiCpuMs": 46.875,
+        "topRow": 3017
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.3651,
+        "guiCpuMs": 46.875,
+        "topRow": 3018
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0461,
+        "guiCpuMs": 31.25,
+        "topRow": 3019
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 65.9828,
+        "guiCpuMs": 46.875,
+        "topRow": 3020
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.103,
+        "guiCpuMs": 46.875,
+        "topRow": 3021
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7493,
+        "guiCpuMs": 46.875,
+        "topRow": 3022
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.3348,
+        "guiCpuMs": 46.875,
+        "topRow": 3023
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 66.9518,
+        "guiCpuMs": 46.875,
+        "topRow": 3024
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 66.9707,
+        "guiCpuMs": 46.875,
+        "topRow": 3025
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.0926,
+        "guiCpuMs": 46.875,
+        "topRow": 3026
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.6408,
+        "guiCpuMs": 46.875,
+        "topRow": 3027
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.617,
+        "guiCpuMs": 31.25,
+        "topRow": 3028
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0656,
+        "guiCpuMs": 31.25,
+        "topRow": 3029
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.4415,
+        "guiCpuMs": 46.875,
+        "topRow": 3030
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 51.3783,
+        "guiCpuMs": 46.875,
+        "topRow": 2034
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.4571,
+        "guiCpuMs": 31.25,
+        "topRow": 2068
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.1726,
+        "guiCpuMs": 31.25,
+        "topRow": 2102
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 48.7154,
+        "guiCpuMs": 46.875,
+        "topRow": 2136
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.7774,
+        "guiCpuMs": 46.875,
+        "topRow": 2170
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.7971,
+        "guiCpuMs": 46.875,
+        "topRow": 2204
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.1285,
+        "guiCpuMs": 31.25,
+        "topRow": 2238
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 56.7948,
+        "guiCpuMs": 31.25,
+        "topRow": 2272
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 63.7036,
+        "guiCpuMs": 46.875,
+        "topRow": 2306
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 46.9016,
+        "guiCpuMs": 46.875,
+        "topRow": 2340
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.7515,
+        "guiCpuMs": 46.875,
+        "topRow": 2374
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.2807,
+        "guiCpuMs": 31.25,
+        "topRow": 2408
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.4089,
+        "guiCpuMs": 46.875,
+        "topRow": 2442
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.7297,
+        "guiCpuMs": 46.875,
+        "topRow": 2476
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 47.8225,
+        "guiCpuMs": 46.875,
+        "topRow": 2510
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.8091,
+        "guiCpuMs": 46.875,
+        "topRow": 2544
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.1443,
+        "guiCpuMs": 31.25,
+        "topRow": 2578
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 51.4593,
+        "guiCpuMs": 46.875,
+        "topRow": 2612
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.081,
+        "guiCpuMs": 46.875,
+        "topRow": 2646
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.3454,
+        "guiCpuMs": 46.875,
+        "topRow": 2680
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 75.4694,
+        "guiCpuMs": 78.125,
+        "topRow": 50
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 76.03,
+        "guiCpuMs": 78.125,
+        "topRow": 7969
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 75.5466,
+        "guiCpuMs": 78.125,
+        "topRow": 15888
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 59.8387,
+        "guiCpuMs": 46.875,
+        "topRow": 23807
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9536,
+        "guiCpuMs": 46.875,
+        "topRow": 31726
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.6907,
+        "guiCpuMs": 46.875,
+        "topRow": 39645
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9289,
+        "guiCpuMs": 62.5,
+        "topRow": 47564
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.1136,
+        "guiCpuMs": 31.25,
+        "topRow": 55483
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 0.4944,
+        "guiCpuMs": 0.0,
+        "topRow": 63402
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 56.197,
+        "guiCpuMs": 46.875,
+        "topRow": 71321
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.9528,
+        "guiCpuMs": 46.875,
+        "topRow": 79240
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8925,
+        "guiCpuMs": 46.875,
+        "topRow": 87159
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8971,
+        "guiCpuMs": 31.25,
+        "topRow": 95078
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 74.4251,
+        "guiCpuMs": 78.125,
+        "topRow": 3097
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 85.5652,
+        "guiCpuMs": 78.125,
+        "topRow": 11016
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 57.4207,
+        "guiCpuMs": 46.875,
+        "topRow": 18935
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.5744,
+        "guiCpuMs": 46.875,
+        "topRow": 26854
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.5758,
+        "guiCpuMs": 46.875,
+        "topRow": 34773
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8067,
+        "guiCpuMs": 46.875,
+        "topRow": 42692
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9328,
+        "guiCpuMs": 46.875,
+        "topRow": 50611
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9432,
+        "guiCpuMs": 31.25,
+        "topRow": 58530
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9901,
+        "guiCpuMs": 46.875,
+        "topRow": 66449
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 66.476,
+        "guiCpuMs": 46.875,
+        "topRow": 74368
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.213,
+        "guiCpuMs": 46.875,
+        "topRow": 82287
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.0051,
+        "guiCpuMs": 46.875,
+        "topRow": 90206
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.6952,
+        "guiCpuMs": 31.25,
+        "topRow": 98125
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 75.2772,
+        "guiCpuMs": 78.125,
+        "topRow": 6144
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 74.5589,
+        "guiCpuMs": 62.5,
+        "topRow": 14063
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 53.8577,
+        "guiCpuMs": 31.25,
+        "topRow": 21982
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8933,
+        "guiCpuMs": 46.875,
+        "topRow": 29901
+      }
+    ],
+    "ok": true
+  },
+  {
+    "editor": "Notepad++",
+    "rows": 100000,
+    "content": "json-unicode",
+    "round": 2,
+    "documentLines": 100002,
+    "fileBytes": 10938892,
+    "sha256": "6097ae5e775ed12d14cf06b95fdf4bac3e6a9407cfe4e5cf120d0f2118117ef8",
+    "styleIds": [
+      0,
+      1,
+      2,
+      4,
+      8,
+      11
+    ],
+    "lexer": 120,
+    "technology": 1,
+    "layoutCache": 1,
+    "fontPoints": 12,
+    "dpi": 96,
+    "editorViewport": [
+      1119,
+      651
+    ],
+    "pageLines": 34,
+    "samples": [
+      {
+        "stage": "resize.width",
+        "wallMs": 45.095,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 48.1108,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.7811,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.8591,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.6965,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.1733,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.7172,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.522,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 45.2609,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.8218,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.8458,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 51.1652,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.4249,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.2471,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.3962,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.1997,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.2865,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.2374,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.4221,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 48.3459,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.0805,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 41.96,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.3682,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 42.2904,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 44.4142,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 52.5199,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 40.9203,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 39.3961,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 40.2667,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.width",
+        "wallMs": 43.2928,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.9369,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.3181,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 41.1762,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.0587,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.7678,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.1725,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.223,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.8849,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 53.5271,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.6517,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.7624,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 45.5842,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.0849,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.215,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 44.2281,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.0946,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.0616,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.566,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.0414,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.5882,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.77,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.9326,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 55.8612,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.8575,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 42.8207,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 45.5622,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 44.2541,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 45.7751,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 44.7632,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.height",
+        "wallMs": 43.4106,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.8173,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.5669,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.3661,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.4386,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.3869,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.2716,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.8096,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.94,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.8457,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.6676,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.1348,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.0626,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 49.5386,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.1346,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.1464,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 43.8937,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 50.9299,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 52.6243,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 46.9054,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.508,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 49.3101,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.5532,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.9268,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.5781,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.341,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 45.0859,
+        "guiCpuMs": 31.25
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.8988,
+        "guiCpuMs": 62.5
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 44.8,
+        "guiCpuMs": 15.625
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 48.1268,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "resize.diagonal",
+        "wallMs": 47.1015,
+        "guiCpuMs": 46.875
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 80.8938,
+        "guiCpuMs": 78.125,
+        "topRow": 3001
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7764,
+        "guiCpuMs": 46.875,
+        "topRow": 3002
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.8235,
+        "guiCpuMs": 46.875,
+        "topRow": 3003
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7807,
+        "guiCpuMs": 31.25,
+        "topRow": 3004
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.2175,
+        "guiCpuMs": 31.25,
+        "topRow": 3005
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.5395,
+        "guiCpuMs": 46.875,
+        "topRow": 3006
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0055,
+        "guiCpuMs": 46.875,
+        "topRow": 3007
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.8249,
+        "guiCpuMs": 46.875,
+        "topRow": 3008
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.1656,
+        "guiCpuMs": 62.5,
+        "topRow": 3009
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0521,
+        "guiCpuMs": 46.875,
+        "topRow": 3010
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.1506,
+        "guiCpuMs": 46.875,
+        "topRow": 3011
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0612,
+        "guiCpuMs": 46.875,
+        "topRow": 3012
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 51.2881,
+        "guiCpuMs": 46.875,
+        "topRow": 3013
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.8754,
+        "guiCpuMs": 31.25,
+        "topRow": 3014
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.9208,
+        "guiCpuMs": 46.875,
+        "topRow": 3015
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.5647,
+        "guiCpuMs": 46.875,
+        "topRow": 3016
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.248,
+        "guiCpuMs": 46.875,
+        "topRow": 3017
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.7308,
+        "guiCpuMs": 46.875,
+        "topRow": 3018
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.8635,
+        "guiCpuMs": 31.25,
+        "topRow": 3019
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.8976,
+        "guiCpuMs": 46.875,
+        "topRow": 3020
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.723,
+        "guiCpuMs": 46.875,
+        "topRow": 3021
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.5574,
+        "guiCpuMs": 46.875,
+        "topRow": 3022
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.7553,
+        "guiCpuMs": 46.875,
+        "topRow": 3023
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.6302,
+        "guiCpuMs": 46.875,
+        "topRow": 3024
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.0752,
+        "guiCpuMs": 31.25,
+        "topRow": 3025
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 49.833,
+        "guiCpuMs": 46.875,
+        "topRow": 3026
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 51.9515,
+        "guiCpuMs": 46.875,
+        "topRow": 3027
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 48.2846,
+        "guiCpuMs": 62.5,
+        "topRow": 3028
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 47.8615,
+        "guiCpuMs": 31.25,
+        "topRow": 3029
+      },
+      {
+        "stage": "scroll.line",
+        "wallMs": 50.857,
+        "guiCpuMs": 46.875,
+        "topRow": 3030
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.5544,
+        "guiCpuMs": 46.875,
+        "topRow": 2034
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.2004,
+        "guiCpuMs": 46.875,
+        "topRow": 2068
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.8531,
+        "guiCpuMs": 46.875,
+        "topRow": 2102
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.9973,
+        "guiCpuMs": 31.25,
+        "topRow": 2136
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.4773,
+        "guiCpuMs": 46.875,
+        "topRow": 2170
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.2416,
+        "guiCpuMs": 46.875,
+        "topRow": 2204
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.5872,
+        "guiCpuMs": 46.875,
+        "topRow": 2238
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.267,
+        "guiCpuMs": 46.875,
+        "topRow": 2272
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.5751,
+        "guiCpuMs": 31.25,
+        "topRow": 2306
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.9356,
+        "guiCpuMs": 46.875,
+        "topRow": 2340
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.0636,
+        "guiCpuMs": 46.875,
+        "topRow": 2374
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.0948,
+        "guiCpuMs": 46.875,
+        "topRow": 2408
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.733,
+        "guiCpuMs": 46.875,
+        "topRow": 2442
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.8282,
+        "guiCpuMs": 31.25,
+        "topRow": 2476
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.423,
+        "guiCpuMs": 46.875,
+        "topRow": 2510
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 51.1876,
+        "guiCpuMs": 46.875,
+        "topRow": 2544
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 66.665,
+        "guiCpuMs": 46.875,
+        "topRow": 2578
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 49.0672,
+        "guiCpuMs": 31.25,
+        "topRow": 2612
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 50.6506,
+        "guiCpuMs": 46.875,
+        "topRow": 2646
+      },
+      {
+        "stage": "scroll.page",
+        "wallMs": 48.8775,
+        "guiCpuMs": 46.875,
+        "topRow": 2680
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 75.0574,
+        "guiCpuMs": 78.125,
+        "topRow": 50
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 76.1018,
+        "guiCpuMs": 78.125,
+        "topRow": 7969
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 77.6048,
+        "guiCpuMs": 78.125,
+        "topRow": 15888
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 57.7134,
+        "guiCpuMs": 46.875,
+        "topRow": 23807
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.6784,
+        "guiCpuMs": 31.25,
+        "topRow": 31726
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9474,
+        "guiCpuMs": 46.875,
+        "topRow": 39645
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8909,
+        "guiCpuMs": 46.875,
+        "topRow": 47564
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.4902,
+        "guiCpuMs": 46.875,
+        "topRow": 55483
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 51.3718,
+        "guiCpuMs": 46.875,
+        "topRow": 63402
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.4924,
+        "guiCpuMs": 46.875,
+        "topRow": 71321
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 51.0168,
+        "guiCpuMs": 46.875,
+        "topRow": 79240
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 47.9146,
+        "guiCpuMs": 46.875,
+        "topRow": 87159
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.7951,
+        "guiCpuMs": 46.875,
+        "topRow": 95078
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 74.8743,
+        "guiCpuMs": 62.5,
+        "topRow": 3097
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 77.3757,
+        "guiCpuMs": 78.125,
+        "topRow": 11016
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.4501,
+        "guiCpuMs": 46.875,
+        "topRow": 18935
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.0336,
+        "guiCpuMs": 31.25,
+        "topRow": 26854
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.9122,
+        "guiCpuMs": 31.25,
+        "topRow": 34773
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8072,
+        "guiCpuMs": 46.875,
+        "topRow": 42692
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8718,
+        "guiCpuMs": 46.875,
+        "topRow": 50611
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.005,
+        "guiCpuMs": 46.875,
+        "topRow": 58530
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.0818,
+        "guiCpuMs": 31.25,
+        "topRow": 66449
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.6889,
+        "guiCpuMs": 46.875,
+        "topRow": 74368
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 50.015,
+        "guiCpuMs": 46.875,
+        "topRow": 82287
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8944,
+        "guiCpuMs": 46.875,
+        "topRow": 90206
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 49.8722,
+        "guiCpuMs": 46.875,
+        "topRow": 98125
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 78.1402,
+        "guiCpuMs": 78.125,
+        "topRow": 6144
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 78.6066,
+        "guiCpuMs": 78.125,
+        "topRow": 14063
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 43.9148,
+        "guiCpuMs": 31.25,
+        "topRow": 21982
+      },
+      {
+        "stage": "scroll.jump",
+        "wallMs": 43.7024,
+        "guiCpuMs": 31.25,
+        "topRow": 29901
+      }
+    ],
+    "ok": true
+  }
+]

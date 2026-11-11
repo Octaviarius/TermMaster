@@ -1,0 +1,274 @@
+{
+  "ascii-nowrap": {
+    "compare.load": {
+      "samples": 2,
+      "medianMs": 249.0499,
+      "p95Ms": 249.2006,
+      "maxMs": 249.2006
+    },
+    "compare.resize.width": {
+      "samples": 60,
+      "medianMs": 6.0264500000000005,
+      "p95Ms": 10.206,
+      "maxMs": 11.499
+    },
+    "compare.resize.height": {
+      "samples": 60,
+      "medianMs": 5.1071,
+      "p95Ms": 6.0518,
+      "maxMs": 6.3661
+    },
+    "compare.resize.diagonal": {
+      "samples": 60,
+      "medianMs": 8.01505,
+      "p95Ms": 9.3639,
+      "maxMs": 10.3036
+    },
+    "compare.scroll.line.forward": {
+      "samples": 60,
+      "medianMs": 0.72685,
+      "p95Ms": 0.8808,
+      "maxMs": 1.3795
+    },
+    "compare.scroll.line.reverse": {
+      "samples": 60,
+      "medianMs": 0.6124,
+      "p95Ms": 1.138,
+      "maxMs": 1.3032
+    },
+    "compare.scroll.page.forward": {
+      "samples": 40,
+      "medianMs": 2.7945,
+      "p95Ms": 3.2078,
+      "maxMs": 3.3843
+    },
+    "compare.scroll.page.reverse": {
+      "samples": 40,
+      "medianMs": 2.6965500000000002,
+      "p95Ms": 3.1206,
+      "maxMs": 3.7583
+    },
+    "compare.scroll.jump.first": {
+      "samples": 60,
+      "medianMs": 2.87005,
+      "p95Ms": 3.7145,
+      "maxMs": 4.2226
+    },
+    "compare.scroll.jump.revisit": {
+      "samples": 60,
+      "medianMs": 2.9288,
+      "p95Ms": 3.4906,
+      "maxMs": 3.9235
+    },
+    "compare.scroll.wheel": {
+      "samples": 60,
+      "medianMs": 0.6439,
+      "p95Ms": 1.2933,
+      "maxMs": 1.5987
+    }
+  },
+  "ascii-wrap": {
+    "compare.load": {
+      "samples": 2,
+      "medianMs": 253.9008,
+      "p95Ms": 261.0864,
+      "maxMs": 261.0864
+    },
+    "compare.resize.width": {
+      "samples": 60,
+      "medianMs": 5.8487,
+      "p95Ms": 8.2099,
+      "maxMs": 9.3691
+    },
+    "compare.resize.height": {
+      "samples": 60,
+      "medianMs": 5.3965499999999995,
+      "p95Ms": 6.9664,
+      "maxMs": 8.1351
+    },
+    "compare.resize.diagonal": {
+      "samples": 60,
+      "medianMs": 8.1842,
+      "p95Ms": 9.6491,
+      "maxMs": 10.3405
+    },
+    "compare.scroll.line.forward": {
+      "samples": 60,
+      "medianMs": 0.7502,
+      "p95Ms": 1.3993,
+      "maxMs": 1.552
+    },
+    "compare.scroll.line.reverse": {
+      "samples": 60,
+      "medianMs": 0.6256999999999999,
+      "p95Ms": 1.5511,
+      "maxMs": 2.0412
+    },
+    "compare.scroll.page.forward": {
+      "samples": 40,
+      "medianMs": 2.8498,
+      "p95Ms": 3.8607,
+      "maxMs": 3.9795
+    },
+    "compare.scroll.page.reverse": {
+      "samples": 40,
+      "medianMs": 2.6847000000000003,
+      "p95Ms": 3.0577,
+      "maxMs": 3.8216
+    },
+    "compare.scroll.jump.first": {
+      "samples": 60,
+      "medianMs": 2.8518499999999998,
+      "p95Ms": 3.7248,
+      "maxMs": 4.1117
+    },
+    "compare.scroll.jump.revisit": {
+      "samples": 60,
+      "medianMs": 2.9707999999999997,
+      "p95Ms": 3.6171,
+      "maxMs": 6.6032
+    },
+    "compare.scroll.wheel": {
+      "samples": 60,
+      "medianMs": 0.6447499999999999,
+      "p95Ms": 1.458,
+      "maxMs": 1.8596
+    }
+  },
+  "mixed-nowrap": {
+    "compare.load": {
+      "samples": 2,
+      "medianMs": 439.8854,
+      "p95Ms": 443.7009,
+      "maxMs": 443.7009
+    },
+    "compare.resize.width": {
+      "samples": 60,
+      "medianMs": 6.85355,
+      "p95Ms": 8.5502,
+      "maxMs": 10.201
+    },
+    "compare.resize.height": {
+      "samples": 60,
+      "medianMs": 6.1358999999999995,
+      "p95Ms": 7.8909,
+      "maxMs": 8.2726
+    },
+    "compare.resize.diagonal": {
+      "samples": 60,
+      "medianMs": 8.72575,
+      "p95Ms": 12.1968,
+      "maxMs": 12.7282
+    },
+    "compare.scroll.line.forward": {
+      "samples": 60,
+      "medianMs": 0.9971,
+      "p95Ms": 1.1706,
+      "maxMs": 1.9969
+    },
+    "compare.scroll.line.reverse": {
+      "samples": 60,
+      "medianMs": 0.9519500000000001,
+      "p95Ms": 1.6502,
+      "maxMs": 1.9621
+    },
+    "compare.scroll.page.forward": {
+      "samples": 40,
+      "medianMs": 2.23625,
+      "p95Ms": 3.4835,
+      "maxMs": 5.0395
+    },
+    "compare.scroll.page.reverse": {
+      "samples": 40,
+      "medianMs": 1.8625500000000001,
+      "p95Ms": 2.1259,
+      "maxMs": 2.8737
+    },
+    "compare.scroll.jump.first": {
+      "samples": 60,
+      "medianMs": 2.29935,
+      "p95Ms": 3.4563,
+      "maxMs": 3.5484
+    },
+    "compare.scroll.jump.revisit": {
+      "samples": 60,
+      "medianMs": 1.9075,
+      "p95Ms": 3.0132,
+      "maxMs": 10.3565
+    },
+    "compare.scroll.wheel": {
+      "samples": 60,
+      "medianMs": 0.98385,
+      "p95Ms": 1.747,
+      "maxMs": 8.834
+    }
+  },
+  "mixed-wrap": {
+    "compare.load": {
+      "samples": 2,
+      "medianMs": 453.44635,
+      "p95Ms": 455.8214,
+      "maxMs": 455.8214
+    },
+    "compare.resize.width": {
+      "samples": 60,
+      "medianMs": 6.84155,
+      "p95Ms": 9.0822,
+      "maxMs": 9.9753
+    },
+    "compare.resize.height": {
+      "samples": 60,
+      "medianMs": 6.447900000000001,
+      "p95Ms": 7.8367,
+      "maxMs": 8.9017
+    },
+    "compare.resize.diagonal": {
+      "samples": 60,
+      "medianMs": 9.3104,
+      "p95Ms": 11.8828,
+      "maxMs": 12.7724
+    },
+    "compare.scroll.line.forward": {
+      "samples": 60,
+      "medianMs": 0.9837499999999999,
+      "p95Ms": 1.6558,
+      "maxMs": 2.0221
+    },
+    "compare.scroll.line.reverse": {
+      "samples": 60,
+      "medianMs": 1.07645,
+      "p95Ms": 1.4036,
+      "maxMs": 2.1128
+    },
+    "compare.scroll.page.forward": {
+      "samples": 40,
+      "medianMs": 2.2944500000000003,
+      "p95Ms": 3.8643,
+      "maxMs": 3.876
+    },
+    "compare.scroll.page.reverse": {
+      "samples": 40,
+      "medianMs": 1.9329,
+      "p95Ms": 2.1904,
+      "maxMs": 2.3176
+    },
+    "compare.scroll.jump.first": {
+      "samples": 60,
+      "medianMs": 2.2641999999999998,
+      "p95Ms": 3.1042,
+      "maxMs": 3.4552
+    },
+    "compare.scroll.jump.revisit": {
+      "samples": 60,
+      "medianMs": 1.9202,
+      "p95Ms": 3.8534,
+      "maxMs": 9.9584
+    },
+    "compare.scroll.wheel": {
+      "samples": 60,
+      "medianMs": 0.96105,
+      "p95Ms": 1.3424,
+      "maxMs": 2.2982
+    }
+  }
+}
