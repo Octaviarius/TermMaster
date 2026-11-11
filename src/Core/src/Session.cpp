@@ -278,6 +278,47 @@ bool Session::_validate(const Settings& settings, QString* error) const
             seen.insert(id);
         }
     }
+    QSet<QString> dockedTerminals;
+    if (presentation.contains("dockedTerminals"))
+    {
+        const auto value = presentation.value("dockedTerminals");
+        if (value.typeId() != QMetaType::QVariantList && value.typeId() != QMetaType::QStringList)
+        {
+            return fail(error, "Session presentation dockedTerminals must be a list of object IDs");
+        }
+        const auto ids = value.toList();
+        if (ids.size() > 100000)
+        {
+            return fail(error, "Session presentation dockedTerminals exceeds 100000 entries");
+        }
+        for (const auto& entry : ids)
+        {
+            const auto id = entry.toString();
+            if (entry.typeId() != QMetaType::QString || !validId(id) || dockedTerminals.contains(id))
+            {
+                return fail(error, "Session presentation dockedTerminals must contain unique safe object IDs");
+            }
+            dockedTerminals.insert(id);
+        }
+    }
+    if (presentation.contains("dockLayout"))
+    {
+        constexpr qsizetype maxDecodedBytes = 1024 * 1024;
+        constexpr qsizetype maxEncodedBytes = ((maxDecodedBytes + 2) / 3) * 4;
+        const auto          value           = presentation.value("dockLayout");
+        const auto          encoded         = value.toString();
+        if (value.typeId() != QMetaType::QString || encoded.isEmpty() || encoded.size() > maxEncodedBytes)
+        {
+            return fail(error, "Session presentation dockLayout must be nonempty bounded Base64");
+        }
+        const auto decoded = QByteArray::fromBase64Encoding(encoded.toLatin1(),
+                                                            QByteArray::AbortOnBase64DecodingErrors);
+        if (!decoded || decoded.decoded.size() > maxDecodedBytes
+            || QString::fromLatin1(decoded.decoded.toBase64()) != encoded)
+        {
+            return fail(error, "Session presentation dockLayout must be canonical Base64 of at most 1 MiB");
+        }
+    }
     if (presentation.contains("detachedWindows"))
     {
         const auto value = presentation.value("detachedWindows");
@@ -291,6 +332,10 @@ bool Session::_validate(const Settings& settings, QString* error) const
             if (!validId(it.key()) || it.value().typeId() != QMetaType::QVariantMap)
             {
                 return fail(error, "Invalid detached terminal window: " + it.key());
+            }
+            if (dockedTerminals.contains(it.key()))
+            {
+                return fail(error, "Terminal cannot be both docked and detached: " + it.key());
             }
             const auto window   = it.value().toMap();
             const auto geometry = window.value("geometry");

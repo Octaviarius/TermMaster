@@ -399,6 +399,152 @@ private slots:
         }
     }
 
+    void dockingMetadataRoundTripPreservesUnavailableObjects()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
+        QString       error;
+        QVERIFY2(session.create("docking", "Docking", &error), qPrintable(error));
+        const QVariantMap object {
+            {    "type",           "terminal"},
+            {  "module", "unavailable.plugin"},
+            {"settings",       QVariantMap {}}
+        };
+        QVERIFY(session.objects().setValue("unavailable", object));
+        const QVariantList ids {"unavailable", "stale-object"};
+        const auto         layout = QString::fromLatin1(QByteArray(1024 * 1024, '\0').toBase64());
+        QVERIFY(session.presentation().setValue("dockedTerminals", ids));
+        QVERIFY(session.presentation().setValue("dockLayout", layout));
+        QVERIFY(session.presentation().setValue("future",
+                                                QVariantMap {
+                                                    {"nested", 7}
+        }));
+        QVERIFY2(session.sync(&error), qPrintable(error));
+
+        Session loaded(session.directory(), SettingsOverlay(base.node(""), base.node("")));
+        QVERIFY2(loaded.load(&error), qPrintable(error));
+        QCOMPARE(loaded.presentation().value("dockedTerminals").toList(), ids);
+        QCOMPARE(loaded.presentation().value("dockLayout").toString(), layout);
+        QCOMPARE(loaded.presentation().value("future").toMap(),
+                 QVariantMap({
+                     {"nested", 7}
+        }));
+        QCOMPARE(loaded.objects().value("unavailable").toMap(), object);
+        QVERIFY(loaded.presentation().setValue("dockedTerminals", QStringList {}));
+        QVERIFY2(loaded.sync(&error), qPrintable(error));
+        QVERIFY2(loaded.load(&error), qPrintable(error));
+        QVERIFY(loaded.presentation().value("dockedTerminals").toList().isEmpty());
+        QCOMPARE(loaded.presentation().value("dockLayout").toString(), layout);
+    }
+
+    void invalidDockingMetadataRejectsCandidatesWithoutReplacingOwner()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
+        QString       error;
+        QVERIFY2(session.create("docking", "Docking", &error), qPrintable(error));
+        const QVariantMap presentation {
+            {"dockedTerminals", QVariantList {"unavailable"}},
+            {     "dockLayout",                       "YQ=="},
+            {         "future",                  "preserved"}
+        };
+        QVERIFY(session.presentation().applyValues(presentation, {}));
+        QVERIFY2(session.sync(&error), qPrintable(error));
+        QFile disk(session.filePath().toString());
+        QVERIFY(disk.open(QIODevice::ReadOnly));
+        const auto baseline = disk.readAll();
+        disk.close();
+        const QVariantList invalidIds {
+            "terminal",
+            QVariantMap {},
+            QVariantList {"first", "first"},
+            QVariantList {"bad id"},
+            QVariantList {"../escape"},
+            QVariantList {""},
+            QVariantList {42},
+            QVariantList {true},
+            QVariantList {QString(129, 'a')},
+            QVariantList {QString("bad") + QChar::Null}
+        };
+        QVariantList invalidPresentations;
+        for (const auto& ids : invalidIds)
+        {
+            auto invalid = presentation;
+            invalid.insert("dockedTerminals", ids);
+            invalidPresentations.append(invalid);
+        }
+        const QVariantList invalidLayouts {42,
+                                           true,
+                                           QVariantMap {},
+                                           QVariantList {},
+                                           "",
+                                           "%%% =",
+                                           "YQ",
+                                           "YR==",
+                                           "YQ== ",
+                                           QString::fromLatin1(QByteArray(1024 * 1024 + 1, 'x').toBase64())};
+        for (const auto& layout : invalidLayouts)
+        {
+            auto invalid = presentation;
+            invalid.insert("dockLayout", layout);
+            invalidPresentations.append(invalid);
+        }
+        auto overlapping = presentation;
+        overlapping.insert("detachedWindows",
+                           QVariantMap {
+                               {"unavailable", QVariantMap {{"geometry", "YQ=="}}}
+        });
+        invalidPresentations.append(overlapping);
+        for (const auto& invalid : invalidPresentations)
+        {
+            Settings candidate(session.filePath(), Settings::Info {"termaster.session", "Candidate"});
+            QVERIFY(candidate.replaceSerialized(baseline, &error));
+            QVERIFY(candidate.setValue("presentation", invalid, &error));
+            const auto bytes = candidate.serializedPatch({}, {}, &error);
+            QVERIFY2(bytes, qPrintable(error));
+            const auto borrowed = session.presentation();
+            QVERIFY(!session.acceptPreparedDocument(*bytes, &error));
+            QVERIFY(!error.isEmpty());
+            QVERIFY(borrowed.isValid());
+            QCOMPARE(session.presentation().values(), presentation);
+            QVERIFY(!session.isDirty());
+
+            QVERIFY(session.presentation().applyValues(invalid.toMap(), {}));
+            QVERIFY(!session.sync(&error));
+            QVERIFY(session.isDirty());
+            QVERIFY(disk.open(QIODevice::ReadOnly));
+            QCOMPARE(disk.readAll(), baseline);
+            disk.close();
+            QVERIFY2(session.load(&error), qPrintable(error));
+
+            QVERIFY(disk.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            QCOMPARE(disk.write(*bytes), bytes->size());
+            disk.close();
+            const auto live = session.presentation();
+            QVERIFY(!session.load(&error));
+            QVERIFY(live.isValid());
+            QCOMPARE(session.presentation().values(), presentation);
+            QVERIFY(disk.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            QCOMPARE(disk.write(baseline), baseline.size());
+            disk.close();
+        }
+
+        QVariantList excessiveIds;
+        excessiveIds.reserve(100001);
+        for (int index = 0; index < 100001; ++index)
+        {
+            excessiveIds.append(QString("terminal-%1").arg(index));
+        }
+        QVERIFY(!session.presentation().setValue("dockedTerminals", excessiveIds, &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(session.presentation().values(), presentation);
+        QVERIFY(!session.isDirty());
+        QVERIFY(disk.open(QIODevice::ReadOnly));
+        QCOMPARE(disk.readAll(), baseline);
+    }
+
     void noClobberAndWriteFailure()
     {
         QTemporaryDir   temporary;
