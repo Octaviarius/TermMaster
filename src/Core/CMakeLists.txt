@@ -1,5 +1,7 @@
 project(Core)
 
+find_package(Threads REQUIRED)
+
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
@@ -8,6 +10,14 @@ find_package(Qt6 REQUIRED COMPONENTS
 set_property(TARGET Qt6::Svg PROPERTY IMPORTED_GLOBAL TRUE)
 
 qt_add_library(${PROJECT_NAME} STATIC
+    inc/Termaster/Core/Logging/Logger.h
+    inc/Termaster/Core/Logging/Logging.h
+    src/Logging/Logger.cpp
+    src/Logging/Logging.cpp
+    src/Logging/LogFile.h
+    src/Logging/LogFile.cpp
+    src/Logging/LogTimestamp.h
+    src/Logging/LogTimestamp.cpp
     inc/Termaster/Core/Gui/Icons.h
     src/Gui/Icons.cpp
     inc/Termaster/Core/Gui/SelectionIconDelegate.h
@@ -181,6 +191,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    Threads::Threads
     Qt6::Svg
     yaml-cpp
     valijson
@@ -195,6 +206,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 
 if(WIN32)
     target_link_libraries(Core PRIVATE
+        Advapi32
         Mincore
     )
 endif()
