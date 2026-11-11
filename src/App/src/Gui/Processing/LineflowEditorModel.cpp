@@ -619,10 +619,8 @@ std::optional<QVariantMap> LineflowEditorModel::_dropDraft(const QMimeData*   da
     entry.insert("lane", lane);
     list.insert(row, entry);
     putNodes(draft, _selected, list);
-    const auto parsed = ProcessorRegistry::parseDefinitions(draft);
-    return parsed && _registry.validatePublication("workspace", *parsed) ?
-               std::optional<QVariantMap>(std::move(draft)) :
-               std::nullopt;
+    return _registry.validatePublicationDraft("workspace", draft) ? std::optional<QVariantMap>(std::move(draft)) :
+                                                                    std::nullopt;
 }
 
 bool LineflowEditorModel::dropAt(const QMimeData* data, int row, const QString& lane, const QStringList& order)
@@ -939,8 +937,7 @@ bool LineflowEditorModel::_canDropMimeData(const QMimeData* data, int row) const
         node.insert(draft.value(target).toMap().value("kind") == "lineflow" ? "reference" : "type", target);
         list.insert(row < 0 ? list.size() : row, node);
         putNodes(draft, _selected, list);
-        const auto parsed = ProcessorRegistry::parseDefinitions(draft);
-        return parsed && _registry.validatePublication("workspace", *parsed);
+        return _registry.validatePublicationDraft("workspace", draft);
     }
     if (!data->hasFormat(mimeTypes()[0]))
     {

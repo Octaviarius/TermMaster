@@ -107,6 +107,177 @@ class ProcessorCatalogTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void publicationDraftSharesOnlyImmutableSchemaState()
+    {
+        ProcessorRegistry registry;
+        auto              first = savedLine("first", {});
+        first.insert("settingsSchema", QString::fromUtf8(schema()));
+        first.insert("defaults",
+                     QVariantMap {
+                         {"prefix", "one"}
+        });
+        auto second = savedLine("second", {});
+        second.insert("settingsSchema", QString::fromUtf8(schema()));
+        second.insert("defaults",
+                      QVariantMap {
+                          {"prefix", "two"}
+        });
+        QVariantMap draft {
+            { "first",  first},
+            {"second", second}
+        };
+        QString error;
+        QVERIFY2(registry.validatePublicationDraft("workspace", draft, &error), qPrintable(error));
+        const auto parsed = ProcessorRegistry::parseDefinitions(draft, &error);
+        QVERIFY(parsed);
+        QVERIFY(registry.publishDefinitions("workspace", *parsed, &error));
+        QCOMPARE(registry.type("first")->defaults.value("prefix").toString(), QString("one"));
+        QCOMPARE(registry.type("second")->defaults.value("prefix").toString(), QString("two"));
+
+        second.insert("defaults",
+                      QVariantMap {
+                          {"prefix", 42}
+        });
+        draft.insert("second", second);
+        QVERIFY(!registry.validatePublicationDraft("workspace", draft, &error));
+        QVERIFY(error.contains("defaults"));
+        auto numericSchema = schema();
+        numericSchema.replace("type: string, default: default", "type: integer, default: 0");
+        second.insert("settingsSchema", QString::fromUtf8(numericSchema));
+        draft.insert("second", second);
+        QVERIFY2(registry.validatePublicationDraft("workspace", draft, &error), qPrintable(error));
+
+        second.insert("settingsSchema", "not: [valid");
+        draft.insert("second", second);
+        QVERIFY(!registry.validatePublicationDraft("workspace", draft, &error));
+        second.insert("settingsSchema", QString::fromUtf8(numericSchema));
+        draft.insert("second", second);
+        QVERIFY2(registry.validatePublicationDraft("workspace", draft, &error), qPrintable(error));
+
+        QVERIFY(registry.publishDefinitions("workspace", {line("empty", {})}));
+        auto explicitDefault = savedLine("explicit", {});
+        explicitDefault.insert("settingsSchema", QString::fromUtf8(registry.type("empty")->settingsSchema));
+        QVERIFY2(registry.validatePublicationDraft("workspace",
+                                                   {
+                                                       {"empty", savedLine("empty", {})},
+                                                       {"explicit", explicitDefault}
+        },
+                                                   &error),
+                 qPrintable(error));
+    }
+
+    void publicationDraftMatchesTypedValidationContracts()
+    {
+        ProcessorRegistry registry;
+        registry
+            .registerType("native-owner",
+                          {"configured", "Configured", schema(), [](const auto& configuration, const auto&, QString*) {
+                               return std::make_unique<FixtureProcessor>(configuration);
+                           }});
+        const auto verify = [&](const QList<ProcessorRegistry::Definition>& definitions,
+                                bool                                        expected,
+                                const QString&                              owner = "workspace") {
+            QVariantMap draft;
+            for (const auto& definition : definitions)
+            {
+                auto value = savedLine(definition.id, definition.source.value("nodes").toList());
+                value.insert("source", definition.source);
+                value.insert("defaults", definition.defaults);
+                draft.insert(definition.id, value);
+            }
+            QString typedError;
+            QString draftError;
+            QCOMPARE(registry.validatePublication(owner, definitions, &typedError), expected);
+            QCOMPARE(registry.validatePublicationDraft(owner, draft, &draftError), expected);
+            if (!expected)
+            {
+                QVERIFY(!typedError.isEmpty());
+                QVERIFY(!draftError.isEmpty());
+            }
+        };
+        verify({line("root", {leaf("configured")})}, true);
+        verify({line("a", {leaf("b")}), line("b", {leaf("a")})}, false);
+        QList<ProcessorRegistry::Definition> deep;
+        for (int index = 0; index < 17; ++index)
+        {
+            deep.append(line(QString("depth%1").arg(index),
+                             index == 0 ? QVariantList {} : QVariantList {leaf(QString("depth%1").arg(index - 1))}));
+        }
+        verify(deep, false);
+        auto wrongConfiguration = leaf("configured");
+        wrongConfiguration.insert("configuration",
+                                  QVariantMap {
+                                      {"prefix", 7}
+        });
+        verify({line("root", {wrongConfiguration})}, false);
+        auto wrongTopology = leaf("configured");
+        wrongTopology.insert("lane", "duplex");
+        auto duplex = line("root", {wrongTopology});
+        duplex.source.insert("channels", 2);
+        verify({duplex}, false);
+        verify({line("configured", {})}, false);
+        QVERIFY(registry.publishDefinitions("other-owner", {line("inbound", {leaf("saved")})}));
+        verify({line("saved", {})}, true);
+        auto changedTarget = line("saved", {});
+        changedTarget.source.insert("channels", 2);
+        verify({changedTarget}, false);
+        verify({line("saved", {leaf("inbound")})}, false);
+        verify({line("root", {})}, false, "");
+        auto oversized = line("large", {});
+        oversized.defaults.insert("padding", QString(4 * 1024 * 1024, 'x'));
+        verify({oversized}, false);
+        QList<ProcessorRegistry::Definition> excessive;
+        for (int index = 0; index < 1025; ++index)
+        {
+            excessive.append(line(QString("entry%1").arg(index), {}));
+        }
+        verify(excessive, false);
+    }
+
+    void publicationDraftRevalidatesProvidersWithoutPreparingOrPinning()
+    {
+        ProcessorRegistry          registry;
+        int                        validations    = 0;
+        int                        preparations   = 0;
+        int                        factories      = 0;
+        bool                       valid          = true;
+        bool                       callbackPinned = false;
+        ProcessorCatalog::Provider provider;
+        provider.validate = [&](const auto&, QString*) {
+            ++validations;
+            callbackPinned = !registry.canRemoveOwner("provider-owner");
+            return valid;
+        };
+        provider.prepare = [&](const auto&, const auto&, const auto&, const auto&, QString*) {
+            ++preparations;
+            return ProcessorCatalog::Type::Factory([&](const auto& configuration, const auto&, QString*) {
+                ++factories;
+                return std::make_unique<FixtureProcessor>(configuration);
+            });
+        };
+        registry.registerProvider("provider-owner", "fixture", std::move(provider));
+        auto value = savedLine("source", {});
+        value.insert("kind", "fixture");
+        const QVariantMap draft {
+            {"source", value}
+        };
+        QSignalSpy changes(&registry, &ProcessorRegistry::changed);
+        QVERIFY(registry.validatePublicationDraft("workspace", draft));
+        QCOMPARE(validations, 1);
+        QVERIFY(callbackPinned);
+        valid = false;
+        QVERIFY(!registry.validatePublicationDraft("workspace", draft));
+        QCOMPARE(validations, 2);
+        QCOMPARE(preparations, 0);
+        QCOMPARE(factories, 0);
+        QCOMPARE(changes.count(), 0);
+        QVERIFY(!registry.type("source"));
+        QVERIFY(registry.canRemoveOwner("provider-owner"));
+        QVERIFY(registry.removeOwner("provider-owner"));
+        QVERIFY(registry.validatePublicationDraft("workspace", draft));
+        QCOMPARE(validations, 2);
+    }
+
     void shutdownDrainsNestedScopedRetirementsAndRejectsPreparedFactories()
     {
         ProcessorRegistry      registry;
