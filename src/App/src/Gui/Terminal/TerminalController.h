@@ -10,6 +10,7 @@
 #include <optional>
 
 class MainWindow;
+class ActionContainer;
 class ProcessorRegistry;
 class ProcessorFavorites;
 class CommandRegistry;
@@ -88,6 +89,7 @@ private:
     {
         Action            registration;
         QPointer<QAction> action;
+        ActionContainer*  menu = nullptr;
     };
     MainWindow&                                 _window;
     CommandRegistry&                            _commands;
@@ -114,6 +116,8 @@ private:
     bool                                                     _activeWindow() const;
     bool                                                     _materialize(const QString& id, QString* error);
     void                                                     _restore();
+    bool                                                     _rememberTabOrder(QString* error = nullptr);
+    void                                                     _registerAction(Action action, ActionContainer* menu);
     void                                                     _beginBatch();
     void                                                     _endBatch();
     std::optional<std::array<std::shared_ptr<Processor>, 2>> _prepareProcessing(const QVariantMap& configuration,

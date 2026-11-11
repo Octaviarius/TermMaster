@@ -16,3 +16,6 @@ The Lineflow editor subset adds `plus`, `trash`, `arrow-right`, `chevron-up`,
 `chevron-down`, `workflow`, `blocks`, `link` and `triangle-exclamation-point` from
 this pinned revision. Downloads were bound to the physical Ethernet IPv4 address;
 the resolved upstream route used interface 14. Upstream SVG files are unmodified.
+
+The terminal View/toolbar subset adds `text-wrap` unchanged from the same pinned
+revision. The download was bound to physical Ethernet IPv4 with route interface 14.
