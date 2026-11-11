@@ -344,6 +344,131 @@ private:
         QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier);
     }
 
+    Q_SLOT void doubleClickSelectsUnicodeWords_data()
+    {
+        QTest::addColumn<int>("column");
+        QTest::addColumn<QString>("expected");
+        QTest::newRow("ascii") << 2 << QStringLiteral("alpha");
+        QTest::newRow("accent") << 7 << QString::fromUtf8("café");
+        QTest::newRow("combining") << 11 << QString::fromUtf8("élan");
+        QTest::newRow("apostrophe") << 19 << QStringLiteral("can't");
+        QTest::newRow("underscore") << 25 << QStringLiteral("foo_bar");
+        QTest::newRow("hyphen") << 31 << QStringLiteral("-");
+        QTest::newRow("punctuation") << 34 << QStringLiteral("!");
+        QTest::newRow("wide-leading-cell") << 36 << QString::fromUtf8("😀");
+        QTest::newRow("wide-continuation-cell") << 37 << QString::fromUtf8("😀");
+    }
+
+    Q_SLOT void doubleClickSelectsUnicodeWords()
+    {
+        QFETCH(int, column);
+        QFETCH(QString, expected);
+        TerminalDisplay display;
+        display.resize(1603, 353);
+        display.show();
+        display.receive(QString::fromUtf8("alpha café élan can't foo_bar x-y ! 😀 Z").toUtf8());
+        const qreal  cell = QFontMetricsF(display.font(), display.viewport()).horizontalAdvance(QLatin1Char('M'));
+        const QPoint point(qFloor((column + 0.25) * cell), 2);
+        QTest::mouseDClick(display.viewport(), Qt::LeftButton, Qt::NoModifier, point);
+        QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier, point);
+        QVERIFY(display.hasSelection());
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text(), expected);
+        const auto capture = qEnvironmentVariable("TERMASTER_WORD_SELECTION_CAPTURE");
+        if (!capture.isEmpty() && (column == 11 || column == 37))
+        {
+            QVERIFY(
+                display.viewport()->grab().save(capture + '-' + QString::fromLatin1(QTest::currentDataTag()) + ".png"));
+        }
+    }
+
+    Q_SLOT void doubleClickWhitespaceClearsSelection()
+    {
+        TerminalDisplay display;
+        display.resize(803, 353);
+        display.show();
+        display.receive("word   next");
+        display.selectAll();
+        const qreal  cell = QFontMetricsF(display.font(), display.viewport()).horizontalAdvance(QLatin1Char('M'));
+        const QPoint point(qFloor(5.25 * cell), 2);
+        QTest::mouseDClick(display.viewport(), Qt::LeftButton, Qt::NoModifier, point);
+        QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier, point);
+        QVERIFY(!display.hasSelection());
+        QApplication::clipboard()->setText("unchanged");
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text(), QStringLiteral("unchanged"));
+    }
+
+    Q_SLOT void doubleClickJoinsSourceAndVisualWraps()
+    {
+        TerminalDisplay display;
+        display.resize(1603, 353);
+        display.show();
+        const qreal cell   = QFontMetricsF(display.font(), display.viewport()).horizontalAdvance(QLatin1Char('M'));
+        const int   height = qCeil(QFontMetricsF(display.font(), display.viewport()).height());
+        display.resize(qCeil(cell * 15), 353);
+        QCoreApplication::processEvents();
+        const int        columns = display.terminalSize().width();
+        const QByteArray word(columns * 2 + 3, 'w');
+        display.receive(" " + word + "\r\nww");
+        QVERIFY(display.screen().lines()[0].softWrapped);
+        const auto select = [&](const QPoint& point) {
+            QTest::mouseDClick(display.viewport(), Qt::LeftButton, Qt::NoModifier, point);
+            QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier, point);
+            display.copy();
+        };
+        select(QPoint(qFloor(cell * 2.25), height + 2));
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromLatin1(word));
+        display.resize(qCeil(cell * (columns + 6)), 353);
+        QCoreApplication::processEvents();
+        select(QPoint(qFloor(cell * 2.25), height + 2));
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromLatin1(word));
+        display.setAppearance({
+            {"wrapLines", false}
+        });
+        QCoreApplication::processEvents();
+        display.horizontalScrollBar()->setValue(columns);
+        select(QPoint(qFloor(cell * 2.25), 2));
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromLatin1(word));
+
+        display.clear();
+        display.resize(1603, 353);
+        display.receive(" " + word + " ");
+        QVERIFY(!display.screen().lines()[0].softWrapped);
+        display.setAppearance({
+            {"wrapLines", true}
+        });
+        display.resize(qCeil(cell * 15), 353);
+        QCoreApplication::processEvents();
+        select(QPoint(qFloor(cell * 2.25), height + 2));
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromLatin1(word));
+    }
+
+    Q_SLOT void doubleClickRespectsMouseReportingAndShiftOverride()
+    {
+        TerminalDisplay display;
+        display.resize(803, 353);
+        display.show();
+        display.receive("word\x1b[?1000h\x1b[?1006h");
+        const qreal  cell = QFontMetricsF(display.font(), display.viewport()).horizontalAdvance(QLatin1Char('M'));
+        const QPoint point(qFloor(cell * 1.25), 2);
+        QSignalSpy   output(&display, &TerminalDisplay::outputBytes);
+        QTest::mouseDClick(display.viewport(), Qt::LeftButton, Qt::NoModifier, point);
+        QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier, point);
+        QVERIFY(!display.hasSelection());
+        QCOMPARE(output.size(), 2);
+        QCOMPARE(output[0][1].value<TerminalDisplay::OutputKind>(), TerminalDisplay::OutputKind::Mouse);
+        QVERIFY(output[0][0].toByteArray().endsWith('M'));
+        QVERIFY(output[1][0].toByteArray().endsWith('m'));
+        output.clear();
+        QTest::mouseDClick(display.viewport(), Qt::LeftButton, Qt::ShiftModifier, point);
+        QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier, point);
+        QVERIFY(output.isEmpty());
+        QVERIFY(display.hasSelection());
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text(), QStringLiteral("word"));
+    }
+
     Q_SLOT void selectionOverridesMouseReporting()
     {
         TerminalDisplay display;
