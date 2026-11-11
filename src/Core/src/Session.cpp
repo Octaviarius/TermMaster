@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QLoggingCategory>
 #include <QRegularExpression>
+#include <QSet>
 #include <Termaster/Core/Session.h>
 #include <utility>
 
@@ -251,6 +252,30 @@ bool Session::_validate(const Settings& settings, QString* error) const
         if (settings.value(key).typeId() != QMetaType::QVariantMap)
         {
             return fail(error, QString("Session %1 must be a mapping").arg(key));
+        }
+    }
+    const auto presentation = settings.value("presentation").toMap();
+    if (presentation.contains("tabOrder"))
+    {
+        const auto value = presentation.value("tabOrder");
+        if (value.typeId() != QMetaType::QVariantList && value.typeId() != QMetaType::QStringList)
+        {
+            return fail(error, "Session presentation tabOrder must be a list of object IDs");
+        }
+        const auto order = value.toList();
+        if (order.size() > 100000)
+        {
+            return fail(error, "Session presentation tabOrder exceeds 100000 entries");
+        }
+        QSet<QString> seen;
+        for (const auto& entry : order)
+        {
+            const auto id = entry.toString();
+            if (entry.typeId() != QMetaType::QString || !validId(id) || seen.contains(id))
+            {
+                return fail(error, "Session presentation tabOrder must contain unique safe object IDs");
+            }
+            seen.insert(id);
         }
     }
     const auto objects = settings.value("objects").toMap();

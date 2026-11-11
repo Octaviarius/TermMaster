@@ -192,6 +192,102 @@ private slots:
         QVERIFY(loaded.isDirty());
     }
 
+    void tabOrderRoundTripPreservesUnavailableObjectsAndPresentation()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
+        QString       error;
+        QVERIFY2(session.create("ordered", "Ordered", &error), qPrintable(error));
+        const QVariantMap object {
+            {    "type",           "terminal"},
+            {  "module", "unavailable.plugin"},
+            {"settings",       QVariantMap {}}
+        };
+        QVERIFY(session.objects().setValue("hidden-terminal", object));
+        const QVariantMap extension {
+            {"nested", QVariantList {1, "future"}}
+        };
+        QVERIFY(session.presentation().setValue("extension", extension));
+        const QVariantList order {"hidden-terminal", "stale-terminal", "another-terminal"};
+        QVERIFY(session.presentation().setValue("tabOrder", order));
+        QVERIFY2(session.sync(&error), qPrintable(error));
+        Session loaded(session.directory(), SettingsOverlay(base.node(""), base.node("")));
+        QVERIFY2(loaded.load(&error), qPrintable(error));
+        QCOMPARE(loaded.presentation().value("tabOrder").toList(), order);
+        QCOMPARE(loaded.presentation().value("extension").toMap(), extension);
+        QCOMPARE(loaded.objects().value("hidden-terminal").toMap(), object);
+        QVERIFY(loaded.presentation().setValue("tabOrder", QStringList {}));
+        QVERIFY2(loaded.sync(&error), qPrintable(error));
+        QVERIFY2(loaded.load(&error), qPrintable(error));
+        QVERIFY(loaded.presentation().value("tabOrder").toList().isEmpty());
+        QCOMPARE(loaded.presentation().value("extension").toMap(), extension);
+    }
+
+    void invalidTabOrderRejectsCandidatesWithoutReplacingOwner()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
+        QString       error;
+        QVERIFY2(session.create("ordered", "Ordered", &error), qPrintable(error));
+        const QVariantList order {"first", "unavailable"};
+        QVERIFY(session.presentation().setValue("tabOrder", order));
+        QVERIFY(session.presentation().setValue("extension", "preserved"));
+        QVERIFY2(session.sync(&error), qPrintable(error));
+        QFile disk(session.filePath().toString());
+        QVERIFY(disk.open(QIODevice::ReadOnly));
+        const auto baseline = disk.readAll();
+        disk.close();
+        const QVariantList invalidOrders {
+            "first",
+            QVariantMap {},
+            QVariantList {"first", "first"},
+            QVariantList {"bad id"},
+            QVariantList {"../escape"},
+            QVariantList {""},
+            QVariantList {42},
+            QVariantList {true},
+            QVariantList {QString(129, 'a')},
+            QVariantList {QString("bad") + QChar::Null}
+        };
+        for (const auto& invalid : invalidOrders)
+        {
+            Settings candidate(session.filePath(), Settings::Info {"termaster.session", "Candidate"});
+            QVERIFY(candidate.replaceSerialized(baseline, &error));
+            QVERIFY(candidate.setValue("presentation/tabOrder", invalid, &error));
+            const auto bytes = candidate.serializedPatch({}, {}, &error);
+            QVERIFY2(bytes, qPrintable(error));
+            const auto borrowed = session.presentation();
+            QVERIFY(!session.acceptPreparedDocument(*bytes, &error));
+            QVERIFY(!error.isEmpty());
+            QVERIFY(borrowed.isValid());
+            QCOMPARE(session.presentation().value("tabOrder").toList(), order);
+            QCOMPARE(session.presentation().value("extension").toString(), QString("preserved"));
+            QVERIFY(!session.isDirty());
+
+            QVERIFY(session.presentation().setValue("tabOrder", invalid));
+            QVERIFY(!session.sync(&error));
+            QVERIFY(session.isDirty());
+            QVERIFY(disk.open(QIODevice::ReadOnly));
+            QCOMPARE(disk.readAll(), baseline);
+            disk.close();
+            QVERIFY2(session.load(&error), qPrintable(error));
+            QCOMPARE(session.presentation().value("tabOrder").toList(), order);
+
+            QVERIFY(disk.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            QCOMPARE(disk.write(*bytes), bytes->size());
+            disk.close();
+            const auto live = session.presentation();
+            QVERIFY(!session.load(&error));
+            QVERIFY(live.isValid());
+            QCOMPARE(session.presentation().value("tabOrder").toList(), order);
+            QVERIFY(disk.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            QCOMPARE(disk.write(baseline), baseline.size());
+            disk.close();
+        }
+    }
+
     void noClobberAndWriteFailure()
     {
         QTemporaryDir   temporary;
