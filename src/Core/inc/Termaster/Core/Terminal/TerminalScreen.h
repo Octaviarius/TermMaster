@@ -52,6 +52,9 @@ public:
     {
         QVector<Cell> cells;
         quint64       revision = 0;
+        /** The next source row continues an automatic terminal wrap. */
+        bool softWrapped       = false;
+        int  wrappedColumns    = 0;
     };
     TerminalScreen();
     Q_DISABLE_COPY_MOVE(TerminalScreen)
@@ -141,6 +144,8 @@ private:
     int                                            _columns         = 240;
     int                                            _rows            = 24;
     int                                            _history         = 10000;
+    qint64                                         _historyCells    = 0;
+    qint64                                         _primaryCells    = 0;
     int                                            _top             = 0;
     int                                            _bottom          = 23;
     int                                            _cursorShape     = 0;
@@ -167,7 +172,7 @@ private:
     void                                           _touch(int row);
     void                                           _repair(Line& line);
     void                                           _put(char32_t scalar);
-    void                                           _lineFeed();
+    void                                           _lineFeed(bool softWrapped = false, int wrappedColumns = 0);
     void                                           _scroll(int count, bool down = false);
     void                                           _move(int row, int column);
     void                                           _erase(int row, int first, int last, bool selective = false);

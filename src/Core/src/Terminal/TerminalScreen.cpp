@@ -267,14 +267,16 @@ void TerminalScreen::clear()
     _resetStyle();
     _lines.clear();
     _primary.clear();
-    _column      = 0;
-    _row         = 0;
-    _top         = 0;
-    _bottom      = _rows - 1;
-    _wrap        = false;
-    _alternate   = false;
-    _keypad      = false;
-    _joinNext    = false;
+    _historyCells = 0;
+    _primaryCells = 0;
+    _column       = 0;
+    _row          = 0;
+    _top          = 0;
+    _bottom       = _rows - 1;
+    _wrap         = false;
+    _alternate    = false;
+    _keypad       = false;
+    _joinNext     = false;
     _graphics[0] = _graphics[1] = false;
     _charset                    = 0;
     _cursorShape                = 0;
@@ -303,7 +305,7 @@ void TerminalScreen::setLimits(int columns, int rows, int history)
 {
     columns = std::clamp(columns, 1, 4096);
     rows    = std::clamp(rows, 1, 256);
-    history = std::clamp(history, 0, std::min(100000, maximumCells / columns - rows));
+    history = std::clamp(history, 0, 100000);
     if (columns == _columns && rows == _rows)
     {
         if (history == _history)
@@ -312,22 +314,13 @@ void TerminalScreen::setLimits(int columns, int rows, int history)
         }
         _history = history;
         _trim();
-        if (!_primary.isEmpty())
-        {
-            int excess = int(_primary.size()) - (_rows + std::min(_history, maximumCells / _columns - 2 * _rows));
-            if (excess > 0)
-            {
-                _primary.remove(0, excess);
-                _discardedLines += excess;
-            }
-        }
         return;
     }
     const int oldColumns = _columns;
     const int oldRows    = _rows;
     _columns             = std::clamp(columns, 1, 4096);
     _rows                = std::clamp(rows, 1, 256);
-    _history             = std::clamp(history, 0, std::min(100000, maximumCells / _columns - _rows));
+    _history             = history;
     auto resize          = [&](QVector<Line>& lines, int& cursorRow, Saved* saved, int historyLimit) {
         const int oldBase        = std::max(0, int(lines.size()) - oldRows);
         int       absoluteCursor = oldBase + cursorRow;
@@ -359,11 +352,28 @@ void TerminalScreen::setLimits(int columns, int rows, int history)
                 _discardedLines += excess;
             }
         }
-        if (oldColumns != _columns)
         {
-            for (auto& line : lines)
+            for (int index = std::max(0, int(lines.size()) - _rows); index < lines.size(); ++index)
             {
-                line.cells.resize(_columns, _blank());
+                auto& line          = lines[index];
+                // History is immutable on resize. Primary rows retain hidden cells;
+                // the alternate screen remains a strict addressable VT grid.
+                const bool pristine = !line.softWrapped
+                                   && std::all_of(line.cells.cbegin(), line.cells.cend(), [](const Cell& cell) {
+                                          return cell.width == 1
+                                              && (cell.text.isEmpty() || cell.text == QLatin1String(" "))
+                                              && cell.attributes == 0 && cell.defaultForeground
+                                              && cell.defaultBackground && !cell.protectedCell
+                                              && cell.hyperlink.isEmpty();
+                                      });
+                const int  width    = ((&lines == &_lines && _alternate) || pristine) ?
+                                          _columns :
+                                          std::max(_columns, int(line.cells.size()));
+                if (width == line.cells.size())
+                {
+                    continue;
+                }
+                line.cells.resize(width, _blank());
                 // Existing pairs are valid. Only truncation can split a wide glyph;
                 // appended blanks cannot invalidate any retained interior cell.
                 if (line.cells.back().width == 2)
@@ -392,7 +402,7 @@ void TerminalScreen::setLimits(int columns, int rows, int history)
     resize(_lines, _row, &_saved, _alternate ? 0 : _history);
     if (!_primary.isEmpty())
     {
-        resize(_primary, _primarySaved.row, nullptr, std::min(_history, maximumCells / _columns - 2 * _rows));
+        resize(_primary, _primarySaved.row, nullptr, _history);
         _primarySaved.column = std::clamp(_primarySaved.column, 0, _columns - 1);
         if (oldColumns != _columns)
         {
@@ -412,6 +422,16 @@ void TerminalScreen::setLimits(int columns, int rows, int history)
         {
             _tabs.insert(c);
         }
+    }
+    _historyCells = 0;
+    for (int index = 0; index < _screenTop(); ++index)
+    {
+        _historyCells += _lines[index].cells.size();
+    }
+    _primaryCells = 0;
+    for (const auto& line : _primary)
+    {
+        _primaryCells += line.cells.size();
     }
     _trim();
 }
@@ -585,8 +605,33 @@ QString TerminalScreen::text() const
 }
 void TerminalScreen::_trim()
 {
-    int excess = int(_lines.size()) - (_rows + (_alternate ? 0 : _history));
-    if (excess > 0)
+    qint64 activeCells = 0;
+    for (int index = _screenTop(); index < _lines.size(); ++index)
+    {
+        activeCells += _lines[index].cells.size();
+    }
+
+    int primaryExcess = 0;
+    while (int(_primary.size()) - primaryExcess > _rows
+           && (int(_primary.size()) - primaryExcess > _rows + _history || activeCells + _primaryCells > maximumCells))
+    {
+        _primaryCells -= _primary[primaryExcess++].cells.size();
+    }
+    if (primaryExcess)
+    {
+        _primary.remove(0, primaryExcess);
+        _discardedLines += primaryExcess;
+    }
+
+    int       excess      = 0;
+    const int historyRows = _screenTop();
+    while (excess < historyRows
+           && (historyRows - excess > (_alternate ? 0 : _history)
+               || activeCells + _primaryCells + _historyCells > maximumCells))
+    {
+        _historyCells -= _lines[excess++].cells.size();
+    }
+    if (excess)
     {
         _lines.remove(0, excess);
         if (!_alternate)
@@ -651,6 +696,7 @@ void TerminalScreen::_scroll(int count, bool down)
         int base = _screenTop();
         if (!down && _top == 0 && _bottom == _rows - 1 && !_alternate)
         {
+            _historyCells += _lines[_screenTop()].cells.size();
             _lines.append(_blankLine());
             _trim();
         }
@@ -670,8 +716,16 @@ void TerminalScreen::_scroll(int count, bool down)
         _touch(r);
     }
 }
-void TerminalScreen::_lineFeed()
+void TerminalScreen::_lineFeed(bool softWrapped, int wrappedColumns)
 {
+    auto& line = _lines[cursorLine()];
+    if (line.softWrapped != softWrapped || line.wrappedColumns != wrappedColumns)
+    {
+        line.softWrapped    = softWrapped;
+        line.wrappedColumns = wrappedColumns;
+        _touch(_row);
+    }
+
     _wrap = false;
     if (_row == _bottom)
     {
@@ -758,7 +812,7 @@ void TerminalScreen::_put(char32_t scalar)
     if (_wrap && mode(7))
     {
         _column = 0;
-        _lineFeed();
+        _lineFeed(true, _columns);
     }
     _wrap = false;
     if (width == 2 && _column == _columns - 1)
@@ -766,7 +820,7 @@ void TerminalScreen::_put(char32_t scalar)
         if (mode(7))
         {
             _column = 0;
-            _lineFeed();
+            _lineFeed(true, _columns - 1);
         }
         else
         {
@@ -870,15 +924,14 @@ void TerminalScreen::_setMode(int number, bool enabled, bool priv)
         if (enabled)
         {
             _save();
-            _primarySaved          = _saved;
-            _primary               = std::move(_lines);
-            const int primaryLimit = std::min(_history, maximumCells / _columns - 2 * _rows) + _rows;
-            const int excess       = std::max(0, int(_primary.size()) - primaryLimit);
-            if (excess)
+            _primarySaved = _saved;
+            _primary      = std::move(_lines);
+            _primaryCells = 0;
+            for (const auto& line : _primary)
             {
-                _primary.remove(0, excess);
-                _discardedLines += excess;
+                _primaryCells += line.cells.size();
             }
+            _historyCells = 0;
             _lines.clear();
             for (int r = 0; r < _rows; ++r)
             {
@@ -887,12 +940,19 @@ void TerminalScreen::_setMode(int number, bool enabled, bool priv)
             _row       = 0;
             _column    = 0;
             _alternate = true;
+            _trim();
         }
         else
         {
-            _lines     = std::move(_primary);
-            _alternate = false;
-            _saved     = _primarySaved;
+            _lines        = std::move(_primary);
+            _alternate    = false;
+            _saved        = _primarySaved;
+            _primaryCells = 0;
+            _historyCells = 0;
+            for (int index = 0; index < _screenTop(); ++index)
+            {
+                _historyCells += _lines[index].cells.size();
+            }
             _restore();
         }
         _top    = 0;
@@ -1469,6 +1529,7 @@ void TerminalScreen::_csi(const VtParser::Sequence& s)
             {
                 int count = _screenTop();
                 _lines.remove(0, count);
+                _historyCells = 0;
                 if (!_alternate)
                 {
                     _discardedLines += count;

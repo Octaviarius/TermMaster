@@ -202,13 +202,29 @@ private:
                 QCOMPARE(screen.lines().size(), before.size());
                 for (int row = 0; row < before.size(); ++row)
                 {
-                    const auto& actual = screen.lines()[row].cells;
-                    QCOMPARE(actual.size(), width);
-                    for (int column = 0; column < width; ++column)
+                    const auto& actual  = screen.lines()[row].cells;
+                    const bool  history = row < before.size() - 3;
+                    if (alternate || history)
+                    {
+                        QCOMPARE(actual.size(), alternate ? width : before[row].cells.size());
+                    }
+                    else
+                    {
+                        QVERIFY(actual.size() >= width);
+                        for (int column = actual.size(); column < before[row].cells.size(); ++column)
+                        {
+                            // Only pristine blank padding may shrink in the primary grid.
+                            QCOMPARE(before[row].cells[column].text, QStringLiteral(" "));
+                            QCOMPARE(before[row].cells[column].attributes, quint32(0));
+                            QVERIFY(before[row].cells[column].defaultBackground);
+                        }
+                    }
+                    const int expectedWidth = actual.size();
+                    for (int column = 0; column < expectedWidth; ++column)
                     {
                         const auto& cell = actual[column];
                         if (column < before[row].cells.size()
-                            && !(column == width - 1 && before[row].cells[column].width == 2))
+                            && !(alternate && column == width - 1 && before[row].cells[column].width == 2))
                         {
                             const auto& expected = before[row].cells[column];
                             QCOMPARE(cell.text, expected.text);
@@ -223,7 +239,7 @@ private:
                         }
                         if (cell.width == 2)
                         {
-                            QVERIFY(column + 1 < width);
+                            QVERIFY(column + 1 < expectedWidth);
                             QCOMPARE(actual[column + 1].width, 0);
                         }
                         if (cell.width == 0)
@@ -238,8 +254,96 @@ private:
         screen.receive("\x1b[?1049l");
         for (const auto& line : screen.lines())
         {
-            QCOMPARE(line.cells.size(), 12);
+            QVERIFY(line.cells.size() >= 12);
         }
+    }
+    Q_SLOT void historyWidthChangesPreserveContentAndRevisions()
+    {
+        TerminalScreen screen;
+        screen.setLimits(12, 2, 20);
+        screen.receive(QString::fromUtf8("\x1b[31;1m日é😀AB日\x1b[0m\r\n").toUtf8().repeated(8));
+        const auto retained  = screen.lines();
+        const auto discarded = screen.discardedLines();
+        for (const int width : {3, 80, 1, 12})
+        {
+            screen.setLimits(width, 2, 20);
+            QCOMPARE(screen.lines().size(), retained.size());
+            QCOMPARE(screen.discardedLines(), discarded);
+            for (int row = 0; row < retained.size() - 2; ++row)
+            {
+                const auto& actual   = screen.lines()[row];
+                const auto& expected = retained[row];
+                QCOMPARE(actual.revision, expected.revision);
+                QCOMPARE(actual.cells.size(), expected.cells.size());
+                for (int column = 0; column < expected.cells.size(); ++column)
+                {
+                    QCOMPARE(actual.cells[column].text, expected.cells[column].text);
+                    QCOMPARE(actual.cells[column].width, expected.cells[column].width);
+                    QCOMPARE(actual.cells[column].attributes, expected.cells[column].attributes);
+                    QCOMPARE(actual.cells[column].foreground, expected.cells[column].foreground);
+                }
+            }
+        }
+    }
+    Q_SLOT void automaticWrapIsDistinctFromHardLineFeed()
+    {
+        TerminalScreen screen;
+        screen.setLimits(4, 4, 4);
+        screen.receive("abcd");
+        QVERIFY(!screen.lines()[0].softWrapped);
+        screen.receive("e");
+        QVERIFY(screen.lines()[0].softWrapped);
+        screen.receive("\r\nX");
+        QVERIFY(!screen.lines()[1].softWrapped);
+        screen.receive("\x1b[1;1H\n");
+        QVERIFY(!screen.lines()[0].softWrapped);
+
+        TerminalScreen wide;
+        wide.setLimits(4, 3, 4);
+        wide.receive(QString::fromUtf8("abc日").toUtf8());
+        QVERIFY(wide.lines()[0].softWrapped);
+        QCOMPARE(wide.lines()[1].cells[0].width, 2);
+        QCOMPARE(wide.lines()[1].cells[1].width, 0);
+        wide.setLimits(2, 3, 4);
+        QVERIFY(wide.lines()[0].softWrapped);
+    }
+    Q_SLOT void mixedWidthStorageAndHiddenPrimaryRespectCellBudget()
+    {
+        TerminalScreen screen;
+        screen.setLimits(64, 2, 100000);
+        screen.receive(QByteArray("record\r\n").repeated(256));
+        const auto narrowHistory = screen.lines();
+        screen.setLimits(4096, 2, 100000);
+        QCOMPARE(screen.lines().size(), narrowHistory.size());
+        for (int row = 0; row < narrowHistory.size() - 2; ++row)
+        {
+            QCOMPARE(screen.lines()[row].cells.size(), narrowHistory[row].cells.size());
+        }
+        screen.receive(QByteArray("wide\r\n").repeated(540));
+        const auto primary      = screen.lines();
+        qint64     primaryCells = 0;
+        for (const auto& line : primary)
+        {
+            primaryCells += line.cells.size();
+        }
+        QVERIFY(primaryCells <= TerminalScreen::maximumCells);
+        QVERIFY(screen.discardedLines() > 0);
+
+        screen.receive("\x1b[?1049h");
+        qint64 alternateCells = 0;
+        for (const auto& line : screen.lines())
+        {
+            alternateCells += line.cells.size();
+        }
+        screen.receive("\x1b[?1049l");
+        qint64 retainedPrimaryCells = 0;
+        for (const auto& line : screen.lines())
+        {
+            retainedPrimaryCells += line.cells.size();
+        }
+        QVERIFY(retainedPrimaryCells + alternateCells <= TerminalScreen::maximumCells);
+        QVERIFY(screen.cursorLine() < screen.lines().size());
+        QVERIFY(!screen.alternateScreen());
     }
     Q_SLOT void heightResizePreservesRetainedWideStyledRows()
     {
