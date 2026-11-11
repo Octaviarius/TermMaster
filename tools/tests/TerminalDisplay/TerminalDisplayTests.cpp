@@ -1,5 +1,7 @@
 #include <QApplication>
 #include <QClipboard>
+#include <QInputMethodQueryEvent>
+#include <QScrollBar>
 #include <QSignalSpy>
 #include <QTest>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
@@ -10,6 +12,169 @@ class TerminalDisplayTests : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void visualWrapPreservesSourceSelectionAndMapsCursor()
+    {
+        TerminalDisplay display;
+        display.setAppearance({
+            {"wrapLines", false}
+        });
+        display.resize(803, 353);
+        display.show();
+        const QByteArray content = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop";
+        display.receive(content);
+        const QString original = display.text();
+        display.selectAll();
+        const qreal cell = QFontMetricsF(display.font(), display.viewport()).horizontalAdvance(QLatin1Char('M'));
+        display.resize(qCeil(cell * 12), 353);
+        QCoreApplication::processEvents();
+        QVERIFY(display.horizontalScrollBar()->maximum() > 0);
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text().trimmed(), QString::fromLatin1(content));
+        QCOMPARE(display.text(), original);
+
+        display.setAppearance({
+            {"wrapLines", true}
+        });
+        QCoreApplication::processEvents();
+        QCOMPARE(display.horizontalScrollBar()->maximum(), 0);
+        QCOMPARE(display.text(), original);
+        QVERIFY(display.hasSelection());
+        display.selectAll();
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text().trimmed(), QString::fromLatin1(content));
+        QInputMethodQueryEvent query(Qt::ImCursorRectangle);
+        QApplication::sendEvent(&display, &query);
+        const QRectF cursor = query.value(Qt::ImCursorRectangle).toRectF();
+        // The VT model clamps its live cursor column on shrink. Its mapped
+        // presentation must stay addressable with either native or fallback fonts.
+        QVERIFY(cursor.top() >= 0);
+        QVERIFY(cursor.bottom() <= display.viewport()->height());
+        QVERIFY(cursor.left() >= 0);
+        QVERIFY(cursor.left() < display.viewport()->width());
+
+        display.resize(803, 353);
+        QCoreApplication::processEvents();
+        QCOMPARE(display.text(), original);
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text().trimmed(), QString::fromLatin1(content));
+        QInputMethodQueryEvent wideQuery(Qt::ImCursorRectangle);
+        QApplication::sendEvent(&display, &wideQuery);
+        const QRectF wideCursor = wideQuery.value(Qt::ImCursorRectangle).toRectF();
+        QVERIFY(wideCursor.top() <= cursor.top());
+        QVERIFY(wideCursor.top() >= 0);
+        QVERIFY(wideCursor.top() < display.viewport()->height());
+    }
+
+    Q_SLOT void selectingVisualContinuationCopiesSourceCells()
+    {
+        TerminalDisplay display;
+        display.resize(803, 353);
+        display.show();
+        display.receive("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        const qreal cell   = QFontMetricsF(display.font(), display.viewport()).horizontalAdvance(QLatin1Char('M'));
+        const int   height = qCeil(QFontMetricsF(display.font(), display.viewport()).height());
+        display.resize(qCeil(cell * 10), 353);
+        QCoreApplication::processEvents();
+        const int columns = display.terminalSize().width();
+        QTest::mousePress(display.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(0, height + 2));
+        QTest::mouseMove(display.viewport(), QPoint(qCeil(cell * 3), height + 2));
+        QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(qCeil(cell * 3), height + 2));
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text(),
+                 QStringLiteral("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ").mid(columns, 3));
+    }
+
+    Q_SLOT void noWrapJoinsSoftRowsAndMapsHorizontalSelection()
+    {
+        TerminalDisplay display;
+        const qreal     cell = QFontMetricsF(display.font(), display.viewport()).horizontalAdvance(QLatin1Char('M'));
+        display.resize(qCeil(cell * 14), 353);
+        display.show();
+        display.clearFocus();
+        const int        columns = display.terminalSize().width();
+        const QByteArray content = QByteArray("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+                                       .left(columns * 3 + 5);
+        display.receive(content);
+        QVERIFY(display.screen().lines()[0].softWrapped);
+        const auto capture = qEnvironmentVariable("TERMASTER_WRAP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(display.viewport()->grab().save(capture + "-wrapped.png"));
+        }
+
+        display.setAppearance({
+            {"wrapLines", false}
+        });
+        QCoreApplication::processEvents();
+        QVERIFY(display.horizontalScrollBar()->maximum() >= columns * 2);
+        display.selectAll();
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text().trimmed(), QString::fromLatin1(content));
+        QInputMethodQueryEvent query(Qt::ImCursorRectangle);
+        QApplication::sendEvent(&display, &query);
+        QVERIFY(query.value(Qt::ImCursorRectangle).toRectF().top() < qCeil(QFontMetricsF(display.font()).height()));
+        display.horizontalScrollBar()->setValue(columns);
+        QTest::mousePress(display.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(0, 2));
+        QTest::mouseMove(display.viewport(), QPoint(qCeil(cell * 3), 2));
+        QTest::mouseRelease(display.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(qCeil(cell * 3), 2));
+        display.copy();
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromLatin1(content.mid(columns, 3)));
+        if (!capture.isEmpty())
+        {
+            QVERIFY(display.viewport()->grab().save(capture + "-horizontal.png"));
+        }
+        display.setAppearance({
+            {"wrapLines", true}
+        });
+        QCoreApplication::processEvents();
+        QCOMPARE(display.horizontalScrollBar()->maximum(), 0);
+        QVERIFY(display.hasSelection());
+        if (!capture.isEmpty())
+        {
+            QVERIFY(display.viewport()->grab().save(capture + "-restored.png"));
+        }
+    }
+
+    Q_SLOT void incomingBytesRetainImmutableVisualPrefix()
+    {
+        TerminalDisplay display;
+        display.resize(803, 253);
+        display.show();
+        display.clearFocus();
+        display.receive("\x1b[?25l");
+        for (int line = 0; line < 500; ++line)
+        {
+            display.receive(QByteArray::number(line) + " history\r\n");
+        }
+        QVERIFY(display.screen().lines().size() > 500);
+        display.verticalScrollBar()->setValue(0);
+        const auto history = display.viewport()->grab().toImage();
+        display.receive("x");
+        QCOMPARE(display.viewport()->grab().toImage(), history);
+        display.setAppearance({
+            {"wrapLines", false}
+        });
+        display.receive("y");
+        QCOMPARE(display.viewport()->grab().toImage(), history);
+        display.resize(603, 253);
+        QCoreApplication::processEvents();
+        const auto resized = display.viewport()->grab().toImage();
+        const int  width   = std::min(history.width(), resized.width());
+        const int  height  = std::min(history.height(), resized.height());
+        QCOMPARE(resized.copy(0, 0, width, height), history.copy(0, 0, width, height));
+        display.setAppearance({
+            {      "wrapLines", false},
+            {"scrollbackLines",     1}
+        });
+        QVERIFY(!display.text().startsWith("0 history"));
+        display.receive(QByteArray("trimmed\r\n").repeated(30));
+        QVERIFY(display.text().contains("trimmed"));
+        display.clear();
+        display.receive("reset");
+        QCOMPARE(display.text(), QStringLiteral("reset"));
+        QVERIFY(display.viewport()->grab().toImage() != resized);
+    }
+
     Q_SLOT void streamBoundaries()
     {
         const QByteArray input = QString::fromUtf8("A€😀").toUtf8() + "\x1b[31mred\x1b[0m";
@@ -79,7 +244,7 @@ private:
         QCOMPARE(screen.lines()[0].cells[0].foreground, QColor("#123456"));
         QCOMPARE(screen.lines()[0].cells[0].background, QColor("#654321"));
     }
-    Q_SLOT void selectionSurvivesIncomingLinesAndClearsOnTrimOrResize()
+    Q_SLOT void selectionSurvivesIncomingLinesAndResizeAndClearsOnTrim()
     {
         TerminalDisplay display;
         display.resize(500, 150);
@@ -110,7 +275,7 @@ private:
         display.resize(450, 150);
         QApplication::clipboard()->setText("resized");
         QTest::keyClick(&display, Qt::Key_C, Qt::ControlModifier | Qt::ShiftModifier);
-        QCOMPARE(QApplication::clipboard()->text(), QStringLiteral("resized"));
+        QCOMPARE(QApplication::clipboard()->text(), QStringLiteral("resize"));
     }
     Q_SLOT void repliesAndLocalEchoAreSeparate()
     {
@@ -307,7 +472,7 @@ private:
         display.setFont(font);
         QCOMPARE(display.size(), pixelSize);
         QVERIFY(display.terminalSize() != initialGrid);
-        QVERIFY(!display.hasSelection());
+        QVERIFY(display.hasSelection());
         QVERIFY(!sizes.isEmpty());
         const QFontMetricsF metrics(font, display.viewport());
         QCOMPARE(display.terminalSize().width(),
