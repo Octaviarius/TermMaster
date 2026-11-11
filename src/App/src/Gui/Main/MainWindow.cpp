@@ -5,113 +5,33 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QEvent>
-#include <QPainter>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyle>
-#include <QStyleOptionTab>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QToolBar>
 #include <QToolButton>
+#include <QVBoxLayout>
 #include <Termaster/Core/Gui/Action/MenuActionContainer.h>
+#include <Termaster/Core/Gui/Icons.h>
 #include <memory>
 
 namespace
 {
-/** Vector-backed status presentation; pointer input remains with the native tab. */
-class TerminalStatusIndicator final : public QWidget
-{
-public:
-    explicit TerminalStatusIndicator(QWidget* parent) : QWidget(parent)
-    {
-        setFixedSize(16, 16);
-        setAttribute(Qt::WA_TransparentForMouseEvents);
-        setObjectName("terminalStatusIndicator");
-    }
-
-    void setIcon(const QIcon& icon)
-    {
-        _icon = icon;
-        update();
-    }
-
-protected:
-    void paintEvent(QPaintEvent*) override
-    {
-        QPainter painter(this);
-        _icon.paint(&painter, rect(), Qt::AlignCenter, isEnabled() ? QIcon::Normal : QIcon::Disabled);
-    }
-
-private:
-    QIcon _icon;
-};
-
-/** Preserve native tab painting and interactions while allowing two text lines. */
+/** Native tab geometry and dragging; the complete caption lives in its layout. */
 class TerminalTabBar final : public QTabBar
 {
 public:
     TerminalTabBar()
     {
         qApp->installEventFilter(this);
-        connect(this, &QTabBar::currentChanged, this, [this] { _positionTabButtons(); });
         _refreshStyle();
     }
 
 protected:
-    QSize tabSizeHint(int index) const override
-    {
-        auto size       = QTabBar::tabSizeHint(index);
-        size.rheight() += tabText(index).count('\n') * fontMetrics().lineSpacing();
-        if (!qvariant_cast<QIcon>(tabData(index)).isNull())
-        {
-            size.rwidth() += 40;
-        }
-        return size;
-    }
-
-    void paintEvent(QPaintEvent* event) override
-    {
-        QTabBar::paintEvent(event);
-        QPainter painter(this);
-        QRegion  clip(rect());
-        for (const auto* button : findChildren<QToolButton*>(QString(), Qt::FindDirectChildrenOnly))
-        {
-            if (button->isVisible())
-            {
-                clip -= button->geometry();
-            }
-        }
-        painter.setClipRegion(clip);
-        for (int index = 0; index < count(); ++index)
-        {
-            const auto icon = qvariant_cast<QIcon>(tabData(index));
-            if (icon.isNull())
-            {
-                continue;
-            }
-            QStyleOptionTab option;
-            initStyleOption(&option, index);
-            const auto  text       = style()->subElementRect(QStyle::SE_TabBarTabText, &option, this);
-            const auto  titleWidth = fontMetrics().size(Qt::TextShowMnemonic, option.text.section('\n', 0, 0)).width();
-            const auto  center     = text.center().y() - option.text.count('\n') * fontMetrics().lineSpacing() / 2;
-            const QRect glyph(text.center().x() - titleWidth / 2 - 20, center - 8, 16, 16);
-            icon.paint(&painter, glyph, Qt::AlignCenter, isTabEnabled(index) ? QIcon::Normal : QIcon::Disabled);
-        }
-    }
-
-    void tabLayoutChange() override
-    {
-        QTabBar::tabLayoutChange();
-        _positionTabButtons();
-    }
-
-    void resizeEvent(QResizeEvent* event) override
-    {
-        QTabBar::resizeEvent(event);
-        _positionTabButtons();
-    }
-
     bool eventFilter(QObject* watched, QEvent* event) override
     {
         if (watched == qApp && event->type() == QEvent::ApplicationPaletteChange)
@@ -122,25 +42,6 @@ protected:
     }
 
 private:
-    void _positionTabButtons()
-    {
-        for (int index = 0; index < count(); ++index)
-        {
-            QStyleOptionTab option;
-            initStyleOption(&option, index);
-            const auto text   = style()->subElementRect(QStyle::SE_TabBarTabText, &option, this);
-            const auto lines  = tabText(index).count('\n');
-            const auto center = text.center().y() - lines * fontMetrics().lineSpacing() / 2;
-            for (const auto side : {QTabBar::LeftSide, QTabBar::RightSide})
-            {
-                if (auto* button = tabButton(index, side))
-                {
-                    button->move(button->x(), center - button->height() / 2);
-                }
-            }
-        }
-    }
-
     void _refreshStyle()
     {
         const auto   colors     = QApplication::palette();
@@ -183,7 +84,8 @@ MainWindow::MainWindow(QWidget* parent) :
     _workspacePage = new WorkspacePage(this);
     _terminalTabs  = new TerminalTabs(this);
     _terminalTabs->setObjectName("terminalTabs");
-    _terminalTabs->setTabsClosable(true);
+    // The close button belongs to the same native tab-button layout as its caption.
+    _terminalTabs->setTabsClosable(false);
     _terminalTabs->setMovable(true);
     _terminalTabs->setDocumentMode(true);
     _terminalTabs->tabBar()->setElideMode(Qt::ElideNone);
@@ -270,25 +172,106 @@ QTabWidget& MainWindow::terminalTabs()
 {
     return *_terminalTabs;
 }
-void MainWindow::setTerminalStatusIcon(int index, const QIcon& icon)
+void MainWindow::setTerminalTab(int            index,
+                                const QString& title,
+                                const QString& detail,
+                                const QIcon&   typeIcon,
+                                const QIcon&   statusIcon)
 {
     auto* bar = _terminalTabs->tabBar();
     if (index < 0 || index >= bar->count())
     {
         return;
     }
-    auto* indicator = dynamic_cast<TerminalStatusIndicator*>(bar->tabButton(index, QTabBar::LeftSide));
-    if (!indicator)
+
+    auto*       header       = bar->tabButton(index, QTabBar::LeftSide);
+    const bool  created      = !header;
+    const QSize previousSize = header ? header->size() : QSize();
+    if (!header)
     {
-        if (auto* close = bar->tabButton(index, QTabBar::LeftSide))
+        header = new QWidget(bar);
+        header->setObjectName("terminalTabHeader");
+        auto* row = new QHBoxLayout(header);
+        row->setContentsMargins(0, 0, 0, 0);
+        row->setSpacing(6);
+        row->setSizeConstraint(QLayout::SetFixedSize);
+
+        const auto iconButton = [header](const QString& name) {
+            auto* button = new QToolButton(header);
+            button->setObjectName(name);
+            button->setAutoRaise(true);
+            button->setFocusPolicy(Qt::NoFocus);
+            button->setIconSize(QSize(16, 16));
+            button->setFixedSize(16, 16);
+            return button;
+        };
+        auto* status = iconButton("terminalStatusIndicator");
+        status->setAttribute(Qt::WA_TransparentForMouseEvents);
+        row->addWidget(status, 0, Qt::AlignTop);
+
+        auto* caption = new QVBoxLayout;
+        caption->setContentsMargins(0, 0, 0, 0);
+        caption->setSpacing(0);
+        auto* titleRow = new QHBoxLayout;
+        titleRow->setContentsMargins(0, 0, 0, 0);
+        titleRow->setSpacing(4);
+        titleRow->addStretch();
+        auto* glyph = iconButton("terminalTypeIcon");
+        glyph->setAttribute(Qt::WA_TransparentForMouseEvents);
+        titleRow->addWidget(glyph);
+        auto* titleLabel = new QLabel(header);
+        titleLabel->setObjectName("terminalTabTitle");
+        titleLabel->setTextFormat(Qt::PlainText);
+        titleLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+        titleRow->addWidget(titleLabel);
+        titleRow->addStretch();
+        caption->addLayout(titleRow);
+        auto* detailLabel = new QLabel(header);
+        detailLabel->setObjectName("terminalTabDetail");
+        detailLabel->setTextFormat(Qt::PlainText);
+        detailLabel->setAlignment(Qt::AlignCenter);
+        detailLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+        caption->addWidget(detailLabel);
+        row->addLayout(caption);
+
+        auto* close = iconButton("terminalTabClose");
+        close->setIcon(Icons::icon("x"));
+        close->setToolTip(tr("Close terminal"));
+        close->setAccessibleName(tr("Close terminal"));
+        row->addWidget(close, 0, Qt::AlignTop);
+        connect(close, &QToolButton::clicked, header, [this, header] {
+            auto* currentBar = _terminalTabs->tabBar();
+            for (int current = 0; current < currentBar->count(); ++current)
+            {
+                if (currentBar->tabButton(current, QTabBar::LeftSide) == header)
+                {
+                    emit _terminalTabs->tabCloseRequested(current);
+                    return;
+                }
+            }
+        });
+    }
+
+    header->findChild<QToolButton*>("terminalStatusIndicator")->setIcon(statusIcon);
+    header->findChild<QToolButton*>("terminalTypeIcon")->setIcon(typeIcon);
+    header->findChild<QLabel*>("terminalTabTitle")->setText(title);
+    auto* detailLabel = header->findChild<QLabel*>("terminalTabDetail");
+    detailLabel->setText(detail);
+    detailLabel->setVisible(!detail.isEmpty());
+    header->layout()->activate();
+    header->adjustSize();
+
+    // A single standard tab button owns all visible content. Qt moves and sizes
+    // it as one unit during dragging, scrolling and animation.
+    _terminalTabs->setTabText(index, {});
+    if (created || header->size() != previousSize)
+    {
+        if (!created)
         {
             bar->setTabButton(index, QTabBar::LeftSide, nullptr);
-            bar->setTabButton(index, QTabBar::RightSide, close);
         }
-        indicator = new TerminalStatusIndicator(bar);
-        bar->setTabButton(index, QTabBar::LeftSide, indicator);
+        bar->setTabButton(index, QTabBar::LeftSide, header);
     }
-    indicator->setIcon(icon);
 }
 
 void MainWindow::showTerminals(bool visible)

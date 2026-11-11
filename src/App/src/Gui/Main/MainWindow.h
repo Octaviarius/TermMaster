@@ -20,7 +20,11 @@ public:
     ToolbarActionContainer& toolbar();
     QTabWidget&             terminalTabs();
     void                    showTerminals(bool visible);
-    void                    setTerminalStatusIcon(int index, const QIcon& icon);
+    void                    setTerminalTab(int            index,
+                                           const QString& title,
+                                           const QString& detail,
+                                           const QIcon&   typeIcon,
+                                           const QIcon&   statusIcon);
     void                    setWorkspace(const QString& name, const QString& file);
     void                    showWorkspaceChoice(const QString& error = {});
     void                    setSession(const QString& name, const QString& file, int objects, int links);

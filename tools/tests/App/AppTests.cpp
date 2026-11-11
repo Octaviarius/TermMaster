@@ -213,6 +213,75 @@ public:
 private:
     App& _app;
 
+    static QWidget* _tabHeader(QTabWidget* tabs, int index)
+    {
+        return tabs->tabBar()->tabButton(index, QTabBar::LeftSide);
+    }
+
+    static QString _tabCaption(QTabWidget* tabs, int index)
+    {
+        auto* header = _tabHeader(tabs, index);
+        auto* title  = header ? header->findChild<QLabel*>("terminalTabTitle") : nullptr;
+        auto* detail = header ? header->findChild<QLabel*>("terminalTabDetail") : nullptr;
+        return title && detail ? title->text() + '\n' + detail->text() : QString();
+    }
+
+    static QToolButton* _tabType(QTabWidget* tabs, int index)
+    {
+        auto* header = _tabHeader(tabs, index);
+        return header ? header->findChild<QToolButton*>("terminalTypeIcon") : nullptr;
+    }
+
+    static QToolButton* _tabStatus(QTabWidget* tabs, int index)
+    {
+        auto* header = _tabHeader(tabs, index);
+        return header ? header->findChild<QToolButton*>("terminalStatusIndicator") : nullptr;
+    }
+
+    static bool _tabHeadersAreCoherent(QTabWidget* tabs, bool diagnostics = false)
+    {
+        auto* bar      = tabs->tabBar();
+        bool  coherent = true;
+        for (int index = 0; index < tabs->count(); ++index)
+        {
+            auto* header = _tabHeader(tabs, index);
+            if (!header)
+            {
+                return false;
+            }
+            const QRect bounds(header->mapTo(bar, QPoint()), header->size());
+            bool        valid = header->isVisible() && bar->tabRect(index).adjusted(-1, -1, 1, 1).contains(bounds);
+            for (auto* child : header->findChildren<QWidget*>())
+            {
+                const QRect childBounds(child->mapTo(header, QPoint()), child->size());
+                valid = valid && child->isVisible() && header->rect().contains(childBounds);
+            }
+            auto* title  = header->findChild<QLabel*>("terminalTabTitle");
+            auto* close  = header->findChild<QToolButton*>("terminalTabClose");
+            auto* status = _tabStatus(tabs, index);
+            if (!title || !close || !status)
+            {
+                return false;
+            }
+            const int titleCenter = title->mapTo(header, title->rect().center()).y();
+            valid                 = valid && qAbs(close->mapTo(header, close->rect().center()).y() - titleCenter) <= 3
+                                 && qAbs(status->mapTo(header, status->rect().center()).y() - titleCenter) <= 3;
+            if (!valid && diagnostics)
+            {
+                qWarning() << "Tab header layout" << index << "tab" << bar->tabRect(index) << "header" << bounds
+                           << "visible" << header->isVisible() << "hint" << header->sizeHint() << "minimum"
+                           << header->minimumSize() << "parent" << header->parentWidget();
+                for (auto* child : header->findChildren<QWidget*>())
+                {
+                    qWarning() << child->objectName() << QRect(child->mapTo(header, QPoint()), child->size())
+                               << "visible" << child->isVisible() << "parent" << child->parentWidget();
+                }
+            }
+            coherent = coherent && valid;
+        }
+        return coherent;
+    }
+
     void _closeTemporaryWorkspace()
     {
         QString error;
@@ -1473,11 +1542,13 @@ content:
         QVERIFY(tabs);
         QVERIFY2(_app.createTerminal("socket", {}, "Saved <friendly> socket", &error), qPrintable(error));
         const auto socketId = _app.selectedTerminal();
-        QCOMPARE(tabs->tabText(0), "Socket\nlocalhost:5000");
-        const auto socketGlyph = qvariant_cast<QIcon>(tabs->tabBar()->tabData(0)).pixmap(16, 16).toImage();
+        QCOMPARE(_tabCaption(tabs, 0), "Socket\nlocalhost:5000");
+        const auto socketGlyph = _tabType(tabs, 0)->icon().pixmap(16, 16).toImage();
         QVERIFY(!socketGlyph.isNull());
         QVERIFY(tabs->tabBar()->tabButton(0, QTabBar::LeftSide));
-        QCOMPARE(tabs->tabBar()->tabButton(0, QTabBar::LeftSide)->objectName(), "terminalStatusIndicator");
+        QCOMPARE(_tabHeader(tabs, 0)->objectName(), "terminalTabHeader");
+        QVERIFY(_tabStatus(tabs, 0));
+        QVERIFY(tabs->tabBar()->tabText(0).isEmpty());
         QVERIFY(QTextDocumentFragment::fromHtml(tabs->tabToolTip(0)).toPlainText().contains("Saved <friendly> socket"));
         QVERIFY(tabs->tabBar()->accessibleTabName(0).contains("localhost:5000"));
         QVERIFY(tabs->tabBar()->accessibleTabName(0).contains("Disconnected"));
@@ -1491,24 +1562,24 @@ content:
         dialog->refreshInheritedValues();
         model->setValue("port", 5001);
         dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
-        QCOMPARE(tabs->tabText(0), "Socket\ninherited.example:5001");
+        QCOMPARE(_tabCaption(tabs, 0), "Socket\ninherited.example:5001");
         QVERIFY(!_app.session()->objects().node(socketId + "/settings").contains("transport/host"));
         model->setValue("host", "2001:db8::1");
         model->setValue("port", 6000);
         dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
-        QCOMPARE(tabs->tabText(0), "Socket\n[2001:db8::1]:6000");
+        QCOMPARE(_tabCaption(tabs, 0), "Socket\n[2001:db8::1]:6000");
         delete dialog;
         const auto objectBefore = _app.session()->objects().value(socketId);
         QVERIFY(host.unregisterTerminalType("socket", &error));
         host.registerTerminalType(registration("socket"));
         QCOMPARE(_app.selectedTerminal(), socketId);
-        QCOMPARE(tabs->tabText(0), "Socket\n[2001:db8::1]:6000");
+        QCOMPARE(_tabCaption(tabs, 0), "Socket\n[2001:db8::1]:6000");
         QCOMPARE(_app.session()->objects().value(socketId), objectBefore);
-        QCOMPARE(qvariant_cast<QIcon>(tabs->tabBar()->tabData(0)).pixmap(16, 16).toImage(), socketGlyph);
+        QCOMPARE(_tabType(tabs, 0)->icon().pixmap(16, 16).toImage(), socketGlyph);
         QVERIFY(tabs->tabBar()->accessibleTabName(0).contains("Saved <friendly> socket"));
 
         QVERIFY2(_app.createTerminal("serial", {}, "Saved serial", &error), qPrintable(error));
-        QCOMPARE(tabs->tabText(1), "Serial\nCOM1");
+        QCOMPARE(_tabCaption(tabs, 1), "Serial\nCOM1");
         QVERIFY2(_app.createTerminal("console",
                                      {
                                          {"transport",
@@ -1519,9 +1590,9 @@ content:
                                      "Saved console",
                                      &error),
                  qPrintable(error));
-        QCOMPARE(tabs->tabText(2), "Console\nsh");
-        const auto serialGlyph  = qvariant_cast<QIcon>(tabs->tabBar()->tabData(1)).pixmap(16, 16).toImage();
-        const auto consoleGlyph = qvariant_cast<QIcon>(tabs->tabBar()->tabData(2)).pixmap(16, 16).toImage();
+        QCOMPARE(_tabCaption(tabs, 2), "Console\nsh");
+        const auto serialGlyph  = _tabType(tabs, 1)->icon().pixmap(16, 16).toImage();
+        const auto consoleGlyph = _tabType(tabs, 2)->icon().pixmap(16, 16).toImage();
         QVERIFY(!serialGlyph.isNull());
         QVERIFY(!consoleGlyph.isNull());
         QVERIFY(serialGlyph != socketGlyph);
@@ -1530,27 +1601,40 @@ content:
         QVERIFY(!tabs->tabToolTip(2).contains("private-"));
         QVERIFY(!tabs->tabBar()->accessibleTabName(2).contains("private-"));
         tabs->tabBar()->moveTab(2, 0);
-        QCOMPARE(tabs->tabText(tabs->currentIndex()), "Console\nsh");
-        QCOMPARE(qvariant_cast<QIcon>(tabs->tabBar()->tabData(0)).pixmap(16, 16).toImage(), consoleGlyph);
-        QCOMPARE(qvariant_cast<QIcon>(tabs->tabBar()->tabData(1)).pixmap(16, 16).toImage(), socketGlyph);
+        QCOMPARE(_tabCaption(tabs, tabs->currentIndex()), "Console\nsh");
+        QCOMPARE(_tabType(tabs, 0)->icon().pixmap(16, 16).toImage(), consoleGlyph);
+        QCOMPARE(_tabType(tabs, 1)->icon().pixmap(16, 16).toImage(), socketGlyph);
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         QCoreApplication::processEvents();
         QVERIFY(tabs->tabBar()->tabRect(0).height() >= 2 * tabs->tabBar()->fontMetrics().height());
-        const auto closeSide = tabs->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition) == QTabBar::LeftSide ?
-                                   QTabBar::LeftSide :
-                                   QTabBar::RightSide;
+        QVERIFY(!tabs->tabsClosable());
         for (int index = 0; index < tabs->count(); ++index)
         {
-            const auto* close = tabs->tabBar()->tabButton(index, closeSide);
+            auto* header = _tabHeader(tabs, index);
+            QVERIFY(header);
+            QCOMPARE(header->objectName(), "terminalTabHeader");
+            QVERIFY(header->layout());
+            QVERIFY(!tabs->tabBar()->tabButton(index, QTabBar::RightSide));
+            QVERIFY(tabs->tabBar()->tabText(index).isEmpty());
+            auto* close  = header->findChild<QToolButton*>("terminalTabClose");
+            auto* title  = header->findChild<QLabel*>("terminalTabTitle");
+            auto* detail = header->findChild<QLabel*>("terminalTabDetail");
+            auto* type   = header->findChild<QToolButton*>("terminalTypeIcon");
+            auto* status = _tabStatus(tabs, index);
             QVERIFY(close);
-            const auto firstLineCenter = tabs->tabBar()->tabRect(index).center().y()
-                                       - tabs->tabBar()->fontMetrics().lineSpacing() / 2;
-            QVERIFY(qAbs(close->geometry().center().y() - firstLineCenter) <= 3);
-            auto* status = tabs->tabBar()->tabButton(index, QTabBar::LeftSide);
+            QVERIFY(title);
+            QVERIFY(detail);
+            QVERIFY(type);
             QVERIFY(status);
-            QCOMPARE(status->objectName(), "terminalStatusIndicator");
-            QVERIFY(qAbs(status->geometry().center().y() - firstLineCenter) <= 3);
+            QVERIFY(close->isVisible());
+            QVERIFY(title->isVisible());
+            QVERIFY(detail->isVisible());
+            QVERIFY(type->isVisible());
+            QVERIFY(!type->icon().isNull());
+            const int titleCenter = title->mapTo(tabs->tabBar(), title->rect().center()).y();
+            QVERIFY(qAbs(close->mapTo(tabs->tabBar(), close->rect().center()).y() - titleCenter) <= 3);
+            QVERIFY(qAbs(status->mapTo(tabs->tabBar(), status->rect().center()).y() - titleCenter) <= 3);
             QVERIFY(!status->grab().isNull());
         }
         const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
@@ -1620,7 +1704,9 @@ content:
         const auto longHost = QString(180, 'a') + ".example";
         model->setValue("host", longHost);
         dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
-        const auto label = tabs->tabText(1);
+        _tabHeadersAreCoherent(tabs, true);
+        QTRY_VERIFY(_tabHeadersAreCoherent(tabs));
+        const auto label = _tabCaption(tabs, 1);
         QVERIFY(label.startsWith("Socket\n"));
         QVERIFY(label.size() < longHost.size());
         QVERIFY(tabs->tabToolTip(1).contains(longHost));
@@ -1629,6 +1715,109 @@ content:
         if (!capture.isEmpty())
         {
             QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("TerminalTabsLongEndpoint.png")));
+        }
+        struct HeaderSnapshot
+        {
+            QPointer<QWidget> panel;
+            QWidget*          header = nullptr;
+            QToolButton*      status = nullptr;
+            QToolButton*      type   = nullptr;
+            QToolButton*      close  = nullptr;
+            QString           caption;
+            QImage            typeImage;
+            QImage            statusImage;
+            QString           terminalId;
+        };
+        QList<HeaderSnapshot> snapshots;
+        int                   minimumWidth = tabs->tabBar()->tabRect(0).width();
+        int                   maximumWidth = minimumWidth;
+        for (int index = 0; index < tabs->count(); ++index)
+        {
+            tabs->setCurrentIndex(index);
+            auto* header = _tabHeader(tabs, index);
+            auto* type   = header->findChild<QToolButton*>("terminalTypeIcon");
+            auto* status = _tabStatus(tabs, index);
+            snapshots.append({tabs->widget(index),
+                              header,
+                              status,
+                              type,
+                              header->findChild<QToolButton*>("terminalTabClose"),
+                              _tabCaption(tabs, index),
+                              type->icon().pixmap(16, 16).toImage(),
+                              status->icon().pixmap(16, 16).toImage(),
+                              _app.selectedTerminal()});
+            minimumWidth = std::min(minimumWidth, tabs->tabBar()->tabRect(index).width());
+            maximumWidth = std::max(maximumWidth, tabs->tabBar()->tabRect(index).width());
+        }
+        QVERIFY(minimumWidth < maximumWidth);
+        auto*      bar = tabs->tabBar();
+        QSignalSpy moved(bar, &QTabBar::tabMoved);
+        for (const auto& move : {
+                 QPair {0, 2},
+                 QPair {1, 0},
+                 QPair {2, 1}
+        })
+        {
+            auto*        panel        = tabs->widget(move.first);
+            const QPoint start        = bar->tabRect(move.first).center();
+            const QPoint finish       = bar->tabRect(move.second).center();
+            QWidget*     dragTarget   = move.first == 0 && move.second == 2 ? _tabHeader(tabs, move.first) : bar;
+            const QPoint globalStart  = bar->mapToGlobal(start);
+            const QPoint globalFinish = bar->mapToGlobal(finish);
+            QTest::mousePress(dragTarget, Qt::LeftButton, Qt::NoModifier, dragTarget->mapFromGlobal(globalStart));
+            for (int step = 1; step <= 12; ++step)
+            {
+                const QPoint globalPoint = globalStart + (globalFinish - globalStart) * step / 12;
+                QTest::mouseMove(dragTarget, dragTarget->mapFromGlobal(globalPoint), 15);
+            }
+            if (!capture.isEmpty())
+            {
+                QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath(
+                    QString("TerminalTabsDragging-%1-%2.png").arg(move.first).arg(move.second))));
+            }
+            QTest::mouseRelease(dragTarget, Qt::LeftButton, Qt::NoModifier, dragTarget->mapFromGlobal(globalFinish));
+            QTRY_COMPARE(tabs->indexOf(panel), move.second);
+            QTest::qWait(200);
+            _tabHeadersAreCoherent(tabs, true);
+            QTRY_VERIFY(_tabHeadersAreCoherent(tabs));
+            if (!capture.isEmpty())
+            {
+                QVERIFY(_app.mainWindow().grab().save(
+                    QDir(capture).filePath(QString("TerminalTabsDropped-%1-%2.png").arg(move.first).arg(move.second))));
+            }
+            for (const auto& snapshot : snapshots)
+            {
+                const int index = tabs->indexOf(snapshot.panel);
+                QVERIFY(index >= 0);
+                QCOMPARE(_tabHeader(tabs, index), snapshot.header);
+                QCOMPARE(_tabStatus(tabs, index), snapshot.status);
+                QCOMPARE(snapshot.header->findChild<QToolButton*>("terminalTypeIcon"), snapshot.type);
+                QCOMPARE(snapshot.header->findChild<QToolButton*>("terminalTabClose"), snapshot.close);
+                QCOMPARE(_tabCaption(tabs, index), snapshot.caption);
+                QCOMPARE(snapshot.type->icon().pixmap(16, 16).toImage(), snapshot.typeImage);
+                QCOMPARE(snapshot.status->icon().pixmap(16, 16).toImage(), snapshot.statusImage);
+                tabs->setCurrentIndex(index);
+                QCOMPARE(_app.selectedTerminal(), snapshot.terminalId);
+            }
+        }
+        QVERIFY(moved.size() >= 3);
+        const auto& closed      = snapshots.front();
+        const int   closedIndex = tabs->indexOf(closed.panel);
+        QVERIFY(closedIndex >= 0);
+        QSignalSpy closeRequested(tabs, &QTabWidget::tabCloseRequested);
+        QTest::mouseClick(closed.close, Qt::LeftButton);
+        QCOMPARE(closeRequested.size(), 1);
+        QCOMPARE(closeRequested.front().front().toInt(), closedIndex);
+        QTRY_VERIFY(closed.panel.isNull());
+        QCOMPARE(tabs->count(), 2);
+        for (int index = 1; index < snapshots.size(); ++index)
+        {
+            const auto& snapshot = snapshots[index];
+            QVERIFY(snapshot.panel);
+            const int tab = tabs->indexOf(snapshot.panel);
+            QVERIFY(tab >= 0);
+            QCOMPARE(_tabHeader(tabs, tab), snapshot.header);
+            QCOMPARE(_tabCaption(tabs, tab), snapshot.caption);
         }
         QCOMPARE(probe->attempts, 0);
     }
@@ -2284,7 +2473,7 @@ content:
         QVERIFY(tabs);
         QVERIFY(tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide));
         QVERIFY(!tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide)->grab().isNull());
-        QCOMPARE(tabs->tabText(tabs->currentIndex()), QString("Serial\nCOM_TERMASTER_TEST_UNUSED"));
+        QCOMPARE(_tabCaption(tabs, tabs->currentIndex()), QString("Serial\nCOM_TERMASTER_TEST_UNUSED"));
         QVERIFY(settings->selectPage("terminal.connection"));
         if (QGuiApplication::platformName() == "windows")
         {
@@ -3977,13 +4166,13 @@ content:
             QVERIFY(image.save(QDir(capture).filePath("ConnectionRetry.png")));
         }
         QToolTip::hideText();
-        const auto failedIcon = tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide)->grab().toImage();
+        const auto failedIcon = _tabStatus(tabs, tabs->currentIndex())->icon().pixmap(16, 16).toImage();
         probe->available      = true;
         QTRY_COMPARE_WITH_TIMEOUT(probe->device->state(), SerialDevice::State::Open, 3500);
         QVERIFY(probe->attempts >= 2);
         QVERIFY(tooltip().contains("Actual: Connected"));
         QVERIFY(!tooltip().contains("Synthetic port unavailable"));
-        QVERIFY(tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide)->grab().toImage() != failedIcon);
+        QVERIFY(_tabStatus(tabs, tabs->currentIndex())->icon().pixmap(16, 16).toImage() != failedIcon);
         auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
         QVERIFY(display);
         display->receive("\033]2;Remote title\007");
