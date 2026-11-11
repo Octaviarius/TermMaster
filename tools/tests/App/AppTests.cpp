@@ -418,6 +418,24 @@ private:
         QVERIFY(workspace.contains("logging-failed-switch"));
         QVERIFY(!workspace.contains("logging-user-after"));
         QVERIFY(!QFileInfo::exists(temporary.filePath("workspace/example.termaster.d/logs")));
+
+        QTemporaryDir invalid;
+        QVERIFY(invalid.isValid());
+        const ApplicationPaths invalidPaths(Path(invalid.filePath("data")));
+        Settings               invalidSaved(invalidPaths.configFile("application"),
+                                            {"termaster.application", "Termaster application settings"});
+        QVERIFY(invalidSaved.setValue("settings/logging/file", false));
+        QVERIFY(invalidSaved.setValue("state/recentWorkspaces", 42));
+        QVERIFY(invalidSaved.sync());
+        environment.insert("TERMASTER_APP_LOGGING_CHILD", invalid.path());
+        environment.insert("TERMASTER_APP_LOGGING_STARTUP_ONLY", "1");
+        child.setProcessEnvironment(environment);
+        child.start(QCoreApplication::applicationFilePath(), {});
+        QVERIFY(child.waitForStarted(5000));
+        QVERIFY(child.waitForFinished(15000));
+        QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(child.exitCode(), 0);
+        QVERIFY(!invalidPaths.logsDirectory().exists());
     }
 
     Q_SLOT void workspaceLifecycleAndRestart()
@@ -4287,6 +4305,12 @@ int main(int argc, char* argv[])
                 if (app.paths().logsDirectory().exists())
                 {
                     result = 101;
+                    app.quit();
+                    return;
+                }
+                if (qEnvironmentVariableIsSet("TERMASTER_APP_LOGGING_STARTUP_ONLY"))
+                {
+                    result = 0;
                     app.quit();
                     return;
                 }

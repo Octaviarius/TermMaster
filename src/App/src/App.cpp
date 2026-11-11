@@ -1148,9 +1148,9 @@ void App::_updateWorkspace()
     _updateSession();
 }
 
-void App::_configureLogging(bool useDefaults)
+void App::_configureLogging(bool allowUnloadedSettings)
 {
-    if (!_data->settingsLoaded && !useDefaults)
+    if (!_data->settingsLoaded && !allowUnloadedSettings)
     {
         return;
     }
@@ -1167,9 +1167,9 @@ void App::_configureLogging(bool useDefaults)
             }
             _data->loggingSchema = std::make_shared<SettingsSchema>(file.readAll());
         }
-        const auto& schema   = *_data->loggingSchema;
-        const auto  snapshot = useDefaults ? QVariant(QVariantMap {}) :
-                                             _data->settings.value("settings/logging", QVariantMap {});
+        const auto& schema  = *_data->loggingSchema;
+        // Unrelated invalid preferences must not erase a saved logging opt-out.
+        const auto snapshot = _data->settings.value("settings/logging", QVariantMap {});
         if (snapshot.typeId() != QMetaType::QVariantMap)
         {
             throw std::runtime_error("Logging settings must be a mapping.");
