@@ -393,6 +393,10 @@ void SettingsFormModel::setInputError(const QString& key, const QString& error)
     {
         return;
     }
+    if (_inputErrors.value(key) == error)
+    {
+        return;
+    }
     const bool wasDirty = isDirty();
     if (error.isEmpty())
     {

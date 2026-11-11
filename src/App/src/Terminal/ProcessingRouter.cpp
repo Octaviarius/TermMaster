@@ -1,11 +1,15 @@
 #include "ProcessingRouter.h"
 
+#include <QLoggingCategory>
 #include <QPointer>
 #include <algorithm>
 #include <limits>
 
 namespace
 {
+Q_LOGGING_CATEGORY(routerLog, "termaster.processing.router")
+Q_LOGGING_CATEGORY(routerLogTrace, "termaster.processing.router.trace", QtInfoMsg)
+
 void count(quint64& value, quint64 amount)
 {
     value += std::min(amount, std::numeric_limits<quint64>::max() - value);
@@ -76,6 +80,7 @@ Processor::AcceptResult ProcessingRouter::submit(Direction                      
                                                  const TerminalSendQueue::Options& options,
                                                  QString*                          error)
 {
+    qCDebug(routerLogTrace) << "Submission direction/bytes" << int(direction) << chunk.bytes.size();
     auto& lane = _lane(direction);
     if (lane.failed)
     {
@@ -100,6 +105,7 @@ Processor::AcceptResult ProcessingRouter::submit(Direction                      
         {
             *error = QStringLiteral("Processing input queue is full");
         }
+        qCDebug(routerLogTrace) << "Input backpressure direction" << int(direction);
         return Processor::AcceptResult::WouldBlock;
     }
     count(lane.acceptedBytes, quint64(chunk.bytes.size()));
@@ -114,6 +120,7 @@ Processor::AcceptResult ProcessingRouter::submit(Direction                      
 
 void ProcessingRouter::_retire(std::shared_ptr<Processor> processor, std::function<void()> ready)
 {
+    qCDebug(routerLogTrace) << "Processor retirement requested";
     if (!processor)
     {
         if (ready)
@@ -127,6 +134,7 @@ void ProcessingRouter::_retire(std::shared_ptr<Processor> processor, std::functi
     (*holder)->cancel([holder, ready = std::move(ready)] {
         // Never destroy plugin code while its cancellation frame is still executing.
         QTimer::singleShot(0, [holder, ready] {
+            qCDebug(routerLogTrace) << "Processor retirement acknowledged";
             holder->reset();
             if (ready)
             {
@@ -148,6 +156,7 @@ void ProcessingRouter::_clear(Lane& lane)
 
 void ProcessingRouter::replace(Direction direction, std::shared_ptr<Processor> processor, std::function<void()> ready)
 {
+    qCDebug(routerLogTrace) << "Processor replacement direction" << int(direction);
     if (processor && (processor->inputCount() != 1 || processor->outputCount() != 1 || processor->thread() != thread()))
     {
         emit error(direction, QStringLiteral("An independent direction requires a 1x1 processor"));
@@ -183,6 +192,7 @@ bool ProcessingRouter::duplex() const
 
 void ProcessingRouter::replaceDuplex(std::shared_ptr<Processor> processor, std::function<void()> ready)
 {
+    qCDebug(routerLogTrace) << "Duplex replacement requested";
     if (processor
         && (processor->thread() != thread() || processor->inputCount() != 2 || processor->outputCount() != 2
             || processor == _lanes[0].processor || processor == _lanes[1].processor))
@@ -402,6 +412,7 @@ void ProcessingRouter::_replaceLane(Direction                  direction,
 
 void ProcessingRouter::cancel(Direction direction, std::function<void()> ready)
 {
+    qCDebug(routerLogTrace) << "Cancellation direction" << int(direction);
     replace(direction, {}, std::move(ready));
 }
 
@@ -442,6 +453,7 @@ qsizetype ProcessingRouter::pendingSubmissions(Direction direction) const
 
 void ProcessingRouter::fail(Direction direction, QString message)
 {
+    qCWarning(routerLog) << "Processing direction failed" << int(direction);
     message.truncate(4096);
     QPointer<ProcessingRouter> guard(this);
     const bool                 shared = _duplex;

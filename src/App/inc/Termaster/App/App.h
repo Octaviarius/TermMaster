@@ -102,6 +102,7 @@ private:
     void     _updateWorkspace();
     bool     _prepareWorkspaceProcessors(Workspace& workspace, QString* error);
     void     _bindWorkspaceProcessors();
+    void     _configureLogging(bool allowUnloadedSettings = false);
     void     _applyConfiguration();
     void     _updateRecent();
     void     _updateSessionPresentation();

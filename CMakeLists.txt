@@ -128,3 +128,9 @@ option(TERMASTER_BUILD_APPLICATION_PROFILE "Build synthetic application performa
 if(TERMASTER_BUILD_APPLICATION_PROFILE)
     add_subdirectory(tools/benchmarks/ApplicationProfile)
 endif()
+
+option(TERMASTER_BUILD_LOGGING_TESTS "Build logger and Qt routing lifecycle tests" OFF)
+if(TERMASTER_BUILD_LOGGING_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Logging)
+endif()

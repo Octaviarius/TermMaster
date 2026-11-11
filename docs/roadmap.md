@@ -457,3 +457,12 @@ General regex complexity and worst-case custom validation costs remain explicit 
 - [x] Route both editor drop-probe APIs through the direct draft validation path.
 - [x] Preserve fresh provider checks, whole-catalog dependencies, bounds and authoritative commit validation.
 - [x] Verify schema/default isolation, graph and provider lifetimes, native timing and affected Debug/Release builds.
+
+
+## LOG-1: Workspace-aware application logging
+
+- [x] Integrate the bounded asynchronous named logger in Core and bridge main-process Qt categories.
+- [x] Add generated global preferences, rotation and a validated tag-level table.
+- [x] Route active workspace logs beside its file and otherwise use the user application log directory.
+- [x] Instrument application, storage, plugin, transport, editor and processing lifecycle/trace boundaries without payloads.
+- [x] Verify file opt-out, routing/failure recovery, privacy, queue/rotation and shutdown in Debug/Release and native settings rendering.

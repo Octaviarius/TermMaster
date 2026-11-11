@@ -15,6 +15,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFontMetrics>
+#include <QLoggingCategory>
 #include <QMenu>
 #include <QMessageBox>
 #include <QSaveFile>
@@ -45,6 +46,8 @@
 
 namespace
 {
+Q_LOGGING_CATEGORY(terminalTrace, "termaster.app.terminal.trace", QtInfoMsg)
+
 QString owned(const QString& text)
 {
     return QString(text.constData(), text.size());
@@ -1312,6 +1315,7 @@ void TerminalController::_restore()
 }
 void TerminalController::_close(const QString& id)
 {
+    qCDebug(terminalTrace) << "Closing terminal" << id;
     auto it = _terminals.find(id);
     if (it == _terminals.end())
     {
@@ -2027,6 +2031,7 @@ void TerminalController::_setAllConnections(bool requested)
 
 void TerminalController::_setConnectionRequested(QString id, bool requested)
 {
+    qCDebug(terminalTrace) << "Connection request changed" << id;
     const auto it = _terminals.find(id);
     if (it == _terminals.end())
     {
@@ -2163,6 +2168,7 @@ void TerminalController::_showTabMenu(const QPoint& position)
 
 void TerminalController::_attemptConnection(const QString& id)
 {
+    qCDebug(terminalTrace) << "Connection attempt" << id;
     auto it = _terminals.find(id);
     if (it == _terminals.end() || !it->second->connectionRequested)
     {

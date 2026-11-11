@@ -3,6 +3,7 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QLoggingCategory>
 #include <QRegularExpression>
 #include <QSet>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
@@ -12,6 +13,9 @@
 
 namespace
 {
+Q_LOGGING_CATEGORY(storageTrace, "termaster.storage.workspace.trace", QtInfoMsg)
+Q_LOGGING_CATEGORY(storageLog, "termaster.storage.workspace")
+
 bool fail(QString* error, const QString& text)
 {
     if (error)
@@ -129,6 +133,7 @@ Workspace::~Workspace() = default;
 
 bool Workspace::load(QString* error)
 {
+    qCDebug(storageTrace) << "Workspace load requested";
     if (error)
     {
         error->clear();
@@ -370,6 +375,7 @@ bool Workspace::captureDiskBaseline(QString* error)
 
 bool Workspace::sync(QString* error)
 {
+    qCDebug(storageTrace) << "Workspace sync requested";
     if (error)
     {
         error->clear();
@@ -433,6 +439,7 @@ bool Workspace::sync(QString* error)
     }
     if (!WorkspaceFileTransaction::commit(_file, changes, error))
     {
+        qCWarning(storageLog) << "Workspace transaction failed";
         return false;
     }
     const auto snapshot          = _settings->serializedPatch({}, {}, error);

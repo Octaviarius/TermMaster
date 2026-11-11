@@ -1,0 +1,49 @@
+version: 1
+type: termaster.settings-schema
+description: Application diagnostic logging settings
+content:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Logging
+  type: object
+  properties:
+    minimumLevel:
+      type: string
+      title: Minimum level
+      enum: [trace, debug, info, warning, error, critical]
+      default: info
+      x-order: 0
+    console:
+      type: boolean
+      title: Console output
+      default: false
+      x-order: 1
+    file:
+      type: boolean
+      title: File output
+      default: true
+      x-order: 2
+    maximumFileBytes:
+      type: integer
+      title: Maximum file size (bytes)
+      minimum: 4096
+      maximum: 16777216
+      default: 2097152
+      x-order: 3
+    retainedFiles:
+      type: integer
+      title: Retained rotated files
+      minimum: 0
+      maximum: 10
+      default: 3
+      x-order: 4
+    tagLevels:
+      type: object
+      title: Tag minimum levels
+      x-widget: loggingTags
+      description: "Most-specific colon-delimited tag wins, for example termaster:app:workspace, termaster:processing or termaster:transport."
+      maxProperties: 64
+      additionalProperties:
+        type: string
+        enum: [trace, debug, info, warning, error, critical]
+      default: {}
+      x-order: 5

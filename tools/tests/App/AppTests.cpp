@@ -3,6 +3,7 @@
 #include "Gui/Processing/ProcessorCatalogTree.h"
 #include "Gui/Session/SessionPicker.h"
 #include "Gui/Settings/FavoritesEditor.h"
+#include "Gui/Settings/LoggingTagsEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
 #include "Gui/Terminal/CommandEditor.h"
 #include "Gui/Terminal/TerminalController.h"
@@ -335,6 +336,106 @@ private:
             QVERIFY(!_app.toolbar().toolbar()->actions().contains(_app.commands().find(id)->actions().first()));
         }
         QVERIFY(!QFileInfo::exists(_app.paths().configFile("plugins").toString()));
+    }
+
+    Q_SLOT void loggingTagEditorPreservesInvalidDrafts()
+    {
+        LoggingTagsEditor editor;
+        const QVariantMap rules {
+            {"termaster:a",  "info"},
+            {"termaster:b", "trace"}
+        };
+        editor.setValue(rules);
+        QVERIFY(editor.hasAcceptableInput());
+        QCOMPARE(editor.value().toMap(), rules);
+        auto* table = editor.findChild<QTableView*>("loggingTagsTable");
+        QVERIFY(table);
+        QVERIFY(table->model()->setData(table->model()->index(1, 0), "termaster:a"));
+        QVERIFY(!editor.hasAcceptableInput());
+        QVERIFY(editor.inputError().contains("unique"));
+
+        editor.setValue(QVariantMap {
+            {"termaster:a", 42}
+        });
+        QVERIFY(!editor.hasAcceptableInput());
+        QCOMPARE(editor.value().toMap().value("termaster:a").typeId(), int(QMetaType::Int));
+        editor.setValue(QVariantMap {
+            {QString::fromUtf8("termaster:雪"), "info"}
+        });
+        QVERIFY(!editor.hasAcceptableInput());
+        editor.setValue(QString("Preserved invalid input"));
+        QVERIFY(!editor.hasAcceptableInput());
+        QCOMPARE(editor.value().toString(), QString("Preserved invalid input"));
+
+        QVariantMap oversized;
+        for (int index = 0; index < 200; ++index)
+        {
+            oversized.insert(QString("termaster:tag%1").arg(index), "info");
+        }
+        editor.setValue(oversized);
+        QCOMPARE(table->model()->rowCount(), 65);
+        QCOMPARE(editor.value().toMap(), oversized);
+        QVERIFY(!editor.hasAcceptableInput());
+        QVERIFY(!editor.findChild<QToolButton*>("loggingTagAdd")->isEnabled());
+        editor.setValue(QVariantMap {});
+        QVERIFY(editor.hasAcceptableInput());
+        QVERIFY(editor.value().toMap().isEmpty());
+        QVERIFY(editor.findChild<QToolButton*>("loggingTagAdd")->isEnabled());
+    }
+
+    Q_SLOT void loggingSettingsAndWorkspaceDestinations()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        const ApplicationPaths paths(Path(temporary.filePath("data")));
+        Settings saved(paths.configFile("application"), {"termaster.application", "Termaster application settings"});
+        QVERIFY(saved.setValue("settings/logging/file", false));
+        QVERIFY(saved.sync());
+
+        QProcess child;
+        auto     environment = QProcessEnvironment::systemEnvironment();
+        environment.insert("TERMASTER_APP_LOGGING_CHILD", temporary.path());
+        child.setProcessEnvironment(environment);
+        child.start(QCoreApplication::applicationFilePath(), {});
+        QVERIFY(child.waitForStarted(5000));
+        QVERIFY(child.waitForFinished(15000));
+        QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+        QVERIFY2(child.exitCode() == 0,
+                 qPrintable(QString("Logging child exit %1: %2")
+                                .arg(child.exitCode())
+                                .arg(QString::fromUtf8(child.readAllStandardError()))));
+
+        const auto contents = [](const QString& name) {
+            QFile file(name);
+            return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray {};
+        };
+        const auto user      = contents(paths.logsDirectory().join("application.log").toString());
+        const auto workspace = contents(temporary.filePath("workspace/logs/application.log"));
+        QVERIFY(user.contains("logging-user-before"));
+        QVERIFY(user.contains("logging-user-after"));
+        QVERIFY(!user.contains("logging-workspace"));
+        QVERIFY(workspace.contains("logging-workspace"));
+        QVERIFY(workspace.contains("logging-failed-switch"));
+        QVERIFY(!workspace.contains("logging-user-after"));
+        QVERIFY(!QFileInfo::exists(temporary.filePath("workspace/example.termaster.d/logs")));
+
+        QTemporaryDir invalid;
+        QVERIFY(invalid.isValid());
+        const ApplicationPaths invalidPaths(Path(invalid.filePath("data")));
+        Settings               invalidSaved(invalidPaths.configFile("application"),
+                                            {"termaster.application", "Termaster application settings"});
+        QVERIFY(invalidSaved.setValue("settings/logging/file", false));
+        QVERIFY(invalidSaved.setValue("state/recentWorkspaces", 42));
+        QVERIFY(invalidSaved.sync());
+        environment.insert("TERMASTER_APP_LOGGING_CHILD", invalid.path());
+        environment.insert("TERMASTER_APP_LOGGING_STARTUP_ONLY", "1");
+        child.setProcessEnvironment(environment);
+        child.start(QCoreApplication::applicationFilePath(), {});
+        QVERIFY(child.waitForStarted(5000));
+        QVERIFY(child.waitForFinished(15000));
+        QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(child.exitCode(), 0);
+        QVERIFY(!invalidPaths.logsDirectory().exists());
     }
 
     Q_SLOT void workspaceLifecycleAndRestart()
@@ -4188,6 +4289,138 @@ int main(int argc, char* argv[])
             auxiliary.reset();
         }
         marker("destructorFinished");
+        return result;
+    }
+
+    const QString loggingRoot = qEnvironmentVariable("TERMASTER_APP_LOGGING_CHILD");
+    if (!loggingRoot.isEmpty())
+    {
+        App::Options options;
+        options.dataDirectory    = loggingRoot + "/data";
+        options.pluginsDirectory = loggingRoot + "/empty-plugins";
+        int result               = 1;
+        {
+            App app(argc, argv, options);
+            QTimer::singleShot(0, &app, [&] {
+                if (app.paths().logsDirectory().exists())
+                {
+                    result = 101;
+                    app.quit();
+                    return;
+                }
+                if (qEnvironmentVariableIsSet("TERMASTER_APP_LOGGING_STARTUP_ONLY"))
+                {
+                    result = 0;
+                    app.quit();
+                    return;
+                }
+                app.commands().find("Application.Settings")->actions().first()->trigger();
+                auto* dialog = app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+                auto* model  = dialog ? dialog->pageModel("application.logging") : nullptr;
+                if (!model)
+                {
+                    result = 102;
+                    app.quit();
+                    return;
+                }
+                model->setValue("tagLevels",
+                                QVariantMap {
+                                    {"termaster:transport", "invalid"}
+                });
+                if (model->isValid())
+                {
+                    result = 103;
+                    app.quit();
+                    return;
+                }
+                model->setValue("tagLevels",
+                                QVariantMap {
+                                    {"bad tag", "warning"}
+                });
+                if (model->isValid())
+                {
+                    result = 109;
+                    app.quit();
+                    return;
+                }
+                model->setValue("tagLevels",
+                                QVariantMap {
+                                    {"termaster:transport", "warning"}
+                });
+                model->setValue("file", true);
+                dialog->selectPage("application.logging");
+                const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+                if (!capture.isEmpty())
+                {
+                    QDir().mkpath(capture);
+                    QApplication::processEvents();
+                    if (!dialog->grab().save(QDir(capture).filePath("Logging.png")))
+                    {
+                        app.quit();
+                        return;
+                    }
+                }
+                dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+                if (!app.settings().value("settings/logging/file").toBool() || !app.paths().logsDirectory().exists())
+                {
+                    const auto errors = model->errors();
+                    std::fprintf(stderr,
+                                 "Logging apply saved=%d directory=%d valid=%d errors=%s\n",
+                                 app.settings().value("settings/logging/file").toBool(),
+                                 app.paths().logsDirectory().exists(),
+                                 model->isValid(),
+                                 errors.isEmpty() ? "none" :
+                                                    qPrintable(errors.first().path + ": " + errors.first().message));
+                }
+                dialog->reject();
+                if (!app.settings().value("settings/logging/file").toBool() || !app.paths().logsDirectory().exists())
+                {
+                    result = 104;
+                    app.quit();
+                    return;
+                }
+                qInfo("logging-user-before");
+                QDir().mkpath(loggingRoot + "/workspace");
+                QString error;
+                if (!app.createWorkspace(Path(loggingRoot + "/workspace/example.termaster"), "Logging", &error))
+                {
+                    result = 105;
+                    app.quit();
+                    return;
+                }
+                qInfo("logging-workspace");
+                QDir().mkpath(loggingRoot + "/blocked");
+                QFile blocker(loggingRoot + "/blocked/logs");
+                if (!blocker.open(QIODevice::WriteOnly))
+                {
+                    result = 106;
+                    app.quit();
+                    return;
+                }
+                blocker.close();
+                if (!app.createWorkspace(Path(loggingRoot + "/blocked/example.termaster"), "Blocked logs", &error)
+                    || !app.mainWindow().statusBar()->currentMessage().contains("Logging:"))
+                {
+                    result = 107;
+                    app.quit();
+                    return;
+                }
+                qInfo("logging-failed-switch");
+                if (!app.closeWorkspace(&error))
+                {
+                    result = 108;
+                    app.quit();
+                    return;
+                }
+                qInfo("logging-user-after");
+                result = 0;
+                app.mainWindow().close();
+            });
+            if (app.run() != 0)
+            {
+                result = 1;
+            }
+        }
         return result;
     }
 

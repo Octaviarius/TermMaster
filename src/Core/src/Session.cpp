@@ -1,12 +1,15 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QLoggingCategory>
 #include <QRegularExpression>
 #include <Termaster/Core/Session.h>
 #include <utility>
 
 namespace
 {
+Q_LOGGING_CATEGORY(storageTrace, "termaster.storage.session.trace", QtInfoMsg)
+
 bool fail(QString* error, const QString& text)
 {
     if (error)
@@ -40,6 +43,7 @@ Session::~Session() = default;
 
 bool Session::load(QString* error)
 {
+    qCDebug(storageTrace) << "Session load requested";
     if (error)
     {
         error->clear();
@@ -153,6 +157,7 @@ bool Session::captureDiskBaseline(QString* error)
 
 bool Session::sync(QString* error)
 {
+    qCDebug(storageTrace) << "Session sync requested";
     if (error)
     {
         error->clear();
