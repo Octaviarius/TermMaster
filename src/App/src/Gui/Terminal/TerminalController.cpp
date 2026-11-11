@@ -651,7 +651,7 @@ bool TerminalController::unregisterTerminalType(const QString& type, QString* er
     {
         return true;
     }
-    if (_session && !_session->sync(error))
+    if (_session && !(capturePresentation(error) && _session->sync(error)))
     {
         return false;
     }
@@ -1798,9 +1798,6 @@ bool TerminalController::detachTerminal(const QString& id, QString* error)
         const QPointer<DetachedTerminalWindow> host   = new DetachedTerminalWindow(_commands, &_window);
         host->setProperty("terminalId", id);
         terminal.window = host;
-        host->installEventFilter(this);
-        host->terminalToolbar().installEventFilter(this);
-        host->statusBar()->installEventFilter(this);
         connect(host, &DetachedTerminalWindow::returnRequested, this, [this, id] {
             QString error;
             if (!attachTerminal(id, &error))
@@ -2079,32 +2076,6 @@ bool TerminalController::capturePresentation(QString* error)
         }
     }
     return true;
-}
-
-bool TerminalController::eventFilter(QObject* watched, QEvent* event)
-{
-    if (!_movingHost && _session
-        && (event->type() == QEvent::Move || event->type() == QEvent::Resize
-            || event->type() == QEvent::WindowStateChange || event->type() == QEvent::Show
-            || event->type() == QEvent::Hide))
-    {
-        auto* widget = qobject_cast<QWidget*>(watched);
-        auto* host   = widget ? qobject_cast<DetachedTerminalWindow*>(widget->window()) : nullptr;
-        if (host)
-        {
-            const auto id = host->property("terminalId").toString();
-            const auto it = _terminals.find(id);
-            if (it != _terminals.end() && it->second->window == host)
-            {
-                QString error;
-                if (!_captureDetached(id, &error))
-                {
-                    showMessage(error);
-                }
-            }
-        }
-    }
-    return QObject::eventFilter(watched, event);
 }
 
 void TerminalController::_restoreDetached()

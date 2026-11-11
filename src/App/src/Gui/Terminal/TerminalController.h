@@ -83,9 +83,6 @@ public:
 
     Q_SIGNAL void selectionChanged();
 
-protected:
-    bool eventFilter(QObject* watched, QEvent* event) override;
-
 private:
     struct Type
     {

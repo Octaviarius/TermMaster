@@ -18,6 +18,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QHelpEvent>
@@ -1123,12 +1124,40 @@ content:
             QVERIFY(controller.detachTerminal(id, &error));
             controller.detachedWindow(id)->resize(720, 450);
         }
-        auto* first   = controller.detachedWindow(ids[0]);
+        auto* first = controller.detachedWindow(ids[0]);
+        QCoreApplication::processEvents();
+        const auto origin           = first->pos();
+        const auto exerciseGeometry = [&] {
+            QElapsedTimer elapsed;
+            elapsed.start();
+            for (int index = 0; index < 40; ++index)
+            {
+                first->resize(720 + index % 8, 450 + index % 6);
+                first->move(origin + QPoint(index % 8, index % 6));
+                QCoreApplication::processEvents();
+            }
+            return elapsed.nsecsElapsed();
+        };
+        const auto smallPresentation = _app.session()->presentation().values();
+        const auto smallElapsed      = exerciseGeometry();
+        QCOMPARE(_app.session()->presentation().values(), smallPresentation);
+
+        // Unknown session metadata must not turn native geometry events into document edits.
+        const QString unknownMetadata(256 * 1024, QLatin1Char('x'));
+        QVERIFY(_app.session()->presentation().setValue("resizeFixtureMetadata", unknownMetadata, &error));
+        const auto largePresentation = _app.session()->presentation().values();
+        const auto largeElapsed      = exerciseGeometry();
+        QCOMPARE(_app.session()->presentation().values(), largePresentation);
+        qInfo() << "Detached geometry, 40 resize/move iterations: small session ns" << smallElapsed
+                << "256 KiB metadata session ns" << largeElapsed;
+
         auto* toolbar = first->findChild<QToolBar*>("detachedTerminalToolbar");
         QVERIFY(toolbar);
         toolbar->hide();
         first->statusBar()->hide();
+        QCOMPARE(_app.session()->presentation().values(), largePresentation);
         QVERIFY(controller.capturePresentation(&error));
+        QCOMPARE(_app.session()->presentation().value("resizeFixtureMetadata").toString(), unknownMetadata);
         QCOMPARE(readDisk(), baseline);
         const auto metadata = _app.session()->presentation().value("detachedWindows").toMap();
         QCOMPARE(metadata.size(), 2);

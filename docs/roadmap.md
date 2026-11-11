@@ -510,3 +510,9 @@ Later stages:
 - [x] Persist detached geometry and toolbar/status visibility through the session owner; restore disconnected.
 - [x] Cover save veto, provider recovery, reentrant host moves and complete application shutdown.
 - [x] Verify Debug/Release builds and native interface at 100%, 125% and 200%; see [terminal windows](terminal-windows.md) for limits.
+
+## PERF-18: Detached window resize
+
+- [x] Remove full-document settings updates from native geometry events.
+- [x] Capture presentation explicitly before save and provider unload.
+- [x] Verify geometry-only changes preserve session metadata until capture and remain independent of metadata size.
