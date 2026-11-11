@@ -297,3 +297,38 @@ All five close scenarios also passed on the native Windows platform, including
 completed destruction with a live cmd.exe console. Before the fix, auxiliary
 windows and disabled auto-quit reached the event-loop watchdog after main close.
 Release, elevated shells and real-device shutdown were not exercised.
+
+
+## Terminal tab header layout
+
+Each terminal header is a standard QWidget hosted by QTabBar::setTabButton.
+A horizontal layout contains the connection indicator, a vertical caption layout
+and the close button. The caption combines a centered type icon/title row with
+an optional endpoint line. QLabel and QToolButton supply native text/icon painting,
+DPI handling and palette updates. The bar retains its selected-color stylesheet;
+custom tab painting, per-button coordinate adjustments and size-hint overrides
+are removed.
+
+Qt moves the complete layout as one tab-button widget, including drag animations
+and overflow scrolling. Closing locates the header's current index at activation,
+rather than retaining an index from before a reorder. The controller still derives
+connection status, endpoint details, accessible names and tooltips from terminal
+state. Visible text lives in the header labels; the native caption is empty to
+avoid duplicate painting. Terminal transport and session object identity do not
+change when tabs are rearranged.
+
+A resized header is detached from its occupied slot before reinstallation;
+reassigning the same widget directly can leave it hidden. A fixed-size layout
+constraint keeps the native tab's preferred size synchronized with its contents.
+
+Qt 6.12.0 / MSVC2022 x64 Debug and Release application builds and complete AppTests
+passed. Release IconTests passed. Native presentation/drag checks passed at 100%,
+125% and 200% scale, retaining light/dark selected-stripe and background checks.
+The regression changes an endpoint length, performs three mouse drags (including
+one beginning on the header widget), waits for native animation settlement and
+verifies visible in-bounds controls, unchanged panel/header/icon/caption identity,
+correct terminal selection and closing only the moved target. Fixtures remained
+disconnected and made no transport connection attempts.
+
+Native captures: [reordered at 100%](images/tabs/Reordered100.png) and
+[reordered at 200%](images/tabs/Reordered200.png).
