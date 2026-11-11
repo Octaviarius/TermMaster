@@ -148,7 +148,7 @@ void MainWindow::_createMenus()
     file->addMenu(recent.get(), "recent");
     recent.release();
     menu("edit", tr("&Edit"), {"history", "clipboard", "selection"});
-    menu("view", tr("&View"), {"panels", "window"});
+    menu("view", tr("&View"), {"panels", "terminal", "window"});
     menu("session", tr("&Session"), {"session", "recent", "settings"});
     auto recentSessions = std::make_unique<MenuActionContainer>("recentSessions", tr("Recent &sessions"));
     recentSessions->addGroup("entries");

@@ -37,7 +37,10 @@ later resize as original text and avoids inferring soft wraps from spaces.
 ## Visual wrapping and interaction
 
 Terminal settings / Screen / **Wrap lines to window width** controls visual wrapping
-(`appearance/wrapLines`, default true). This is independent of remote DECAWM mode 7.
+(`appearance/wrapLines`, default true). View / Wrap lines and the checkable terminal
+toolbar button expose the same selected-terminal setting through one QAction. Its
+state follows tab selection and settings changes; it is disabled without a terminal.
+This is independent of remote DECAWM mode 7.
 Primary source continuations form logical display lines. Wrapping splits them to
 current viewport columns without changing the stored rows. With wrapping disabled,
 long logical lines use a horizontal scrollbar. Alternate-screen applications keep
@@ -60,6 +63,20 @@ mouse coordinates still describe the original VT grid, not visual row numbers.
 Images keep their pixel geometry and mapped source origin; image pixel strips are
 not split and rearranged across text wraps.
 
+## Double-click word selection
+
+Double-click selects a Unicode word using Qt QTextBoundaryFinder, mapped back to
+whole source cells. It follows logical automatic-wrap continuations and visual
+reflow; combining marks and wide cells remain atomic. Whitespace clears word
+selection; punctuation/symbols outside a Unicode word select one complete cell.
+Copying uses the existing source selection and adds no visual-wrap newlines.
+
+With terminal mouse reporting enabled, double-click keeps sending protocol mouse
+events. Shift provides the existing local-selection override. Temporary logical
+text is limited to four million UTF-16 code units in addition to the retained-cell
+budget; oversized lines leave no word selected. Line/rectangular selection remain
+future work.
+
 ## Reference analysis and remaining scope
 
 [VS Code and Notepad++ measurements and sources](editor-rendering-reference.md)
@@ -69,7 +86,7 @@ and bounded reuse of shaped text. Neither an editor document nor its renderer
 replaces terminal protocol coordinates.
 
 Future work includes an incremental/paged index, configurable file-backed unlimited
-history, cancellable whole-history search, word/line/rectangular selection, font
+history, cancellable whole-history search, line/rectangular selection, font
 zoom, and whitespace/control visualization. Existing storage remains bounded.
 Continuous human drag and input-to-photon latency are separate from the automated
 Qt event/paint completion measurements.
@@ -130,3 +147,17 @@ Native captures: [wrap at 125%](images/terminal-wrap/Wrapped125.png),
 3. Coalesce display presentation updates independently of parser/packet ordering.
 4. Add bounded file-backed paging and 64-bit logical positions before offering
    unlimited history. None of these stages requires another rendering engine.
+
+
+## Interaction verification
+
+Double-click selection and the View/toolbar wrap command passed complete
+TerminalDisplayTests and AppTests in Debug and Release. Native Unicode selection,
+wrap controls and selected-terminal targeting passed at 100%, 125% and 200% scale.
+The wrap command was checked against actual horizontal-scroll availability,
+per-terminal overrides, settings refresh and session reopening. Release IconTests
+also passed. Fixtures used synthetic input and disconnected devices.
+
+Native 125% captures: [View menu](images/terminal-interaction/WrapMenu125.png),
+[toolbar and unwrapped text](images/terminal-interaction/WrapToolbar125.png),
+[Unicode word selection](images/terminal-interaction/WordSelection125.png).

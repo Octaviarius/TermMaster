@@ -383,7 +383,7 @@ private:
         QVERIFY(!_app.toolbar().toolbar()->actions().contains(plugins->actions().first()));
         QCOMPARE(_app.toolbar().groups(), QStringList({"terminalCreation", "terminal"}));
         QCOMPARE(_app.toolbar().toolbar()->toolButtonStyle(), Qt::ToolButtonIconOnly);
-        QCOMPARE(_app.toolbar().toolbar()->actions().size(), 1);
+        QCOMPARE(_app.toolbar().toolbar()->actions().size(), 2);
         QVERIFY(!_app.commands().find("Terminal.LocalEcho")->actions().first()->isEnabled());
         for (auto* action : _app.toolbar().toolbar()->actions())
         {
@@ -790,6 +790,220 @@ private:
         QVERIFY(_app.closeWorkspace(&error));
     }
 
+    Q_SLOT void terminalTabOrderPersistsWithoutReorderWrites()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Order.termaster")), "Order", &error));
+        QVERIFY(_app.createSession("First", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        auto                     probe      = std::make_shared<ReconnectDevice::Probe>();
+        PluginHost::TerminalType type;
+        type.id             = "orderFixture";
+        type.title          = "Order fixture";
+        type.plugin         = "Synthetic";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Synthetic presentation fixture
+content:
+  type: object
+  properties: {}
+)";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        const auto cleanup  = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("orderFixture");
+        });
+        host.registerTerminalType(type);
+        QVariantList ids;
+        for (const auto& name : {"First", "Second", "Third"})
+        {
+            QVERIFY2(_app.createTerminal(type.id, {}, name, &error), qPrintable(error));
+            ids.append(_app.selectedTerminal());
+        }
+        QCOMPARE(_app.session()->presentation().value("tabOrder").toList(), ids);
+        const auto firstSession = _app.session()->id();
+        QVERIFY(_app.session()->presentation().setValue("future",
+                                                        QVariantMap {
+                                                            {"layout", 7}
+        }));
+        QVERIFY(_app.saveSession(&error));
+        const auto file     = _app.session()->filePath();
+        const auto readDisk = [&] {
+            QFile input(file.toString());
+            if (!input.open(QIODevice::ReadOnly))
+            {
+                return QByteArray {};
+            }
+            return input.readAll();
+        };
+        const auto baseline = readDisk();
+        QVERIFY(!baseline.isEmpty());
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        QVERIFY(tabs);
+        const auto visibleOrder = [&] {
+            QVariantList order;
+            const int    current = tabs->currentIndex();
+            for (int index = 0; index < tabs->count(); ++index)
+            {
+                tabs->setCurrentIndex(index);
+                order.append(_app.selectedTerminal());
+            }
+            tabs->setCurrentIndex(current);
+            return order;
+        };
+        tabs->tabBar()->moveTab(2, 0);
+        tabs->tabBar()->moveTab(2, 1);
+        const QVariantList reordered {ids[2], ids[1], ids[0]};
+        QCOMPARE(_app.session()->presentation().value("tabOrder").toList(), reordered);
+        QVERIFY(_app.session()->isDirty());
+        QCOMPARE(readDisk(), baseline);
+        QVERIFY(_app.saveSession(&error));
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(_app.openSession(firstSession, &error));
+        QCOMPARE(visibleOrder(), reordered);
+        QCOMPARE(_app.selectedTerminal(), ids[0].toString());
+        QCOMPARE(_app.session()->presentation().value("future").toMap(),
+                 QVariantMap({
+                     {"layout", 7}
+        }));
+        QVERIFY(_app.createTerminal(type.id, {}, "Fourth", &error));
+        const auto fourth     = _app.selectedTerminal();
+        auto       withFourth = reordered;
+        withFourth.append(fourth);
+        Settings persisted(file, {"termaster.session", "Termaster session"});
+        QVERIFY(persisted.load(&error));
+        QCOMPARE(persisted.value("presentation/tabOrder").toList(), withFourth);
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(_app.createSession("Second session", &error));
+        const auto secondSession = _app.session()->id();
+        QVERIFY(_app.createTerminal(type.id, {}, "Independent", &error));
+        const QVariantList secondOrder {_app.selectedTerminal()};
+        QVERIFY(_app.openSession(firstSession, &error));
+        QCOMPARE(_app.session()->presentation().value("tabOrder").toList(), withFourth);
+        QVERIFY(_app.openSession(secondSession, &error));
+        QCOMPARE(_app.session()->presentation().value("tabOrder").toList(), secondOrder);
+
+        // An unavailable provider keeps its saved slot while the other tabs move.
+        QVERIFY(_app.openSession(firstSession, &error));
+        auto objects     = _app.session()->objects().values();
+        auto unavailable = objects.value(ids[1].toString()).toMap();
+        unavailable.insert("type", "lateOrderFixture");
+        QVERIFY(_app.session()->objects().setValue(ids[1].toString(), unavailable));
+        QVariantList withStale {ids[2], ids[1], "stale-object", ids[0], fourth};
+        QVERIFY(_app.session()->presentation().setValue("tabOrder", withStale));
+        controller.setSession(nullptr);
+        controller.setSession(_app.session());
+        QCOMPARE(tabs->count(), 3);
+        tabs->tabBar()->moveTab(2, 0);
+        const QVariantList missingOrder {fourth, ids[1], "stale-object", ids[2], ids[0]};
+        QCOMPARE(_app.session()->presentation().value("tabOrder").toList(), missingOrder);
+        type.id = "lateOrderFixture";
+        host.registerTerminalType(type);
+        const auto lateCleanup = qScopeGuard([&] { host.unregisterTerminalType("lateOrderFixture"); });
+        QCOMPARE(tabs->count(), 4);
+        QCOMPARE(visibleOrder(), QVariantList({fourth, ids[1], ids[2], ids[0]}));
+        QCOMPARE(_app.session()->presentation().value("tabOrder").toList(), missingOrder);
+        QVERIFY(_app.session()->objects().setValue("z-unlisted", objects.value(ids[0].toString())));
+        QVERIFY(_app.session()->objects().setValue("a-unlisted", objects.value(ids[0].toString())));
+        controller.setSession(nullptr);
+        controller.setSession(_app.session());
+        QCOMPARE(visibleOrder(), QVariantList({fourth, ids[1], ids[2], ids[0], "a-unlisted", "z-unlisted"}));
+        QCOMPARE(_app.session()->presentation().value("tabOrder").toList(), missingOrder);
+        QCOMPARE(probe->attempts, 0);
+    }
+
+    Q_SLOT void wrapLinesCommandTracksSelectedTerminalAndSession()
+    {
+        auto* command = _app.commands().find("View.WrapLines");
+        QVERIFY(command);
+        auto* action = command->actions().first();
+        QVERIFY(action->isCheckable());
+        QVERIFY(_app.mainMenu().findMenu("/view")->actions("terminal").contains(action));
+        QVERIFY(_app.toolbar().toolbar()->actions().contains(action));
+        for (const auto& group : _app.mainMenu().findMenu("/terminal")->groups())
+        {
+            QVERIFY(!_app.mainMenu().findMenu("/terminal")->actions(group).contains(action));
+        }
+        QVERIFY(!action->isEnabled());
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Wrap.termaster")), "Wrap", &error));
+        QVERIFY(_app.createSession("Wrap", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        auto                     probe      = std::make_shared<ReconnectDevice::Probe>();
+        PluginHost::TerminalType type;
+        type.id             = "wrapFixture";
+        type.title          = "Wrap fixture";
+        type.plugin         = "Synthetic";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Synthetic presentation fixture
+content:
+  type: object
+  properties: {}
+)";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        const auto cleanup  = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("wrapFixture");
+        });
+        host.registerTerminalType(type);
+        QVERIFY(_app.createTerminal(type.id, {}, "First", &error));
+        const auto first = _app.selectedTerminal();
+        QVERIFY(_app.createTerminal(type.id, {}, "Second", &error));
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        QVERIFY(tabs);
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.refreshTerminalActions();
+        QVERIFY(action->isEnabled());
+        QVERIFY(action->isChecked());
+        auto* display = tabs->currentWidget()->findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(display);
+        display->receive(QByteArray("word ").repeated(120));
+        QCoreApplication::processEvents();
+        QCOMPARE(display->horizontalScrollBar()->maximum(), 0);
+        action->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(!action->isChecked());
+        QVERIFY(display->horizontalScrollBar()->maximum() > 0);
+        QCOMPARE(controller.selectedSettings().value("appearance/wrapLines").toBool(), false);
+        const auto capture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("WrapToolbar.png")));
+            auto* view = static_cast<MenuActionContainer*>(_app.mainMenu().findMenu("/view"))->menu();
+            view->popup(_app.mainWindow().mapToGlobal(QPoint(20, 70)));
+            QTest::qWait(80);
+            QVERIFY(view->grab().save(QDir(capture).filePath("WrapMenu.png")));
+            view->hide();
+        }
+        tabs->setCurrentIndex(0);
+        QCOMPARE(_app.selectedTerminal(), first);
+        QVERIFY(action->isChecked());
+        QVERIFY(!controller.selectedSettings().containsOverride("appearance/wrapLines"));
+        QVERIFY(controller.selectedSettings().setValue("appearance/wrapLines", false));
+        controller.applySettings();
+        QVERIFY(!action->isChecked());
+        action->trigger();
+        QVERIFY(action->isChecked());
+        const auto session = _app.session()->id();
+        QVERIFY(_app.saveSession(&error));
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(!action->isEnabled());
+        QVERIFY(_app.openSession(session, &error));
+        tabs->setCurrentIndex(0);
+        QVERIFY(action->isChecked());
+        tabs->setCurrentIndex(1);
+        QVERIFY(!action->isChecked());
+        QCOMPARE(controller.selectedSettings().value("appearance/wrapLines").toBool(), false);
+        QCOMPARE(probe->attempts, 0);
+    }
+
     Q_SLOT void bulkTerminalRestoreAndClosePublishFinalState()
     {
         QTemporaryDir temporary;
@@ -853,7 +1067,7 @@ private:
         QCOMPARE(selection.count(), 1);
         QCOMPARE(refreshes, 1);
         QCOMPARE(controller.terminalIds(), ids);
-        QCOMPARE(controller.selectedTerminal(), ids.last());
+        QCOMPARE(controller.selectedTerminal(), session->presentation().value("tabOrder").toList().last().toString());
         QCOMPARE(tabs->count(), 4);
         QVERIFY(tabs->signalsBlocked());
         QVERIFY(!tabs->updatesEnabled());
@@ -1992,6 +2206,7 @@ content:
                                   console ? "Restart" : "Reconnect",
                                   "Clear screen",
                                   "Local echo",
+                                  "Wrap lines",
                                   "Settings..."}));
             QVERIFY(!visible.contains("Close"));
             QCOMPARE(_app.pluginHost().selectedDevice(type)->state(), SerialDevice::State::Closed);

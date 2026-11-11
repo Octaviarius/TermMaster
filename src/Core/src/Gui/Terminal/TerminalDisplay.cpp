@@ -8,6 +8,7 @@
 #include <QPaintEvent>
 #include <QPainter>
 #include <QScrollBar>
+#include <QTextBoundaryFinder>
 #include <QUrl>
 #include <QWheelEvent>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
@@ -529,6 +530,37 @@ void TerminalDisplay::mousePressEvent(QMouseEvent* event)
     }
 }
 
+void TerminalDisplay::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    setFocus();
+    if (_sendMouse(int(TerminalInput::MouseEventKind::Press),
+                   event->button(),
+                   event->buttons(),
+                   event->position().toPoint(),
+                   event->modifiers()))
+    {
+        event->accept();
+        return;
+    }
+    if (event->button() != Qt::LeftButton)
+    {
+        QAbstractScrollArea::mouseDoubleClickEvent(event);
+        return;
+    }
+
+    _anchor = _selection   = QPoint(-1, -1);
+    _selecting             = true;
+    const QPoint position  = _position(event->position().toPoint());
+    const int    visualRow = verticalScrollBar()->value() + int(std::floor(event->position().y() / _lineHeight));
+    if (_visualPosition(position).y() == visualRow)
+    {
+        _selectWord(position);
+    }
+    emit selectionChanged();
+    viewport()->update();
+    event->accept();
+}
+
 void TerminalDisplay::mouseMoveEvent(QMouseEvent* event)
 {
     if (!_selecting
@@ -1027,6 +1059,108 @@ QPoint TerminalDisplay::_position(const QPoint& point, bool snapToCell) const
         column -= span.count;
     }
     return QPoint(0, 0);
+}
+
+void TerminalDisplay::_selectWord(const QPoint& position)
+{
+    const auto& lines = _screen.lines();
+    if (position.y() < 0 || position.y() >= lines.size())
+    {
+        return;
+    }
+    const auto& hitCells = lines[position.y()].cells;
+    if (position.x() < 0 || position.x() >= hitCells.size())
+    {
+        return;
+    }
+    const auto& hit = hitCells[position.x()];
+    if (hit.text.isEmpty()
+        || std::all_of(hit.text.cbegin(), hit.text.cend(), [](QChar character) { return character.isSpace(); }))
+    {
+        return;
+    }
+
+    int firstRow = position.y();
+    int lastRow  = firstRow;
+    while (firstRow > 0 && lines[firstRow - 1].softWrapped)
+    {
+        --firstRow;
+    }
+    while (lastRow + 1 < lines.size() && lines[lastRow].softWrapped)
+    {
+        ++lastRow;
+    }
+
+    struct TextCell
+    {
+        qsizetype first = 0;
+        qsizetype last  = 0;
+        QPoint    begin;
+        QPoint    end;
+    };
+    constexpr qsizetype maximumTextUnits = 4 * 1024 * 1024;
+    QString             text;
+    QVector<TextCell>   cells;
+    qsizetype           hitOffset = -1;
+    for (int row = firstRow; row <= lastRow; ++row)
+    {
+        const auto& source = lines[row];
+        const int   extent = source.softWrapped && source.wrappedColumns > 0 ?
+                                 std::min(int(source.cells.size()), source.wrappedColumns) :
+                                 int(source.cells.size());
+        for (int column = 0; column < extent; ++column)
+        {
+            const auto& cell = source.cells[column];
+            if (cell.width <= 0)
+            {
+                continue;
+            }
+            const QString value = cell.text.isEmpty() ? QStringLiteral(" ") : cell.text;
+            if (value.size() > maximumTextUnits - text.size())
+            {
+                return;
+            }
+            const qsizetype start = text.size();
+            if (row == position.y() && column == position.x())
+            {
+                hitOffset = start;
+            }
+            text += value;
+            cells.append({start, text.size(), QPoint(column, row), QPoint(std::min(column + cell.width, extent), row)});
+        }
+    }
+    if (hitOffset < 0)
+    {
+        return;
+    }
+
+    QTextBoundaryFinder finder(QTextBoundaryFinder::Word, text);
+    finder.setPosition(hitOffset);
+    if (!finder.isAtBoundary())
+    {
+        finder.toPreviousBoundary();
+    }
+    qsizetype start = finder.position();
+    qsizetype end   = finder.toNextBoundary();
+    finder.setPosition(start);
+    // Punctuation and symbols outside a Unicode word select one complete cell.
+    if (!(finder.boundaryReasons() & QTextBoundaryFinder::StartOfItem) || end <= hitOffset)
+    {
+        start = hitOffset;
+        end   = hitOffset + hit.text.size();
+    }
+    const auto first = std::find_if(cells.cbegin(), cells.cend(), [start](const TextCell& cell) {
+        return cell.last > start;
+    });
+    const auto last  = std::find_if(cells.crbegin(), cells.crend(), [end](const TextCell& cell) {
+        return cell.first < end;
+    });
+    if (first == cells.cend() || last == cells.crend())
+    {
+        return;
+    }
+    _anchor    = first->begin;
+    _selection = last->end;
 }
 
 QPoint TerminalDisplay::_visualPosition(const QPoint& source) const

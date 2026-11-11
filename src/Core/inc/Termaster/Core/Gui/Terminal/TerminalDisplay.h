@@ -60,6 +60,7 @@ protected:
     void     keyPressEvent(QKeyEvent* event) override;
     void     keyReleaseEvent(QKeyEvent* event) override;
     void     mousePressEvent(QMouseEvent* event) override;
+    void     mouseDoubleClickEvent(QMouseEvent* event) override;
     void     mouseMoveEvent(QMouseEvent* event) override;
     void     mouseReleaseEvent(QMouseEvent* event) override;
     void     wheelEvent(QWheelEvent* event) override;
@@ -189,6 +190,7 @@ private:
     void        _drawRun(QPainter& painter, const Run& run, const QRectF& area);
     void        _drawImages(QPainter& painter, int first, bool behind);
     QPoint      _position(const QPoint& point, bool snapToCell = true) const;
+    void        _selectWord(const QPoint& position);
     QRectF      _cursorRect() const;
     void        _emit(const QByteArray& bytes, OutputKind kind, const QByteArray& echo = {});
     bool        _sendMouse(int                   kind,

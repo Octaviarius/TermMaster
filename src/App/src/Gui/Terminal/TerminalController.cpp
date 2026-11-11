@@ -15,11 +15,13 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFontMetrics>
+#include <QHash>
 #include <QLoggingCategory>
 #include <QMenu>
 #include <QMessageBox>
 #include <QSaveFile>
 #include <QScopeGuard>
+#include <QSet>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTabBar>
@@ -239,6 +241,16 @@ TerminalController::TerminalController(MainWindow&                 window,
     auto* bar = _window.terminalTabs().tabBar();
     bar->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(bar, &QWidget::customContextMenuRequested, this, &TerminalController::_showTabMenu);
+    connect(bar, &QTabBar::tabMoved, this, [this] {
+        if (_batchDepth == 0 && _session)
+        {
+            QString error;
+            if (!_rememberTabOrder(&error))
+            {
+                showMessage(error);
+            }
+        }
+    });
     connect(qApp, &QApplication::focusChanged, this, [this] { refreshTerminalActions(); });
     connect(qApp, &QGuiApplication::focusWindowChanged, this, [this] { refreshTerminalActions(); });
     for (const bool requested : {true, false})
@@ -276,6 +288,33 @@ TerminalController::TerminalController(MainWindow&                 window,
     };
     registerAction(std::move(echo));
     _actions.at("Terminal.LocalEcho").action->setCheckable(true);
+
+    Action wrap;
+    wrap.id       = "View.WrapLines";
+    wrap.title    = tr("Wrap lines");
+    wrap.iconName = "text-wrap";
+    wrap.group    = "terminal";
+    wrap.role     = Action::Role::Clear;
+    wrap.enabled  = [this] { return _current() != nullptr; };
+    wrap.trigger  = [this] {
+        auto* current = _current();
+        if (!current || !_activeWindow())
+        {
+            return;
+        }
+
+        QString    error;
+        const bool enabled = current->settings.value("appearance/wrapLines", true).toBool();
+        if (!current->settings.setValue("appearance/wrapLines", !enabled, &error))
+        {
+            showMessage(error);
+            return;
+        }
+        current->display->setAppearance(
+            _effective(_types.at(current->type), current->settings).value("appearance").toMap());
+    };
+    _registerAction(std::move(wrap), _window.mainMenu().findMenu("/view"));
+    _actions.at("View.WrapLines").action->setCheckable(true);
 
     const QStringList ids {"Terminal.BufferedInput", "Terminal.SendFile", "Terminal.Processing"};
     const QStringList titles {tr("Buffered input"), tr("Send fileвЂ¦"), tr("Processing")};
@@ -508,6 +547,11 @@ bool TerminalController::unregisterTerminalType(const QString& type, QString* er
 }
 void TerminalController::registerAction(Action action)
 {
+    _registerAction(std::move(action), _window.mainMenu().findMenu("/terminal"));
+}
+
+void TerminalController::_registerAction(Action action, ActionContainer* menu)
+{
     if (!action.iconName.isEmpty())
     {
         action.icon = Icons::icon(action.iconName);
@@ -517,10 +561,9 @@ void TerminalController::registerAction(Action action)
     {
         throw std::invalid_argument("Invalid terminal action registration");
     }
-    auto* menu = _window.mainMenu().findMenu("/terminal");
     if (!menu || !menu->groups().contains(action.group))
     {
-        throw std::invalid_argument("Unknown terminal action group");
+        throw std::invalid_argument("Unknown action group");
     }
     action.terminalType     = owned(action.terminalType);
     action.id               = owned(action.id);
@@ -552,7 +595,7 @@ void TerminalController::registerAction(Action action)
             }
             _window.toolbar().insertAction(presentation, group, index);
         }
-        _actions.emplace(id, RegisteredAction {std::move(action), presentation});
+        _actions.emplace(id, RegisteredAction {std::move(action), presentation, menu});
     }
     catch (...)
     {
@@ -590,7 +633,7 @@ void TerminalController::unregisterAction(const QString& id)
     auto* action = it->second.action.data();
     if (action)
     {
-        _window.mainMenu().findMenu("/terminal")->removeAction(action);
+        it->second.menu->removeAction(action);
         _window.toolbar().removeAction(action);
         delete action;
     }
@@ -631,6 +674,11 @@ void TerminalController::refreshTerminalActions()
     if (echo != _actions.end() && echo->second.action)
     {
         echo->second.action->setChecked(selected && selected->settings.value("input/localEcho", false).toBool());
+    }
+    const auto wrap = _actions.find("View.WrapLines");
+    if (wrap != _actions.end() && wrap->second.action)
+    {
+        wrap->second.action->setChecked(selected && selected->settings.value("appearance/wrapLines", true).toBool());
     }
     const auto processing = _actions.find("Terminal.Processing");
     if (processing != _actions.end() && processing->second.action)
@@ -732,10 +780,21 @@ bool TerminalController::createTerminal(const QString&     type,
         _session->objects().remove(id);
         return false;
     }
-    if (!_session->sync(error))
+    auto       presentation  = _session->presentation();
+    const bool hadOrder      = presentation.contains("tabOrder");
+    const auto previousOrder = presentation.value("tabOrder");
+    if (!_rememberTabOrder(error) || !_session->sync(error))
     {
         _close(id);
         _session->objects().remove(id);
+        if (hadOrder)
+        {
+            presentation.setValue("tabOrder", previousOrder);
+        }
+        else
+        {
+            presentation.remove("tabOrder");
+        }
         return false;
     }
     refreshTerminalActions();
@@ -1294,15 +1353,35 @@ void TerminalController::_restore()
     {
         return;
     }
-    const auto objects = _session->objects().values();
+    const auto    objects = _session->objects().values();
+    QStringList   order;
+    QSet<QString> listed;
+    for (const auto& value : _session->presentation().value("tabOrder").toList())
+    {
+        const auto id = value.toString();
+        if (objects.contains(id) && !listed.contains(id))
+        {
+            order.append(id);
+            listed.insert(id);
+        }
+    }
     for (auto it = objects.cbegin(); it != objects.cend(); ++it)
     {
-        if (!_types.contains(it.value().toMap().value("type").toString()) || _terminals.contains(it.key()))
+        if (!listed.contains(it.key()))
+        {
+            order.append(it.key());
+        }
+    }
+
+    int target = 0;
+    for (const auto& id : order)
+    {
+        if (!_types.contains(objects.value(id).toMap().value("type").toString()))
         {
             continue;
         }
         QString    error;
-        const bool restored = _materialize(it.key(), &error);
+        const bool restored = _materialize(id, &error);
         if (!self)
         {
             return;
@@ -1310,9 +1389,74 @@ void TerminalController::_restore()
         if (!restored)
         {
             _window.statusBar()->showMessage(owned(error));
+            continue;
         }
+        auto&     tabs  = _window.terminalTabs();
+        const int index = tabs.indexOf(_terminals.at(id)->panel);
+        if (index != target)
+        {
+            tabs.tabBar()->moveTab(index, target);
+        }
+        ++target;
     }
 }
+
+bool TerminalController::_rememberTabOrder(QString* error)
+{
+    if (!_session)
+    {
+        return true;
+    }
+    QHash<QWidget*, QString> ids;
+    for (const auto& [id, terminal] : _terminals)
+    {
+        ids.insert(terminal->panel, id);
+    }
+    QStringList   visible;
+    QSet<QString> visibleIds;
+    const auto&   tabs = _window.terminalTabs();
+    for (int index = 0; index < tabs.count(); ++index)
+    {
+        const auto id = ids.value(tabs.widget(index));
+        if (!id.isEmpty())
+        {
+            visible.append(id);
+            visibleIds.insert(id);
+        }
+    }
+
+    QVariantList  order;
+    QSet<QString> listed;
+    int           next = 0;
+    for (const auto& value : _session->presentation().value("tabOrder").toList())
+    {
+        const auto id      = value.toString();
+        const auto current = visibleIds.contains(id) ? visible.value(next++) : id;
+        if (!current.isEmpty() && !listed.contains(current))
+        {
+            order.append(current);
+            listed.insert(current);
+        }
+    }
+    for (const auto& id : visible)
+    {
+        if (!listed.contains(id))
+        {
+            order.append(id);
+            listed.insert(id);
+        }
+    }
+    // Preserve definitions whose providers are unavailable or views are closed.
+    for (const auto& id : _session->objects().values().keys())
+    {
+        if (!listed.contains(id))
+        {
+            order.append(id);
+        }
+    }
+    return _session->presentation().setValue("tabOrder", order, error);
+}
+
 void TerminalController::_close(const QString& id)
 {
     qCDebug(terminalTrace) << "Closing terminal" << id;
