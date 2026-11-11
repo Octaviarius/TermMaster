@@ -149,3 +149,17 @@ Verification on Windows 11 with Qt 6.12.0 / MSVC 2022:
 
 All transport continuity checks used synthetic devices; no physical serial device
 or external connection was opened for this feature verification.
+
+## Detached resize cost (PERF-18)
+
+Native move/resize/toolbar/status events no longer mutate session settings.
+The live QWidget owns geometry until explicit presentation capture at save or
+placement/lifecycle transitions. Provider unload captures before synchronizing.
+Previously each event cloned and serialized the full session YAML, including
+unchanged unrelated metadata, potentially multiple times per frame.
+
+A bounded Release synthetic test performs 40 visible resize/move iterations and
+asserts zero presentation changes before capture. It took 56.7 ms for the small
+session and 63.8 ms with 256 KiB of unknown metadata on the verification host.
+These are offscreen loop wall times, not native input latency or a before/after
+speedup claim. Detached identity, persistence and reentrant closure checks passed.
