@@ -469,7 +469,8 @@ bool App::saveWorkspace(QString* error)
         }
         return false;
     }
-    if ((_data->session && !_data->session->sync(error)) || !_data->workspace->sync(error))
+    if ((_data->session && !(_data->terminals->capturePresentation(error) && _data->session->sync(error)))
+        || !_data->workspace->sync(error))
     {
         return false;
     }
@@ -533,6 +534,9 @@ bool App::eventFilter(QObject* watched, QEvent* event)
         QTimer::singleShot(0, this, [this] {
             if (_data->window->isHidden())
             {
+                // Detached close buttons normally return their terminal to the main
+                // window. End those hosts before Qt broadcasts application closure.
+                _data->terminals->closeAll();
                 quit();
             }
         });
@@ -1381,7 +1385,7 @@ bool App::createSession(const QString& requestedName, QString* error)
         }
         return false;
     }
-    if (_data->session && !_data->session->sync(error))
+    if (_data->session && !(_data->terminals->capturePresentation(error) && _data->session->sync(error)))
     {
         return false;
     }
@@ -1469,7 +1473,7 @@ bool App::saveSession(QString* error)
         }
         return false;
     }
-    if (!_data->session->sync(error))
+    if (!(_data->terminals->capturePresentation(error) && _data->session->sync(error)))
     {
         return false;
     }
@@ -1512,7 +1516,7 @@ bool App::closeSession(QString* error)
     {
         error->clear();
     }
-    if (_data->session && !_data->session->sync(error))
+    if (_data->session && !(_data->terminals->capturePresentation(error) && _data->session->sync(error)))
     {
         return false;
     }
@@ -1568,7 +1572,7 @@ void App::_restoreLastSession()
 
 bool App::_activateSession(std::unique_ptr<Session> candidate, QString* error)
 {
-    if (_data->session && !_data->session->sync(error))
+    if (_data->session && !(_data->terminals->capturePresentation(error) && _data->session->sync(error)))
     {
         return false;
     }
@@ -1753,9 +1757,9 @@ void App::_showSettings(SettingsContext context)
                 {
                     return _data->workspace && _data->workspace->sync(error);
                 }
-                return _data->session && _data->session->sync(error);
+                return _data->session && (_data->terminals->capturePresentation(error) && _data->session->sync(error));
             },
-            _data->window.get());
+            context == SettingsContext::Terminal ? _data->terminals->selectedWindow() : _data->window.get());
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->setProperty("settingsContext", int(context));
         _data->settingsWindow = dialog;

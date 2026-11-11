@@ -13,7 +13,7 @@ class QWidget;
 class CommandRegistry;
 class ActionContainer;
 
-/** Routes standard editing commands to supported editors in the main window.
+/** Routes standard editing commands to supported editors in its window.
  * All objects are used on the GUI thread. The window and registry outlive this controller.
  */
 class EditActions final : public QObject

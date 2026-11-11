@@ -11,6 +11,8 @@
 
 class MainWindow;
 class ActionContainer;
+class QMainWindow;
+class DetachedTerminalWindow;
 class ProcessorRegistry;
 class ProcessorFavorites;
 class CommandRegistry;
@@ -42,6 +44,11 @@ public:
     void            setProcessorFavorites(ProcessorFavorites& favorites);
     void            setSession(Session* session);
     void            closeAll();
+    bool            detachTerminal(const QString& id, QString* error = nullptr);
+    bool            attachTerminal(const QString& id, QString* error = nullptr);
+    QMainWindow*    detachedWindow(const QString& id) const;
+    QWidget*        selectedWindow() const;
+    bool            capturePresentation(QString* error = nullptr);
     bool            createTerminal(const QString&     type,
                                    const QVariantMap& overrides,
                                    const QString&     name,
@@ -75,6 +82,9 @@ public:
     void          refreshTerminalActions() override;
 
     Q_SIGNAL void selectionChanged();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     struct Type
@@ -112,14 +122,26 @@ private:
     bool                                        _batchSelectionChanged = false;
     QPointer<QWidget>                           _batchSelected;
 
-    Runtime*                                                 _current() const;
-    bool                                                     _activeWindow() const;
-    bool                                                     _materialize(const QString& id, QString* error);
-    void                                                     _restore();
-    bool                                                     _rememberTabOrder(QString* error = nullptr);
-    void                                                     _registerAction(Action action, ActionContainer* menu);
-    void                                                     _beginBatch();
-    void                                                     _endBatch();
+    std::optional<QString> _commandTarget;
+    bool                   _movingHost        = false;
+    bool                   _refreshingActions = false;
+    QString                _focusedTerminal;
+
+    Runtime* _current() const;
+    QString  _mainTerminalId() const;
+    void     _focusChanged();
+    void     _triggerAction(const QString& command, const QString& target, QWidget* window);
+    void     _refreshHostActions(const QString& id);
+    bool     _actionChecked(const QString& command, const Runtime* terminal) const;
+    bool     _captureDetached(const QString& id, QString* error);
+    void     _restoreDetached();
+    bool     _activeWindow() const;
+    bool     _materialize(const QString& id, QString* error);
+    void     _restore();
+    bool     _rememberTabOrder(QString* error = nullptr);
+    void     _registerAction(Action action, ActionContainer* menu);
+    void     _beginBatch();
+    void     _endBatch();
     std::optional<std::array<std::shared_ptr<Processor>, 2>> _prepareProcessing(const QVariantMap& configuration,
                                                                                 QString*           error,
                                                                                 bool               txOnly = false);
@@ -128,12 +150,13 @@ private:
                                                                               const QVariantMap& configuration,
                                                                               QString*           error);
     bool                            _configureProcessing(Runtime& terminal, QString* error, bool txOnly = false);
-    void                            _close(const QString& id);
+    void                            _close(const QString& id, bool preservePlacement = false);
     void                            _showTabMenu(const QPoint& position);
     bool                            _canSetAllConnections(bool requested) const;
     void                            _setAllConnections(bool requested);
     void                            _setConnectionRequested(QString id, bool requested);
     void                            _changed(const QString& id);
+    void                            _showTerminalMessage(const QString& id, const QString& message);
     QString                         _mainParameter(const Runtime& terminal) const;
     void                            _attemptConnection(const QString& id);
     QVariantMap                     _effective(const Type& type, SettingsOverlay settings) const;

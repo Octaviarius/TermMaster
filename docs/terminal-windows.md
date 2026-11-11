@@ -1,10 +1,10 @@
 # Detached terminal windows
 
-## Status and intended scope
+## Delivered scope
 
-Design proposal; detaching is not implemented. The first version hosts one terminal
-per detached window. It keeps the approved main tab strip and the existing single
-process, workspace, session, transport and processing model.
+Implemented in APP-17. Each detached window hosts one terminal and keeps the
+approved main tab strip and the existing single process, workspace, session,
+transport and processing model.
 
 ## Window contents and interactions
 
@@ -28,23 +28,26 @@ local-echo, wrap and settings commands, plus Return to main window. Its status b
 includes the existing buffered-input toggle, file-send button and processing
 panel toggle, with their checked/enabled states. Opening those controls exposes
 the same editor, file actions and processing settings as in the main window.
-Status also shows the actual connection state and existing queue/processing
-diagnostics; acceptance into a send queue is not delivery. Menus, toolbar and
+The status bar shows the actual connection state. Expanded controls retain the
+existing queue/processing diagnostics; acceptance into a send queue is not delivery. Menus, toolbar and
 status-bar buttons all resolve the terminal UUID belonging to their own window,
 including when a different terminal is selected in the main window.
 
-Detach starts with a tab context-menu command. Dragging outside the main strip can
-be added using standard QDrag/QMimeData and the platform drag threshold; returning
-uses the same validated session/terminal UUID transfer. Foreign session IDs,
-unknown terminals and unavailable providers are rejected before changing parents.
-No custom window moving, painting or simulated pointer handling is required.
+Detach is available in the Terminal menu and tab context menu. Dragging a tab
+outside the main strip also detaches it after Qt finishes its native tab move.
+The gesture uses the platform drag threshold and validates the original live panel
+before changing hosts, so a queued gesture cannot affect a replacement session.
+Returning uses the window's Return to main window action or its close button.
+There is no cross-window drop target: the main tab strip remains a native QTabWidget.
+No custom window moving, painting or simulated pointer handling is used.
 
-The recommended default for the detached window's X is **return to the main window**,
+The detached window's X returns the terminal to the main window,
 with its connection, history, selection, input draft and processing instance intact.
 Closing the terminal remains a separate explicit Terminal command. Return restores
 the terminal's slot in the session's global order, selects it and activates the main
 window. Closing the main application still saves once and exits all terminal hosts.
-This close behavior is a proposed UX choice, not delivered behavior.
+Explicit terminal closure removes its runtime view while retaining its session
+object definition.
 
 ## Ownership and command targets
 
@@ -71,9 +74,8 @@ so backend resizing observes valid final dimensions, without transient tiny grid
 Native DPI/font notifications then update the existing display caches. Toolbars/status widgets are
 separate widgets per host and share command definitions, rather than widget parents.
 
-The current `_current()` and `_activeWindow()` assumptions are main-window-only.
-Before detaching, command dispatch must resolve the host's terminal at trigger time
-and revalidate its capabilities. Each window creates its own QAction presentations
+Command dispatch resolves the host's terminal at trigger time and revalidates
+its capabilities. Active terminal dialogs resolve through their parent host. Each window creates its own QAction presentations
 with the existing command/shortcut metadata and WindowShortcut scope. Main-window
 actions target its selected tab; detached actions target that window's UUID. Check
 states and settings dialogs belong to the same target, including plugin actions.
@@ -89,8 +91,8 @@ native layout factory; the runtime panel and its source state are retained.
 
 `presentation.tabOrder` remains the global ordered list of terminal object UUIDs.
 Detached terminals retain their slots; the main strip filters this order to its
-attached terminals. A proposed `presentation.detachedWindows` map records only the
-terminal UUID, native window geometry and window state. A second independent tab
+attached terminals. The `presentation.detachedWindows` map is keyed by terminal UUID and records
+canonical Base64 native geometry plus `toolbarVisible` and `statusBarVisible`. A second independent tab
 ordering list is unnecessary for one-terminal windows.
 
 Use QWidget::saveGeometry/restoreGeometry for the native geometry blob, stored as
@@ -116,17 +118,34 @@ Converting all terminal tabs to docks would broaden the change to the establishe
 layout and persistence model. A standard QMainWindow plus QWidget transfer keeps
 the present layout and allows host-aware commands to be delivered independently.
 
-## Suggested delivery and acceptance
+## Verification and limits
 
-1. Make command targets and status/settings presentation host-aware, without
-   changing terminal ownership or connection lifecycle.
-2. Add context-menu detach/return with native windows and preserve the same panel
-   and runtime instance. Add the X-to-return policy and explicit close command.
-3. Persist detached placement/geometry, restore disconnected, and handle missing
-   screens, provider unload and failed saves before enabling cross-window dragging.
-4. Add standard Qt drag/drop transfers with UUID validation and atomic host changes.
+Automated coverage exercises preserved panel/display/processing identity, input
+state, independently targeted commands, return order, explicit closure, save-failure
+veto, provider unload/recovery, disconnected restoration and application shutdown.
+Session tests validate bounded canonical geometry data, field types and atomic
+failure behavior while preserving unknown metadata.
 
-Acceptance must verify unchanged device/parser/processor identity, pending output
-and cancellation, selection/drafts/history, per-window shortcuts/check states,
-correct close targets, DPI changes, monitor removal, failed-save veto, plugin
-unload and complete application shutdown with detached windows still open.
+Host moves suppress intermediate display resize signals and explicitly resize the
+backend to the resulting grid. Native Qt layouts, font/DPI handling and geometry
+recovery remain responsible for window sizing. Physical monitor removal and mixed
+DPI monitor transfers require interactive hardware acceptance; they are not
+established by synthetic tests. Windows contain one terminal each; tabbed detached
+windows and drag/drop between existing windows are outside this version.
+
+Verification on Windows 11 with Qt 6.12.0 / MSVC 2022:
+
+- Debug and Release application builds completed.
+- Full AppTests passed in both configurations (54 cases), including drag-out,
+  an open synthetic connection retained across moves, independent window actions,
+  reentrant session closure during backend resize and detached-process shutdown.
+- SessionTests passed in both configurations; two existing symlink-confinement
+  checks were skipped because symlink creation is unavailable to the current user.
+- Eight adjacent Debug suites passed: action containers, commands, icons, command
+  editor, settings forms, terminal display, processing routing and terminal processing.
+- Native detached/returned window captures and gesture/identity checks passed at
+  100%, 125% and 200% scale. Visibility assertions cover the transferred panel,
+  display and buffered input, preventing a hidden removed-tab page regression.
+
+All transport continuity checks used synthetic devices; no physical serial device
+or external connection was opened for this feature verification.

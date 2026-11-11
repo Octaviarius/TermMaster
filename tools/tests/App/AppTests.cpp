@@ -52,6 +52,7 @@
 #include <QTest>
 #include <QTextDocumentFragment>
 #include <QTimer>
+#include <QToolBar>
 #include <QToolButton>
 #include <QToolTip>
 #include <QTreeView>
@@ -84,13 +85,14 @@ class ReconnectDevice final : public QObject, public SerialDevice
 public:
     struct Probe
     {
-        bool             available = false;
-        int              attempts  = 0;
-        int              closes    = 0;
-        ReconnectDevice* device    = nullptr;
-        QByteArray       output;
-        QVariantMap      openConfiguration;
-        qint64           allowance = 2;
+        bool                  available = false;
+        int                   attempts  = 0;
+        int                   closes    = 0;
+        ReconnectDevice*      device    = nullptr;
+        QByteArray            output;
+        std::function<void()> resized;
+        QVariantMap           openConfiguration;
+        qint64                allowance = 2;
     };
     explicit ReconnectDevice(std::shared_ptr<Probe> probe) : _probe(std::move(probe))
     {
@@ -148,6 +150,14 @@ public:
     qint64 pendingBytes() const override
     {
         return 0;
+    }
+    void resize(int, int) override
+    {
+        const auto callback = _probe->resized;
+        if (callback)
+        {
+            callback();
+        }
     }
     void injectReceive(const QByteArray& bytes)
     {
@@ -305,8 +315,14 @@ private:
     Q_SLOT void mainWindowCloseExitsProcess_data()
     {
         QTest::addColumn<QString>("scenario");
-        for (const auto& scenario :
-             {"empty", "auxiliary", "quitDisabled", "saveFailure", "console", "consoleInplace", "nestedProcessing"})
+        for (const auto& scenario : {"empty",
+                                     "auxiliary",
+                                     "detached",
+                                     "quitDisabled",
+                                     "saveFailure",
+                                     "console",
+                                     "consoleInplace",
+                                     "nestedProcessing"})
         {
             QTest::newRow(scenario) << QString::fromLatin1(scenario);
         }
@@ -344,6 +360,10 @@ private:
         if (scenario == "saveFailure")
         {
             QVERIFY2(observed.contains("saveVetoed\n"), diagnostic.constData());
+        }
+        if (scenario == "detached")
+        {
+            QVERIFY2(observed.contains("detachedReady\n"), diagnostic.constData());
         }
     }
 
@@ -788,6 +808,387 @@ private:
             sessionMenu->close();
         }
         QVERIFY(_app.closeWorkspace(&error));
+    }
+
+    Q_SLOT void detachedTerminalViewsRetainIdentityAndIndependentActions()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Detached.termaster")), "Detached", &error));
+        QVERIFY(_app.createSession("Detached", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        auto                     probe      = std::make_shared<ReconnectDevice::Probe>();
+        PluginHost::TerminalType type;
+        type.id             = "detachedFixture";
+        type.title          = "Detached fixture";
+        type.plugin         = "Synthetic";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Detached fixture
+content:
+  type: object
+  properties: {}
+)";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        const auto cleanup  = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterAction("DetachedFixture.Settings");
+            host.unregisterTerminalType(type.id);
+        });
+        host.registerTerminalType(type);
+        PluginHost::Action settings;
+        settings.id           = "DetachedFixture.Settings";
+        settings.title        = "Terminal settings";
+        settings.terminalType = type.id;
+        settings.role         = PluginHost::Action::Role::Settings;
+        settings.group        = "settings";
+        settings.iconName     = "sliders-horizontal";
+        settings.trigger      = [&] { host.showSelectedTerminalSettings(); };
+        host.registerAction(std::move(settings));
+        auto* tabs = _app.mainWindow().findChild<QTabWidget*>("terminalTabs");
+        QVERIFY(tabs);
+        QStringList                     ids;
+        QList<QWidget*>                 panels;
+        QList<TerminalDisplay*>         displays;
+        QList<QPlainTextEdit*>          drafts;
+        QList<TerminalProcessingPanel*> processing;
+        SerialDevice*                   openDevice = nullptr;
+        for (int index = 0; index < 3; ++index)
+        {
+            QVERIFY(_app.createTerminal(type.id,
+                                        {
+                                            {"input", QVariantMap {{"mode", "buffered"}, {"localEcho", false}}}
+            },
+                                        QString::number(index),
+                                        &error));
+            ids.append(_app.selectedTerminal());
+            if (index == 0)
+            {
+                probe->available = true;
+                _app.mainWindow().activateWindow();
+                QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+                openDevice = host.selectedDevice(type.id);
+                QVERIFY(openDevice);
+                host.connectSelectedTerminal();
+                QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+            }
+
+            auto* panel   = tabs->currentWidget();
+            auto* display = panel->findChild<TerminalDisplay*>("terminalDisplay");
+            auto* draft   = panel->findChild<QPlainTextEdit*>("commandDraft");
+            QVERIFY(display && draft);
+            panels.append(panel);
+            displays.append(display);
+            drafts.append(draft);
+            processing.append(panel->findChild<TerminalProcessingPanel*>());
+            display->receive(QByteArray("owned-text-") + QByteArray::number(index));
+            draft->setPlainText(QString("draft-%1").arg(index));
+        }
+        const int closesBeforeMoves = probe->closes;
+        displays[0]->selectAll();
+        QVERIFY(displays[0]->hasSelection());
+        displays[0]->copy();
+        const auto selectedText = QApplication::clipboard()->text();
+        QVERIFY(selectedText.startsWith("owned-text-0"));
+        const auto order     = _app.session()->presentation().value("tabOrder");
+        auto*      bar       = tabs->tabBar();
+        const auto dragStart = bar->tabRect(0).center();
+        const auto dragEnd   = QPoint(dragStart.x(), bar->height() + 2 * QApplication::startDragDistance());
+        QTest::mousePress(bar, Qt::LeftButton, Qt::NoModifier, dragStart);
+        QTest::mouseMove(bar, dragEnd);
+        QTest::mouseRelease(bar, Qt::LeftButton, Qt::NoModifier, dragEnd);
+        QTRY_VERIFY(controller.detachedWindow(ids[0]));
+        QVERIFY2(controller.detachTerminal(ids[1], &error), qPrintable(error));
+        QPointer<QMainWindow> first(controller.detachedWindow(ids[0]));
+        QPointer<QMainWindow> second(controller.detachedWindow(ids[1]));
+        QVERIFY(first && second && first != second);
+        QCOMPARE(first->objectName(), QString("detachedTerminalWindow"));
+        QCOMPARE(first->property("terminalId").toString(), ids[0]);
+        QCOMPARE(first->centralWidget(), panels[0]);
+        QCOMPARE(second->centralWidget(), panels[1]);
+        QCOMPARE(first->findChild<TerminalDisplay*>("terminalDisplay"), displays[0]);
+        QCOMPARE(first->findChild<QPlainTextEdit*>("commandDraft"), drafts[0]);
+        QVERIFY(processing[0]);
+        QCOMPARE(first->findChild<TerminalProcessingPanel*>(), processing[0]);
+        QCOMPARE(drafts[0]->toPlainText(), QString("draft-0"));
+        QVERIFY(displays[0]->hasSelection());
+        QCOMPARE(tabs->currentWidget(), panels[2]);
+        QCOMPARE(tabs->count(), 1);
+        QCOMPARE(_app.session()->presentation().value("tabOrder"), order);
+        QVERIFY(first->findChild<QToolBar*>("detachedTerminalToolbar"));
+        for (const auto& name : {"statusBufferedInput", "statusSendFile", "statusProcessing"})
+        {
+            QVERIFY(first->findChild<QToolButton*>(name));
+        }
+        auto* wrap      = first->findChild<QAction*>("View.WrapLines");
+        auto* otherWrap = second->findChild<QAction*>("View.WrapLines");
+        auto* echo      = first->findChild<QAction*>("Terminal.LocalEcho");
+        auto* copy      = first->findChild<QAction*>("Edit.Copy");
+        QVERIFY(wrap && otherWrap && echo && copy);
+        QVERIFY(wrap != otherWrap);
+        first->activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), first.data());
+        QCOMPARE(controller.selectedWindow(), first.data());
+        QCOMPARE(_app.selectedTerminal(), ids[0]);
+        QVERIFY(panels[0]->isVisible());
+        QVERIFY(displays[0]->isVisible());
+        QVERIFY(drafts[0]->isVisible());
+        QVERIFY(panels[0]->width() > 0 && panels[0]->height() > 0);
+
+        const auto capture = qEnvironmentVariable("TERMASTER_DETACHED_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            first->repaint();
+            QVERIFY(first->grab().save(QDir(capture).filePath("DetachedWindow.png")));
+        }
+        wrap->trigger();
+        echo->trigger();
+        QVERIFY(!wrap->isChecked());
+        QVERIFY(otherWrap->isChecked());
+        QVERIFY(echo->isChecked());
+        const auto firstSettings = _app.session()->objects().value(ids[0]).toMap().value("settings").toMap();
+        QCOMPARE(firstSettings.value("appearance").toMap().value("wrapLines").toBool(), false);
+        QCOMPARE(firstSettings.value("input").toMap().value("localEcho").toBool(), true);
+        QCOMPARE(tabs->currentWidget(), panels[2]);
+        auto* buffered = first->findChild<QAction*>("Terminal.BufferedInput");
+        QVERIFY(buffered && buffered->isChecked());
+        buffered->trigger();
+        QVERIFY(!buffered->isChecked());
+        displays[0]->setFocus();
+        QTRY_COMPARE(QApplication::focusWidget(), displays[0]);
+        host.refreshTerminalActions();
+        QVERIFY(copy->isEnabled());
+        QApplication::clipboard()->setText("unrelated");
+        copy->trigger();
+        QCOMPARE(QApplication::clipboard()->text(), selectedText);
+        auto* settingsAction = first->findChild<QAction*>("DetachedFixture.Settings");
+        QVERIFY(settingsAction);
+        settingsAction->trigger();
+        QTRY_VERIFY(first->findChild<SettingsDialog*>("settingsDialog"));
+        auto* dialog = first->findChild<SettingsDialog*>("settingsDialog");
+        QCOMPARE(dialog->property("terminalId").toString(), ids[0]);
+        QVERIFY(dialog->parentWidget());
+        QCOMPARE(dialog->parentWidget()->window(), first.data());
+        dialog->reject();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(tabs->currentWidget(), panels[2]);
+
+        // Registering another provider must not count detached rows as root tabs.
+        QVERIFY(controller.attachTerminal(ids[1], &error));
+        QCOMPARE(tabs->widget(0), panels[1]);
+        QCOMPARE(tabs->widget(1), panels[2]);
+        auto unrelated = type;
+        unrelated.id   = "detachedUnrelatedFixture";
+        host.registerTerminalType(unrelated);
+        const auto unrelatedCleanup = qScopeGuard([&] { host.unregisterTerminalType(unrelated.id); });
+        QCOMPARE(tabs->widget(0), panels[1]);
+        QCOMPARE(tabs->widget(1), panels[2]);
+        QCOMPARE(_app.session()->presentation().value("tabOrder"), order);
+        QVERIFY(host.unregisterTerminalType(unrelated.id, &error));
+        QVERIFY(controller.detachTerminal(ids[1], &error));
+        second = controller.detachedWindow(ids[1]);
+        QVERIFY(second);
+
+        QVERIFY2(controller.attachTerminal(ids[0], &error), qPrintable(error));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(first.isNull());
+        QCOMPARE(tabs->widget(0), panels[0]);
+        QCOMPARE(panels[0]->findChild<TerminalDisplay*>("terminalDisplay"), displays[0]);
+        QCOMPARE(panels[0]->findChild<TerminalProcessingPanel*>(), processing[0]);
+        QCOMPARE(drafts[0]->toPlainText(), QString("draft-0"));
+        QVERIFY(displays[0]->hasSelection());
+        QCOMPARE(_app.selectedTerminal(), ids[0]);
+        second->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(second.isNull());
+        QCOMPARE(tabs->count(), 3);
+        QCOMPARE(tabs->widget(0), panels[0]);
+        QCOMPARE(tabs->widget(1), panels[1]);
+        QCOMPARE(tabs->widget(2), panels[2]);
+        QCOMPARE(_app.selectedTerminal(), ids[1]);
+        QCOMPARE(_app.session()->presentation().value("tabOrder"), order);
+        if (!capture.isEmpty())
+        {
+            _app.mainWindow().repaint();
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("ReattachedMainWindow.png")));
+        }
+        QCOMPARE(probe->attempts, 1);
+        QCOMPARE(probe->closes, closesBeforeMoves);
+        QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+
+        QVERIFY(controller.detachTerminal(ids[0], &error));
+        QPointer<QWidget>         closedPanel(panels[0]);
+        QPointer<TerminalDisplay> closedDisplay(displays[0]);
+        QPointer<QMainWindow>     closedWindow(controller.detachedWindow(ids[0]));
+        auto*                     close = closedWindow->findChild<QAction*>("Terminal.CloseView");
+        QVERIFY(close);
+        QApplication::processEvents();
+        closedWindow->activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), closedWindow.data());
+        close->trigger();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(closedWindow.isNull());
+        QVERIFY(closedPanel.isNull());
+        QVERIFY(closedDisplay.isNull());
+        QVERIFY(!controller.terminalIds().contains(ids[0]));
+        QVERIFY(_app.session()->objects().values().contains(ids[0]));
+    }
+
+    Q_SLOT void detachedTransitionToleratesSessionClosureFromBackendResize()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Reentry.termaster")), "Reentry", &error));
+        QVERIFY(_app.createSession("Reentry", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        auto                     probe      = std::make_shared<ReconnectDevice::Probe>();
+        PluginHost::TerminalType type;
+        type.id             = "detachedReentryFixture";
+        type.title          = "Reentry fixture";
+        type.plugin         = "Synthetic";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Reentry fixture
+content:
+  type: object
+  properties: {}
+)";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        const auto cleanup  = qScopeGuard([&] {
+            probe->resized = {};
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType(type.id);
+        });
+        host.registerTerminalType(type);
+        QVERIFY(_app.createTerminal(type.id, {}, "Reentry", &error));
+        const auto id     = _app.selectedTerminal();
+        bool       closed = false;
+        probe->resized    = [&] {
+            probe->resized = {};
+            closed         = _app.closeSession(&error);
+        };
+        QVERIFY(!controller.detachTerminal(id, &error));
+        QVERIFY(closed);
+        QVERIFY(!_app.session());
+        QVERIFY(controller.terminalIds().isEmpty());
+        QVERIFY(!controller.detachedWindow(id));
+        QCOMPARE(probe->attempts, 0);
+    }
+
+    Q_SLOT void detachedPresentationPersistsAndRecoversWithoutConnections()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("DetachedSave.termaster")), "Detached", &error));
+        QVERIFY(_app.createSession("Detached", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        auto                     probe      = std::make_shared<ReconnectDevice::Probe>();
+        PluginHost::TerminalType type;
+        type.id             = "detachedSaveFixture";
+        type.title          = "Detached save fixture";
+        type.plugin         = "Synthetic";
+        type.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Detached save fixture
+content:
+  type: object
+  properties: {}
+)";
+        type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        const auto cleanup  = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType(type.id);
+        });
+        host.registerTerminalType(type);
+        QStringList ids;
+        for (int index = 0; index < 2; ++index)
+        {
+            QVERIFY(_app.createTerminal(type.id, {}, QString::number(index), &error));
+            ids.append(_app.selectedTerminal());
+        }
+        const auto sessionId = _app.session()->id();
+        const auto path      = _app.session()->filePath();
+        const auto readDisk  = [&] {
+            QFile file(path.toString());
+            return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray {};
+        };
+        const auto baseline = readDisk();
+        QVERIFY(!baseline.isEmpty());
+        for (const auto& id : ids)
+        {
+            QVERIFY(controller.detachTerminal(id, &error));
+            controller.detachedWindow(id)->resize(720, 450);
+        }
+        auto* first   = controller.detachedWindow(ids[0]);
+        auto* toolbar = first->findChild<QToolBar*>("detachedTerminalToolbar");
+        QVERIFY(toolbar);
+        toolbar->hide();
+        first->statusBar()->hide();
+        QVERIFY(controller.capturePresentation(&error));
+        QCOMPARE(readDisk(), baseline);
+        const auto metadata = _app.session()->presentation().value("detachedWindows").toMap();
+        QCOMPARE(metadata.size(), 2);
+        for (const auto& id : ids)
+        {
+            const auto window  = metadata.value(id).toMap();
+            const auto encoded = window.value("geometry").toString().toLatin1();
+            QVERIFY(!encoded.isEmpty());
+            QCOMPARE(QByteArray::fromBase64(encoded).toBase64(), encoded);
+        }
+        QCOMPARE(metadata.value(ids[0]).toMap().value("toolbarVisible").toBool(), false);
+        QCOMPARE(metadata.value(ids[0]).toMap().value("statusBarVisible").toBool(), false);
+        QVERIFY2(_app.saveSession(&error), qPrintable(error));
+        Settings persisted(path, {"termaster.session", "Termaster session"});
+        QVERIFY(persisted.load(&error));
+        QCOMPARE(persisted.value("presentation/detachedWindows").toMap(), metadata);
+
+        // A blocked destination rejects saving without destroying live windows or metadata.
+        const auto savedPath = path.toString() + ".saved";
+        QVERIFY(QFile::rename(path.toString(), savedPath));
+        QVERIFY(QDir().mkdir(path.toString()));
+        auto                  restoreFile = qScopeGuard([&] {
+            QDir().rmdir(path.toString());
+            QFile::rename(savedPath, path.toString());
+        });
+        QPointer<QMainWindow> liveFirst(first);
+        QVERIFY(!_app.saveSession(&error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(liveFirst);
+        QCOMPARE(controller.detachedWindow(ids[0]), liveFirst.data());
+        QCOMPARE(_app.session()->presentation().value("detachedWindows").toMap(), metadata);
+        QVERIFY(QDir().rmdir(path.toString()));
+        QVERIFY(QFile::rename(savedPath, path.toString()));
+        restoreFile.dismiss();
+
+        QPointer<QMainWindow> second(controller.detachedWindow(ids[1]));
+        QVERIFY(host.unregisterTerminalType(type.id, &error));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(liveFirst.isNull());
+        QVERIFY(second.isNull());
+        QCOMPARE(_app.session()->presentation().value("detachedWindows").toMap(), metadata);
+        host.registerTerminalType(type);
+        for (const auto& id : ids)
+        {
+            auto* restored = controller.detachedWindow(id);
+            QVERIFY(restored);
+            QCOMPARE(restored->property("terminalId").toString(), id);
+            QCOMPARE(restored->findChild<TerminalDisplay*>("terminalDisplay")->text(), QString {});
+        }
+        QVERIFY(controller.detachedWindow(ids[0])->findChild<QToolBar*>("detachedTerminalToolbar")->isHidden());
+        QVERIFY(controller.detachedWindow(ids[0])->statusBar()->isHidden());
+        QVERIFY2(_app.saveSession(&error), qPrintable(error));
+        QPointer<QMainWindow> beforeClose(controller.detachedWindow(ids[0]));
+        QVERIFY(_app.closeSession(&error));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(beforeClose.isNull());
+        QVERIFY(_app.openSession(sessionId, &error));
+        QVERIFY(controller.detachedWindow(ids[0]));
+        QVERIFY(controller.detachedWindow(ids[1]));
+        QCOMPARE(probe->attempts, 0);
     }
 
     Q_SLOT void terminalTabOrderPersistsWithoutReorderWrites()
@@ -4596,6 +4997,19 @@ int main(int argc, char* argv[])
                     }
                     app.mainWindow().activateWindow();
                     app.pluginHost().connectSelectedTerminal();
+                }
+                if (scenario == "detached")
+                {
+                    auto&      controller = static_cast<TerminalController&>(app.pluginHost());
+                    const auto first      = app.selectedTerminal();
+                    if (!controller.detachTerminal(first, &error)
+                        || !app.createTerminal("closeFixture", {}, "Second detached", &error)
+                        || !controller.detachTerminal(app.selectedTerminal(), &error))
+                    {
+                        marker("detachFailed: " + error.toUtf8());
+                        std::_Exit(87);
+                    }
+                    marker("detachedReady");
                 }
                 if (scenario == "auxiliary")
                 {

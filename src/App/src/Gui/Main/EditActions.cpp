@@ -38,13 +38,19 @@ EditActions::EditActions(QMainWindow& window, CommandRegistry& commands, ActionC
     for (std::size_t index = 0; index < definitions.size(); ++index)
     {
         const auto& definition = definitions[index];
-        const auto  icon       = Icons::icon(QString::fromLatin1(definition.icon));
-        auto*       command    = commands.create(QString::fromLatin1(definition.id),
-                                                 tr(definition.text),
-                                                 icon,
-                                                 QKeySequence(definition.shortcut));
-        auto*       action     = command->newAction(&window);
-        _actions[index]        = action;
+        const auto  id         = QString::fromLatin1(definition.id);
+        auto*       command    = commands.find(id);
+        if (!command)
+        {
+            command = commands.create(id,
+                                      tr(definition.text),
+                                      Icons::icon(QString::fromLatin1(definition.icon)),
+                                      QKeySequence(definition.shortcut));
+        }
+        auto* action = command->newAction(&window);
+        action->setObjectName(QString::fromLatin1(definition.id));
+        action->setShortcutContext(Qt::WindowShortcut);
+        _actions[index] = action;
         menu.addAction(action, QString::fromLatin1(definition.group));
         window.addAction(action);
         connect(action, &QAction::triggered, this, [this, operation = static_cast<Operation>(index)] {

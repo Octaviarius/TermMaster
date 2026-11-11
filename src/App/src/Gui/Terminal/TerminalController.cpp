@@ -7,11 +7,13 @@
 #include "../Processing/ProcessorFavorites.h"
 #include "../Settings/SettingsDialog.h"
 #include "CommandEditor.h"
+#include "DetachedTerminalWindow.h"
 #include "TerminalProcessingPanel.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QDesktopServices>
+#include <QEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFontMetrics>
@@ -21,7 +23,9 @@
 #include <QMessageBox>
 #include <QSaveFile>
 #include <QScopeGuard>
+#include <QScopedValueRollback>
 #include <QSet>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTabBar>
@@ -181,6 +185,8 @@ struct TerminalController::Runtime
     QPointer<CommandEditor>            editor;
     QPointer<TerminalDisplay>          display;
     QPointer<QWidget>                  panel;
+    QPointer<DetachedTerminalWindow>   window;
+    QMap<QString, QPointer<QAction>>   hostActions;
     bool                               connectionRequested = false;
     QString                            lastError;
     QString                            title;
@@ -223,6 +229,10 @@ TerminalController::TerminalController(MainWindow&                 window,
     _closeSettings(std::move(closeSettings)), _showSettings(std::move(showSettings))
 {
     connect(&_window.terminalTabs(), &QTabWidget::currentChanged, this, [this] {
+        if (_movingHost)
+        {
+            return;
+        }
         refreshTerminalActions();
         emit selectionChanged();
     });
@@ -251,8 +261,15 @@ TerminalController::TerminalController(MainWindow&                 window,
             }
         }
     });
-    connect(qApp, &QApplication::focusChanged, this, [this] { refreshTerminalActions(); });
-    connect(qApp, &QGuiApplication::focusWindowChanged, this, [this] { refreshTerminalActions(); });
+    connect(qApp, &QApplication::focusChanged, this, [this] { _focusChanged(); });
+    connect(qApp, &QGuiApplication::focusWindowChanged, this, [this] { _focusChanged(); });
+    connect(&_window, &MainWindow::terminalDetachRequested, this, [this](const QString& id) {
+        QString error;
+        if (!detachTerminal(id, &error))
+        {
+            showMessage(error);
+        }
+    });
     for (const bool requested : {true, false})
     {
         Action action;
@@ -362,6 +379,68 @@ TerminalController::TerminalController(MainWindow&                 window,
         _window.statusBar()->addPermanentWidget(button);
         _statusButtons[index] = button;
     }
+    Action detach;
+    detach.id       = "Terminal.Detach";
+    detach.title    = tr("Move to new window");
+    detach.iconName = "app-window";
+    detach.group    = "management";
+    detach.role     = Action::Role::Additional;
+    detach.visible  = [this] {
+        const auto* current = _current();
+        return current && !current->window;
+    };
+    detach.enabled = detach.visible;
+    detach.trigger = [this] {
+        const auto id = selectedTerminal();
+        QString    error;
+        if (!detachTerminal(id, &error))
+        {
+            showMessage(error);
+        }
+    };
+    registerAction(std::move(detach));
+
+    Action attach;
+    attach.id       = "Terminal.Attach";
+    attach.title    = tr("Return to main window");
+    attach.iconName = "panels-top-left";
+    attach.group    = "management";
+    attach.role     = Action::Role::Additional;
+    attach.visible  = [this] {
+        const auto* current = _current();
+        return current && current->window;
+    };
+    attach.enabled = attach.visible;
+    attach.trigger = [this] {
+        const auto id = selectedTerminal();
+        QString    error;
+        if (!attachTerminal(id, &error))
+        {
+            showMessage(error);
+        }
+    };
+    registerAction(std::move(attach));
+
+    Action close;
+    close.id       = "Terminal.CloseView";
+    close.title    = tr("Close terminal");
+    close.iconName = "x";
+    close.group    = "management";
+    close.role     = Action::Role::Additional;
+    close.visible  = [this] {
+        const auto* current = _current();
+        if (!current || !current->window)
+        {
+            return false;
+        }
+        return std::none_of(_actions.cbegin(), _actions.cend(), [current](const auto& item) {
+            return item.second.registration.role == Action::Role::Close
+                && item.second.registration.terminalType == current->type;
+        });
+    };
+    close.enabled = close.visible;
+    close.trigger = [this] { closeSelectedTerminal(); };
+    registerAction(std::move(close));
 }
 TerminalController::~TerminalController()
 {
@@ -407,7 +486,7 @@ void TerminalController::closeAll()
     }
     while (!_terminals.empty())
     {
-        _close(_terminals.begin()->first);
+        _close(_terminals.begin()->first, true);
         if (!self)
         {
             return;
@@ -447,7 +526,10 @@ QVariantMap TerminalController::workspaceSettings() const
 }
 void TerminalController::showMessage(const QString& message)
 {
-    _window.statusBar()->showMessage(owned(message));
+    if (auto* host = qobject_cast<QMainWindow*>(selectedWindow()))
+    {
+        host->statusBar()->showMessage(owned(message));
+    }
 }
 QObject* TerminalController::context()
 {
@@ -455,7 +537,9 @@ QObject* TerminalController::context()
 }
 bool TerminalController::_activeWindow() const
 {
-    return QApplication::activeWindow() == &_window;
+    const auto* current = _current();
+    const auto* host    = current && current->window ? static_cast<QWidget*>(current->window.data()) : &_window;
+    return QApplication::activeWindow() == host;
 }
 bool TerminalController::canCreateTerminal() const
 {
@@ -469,24 +553,68 @@ bool TerminalController::connectionRequested(const QString& type) const
 bool TerminalController::hasSelectedTerminal(const QString& type) const
 {
     const auto* current = _current();
-    return _activeWindow() && current && current->type == type;
+    return current && current->type == type;
 }
 SerialDevice* TerminalController::selectedDevice(const QString& type)
 {
     auto* current = _current();
-    return hasSelectedTerminal(type) ? current->device.get() : nullptr;
+    return _activeWindow() && hasSelectedTerminal(type) ? current->device.get() : nullptr;
 }
-TerminalController::Runtime* TerminalController::_current() const
+QString TerminalController::_mainTerminalId() const
 {
-    auto* selected = _window.terminalTabs().currentWidget();
+    const auto* selected = _window.terminalTabs().currentWidget();
     for (const auto& [id, terminal] : _terminals)
     {
-        if (terminal->panel == selected)
+        if (selected && terminal->panel == selected)
         {
-            return terminal.get();
+            return id;
         }
     }
-    return nullptr;
+    return {};
+}
+
+TerminalController::Runtime* TerminalController::_current() const
+{
+    if (_commandTarget)
+    {
+        const auto it = _terminals.find(*_commandTarget);
+        return it == _terminals.end() ? nullptr : it->second.get();
+    }
+    for (auto* active = QApplication::activeWindow(); active; active = active->parentWidget())
+    {
+        for (const auto& [id, terminal] : _terminals)
+        {
+            if (terminal->window && terminal->window == active)
+            {
+                return terminal.get();
+            }
+        }
+    }
+    const auto it = _terminals.find(_mainTerminalId());
+    return it == _terminals.end() ? nullptr : it->second.get();
+}
+
+QWidget* TerminalController::selectedWindow() const
+{
+    const auto* current = _current();
+    return current && current->window ? static_cast<QWidget*>(current->window.data()) : &_window;
+}
+
+void TerminalController::_focusChanged()
+{
+    if (_movingHost)
+    {
+        return;
+    }
+    const auto target  = selectedTerminal();
+    const bool changed = _focusedTerminal != target;
+    _focusedTerminal   = target;
+    const QPointer<TerminalController> self(this);
+    refreshTerminalActions();
+    if (self && changed && _batchDepth == 0)
+    {
+        emit selectionChanged();
+    }
 }
 
 void TerminalController::registerTerminalType(TerminalType type)
@@ -539,7 +667,7 @@ bool TerminalController::unregisterTerminalType(const QString& type, QString* er
     }
     for (const auto& id : remove)
     {
-        _close(id);
+        _close(id, true);
     }
     _types.erase(type);
     refreshTerminalActions();
@@ -608,19 +736,10 @@ void TerminalController::_registerAction(Action action, ActionContainer* menu)
         _commands.remove(id);
         throw;
     }
-    connect(presentation, &QAction::triggered, this, [this, id] {
-        auto it = _actions.find(id);
-        if (it == _actions.end() || !_activeWindow())
-        {
-            return;
-        }
-        auto& registration = it->second.registration;
-        if ((!registration.visible || registration.visible()) && (!registration.enabled || registration.enabled()))
-        {
-            registration.trigger();
-        }
-        refreshTerminalActions();
-    });
+    presentation->setObjectName(id);
+    presentation->setShortcutContext(Qt::WindowShortcut);
+    _window.addAction(presentation);
+    connect(presentation, &QAction::triggered, this, [this, id] { _triggerAction(id, _mainTerminalId(), &_window); });
     refreshTerminalActions();
 }
 void TerminalController::unregisterAction(const QString& id)
@@ -629,6 +748,17 @@ void TerminalController::unregisterAction(const QString& id)
     if (it == _actions.end())
     {
         return;
+    }
+    for (auto& [terminalId, terminal] : _terminals)
+    {
+        auto* presentation = terminal->hostActions.take(id).data();
+        if (presentation && terminal->window)
+        {
+            terminal->window->terminalMenu().removeAction(presentation);
+            terminal->window->viewMenu().removeAction(presentation);
+            terminal->window->terminalToolbar().removeAction(presentation);
+            delete presentation;
+        }
     }
     auto* action = it->second.action.data();
     if (action)
@@ -660,47 +790,192 @@ void TerminalController::unregisterEditor(const QString& id)
 }
 void TerminalController::refreshTerminalActions()
 {
-    if (_batchDepth > 0)
+    if (_batchDepth > 0 || _refreshingActions || _movingHost)
     {
         return;
     }
-    const auto* selected = _current();
-    const auto  buffered = _actions.find("Terminal.BufferedInput");
-    if (buffered != _actions.end() && buffered->second.action)
-    {
-        buffered->second.action->setChecked(selected && selected->editor && selected->editor->buffered());
-    }
-    const auto echo = _actions.find("Terminal.LocalEcho");
-    if (echo != _actions.end() && echo->second.action)
-    {
-        echo->second.action->setChecked(selected && selected->settings.value("input/localEcho", false).toBool());
-    }
-    const auto wrap = _actions.find("View.WrapLines");
-    if (wrap != _actions.end() && wrap->second.action)
-    {
-        wrap->second.action->setChecked(selected && selected->settings.value("appearance/wrapLines", true).toBool());
-    }
-    const auto processing = _actions.find("Terminal.Processing");
-    if (processing != _actions.end() && processing->second.action)
-    {
-        processing->second.action->setChecked(selected && selected->processingPanel
-                                              && !selected->processingPanel->isHidden());
-    }
-    for (auto& [id, item] : _actions)
-    {
-        if (!item.action)
+    const QPointer<TerminalController> self(this);
+    _refreshingActions       = true;
+    const auto finishRefresh = qScopeGuard([self] {
+        if (self)
         {
-            continue;
+            self->_refreshingActions = false;
         }
-        try
+    });
+    {
+        const auto previousTarget = _commandTarget;
+        _commandTarget            = _mainTerminalId();
+        const auto  restoreTarget = qScopeGuard([self, previousTarget] {
+            if (self)
+            {
+                self->_commandTarget = previousTarget;
+            }
+        });
+        QStringList commands;
+        for (const auto& [id, item] : _actions)
         {
-            item.action->setVisible(!item.registration.visible || item.registration.visible());
-            item.action->setEnabled(_activeWindow() && (!item.registration.enabled || item.registration.enabled()));
+            commands.append(id);
         }
-        catch (const std::exception&)
+        for (const auto& id : commands)
         {
-            item.action->setEnabled(false);
+            const auto it = _actions.find(id);
+            if (it == _actions.end() || !it->second.action)
+            {
+                continue;
+            }
+            const auto              item   = it->second;
+            const QPointer<QAction> action = item.action;
+            try
+            {
+                const bool visible = !item.registration.visible || item.registration.visible();
+                if (!self)
+                {
+                    return;
+                }
+                const bool enabled = _activeWindow() && (!item.registration.enabled || item.registration.enabled());
+                if (!self)
+                {
+                    return;
+                }
+                if (!action)
+                {
+                    continue;
+                }
+                action->setChecked(_actionChecked(id, _current()));
+                if (!self)
+                {
+                    return;
+                }
+                if (!action)
+                {
+                    continue;
+                }
+                action->setVisible(visible);
+                if (!self)
+                {
+                    return;
+                }
+                if (action)
+                {
+                    action->setEnabled(enabled);
+                }
+            }
+            catch (const std::exception&)
+            {
+                if (action)
+                {
+                    action->setEnabled(false);
+                }
+            }
+            if (!self)
+            {
+                return;
+            }
         }
+    }
+
+    QStringList detached;
+    for (const auto& [id, terminal] : _terminals)
+    {
+        if (terminal->window)
+        {
+            detached.append(id);
+        }
+    }
+    for (const auto& id : detached)
+    {
+        _refreshHostActions(id);
+        if (!self)
+        {
+            return;
+        }
+    }
+}
+
+bool TerminalController::_actionChecked(const QString& id, const Runtime* terminal) const
+{
+    if (!terminal)
+    {
+        return false;
+    }
+    if (id == "Terminal.LocalEcho")
+    {
+        return terminal->settings.value("input/localEcho", false).toBool();
+    }
+    if (id == "View.WrapLines")
+    {
+        return terminal->settings.value("appearance/wrapLines", true).toBool();
+    }
+    if (id == "Terminal.BufferedInput")
+    {
+        return terminal->editor && terminal->editor->buffered();
+    }
+    if (id == "Terminal.Processing")
+    {
+        return terminal->processingPanel && !terminal->processingPanel->isHidden();
+    }
+    const auto it = _actions.find(id);
+    return it != _actions.end() && it->second.action && it->second.action->isChecked();
+}
+
+void TerminalController::_triggerAction(const QString& id, const QString& terminalId, QWidget* host)
+{
+    if (!host || QApplication::activeWindow() != host)
+    {
+        return;
+    }
+    const auto it = _actions.find(id);
+    if (it == _actions.end() || (!terminalId.isEmpty() && !_terminals.contains(terminalId)))
+    {
+        return;
+    }
+    const auto runtime = _terminals.find(terminalId);
+    if (runtime != _terminals.end()
+        && (runtime->second->window ? static_cast<QWidget*>(runtime->second->window.data()) : &_window) != host)
+    {
+        return;
+    }
+    const QPointer<TerminalController> self(this);
+    {
+        const auto previousTarget             = _commandTarget;
+        _commandTarget                        = terminalId;
+        const auto              restoreTarget = qScopeGuard([self, previousTarget] {
+            if (self)
+            {
+                self->_commandTarget = previousTarget;
+            }
+        });
+        const QPointer<QAction> source        = it->second.action;
+        const QPointer<QWidget> targetHost    = host;
+        const QPointer<QWidget> targetPanel   = runtime == _terminals.end() ? nullptr : runtime->second->panel.data();
+        const auto              registration  = it->second.registration;
+        const bool              visible       = !registration.visible || registration.visible();
+        if (!self)
+        {
+            return;
+        }
+        const bool enabled = !registration.enabled || registration.enabled();
+        if (!self)
+        {
+            return;
+        }
+        const auto current        = _actions.find(id);
+        const auto currentRuntime = _terminals.find(terminalId);
+        const bool sameTarget     = terminalId.isEmpty()
+                                 || (currentRuntime != _terminals.end() && currentRuntime->second->panel == targetPanel
+                                     && (currentRuntime->second->window ?
+                                             static_cast<QWidget*>(currentRuntime->second->window.data()) :
+                                             &_window)
+                                            == targetHost);
+        if (visible && enabled && source && targetHost && sameTarget && QApplication::activeWindow() == targetHost
+            && current != _actions.end() && current->second.action == source)
+        {
+            registration.trigger();
+        }
+    }
+    if (self)
+    {
+        refreshTerminalActions();
     }
 }
 
@@ -960,7 +1235,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                 it->second->advanced->connectionChanged();
                 if (it->second->lastError != error)
                 {
-                    self->_window.statusBar()->showMessage(owned(error));
+                    self->_showTerminalMessage(id, error);
                 }
                 it->second->lastError = owned(error);
                 self->_changed(id);
@@ -992,7 +1267,10 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         const auto it = _terminals.find(id);
         if (it != _terminals.end())
         {
-            it->second->device->resize(columns, rows);
+            if (!_movingHost)
+            {
+                it->second->device->resize(columns, rows);
+            }
         }
     });
     device->resize(display->terminalSize().width(), display->terminalSize().height());
@@ -1006,7 +1284,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         QString error;
         if (!it->second->settings.setValue("input/" + key, value, &error))
         {
-            showMessage(error);
+            _showTerminalMessage(id, error);
         }
         it->second->editor->setSettings(it->second->settings.value("input").toMap());
         it->second->advanced->configure(it->second->settings.value("input").toMap());
@@ -1080,8 +1358,10 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             {
                 return;
             }
-            showMessage((direction == ProcessingRouter::Direction::Rx ? tr("Rx processing: ") : tr("Tx processing: "))
-                        + error);
+            _showTerminalMessage(id,
+                                 (direction == ProcessingRouter::Direction::Rx ? tr("Rx processing: ") :
+                                                                                 tr("Tx processing: "))
+                                     + error);
         },
         Qt::QueuedConnection);
     connect(_terminals.at(id)->sender.get(), &TerminalSendQueue::changed, router, [router] {
@@ -1100,12 +1380,14 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                                                              == it->second->settings.value("processing").toMap());
             if (self && !configured)
             {
-                showMessage(error);
+                _showTerminalMessage(id, error);
             }
         }
     });
     connect(advanced, &AdvancedSender::stateChanged, editor, &CommandEditor::setSendingState);
-    connect(advanced, &AdvancedSender::failed, this, [this](const QString& error) { showMessage(error); });
+    connect(advanced, &AdvancedSender::failed, this, [this, id](const QString& error) {
+        _showTerminalMessage(id, error);
+    });
     connect(editor, &CommandEditor::stopRequested, advanced, &AdvancedSender::stop);
     connect(editor,
             &CommandEditor::periodicRequested,
@@ -1120,7 +1402,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                 const auto bytes = CommandInput::prepare(text, terminator, custom, &error);
                 if (!bytes || !it->second->advanced->startPeriodic(*bytes, interval, &error))
                 {
-                    showMessage(error);
+                    _showTerminalMessage(id, error);
                 }
             });
     connect(editor, &CommandEditor::fileRequested, this, [this, id](bool lines) {
@@ -1131,12 +1413,15 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         }
         const QPointer<QWidget>            panel = initial->second->panel;
         const QPointer<TerminalController> self(this);
-        const QString                      path = QFileDialog::getOpenFileName(&_window, tr("Select file to send"));
-        if (!self || path.isEmpty())
+        const QPointer<QWidget>            parent = initial->second->window ?
+                                                        static_cast<QWidget*>(initial->second->window.data()) :
+                                                        &_window;
+        const QString                      path   = QFileDialog::getOpenFileName(parent, tr("Select file to send"));
+        if (!self || !parent || !panel || path.isEmpty())
         {
             return;
         }
-        if (QMessageBox::question(&_window,
+        if (QMessageBox::question(parent,
                                   tr("Send file"),
                                   lines ?
                                       tr("Send this file as byte-preserving lines with the selected terminator?\n%1")
@@ -1163,11 +1448,11 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         if ((lines && !terminator)
             || !it->second->advanced->startFile(path, lines, lines ? *terminator : QByteArray {}, &error))
         {
-            showMessage(error);
+            _showTerminalMessage(id, error);
         }
     });
-    connect(_terminals.at(id)->sender.get(), &TerminalSendQueue::failed, this, [this](const QString& error) {
-        showMessage(error);
+    connect(_terminals.at(id)->sender.get(), &TerminalSendQueue::failed, this, [this, id](const QString& error) {
+        _showTerminalMessage(id, error);
     });
     editor->setSendCallback([this, id](const QString& text, const QString& terminator, const QString& custom) {
         const auto it = _terminals.find(id);
@@ -1179,7 +1464,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         const auto bytes = CommandInput::prepare(text, terminator, custom, &error);
         if (!bytes || !it->second->advanced->submit(*bytes, &error))
         {
-            showMessage(error);
+            _showTerminalMessage(id, error);
             return false;
         }
         if (it->second->settings.value("input/localEcho", false).toBool())
@@ -1231,7 +1516,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                                               == Processor::AcceptResult::Accepted;
                 if (!accepted)
                 {
-                    showMessage(error);
+                    _showTerminalMessage(id, error);
                 }
                 else if ((kind == TerminalDisplay::OutputKind::Keyboard || kind == TerminalDisplay::OutputKind::Paste)
                          && it->second->settings.value("input/localEcho", false).toBool())
@@ -1248,6 +1533,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
             _changed(id);
         }
     });
+    panel->setProperty("terminalId", id);
     const int index = _window.terminalTabs().addTab(panel, _terminals.at(id)->name);
     if (_batchDepth > 0)
     {
@@ -1306,7 +1592,7 @@ void TerminalController::_endBatch()
     }
     if (_batchSelectionChanged)
     {
-        _window.showTerminals(!_terminals.empty());
+        _window.showTerminals(_window.terminalTabs().count() > 0);
         if (!self)
         {
             return;
@@ -1393,12 +1679,17 @@ void TerminalController::_restore()
         }
         auto&     tabs  = _window.terminalTabs();
         const int index = tabs.indexOf(_terminals.at(id)->panel);
+        if (index < 0)
+        {
+            continue;
+        }
         if (index != target)
         {
             tabs.tabBar()->moveTab(index, target);
         }
         ++target;
     }
+    _restoreDetached();
 }
 
 bool TerminalController::_rememberTabOrder(QString* error)
@@ -1457,13 +1748,584 @@ bool TerminalController::_rememberTabOrder(QString* error)
     return _session->presentation().setValue("tabOrder", order, error);
 }
 
-void TerminalController::_close(const QString& id)
+QMainWindow* TerminalController::detachedWindow(const QString& id) const
+{
+    const auto it = _terminals.find(id);
+    return it == _terminals.end() ? nullptr : it->second->window.data();
+}
+
+bool TerminalController::detachTerminal(const QString& id, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    auto it = _terminals.find(id);
+    if (!_session || it == _terminals.end() || !it->second->panel || _movingHost)
+    {
+        return fail(error, tr("Terminal is no longer available for detaching."));
+    }
+    if (it->second->window)
+    {
+        return true;
+    }
+    if (!_rememberTabOrder(error))
+    {
+        return false;
+    }
+
+    const QPointer<TerminalController> owner(this);
+    const QPointer<QWidget>            originalPanel = it->second->panel;
+    const auto                         alive         = [owner, originalPanel, id] {
+        if (!owner || !originalPanel)
+        {
+            return false;
+        }
+        const auto current = owner->_terminals.find(id);
+        return current != owner->_terminals.end() && current->second->panel == originalPanel;
+    };
+    auto&      terminal = *it->second;
+    const auto saved    = _session->presentation().node("detachedWindows").value(id).toMap();
+    {
+        QPointer<TerminalController> self(this);
+        _movingHost                                   = true;
+        const auto                             moving = qScopeGuard([self] {
+            if (self)
+            {
+                self->_movingHost = false;
+            }
+        });
+        const QPointer<DetachedTerminalWindow> host   = new DetachedTerminalWindow(_commands, &_window);
+        host->setProperty("terminalId", id);
+        terminal.window = host;
+        host->installEventFilter(this);
+        host->terminalToolbar().installEventFilter(this);
+        host->statusBar()->installEventFilter(this);
+        connect(host, &DetachedTerminalWindow::returnRequested, this, [this, id] {
+            QString error;
+            if (!attachTerminal(id, &error))
+            {
+                showMessage(error);
+            }
+        });
+        if (!saved.isEmpty())
+        {
+            host->restoreGeometry(QByteArray::fromBase64(saved.value("geometry").toString().toLatin1()));
+        }
+        host->terminalToolbar().setVisible(saved.value("toolbarVisible", true).toBool());
+        host->statusBar()->setVisible(saved.value("statusBarVisible", true).toBool());
+        const QPointer<QWidget> panel   = terminal.panel;
+        const bool              updates = panel->updatesEnabled();
+        panel->setUpdatesEnabled(false);
+        QPointer<TerminalDisplay> display  = terminal.display;
+        const bool                blocked  = display->blockSignals(true);
+        const auto                geometry = qScopeGuard([display, blocked] {
+            if (display)
+            {
+                display->blockSignals(blocked);
+            }
+        });
+        auto&                     tabs     = _window.terminalTabs();
+        const int                 index    = tabs.indexOf(panel);
+        if (index >= 0)
+        {
+            tabs.removeTab(index);
+        }
+        if (!alive() || !host)
+        {
+            return false;
+        }
+        host->setCentralWidget(panel);
+        // QTabWidget hides a removed page; the new host must show it explicitly.
+        panel->show();
+        host->show();
+        if (!alive() || !host)
+        {
+            return false;
+        }
+        host->layout()->activate();
+        if (!alive())
+        {
+            return false;
+        }
+        panel->layout()->activate();
+        if (!alive())
+        {
+            return false;
+        }
+        panel->setUpdatesEnabled(updates);
+        _window.showTerminals(tabs.count() > 0);
+        _changed(id);
+        if (!_captureDetached(id, error))
+        {
+            // The cached settings owner normally cannot fail here. Keep a visible
+            // live host if it does, rather than discarding the terminal panel.
+            return false;
+        }
+    }
+    QPointer<TerminalController> self(this);
+    const auto                   runtime = _terminals.find(id);
+    if (!alive() || runtime == _terminals.end())
+    {
+        return false;
+    }
+    const auto size = runtime->second->display->terminalSize();
+    runtime->second->device->resize(size.width(), size.height());
+    if (!self || !originalPanel)
+    {
+        return false;
+    }
+    _refreshHostActions(id);
+    if (!self)
+    {
+        return false;
+    }
+    const auto current = _terminals.find(id);
+    if (current != _terminals.end() && current->second->window)
+    {
+        const QPointer<DetachedTerminalWindow> host    = current->second->window;
+        const QPointer<TerminalDisplay>        display = current->second->display;
+        host->raise();
+        if (!self || !host || !display)
+        {
+            return false;
+        }
+        host->activateWindow();
+        if (!self || !display)
+        {
+            return false;
+        }
+        display->setFocus();
+    }
+    if (!self)
+    {
+        return false;
+    }
+    if (_batchDepth == 0)
+    {
+        refreshTerminalActions();
+        if (self)
+        {
+            emit selectionChanged();
+        }
+    }
+    return true;
+}
+
+bool TerminalController::attachTerminal(const QString& id, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    auto it = _terminals.find(id);
+    if (!_session || it == _terminals.end() || !it->second->panel || _movingHost)
+    {
+        return fail(error, tr("Terminal is no longer available for returning."));
+    }
+    const QPointer<TerminalController> owner(this);
+    const QPointer<QWidget>            originalPanel   = it->second->panel;
+    const QPointer<TerminalDisplay>    originalDisplay = it->second->display;
+    const auto                         alive           = [owner, originalPanel, id] {
+        if (!owner || !originalPanel)
+        {
+            return false;
+        }
+        const auto current = owner->_terminals.find(id);
+        return current != owner->_terminals.end() && current->second->panel == originalPanel;
+    };
+    auto&                            terminal = *it->second;
+    QPointer<DetachedTerminalWindow> host     = terminal.window;
+    if (!host)
+    {
+        return true;
+    }
+    auto state = _session->presentation().node("detachedWindows");
+    if (state.contains(id) && !state.remove(id, error))
+    {
+        return false;
+    }
+    {
+        QPointer<TerminalController> self(this);
+        _movingHost        = true;
+        const auto moving  = qScopeGuard([self] {
+            if (self)
+            {
+                self->_movingHost = false;
+            }
+        });
+        auto*      panel   = host->takeCentralWidget();
+        const bool updates = panel->updatesEnabled();
+        panel->setUpdatesEnabled(false);
+        QPointer<TerminalDisplay> display  = terminal.display;
+        const bool                blocked  = display->blockSignals(true);
+        const auto                geometry = qScopeGuard([display, blocked] {
+            if (display)
+            {
+                display->blockSignals(blocked);
+            }
+        });
+        terminal.window                    = nullptr;
+        terminal.hostActions.clear();
+        host->allowClose();
+        host->hide();
+        host->deleteLater();
+        if (!alive())
+        {
+            return false;
+        }
+        int position = 0;
+        for (const auto& value : _session->presentation().value("tabOrder").toList())
+        {
+            const auto otherId = value.toString();
+            if (otherId == id)
+            {
+                break;
+            }
+            const auto other = _terminals.find(otherId);
+            if (other != _terminals.end() && !other->second->window)
+            {
+                ++position;
+            }
+        }
+        auto&     tabs  = _window.terminalTabs();
+        const int index = tabs.insertTab(std::min(position, tabs.count()), panel, QString());
+        if (!alive())
+        {
+            return false;
+        }
+        _changed(id);
+        tabs.setCurrentIndex(index);
+        _window.showTerminals(true);
+        _window.layout()->activate();
+        if (!alive())
+        {
+            return false;
+        }
+        panel->layout()->activate();
+        if (!alive())
+        {
+            return false;
+        }
+        panel->setUpdatesEnabled(updates);
+    }
+    QPointer<TerminalController>    self(this);
+    const QPointer<TerminalDisplay> display = originalDisplay;
+    const auto                      size    = display->terminalSize();
+    _terminals.at(id)->device->resize(size.width(), size.height());
+    if (!self || !display)
+    {
+        return false;
+    }
+    if (_window.isMinimized())
+    {
+        _window.showNormal();
+    }
+    _window.show();
+    _window.raise();
+    _window.activateWindow();
+    if (!self || !display)
+    {
+        return false;
+    }
+    display->setFocus();
+    if (!self)
+    {
+        return false;
+    }
+    refreshTerminalActions();
+    if (self)
+    {
+        emit selectionChanged();
+    }
+    return true;
+}
+
+bool TerminalController::_captureDetached(const QString& id, QString* error)
+{
+    const auto it = _terminals.find(id);
+    if (!_session || it == _terminals.end() || !it->second->window)
+    {
+        return true;
+    }
+    auto* host  = it->second->window.data();
+    auto  state = _session->presentation().node("detachedWindows");
+    auto  value = state.value(id).toMap();
+    value.insert("geometry", QString::fromLatin1(host->saveGeometry().toBase64()));
+    value.insert("toolbarVisible", !host->terminalToolbar().isHidden());
+    value.insert("statusBarVisible", !host->statusBar()->isHidden());
+    return state.setValue(id, value, error);
+}
+
+bool TerminalController::capturePresentation(QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!_session)
+    {
+        return true;
+    }
+    if (!_rememberTabOrder(error))
+    {
+        return false;
+    }
+    for (const auto& [id, terminal] : _terminals)
+    {
+        if (terminal->window && !_captureDetached(id, error))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool TerminalController::eventFilter(QObject* watched, QEvent* event)
+{
+    if (!_movingHost && _session
+        && (event->type() == QEvent::Move || event->type() == QEvent::Resize
+            || event->type() == QEvent::WindowStateChange || event->type() == QEvent::Show
+            || event->type() == QEvent::Hide))
+    {
+        auto* widget = qobject_cast<QWidget*>(watched);
+        auto* host   = widget ? qobject_cast<DetachedTerminalWindow*>(widget->window()) : nullptr;
+        if (host)
+        {
+            const auto id = host->property("terminalId").toString();
+            const auto it = _terminals.find(id);
+            if (it != _terminals.end() && it->second->window == host)
+            {
+                QString error;
+                if (!_captureDetached(id, &error))
+                {
+                    showMessage(error);
+                }
+            }
+        }
+    }
+    return QObject::eventFilter(watched, event);
+}
+
+void TerminalController::_restoreDetached()
+{
+    if (!_session)
+    {
+        return;
+    }
+    const auto saved = _session->presentation().node("detachedWindows").values();
+    for (auto entry = saved.cbegin(); entry != saved.cend(); ++entry)
+    {
+        const auto it = _terminals.find(entry.key());
+        if (it == _terminals.end() || it->second->window)
+        {
+            continue;
+        }
+        QString error;
+        if (!detachTerminal(entry.key(), &error))
+        {
+            showMessage(error);
+        }
+    }
+}
+
+void TerminalController::_refreshHostActions(const QString& id)
+{
+    auto it = _terminals.find(id);
+    if (it == _terminals.end() || !it->second->window)
+    {
+        return;
+    }
+    auto&                              terminal = *it->second;
+    QPointer<DetachedTerminalWindow>   host     = terminal.window;
+    const QPointer<TerminalController> self(this);
+    const auto                         previousTarget = _commandTarget;
+    _commandTarget                                    = id;
+    const auto restoreTarget                          = qScopeGuard([self, previousTarget] {
+        if (self)
+        {
+            self->_commandTarget = previousTarget;
+        }
+    });
+    const auto alive                                  = [self, host, id] {
+        if (!self || !host)
+        {
+            return false;
+        }
+        const auto it = self->_terminals.find(id);
+        return it != self->_terminals.end() && it->second->window == host;
+    };
+    QStringList commands;
+    for (const auto& [commandId, item] : _actions)
+    {
+        commands.append(commandId);
+    }
+    std::sort(commands.begin(), commands.end(), [this](const QString& left, const QString& right) {
+        const auto a = _actions.at(left).registration.role;
+        const auto b = _actions.at(right).registration.role;
+        return a == b ? left < right : a < b;
+    });
+    for (const auto& commandId : commands)
+    {
+        const auto itemIt = _actions.find(commandId);
+        if (itemIt == _actions.end())
+        {
+            continue;
+        }
+        const auto item = itemIt->second;
+
+        if (item.registration.role == Action::Role::Create || item.registration.group == "allConnections")
+        {
+            continue;
+        }
+        if (!item.registration.terminalType.isEmpty() && item.registration.terminalType != terminal.type)
+        {
+            continue;
+        }
+        auto* action = terminal.hostActions.value(commandId).data();
+        if (!action)
+        {
+            auto* command = _commands.find(commandId);
+            if (!command)
+            {
+                continue;
+            }
+            action = command->newAction(host);
+            action->setObjectName(commandId);
+            action->setShortcutContext(Qt::WindowShortcut);
+            host->addAction(action);
+            terminal.hostActions.insert(commandId, action);
+            if (commandId == "View.WrapLines")
+            {
+                host->viewMenu().addAction(action, "terminal");
+            }
+            else
+            {
+                const auto group = host->terminalMenu().groups().contains(item.registration.group) ?
+                                       item.registration.group :
+                                       QString("management");
+                host->terminalMenu().addAction(action, group);
+            }
+            const auto role = item.registration.role;
+            if ((role != Action::Role::Close && role != Action::Role::Additional) || commandId == "Terminal.Attach")
+            {
+                host->terminalToolbar().addAction(action);
+            }
+            connect(action,
+                    &QAction::triggered,
+                    this,
+                    [this, commandId, id, window = QPointer<DetachedTerminalWindow>(host.data())] {
+                        if (window)
+                        {
+                            _triggerAction(commandId, id, window);
+                        }
+                    });
+        }
+        const QPointer<QAction> guarded(action);
+        try
+        {
+            const bool visible = !item.registration.visible || item.registration.visible();
+            if (!alive())
+            {
+                return;
+            }
+            const bool enabled = _activeWindow() && (!item.registration.enabled || item.registration.enabled());
+            if (!alive())
+            {
+                return;
+            }
+            if (!guarded)
+            {
+                continue;
+            }
+            guarded->setCheckable(item.action && item.action->isCheckable());
+            if (!alive())
+            {
+                return;
+            }
+            if (!guarded)
+            {
+                continue;
+            }
+            guarded->setChecked(_actionChecked(commandId, _current()));
+            if (!alive())
+            {
+                return;
+            }
+            if (!guarded)
+            {
+                continue;
+            }
+            guarded->setVisible(visible);
+            if (!alive())
+            {
+                return;
+            }
+            if (guarded)
+            {
+                guarded->setEnabled(enabled);
+            }
+            if (!alive())
+            {
+                return;
+            }
+        }
+        catch (const std::exception&)
+        {
+            if (!alive())
+            {
+                return;
+            }
+            if (guarded)
+            {
+                guarded->setEnabled(false);
+            }
+        }
+    }
+    const QStringList ids {"Terminal.BufferedInput", "Terminal.SendFile", "Terminal.Processing"};
+    const QStringList names {"statusBufferedInput", "statusSendFile", "statusProcessing"};
+    for (int index = 0; index < ids.size(); ++index)
+    {
+        auto* action = terminal.hostActions.value(ids[index]).data();
+        if (!action)
+        {
+            continue;
+        }
+        auto* button = host->findChild<QToolButton*>(names[index]);
+        if (button)
+        {
+            button->setDefaultAction(action);
+        }
+        else
+        {
+            host->addStatusAction(action, names[index]);
+        }
+    }
+}
+
+void TerminalController::_close(const QString& id, bool preservePlacement)
 {
     qCDebug(terminalTrace) << "Closing terminal" << id;
     auto it = _terminals.find(id);
     if (it == _terminals.end())
     {
         return;
+    }
+    auto* host = it->second->window.data();
+    if (host)
+    {
+        if (preservePlacement && _session)
+        {
+            _captureDetached(id, nullptr);
+        }
+        const QScopedValueRollback moving(_movingHost, true);
+        host->allowClose();
+        host->hide();
+        host->takeCentralWidget();
+    }
+    if (!preservePlacement && _session)
+    {
+        _session->presentation().node("detachedWindows").remove(id);
     }
     auto terminal = std::move(it->second);
     _terminals.erase(it);
@@ -1472,12 +2334,16 @@ void TerminalController::_close(const QString& id)
         _window.terminalTabs().removeTab(_window.terminalTabs().indexOf(terminal->panel));
     }
     terminal.reset();
+    if (host)
+    {
+        host->deleteLater();
+    }
     if (_batchDepth > 0)
     {
         _batchSelectionChanged = true;
         return;
     }
-    _window.showTerminals(!_terminals.empty());
+    _window.showTerminals(_window.terminalTabs().count() > 0);
     refreshTerminalActions();
     emit selectionChanged();
 }
@@ -1503,6 +2369,14 @@ QString TerminalController::_mainParameter(const Runtime& terminal) const
         return program.isEmpty() ? tr("Automatic shell") : program;
     }
     return {};
+}
+
+void TerminalController::_showTerminalMessage(const QString& id, const QString& message)
+{
+    const auto it = _terminals.find(id);
+    auto* host = it != _terminals.end() && it->second->window ? static_cast<QMainWindow*>(it->second->window.data()) :
+                                                                &_window;
+    host->statusBar()->showMessage(owned(message));
 }
 
 void TerminalController::_changed(const QString& id)
@@ -1607,11 +2481,24 @@ void TerminalController::_changed(const QString& id)
     const auto typeIcon = terminal.type == "serial" ? "cable" :
                           terminal.type == "socket" ? "network" :
                                                       "square-terminal";
-    _window.setTerminalTab(index,
-                           type,
-                           detail,
-                           Icons::icon(typeIcon),
-                           QIcon(":/Termaster/App/Status/" + icon + ".svg"));
+    if (terminal.window)
+    {
+        terminal.window->setWindowTitle(tr("%1 — %2 — %3 — Termaster")
+                                            .arg(terminal.name,
+                                                 parameter.isEmpty() ? type : type + " · " + parameter,
+                                                 _session ? _session->name() : QString()));
+        terminal.window->setWindowIcon(Icons::icon(typeIcon));
+        terminal.window->statusBar()->showMessage(
+            tr("%1: %2").arg(type, status) + (terminal.lastError.isEmpty() ? QString() : " — " + terminal.lastError));
+    }
+    else
+    {
+        _window.setTerminalTab(index,
+                               type,
+                               detail,
+                               Icons::icon(typeIcon),
+                               QIcon(":/Termaster/App/Status/" + icon + ".svg"));
+    }
     const auto desired = terminal.connectionRequested ? tr("Connected") : tr("Disconnected");
     QString    tooltip = type;
     if (!parameter.isEmpty())
@@ -2226,7 +3113,7 @@ void TerminalController::_showTabMenu(const QPoint& position)
     for (const auto& [id, item] : _actions)
     {
         if (item.action && item.action->isVisible() && item.registration.role != Action::Role::Create
-            && item.registration.terminalType == _terminals.at(terminalId)->type)
+            && (item.registration.terminalType == _terminals.at(terminalId)->type || id == "Terminal.Detach"))
         {
             ids.append(id);
         }
@@ -2354,7 +3241,7 @@ void TerminalController::_attemptConnection(const QString& id)
         }
         if (terminal.lastError != error)
         {
-            _window.statusBar()->showMessage(owned(error));
+            _showTerminalMessage(id, error);
         }
         terminal.lastError = owned(error);
     }

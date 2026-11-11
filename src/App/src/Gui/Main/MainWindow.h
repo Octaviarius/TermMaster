@@ -1,6 +1,9 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QPoint>
+#include <QPointer>
+#include <QString>
 #include <Termaster/Core/Gui/Action/MenubarActionContainer.h>
 #include <Termaster/Core/Gui/Action/ToolbarActionContainer.h>
 
@@ -32,6 +35,10 @@ public:
     Q_SIGNAL void           createSessionRequested();
     Q_SIGNAL void           openWorkspaceRequested();
     Q_SIGNAL void           createWorkspaceRequested();
+    Q_SIGNAL void           terminalDetachRequested(const QString& terminalId);
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     MenubarActionContainer _mainMenu;
@@ -39,6 +46,9 @@ private:
     WorkspacePage*         _workspacePage;
     QTabWidget*            _terminalTabs;
     QStackedWidget*        _central;
+    QString                _dragTerminalId;
+    QPointer<QWidget>      _dragPanel;
+    QPoint                 _dragStart;
 
     void _createMenus();
 };
