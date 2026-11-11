@@ -278,6 +278,43 @@ bool Session::_validate(const Settings& settings, QString* error) const
             seen.insert(id);
         }
     }
+    if (presentation.contains("detachedWindows"))
+    {
+        const auto value = presentation.value("detachedWindows");
+        if (value.typeId() != QMetaType::QVariantMap || value.toMap().size() > 100000)
+        {
+            return fail(error, "Session presentation detachedWindows must be a mapping of at most 100000 entries");
+        }
+        const auto windows = value.toMap();
+        for (auto it = windows.cbegin(); it != windows.cend(); ++it)
+        {
+            if (!validId(it.key()) || it.value().typeId() != QMetaType::QVariantMap)
+            {
+                return fail(error, "Invalid detached terminal window: " + it.key());
+            }
+            const auto window   = it.value().toMap();
+            const auto geometry = window.value("geometry");
+            const auto encoded  = geometry.toString();
+            if (geometry.typeId() != QMetaType::QString || encoded.isEmpty() || encoded.size() > 21848)
+            {
+                return fail(error, "Detached terminal window geometry must be nonempty bounded Base64: " + it.key());
+            }
+            const auto decoded = QByteArray::fromBase64Encoding(encoded.toLatin1(),
+                                                                QByteArray::AbortOnBase64DecodingErrors);
+            if (!decoded || decoded.decoded.size() > 16384
+                || QString::fromLatin1(decoded.decoded.toBase64()) != encoded)
+            {
+                return fail(error, "Detached terminal window geometry must be canonical Base64: " + it.key());
+            }
+            for (const auto& field : {"toolbarVisible", "statusBarVisible"})
+            {
+                if (window.contains(field) && window.value(field).typeId() != QMetaType::Bool)
+                {
+                    return fail(error, QString("Detached terminal window %1 must be boolean: %2").arg(field, it.key()));
+                }
+            }
+        }
+    }
     const auto objects = settings.value("objects").toMap();
     for (auto it = objects.cbegin(); it != objects.cend(); ++it)
     {

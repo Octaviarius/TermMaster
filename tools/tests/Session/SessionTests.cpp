@@ -288,6 +288,117 @@ private slots:
         }
     }
 
+    void detachedWindowMetadataRoundTrip()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
+        QString       error;
+        QVERIFY2(session.create("windows", "Windows", &error), qPrintable(error));
+        const QVariantMap object {
+            {    "type",           "terminal"},
+            {  "module", "unavailable.plugin"},
+            {"settings",       QVariantMap {}}
+        };
+        QVERIFY(session.objects().setValue("unavailable", object));
+        const QVariantMap window {
+            {        "geometry", QString::fromLatin1(QByteArray::fromHex("00ff010203").toBase64())},
+            {  "toolbarVisible",                                                             false},
+            {"statusBarVisible",                                                              true},
+            {          "future",                                     QVariantMap {{"position", 7}}}
+        };
+        const QVariantMap windows {
+            { "unavailable",                                                                             window},
+            {"stale-object",                                                                             window},
+            {     "bounded", QVariantMap {{"geometry", QString::fromLatin1(QByteArray(16384, 'x').toBase64())}}}
+        };
+        QVERIFY(session.presentation().setValue("detachedWindows", windows));
+        QVERIFY(session.presentation().setValue("future", "preserved"));
+        QVERIFY2(session.sync(&error), qPrintable(error));
+        Session loaded(session.directory(), SettingsOverlay(base.node(""), base.node("")));
+        QVERIFY2(loaded.load(&error), qPrintable(error));
+        QCOMPARE(loaded.presentation().value("detachedWindows").toMap(), windows);
+        QCOMPARE(loaded.presentation().value("future").toString(), QString("preserved"));
+        QCOMPARE(loaded.objects().value("unavailable").toMap(), object);
+        QVERIFY(loaded.presentation().setValue("detachedWindows", QVariantMap {}));
+        QVERIFY2(loaded.sync(&error), qPrintable(error));
+        QVERIFY2(loaded.load(&error), qPrintable(error));
+        QVERIFY(loaded.presentation().value("detachedWindows").toMap().isEmpty());
+    }
+
+    void invalidDetachedWindowsRejectCandidatesWithoutReplacingOwner()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
+        QString       error;
+        QVERIFY2(session.create("windows", "Windows", &error), qPrintable(error));
+        const QVariantMap validWindow {
+            {"geometry",      "YQ=="},
+            {  "future", "preserved"}
+        };
+        const QVariantMap windows {
+            {"unavailable", validWindow}
+        };
+        QVERIFY(session.presentation().setValue("detachedWindows", windows));
+        QVERIFY2(session.sync(&error), qPrintable(error));
+        QFile disk(session.filePath().toString());
+        QVERIFY(disk.open(QIODevice::ReadOnly));
+        const auto baseline = disk.readAll();
+        disk.close();
+        const QVariantList
+            invalidWindows {"window",
+                            QVariantList {},
+                            QVariantMap {{"bad id", validWindow}},
+                            QVariantMap {{"terminal", "window"}},
+                            QVariantMap {{"terminal", QVariantMap {}}},
+                            QVariantMap {{"terminal", QVariantMap {{"geometry", 42}}}},
+                            QVariantMap {{"terminal", QVariantMap {{"geometry", ""}}}},
+                            QVariantMap {{"terminal", QVariantMap {{"geometry", "%%%="}}}},
+                            QVariantMap {{"terminal", QVariantMap {{"geometry", "YQ"}}}},
+                            QVariantMap {{"terminal", QVariantMap {{"geometry", "YR=="}}}},
+                            QVariantMap {{"terminal", QVariantMap {{"geometry", "YQ== "}}}},
+                            QVariantMap {{"terminal", QVariantMap {{"geometry", "YQ=="}, {"toolbarVisible", 1}}}},
+                            QVariantMap {
+                                {"terminal", QVariantMap {{"geometry", "YQ=="}, {"statusBarVisible", "true"}}}},
+                            QVariantMap {
+                                {"terminal",
+                                 QVariantMap {{"geometry", QString::fromLatin1(QByteArray(16385, 'x').toBase64())}}}}};
+        for (const auto& invalid : invalidWindows)
+        {
+            Settings candidate(session.filePath(), Settings::Info {"termaster.session", "Candidate"});
+            QVERIFY(candidate.replaceSerialized(baseline, &error));
+            QVERIFY(candidate.setValue("presentation/detachedWindows", invalid, &error));
+            const auto bytes = candidate.serializedPatch({}, {}, &error);
+            QVERIFY2(bytes, qPrintable(error));
+            const auto borrowed = session.presentation();
+            QVERIFY(!session.acceptPreparedDocument(*bytes, &error));
+            QVERIFY(!error.isEmpty());
+            QVERIFY(borrowed.isValid());
+            QCOMPARE(session.presentation().value("detachedWindows").toMap(), windows);
+            QVERIFY(!session.isDirty());
+
+            QVERIFY(session.presentation().setValue("detachedWindows", invalid));
+            QVERIFY(!session.sync(&error));
+            QVERIFY(session.isDirty());
+            QVERIFY(disk.open(QIODevice::ReadOnly));
+            QCOMPARE(disk.readAll(), baseline);
+            disk.close();
+            QVERIFY2(session.load(&error), qPrintable(error));
+
+            QVERIFY(disk.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            QCOMPARE(disk.write(*bytes), bytes->size());
+            disk.close();
+            const auto live = session.presentation();
+            QVERIFY(!session.load(&error));
+            QVERIFY(live.isValid());
+            QCOMPARE(session.presentation().value("detachedWindows").toMap(), windows);
+            QVERIFY(disk.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            QCOMPARE(disk.write(baseline), baseline.size());
+            disk.close();
+        }
+    }
+
     void noClobberAndWriteFailure()
     {
         QTemporaryDir   temporary;
