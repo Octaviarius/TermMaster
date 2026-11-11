@@ -37,6 +37,9 @@ public:
     Q_SIGNAL void           openWorkspaceRequested();
     Q_SIGNAL void           createWorkspaceRequested();
     Q_SIGNAL void           terminalDetachRequested(const QString& terminalId);
+    Q_SIGNAL void           terminalTearOffRequested(const QString& terminalId,
+                                                     const QPoint&  globalPosition,
+                                                     const QPoint&  grabOffset);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -51,6 +54,8 @@ private:
     QString                _dragTerminalId;
     QPointer<QWidget>      _dragPanel;
     QPoint                 _dragStart;
+    QPoint                 _dragGrabOffset;
+    quint64                _dragGeneration = 0;
 
     void _createMenus();
 };

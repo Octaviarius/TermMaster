@@ -1,4 +1,5 @@
 #include "../SettingsVariantFixture.h"
+#include "Gui/Main/MainWindow.h"
 #include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorCatalogTree.h"
 #include "Gui/Session/SessionPicker.h"
@@ -6,7 +7,10 @@
 #include "Gui/Settings/LoggingTagsEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
 #include "Gui/Terminal/CommandEditor.h"
+#include "Gui/Terminal/DetachedTerminalWindow.h"
 #include "Gui/Terminal/TerminalController.h"
+#include "Gui/Terminal/TerminalDockDrop.h"
+#include "Gui/Terminal/TerminalDockWidget.h"
 #include "Gui/Terminal/TerminalProcessingPanel.h"
 #include "Processing/TerminalProcessing.h"
 
@@ -14,6 +18,7 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
+#include <QCursor>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -29,12 +34,14 @@
 #include <QMap>
 #include <QMenu>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QPushButton>
+#include <QRubberBand>
 #include <QScopeGuard>
 #include <QScreen>
 #include <QScrollArea>
@@ -79,6 +86,63 @@
 #include <Termaster/Core/Workspace.h>
 #include <cstdlib>
 #include <stdexcept>
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <atomic>
+#include <chrono>
+#include <thread>
+#include <windows.h>
+#endif
+
+#ifdef Q_OS_WIN
+/** GUI-thread conversion; the native input worker receives only copied physical coordinates. */
+static POINT nativeClientPoint(QWidget* widget, const QPoint& point)
+{
+    POINT origin {};
+    ClientToScreen(reinterpret_cast<HWND>(widget->window()->winId()), &origin);
+    const auto local = widget->mapTo(widget->window(), point);
+    const auto ratio = widget->window()->devicePixelRatioF();
+    return {origin.x + qRound(local.x() * ratio), origin.y + qRound(local.y() * ratio)};
+}
+
+/** Bounded opt-in native gesture. No Qt object is accessed by this worker. */
+static std::jthread nativeDrag(POINT start, POINT via, POINT finish, std::shared_ptr<std::atomic_bool> accepted)
+{
+    const int left   = GetSystemMetrics(SM_XVIRTUALSCREEN);
+    const int top    = GetSystemMetrics(SM_YVIRTUALSCREEN);
+    const int width  = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    const int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    return std::jthread([=] {
+        const auto move = [=](POINT point, DWORD buttons = 0) {
+            INPUT input {};
+            input.type       = INPUT_MOUSE;
+            input.mi.dx      = MulDiv(point.x - left, 65535, std::max(1, width - 1));
+            input.mi.dy      = MulDiv(point.y - top, 65535, std::max(1, height - 1));
+            input.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK | MOUSEEVENTF_MOVE | buttons;
+            if (SendInput(1, &input, sizeof(INPUT)) != 1)
+            {
+                accepted->store(false);
+            }
+        };
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        move(start);
+        move(start, MOUSEEVENTF_LEFTDOWN);
+        std::this_thread::sleep_for(std::chrono::milliseconds(120));
+        move(via);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        for (int step = 1; step <= 12; ++step)
+        {
+            move({via.x + (finish.x - via.x) * step / 12, via.y + (finish.y - via.y) * step / 12});
+            std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        move(finish, MOUSEEVENTF_LEFTUP);
+    });
+}
+#endif
 
 /** Synthetic backend: every connection attempt is in-memory, never a device open. */
 class ReconnectDevice final : public QObject, public SerialDevice
@@ -900,10 +964,15 @@ content:
         const auto order     = _app.session()->presentation().value("tabOrder");
         auto*      bar       = tabs->tabBar();
         const auto dragStart = bar->tabRect(0).center();
-        const auto dragEnd   = QPoint(dragStart.x(), bar->height() + 2 * QApplication::startDragDistance());
-        QTest::mousePress(bar, Qt::LeftButton, Qt::NoModifier, dragStart);
-        QTest::mouseMove(bar, dragEnd);
-        QTest::mouseRelease(bar, Qt::LeftButton, Qt::NoModifier, dragEnd);
+        const auto dragEnd   = QPoint(dragStart.x(), bar->height() + 4 * QApplication::startDragDistance());
+        const auto sendDrag = [bar](QEvent::Type type, QPoint point, Qt::MouseButton button, Qt::MouseButtons buttons) {
+            QMouseEvent event(type, QPointF(point), QPointF(bar->mapToGlobal(point)), button, buttons, Qt::NoModifier);
+            QApplication::sendEvent(bar, &event);
+        };
+        sendDrag(QEvent::MouseButtonPress, dragStart, Qt::LeftButton, Qt::LeftButton);
+        sendDrag(QEvent::MouseMove, dragEnd, Qt::NoButton, Qt::LeftButton);
+        QCursor::setPos(bar->mapToGlobal(dragEnd));
+        sendDrag(QEvent::MouseButtonRelease, dragEnd, Qt::LeftButton, Qt::NoButton);
         QTRY_VERIFY(controller.detachedWindow(ids[0]));
         QVERIFY2(controller.detachTerminal(ids[1], &error), qPrintable(error));
         QPointer<QMainWindow> first(controller.detachedWindow(ids[0]));
@@ -912,7 +981,11 @@ content:
         QCOMPARE(first->objectName(), QString("detachedTerminalWindow"));
         QCOMPARE(first->property("terminalId").toString(), ids[0]);
         QCOMPARE(first->centralWidget(), panels[0]);
+        QVERIFY(!panels[0]->isWindow());
+        QCOMPARE(panels[0]->window(), static_cast<QWidget*>(first.data()));
         QCOMPARE(second->centralWidget(), panels[1]);
+        QVERIFY(!panels[1]->isWindow());
+        QCOMPARE(panels[1]->window(), static_cast<QWidget*>(second.data()));
         QCOMPARE(first->findChild<TerminalDisplay*>("terminalDisplay"), displays[0]);
         QCOMPARE(first->findChild<QPlainTextEdit*>("commandDraft"), drafts[0]);
         QVERIFY(processing[0]);
@@ -984,13 +1057,21 @@ content:
         // Registering another provider must not count detached rows as root tabs.
         QVERIFY(controller.attachTerminal(ids[1], &error));
         QCOMPARE(tabs->widget(0), panels[1]);
+        QVERIFY(!panels[1]->isWindow());
+        QCOMPARE(panels[1]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(tabs->widget(1), panels[2]);
+        QVERIFY(!panels[2]->isWindow());
+        QCOMPARE(panels[2]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         auto unrelated = type;
         unrelated.id   = "detachedUnrelatedFixture";
         host.registerTerminalType(unrelated);
         const auto unrelatedCleanup = qScopeGuard([&] { host.unregisterTerminalType(unrelated.id); });
         QCOMPARE(tabs->widget(0), panels[1]);
+        QVERIFY(!panels[1]->isWindow());
+        QCOMPARE(panels[1]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(tabs->widget(1), panels[2]);
+        QVERIFY(!panels[2]->isWindow());
+        QCOMPARE(panels[2]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(_app.session()->presentation().value("tabOrder"), order);
         QVERIFY(host.unregisterTerminalType(unrelated.id, &error));
         QVERIFY(controller.detachTerminal(ids[1], &error));
@@ -1001,6 +1082,8 @@ content:
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QVERIFY(first.isNull());
         QCOMPARE(tabs->widget(0), panels[0]);
+        QVERIFY(!panels[0]->isWindow());
+        QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(panels[0]->findChild<TerminalDisplay*>("terminalDisplay"), displays[0]);
         QCOMPARE(panels[0]->findChild<TerminalProcessingPanel*>(), processing[0]);
         QCOMPARE(drafts[0]->toPlainText(), QString("draft-0"));
@@ -1011,8 +1094,14 @@ content:
         QVERIFY(second.isNull());
         QCOMPARE(tabs->count(), 3);
         QCOMPARE(tabs->widget(0), panels[0]);
+        QVERIFY(!panels[0]->isWindow());
+        QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(tabs->widget(1), panels[1]);
+        QVERIFY(!panels[1]->isWindow());
+        QCOMPARE(panels[1]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(tabs->widget(2), panels[2]);
+        QVERIFY(!panels[2]->isWindow());
+        QCOMPARE(panels[2]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(_app.selectedTerminal(), ids[1]);
         QCOMPARE(_app.session()->presentation().value("tabOrder"), order);
         if (!capture.isEmpty())
@@ -1240,6 +1329,98 @@ content:
         QCOMPARE(probe->attempts, 0);
     }
 
+    Q_SLOT void terminalTabStickyBandAndQueuedPageIdentity()
+    {
+        MainWindow window;
+        window.resize(900, 650);
+        auto& tabs     = window.terminalTabs();
+        auto* original = new QWidget;
+        original->setProperty("terminalId", "sticky-fixture");
+        tabs.addTab(original, "Sticky fixture");
+        window.showTerminals(true);
+        window.show();
+        QCoreApplication::processEvents();
+        auto*        bar = tabs.tabBar();
+        QSignalSpy   tearOff(&window, &MainWindow::terminalTearOffRequested);
+        QSignalSpy   detach(&window, &MainWindow::terminalDetachRequested);
+        const auto   press     = bar->tabRect(0).center();
+        const int    threshold = std::max(2 * QApplication::startDragDistance(), bar->height() / 2);
+        const QPoint insideBand(press.x(), bar->rect().bottom() + threshold - 1);
+        const auto sendMouse = [&](QEvent::Type type, QPoint point, Qt::MouseButton button, Qt::MouseButtons buttons) {
+            QMouseEvent event(type, QPointF(point), QPointF(bar->mapToGlobal(point)), button, buttons, Qt::NoModifier);
+            QApplication::sendEvent(bar, &event);
+        };
+        sendMouse(QEvent::MouseButtonPress, press, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(QEvent::MouseMove, insideBand, Qt::NoButton, Qt::LeftButton);
+        sendMouse(QEvent::MouseButtonRelease, insideBand, Qt::LeftButton, Qt::NoButton);
+        QCoreApplication::processEvents();
+        QCOMPARE(tearOff.count(), 0);
+        QCOMPARE(detach.count(), 0);
+        QCOMPARE(tabs.widget(0), original);
+
+        // Queue the transfer, then replace the page with another object reusing its ID.
+        const QPoint outsideBand(press.x(), bar->rect().bottom() + threshold + 4);
+        sendMouse(QEvent::MouseButtonPress, press, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(QEvent::MouseMove, outsideBand, Qt::NoButton, Qt::LeftButton);
+        tabs.removeTab(0);
+        original->setParent(&window);
+        auto* replacement = new QWidget;
+        replacement->setProperty("terminalId", "sticky-fixture");
+        tabs.addTab(replacement, "Replacement fixture");
+        sendMouse(QEvent::MouseButtonRelease, outsideBand, Qt::LeftButton, Qt::NoButton);
+        QCoreApplication::processEvents();
+        QCOMPARE(tearOff.count(), 0);
+        QCOMPARE(detach.count(), 0);
+        QCOMPARE(tabs.widget(0), replacement);
+    }
+
+    Q_SLOT void terminalDockDropGeometryAndPreview()
+    {
+        MainWindow window;
+        window.resize(1100, 750);
+        window.showTerminals(true);
+        auto& host = window.terminalDockHost();
+        auto& tabs = window.terminalTabs();
+        tabs.addTab(new QWidget, "Central");
+        TerminalDockWidget dock("Geometry dock", &host);
+        dock.setMinimumSize(320, 300);
+        dock.setObjectName("terminalDock-geometry");
+        dock.setWidget(new QWidget);
+        host.addDockWidget(Qt::RightDockWidgetArea, &dock);
+        window.showTerminals(true);
+        window.show();
+        QCoreApplication::processEvents();
+        TerminalDockDrop drop(window);
+        using Placement   = TerminalDockDrop::Placement;
+        const auto target = [&](QPoint point) { return drop.targetAt(host.mapToGlobal(point)); };
+        QCOMPARE(target(QPoint(-1, -1)).placement, Placement::None);
+        QCOMPARE(target(QPoint(1, host.height() / 2)).placement, Placement::Left);
+        QCOMPARE(target(QPoint(host.width() - 2, host.height() / 2)).placement, Placement::Right);
+        QCOMPARE(target(QPoint(host.width() / 2, 1)).placement, Placement::Above);
+        QCOMPARE(target(QPoint(host.width() / 2, host.height() - 2)).placement, Placement::Below);
+        const auto central = drop.targetAt(tabs.mapToGlobal(tabs.rect().center()));
+        QCOMPARE(central.placement, Placement::Tabs);
+        QVERIFY(!central.dock);
+        const auto tabify = drop.targetAt(dock.mapToGlobal(dock.rect().center()));
+        QCOMPARE(tabify.placement, Placement::Tabify);
+        QCOMPARE(tabify.dock.data(), &dock);
+        const auto relative = drop.targetAt(dock.mapToGlobal(QPoint(2, dock.height() / 2)));
+        QCOMPARE(relative.placement, Placement::Left);
+        QCOMPARE(relative.dock.data(), &dock);
+        QVERIFY(relative.rectangle.width() < tabify.rectangle.width());
+        drop.show(tabify);
+        auto* preview = window.findChild<QRubberBand*>("terminalDockPreview");
+        QVERIFY(preview);
+        QVERIFY(preview->isVisible());
+        QCOMPARE(preview->geometry(), QRect(host.mapToGlobal(tabify.rectangle.topLeft()), tabify.rectangle.size()));
+        QVERIFY(preview->windowFlags().testFlag(Qt::WindowTransparentForInput));
+        QVERIFY(preview->windowFlags().testFlag(Qt::WindowDoesNotAcceptFocus));
+        drop.hide();
+        QVERIFY(!preview->isVisible());
+        window.hide();
+        QCOMPARE(drop.targetAt(host.mapToGlobal(host.rect().center())).placement, Placement::None);
+    }
+
     Q_SLOT void dockedTerminalViewsRetainIdentityAndFocusedCommands()
     {
         QTemporaryDir temporary;
@@ -1302,6 +1483,285 @@ content:
         }
         const int  closes = probe->closes;
         const auto order  = _app.session()->presentation().value("tabOrder");
+#ifdef Q_OS_WIN
+        if (qEnvironmentVariableIsSet("TERMASTER_STICKY_DRAG_GESTURE"))
+        {
+            _app.mainWindow().showNormal();
+            const QRect workArea = _app.mainWindow().screen()->availableGeometry();
+            const QSize testSize = _app.mainWindow().size().boundedTo(workArea.size() - QSize(48, 64));
+            _app.mainWindow().resize(testSize);
+            _app.mainWindow().move(workArea.center() - QPoint(testSize.width() / 2, testSize.height() / 2));
+            const auto nativeRoot = reinterpret_cast<HWND>(_app.mainWindow().winId());
+            QVERIFY(SetWindowPos(nativeRoot, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE));
+            const auto restoreRootOrder = qScopeGuard([nativeRoot] {
+                SetWindowPos(nativeRoot, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            });
+            _app.mainWindow().raise();
+            _app.mainWindow().activateWindow();
+            QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+            QVERIFY(QTest::qWaitForWindowExposed(&_app.mainWindow()));
+            QCoreApplication::processEvents();
+            const auto    mainGeometry  = _app.mainWindow().geometry();
+            auto*         bar           = tabs->tabBar();
+            const auto    logicalStart  = bar->mapToGlobal(bar->tabRect(0).center());
+            auto*         startHit      = _app.mainWindow().childAt(_app.mainWindow().mapFromGlobal(logicalStart));
+            const QString startHitClass = startHit ? QString::fromLatin1(startHit->metaObject()->className()) : "none";
+            const QString startHitName  = startHit ? startHit->objectName() : QString();
+            if (!startHit || (startHit != bar && !bar->isAncestorOf(startHit)))
+            {
+                qInfo() << "Native sticky startup hit failure" << startHitClass << startHitName << "logicalStart"
+                        << logicalStart << "rootGeometry" << mainGeometry << "rootDpr"
+                        << _app.mainWindow().devicePixelRatioF() << "barRect" << bar->rect();
+            }
+            QVERIFY(startHit && (startHit == bar || bar->isAncestorOf(startHit)));
+            QCOMPARE(bar->tabAt(bar->mapFromGlobal(logicalStart)), 0);
+            const auto start        = nativeClientPoint(bar, bar->tabRect(0).center());
+            const auto physicalHit  = WindowFromPhysicalPoint(start);
+            const auto physicalRoot = physicalHit ? GetAncestor(physicalHit, GA_ROOT) : nullptr;
+            if (physicalRoot != reinterpret_cast<HWND>(_app.mainWindow().winId()))
+            {
+                wchar_t hitClass[128] {};
+                wchar_t hitTitle[256] {};
+                DWORD   hitProcess = 0;
+                GetClassNameW(physicalRoot, hitClass, 128);
+                GetWindowThreadProcessId(physicalRoot, &hitProcess);
+                if (hitProcess == GetCurrentProcessId())
+                {
+                    GetWindowTextW(physicalRoot, hitTitle, 256);
+                }
+                RECT rootFrame {};
+                GetWindowRect(reinterpret_cast<HWND>(_app.mainWindow().winId()), &rootFrame);
+                qInfo() << "Native sticky occluder class" << QString::fromWCharArray(hitClass) << "process"
+                        << hitProcess << "thisProcess" << GetCurrentProcessId() << "ownWindowTitle"
+                        << QString::fromWCharArray(hitTitle) << "physicalRootFrame"
+                        << QRect(rootFrame.left,
+                                 rootFrame.top,
+                                 rootFrame.right - rootFrame.left,
+                                 rootFrame.bottom - rootFrame.top)
+                        << "WindowFromPoint" << quintptr(WindowFromPoint(start));
+                qInfo() << "Native sticky root occluded: point" << QPoint(start.x, start.y) << "hit"
+                        << quintptr(physicalHit) << "root" << quintptr(physicalRoot) << "expected"
+                        << quintptr(_app.mainWindow().winId()) << "workArea" << workArea;
+            }
+            QCOMPARE(physicalRoot, reinterpret_cast<HWND>(_app.mainWindow().winId()));
+            const auto via = nativeClientPoint(bar,
+                                               bar->tabRect(0).center()
+                                                   + QPoint(0, bar->height() + 4 * QApplication::startDragDistance()));
+            const auto finish          = nativeClientPoint(dockHost, QPoint(8, dockHost->height() / 2));
+            auto       accepted        = std::make_shared<std::atomic_bool>(true);
+            bool       previewObserved = false;
+            const auto stickyCapture   = qEnvironmentVariable("TERMASTER_STICKY_CAPTURE");
+            QString    previewFile     = "TearOffPreview.png";
+            bool       previewCaptured = false;
+            bool       previewSaved    = false;
+            QTimer     previewSampler;
+            connect(&previewSampler, &QTimer::timeout, &_app.mainWindow(), [&] {
+                for (auto* preview : _app.mainWindow().findChildren<QRubberBand*>("terminalDockPreview"))
+                {
+                    previewObserved = previewObserved || preview->isVisible();
+                    if (preview->isVisible() && !stickyCapture.isEmpty() && !previewCaptured)
+                    {
+                        previewCaptured            = true;
+                        const auto guideImage      = preview->grab();
+                        const auto guidePosition   = _app.mainWindow().mapFromGlobal(preview->pos());
+                        auto*      caption         = _app.mainWindow().findChild<QLabel*>("terminalDockPreviewCaption");
+                        const bool captionVisible  = caption && caption->isVisible();
+                        const auto captionImage    = captionVisible ? caption->grab() : QPixmap();
+                        const auto captionPosition = captionVisible ? _app.mainWindow().mapFromGlobal(caption->pos()) :
+                                                                      QPoint();
+                        QPixmap    image;
+                        {
+                            preview->hide();
+                            if (captionVisible)
+                            {
+                                caption->hide();
+                            }
+                            const auto restoreGuide = qScopeGuard([preview, caption, captionVisible] {
+                                preview->show();
+                                preview->raise();
+                                if (captionVisible)
+                                {
+                                    caption->show();
+                                    caption->raise();
+                                }
+                            });
+                            // QWidget::grab renders owned tooltip children at child coordinates;
+                            // composite each native guide once at its actual global position.
+                            image                   = _app.mainWindow().grab();
+                        }
+                        QPainter painter(&image);
+                        painter.setOpacity(preview->windowOpacity());
+                        painter.drawPixmap(guidePosition, guideImage);
+                        if (captionVisible)
+                        {
+                            painter.setOpacity(caption->windowOpacity());
+                            painter.drawPixmap(captionPosition, captionImage);
+                        }
+                        painter.end();
+                        previewSaved = QDir().mkpath(stickyCapture)
+                                    && image.save(QDir(stickyCapture).filePath(previewFile));
+                    }
+                }
+            });
+            previewSampler.start(15);
+            QSignalSpy    tearOff(&static_cast<MainWindow&>(_app.mainWindow()), &MainWindow::terminalTearOffRequested);
+            auto          driver = nativeDrag(start, via, finish, accepted);
+            QElapsedTimer stickyWait;
+            stickyWait.start();
+            while (!controller.terminalDock(ids[0]) && stickyWait.elapsed() < 3000)
+            {
+                QTest::qWait(25);
+            }
+            driver.join();
+            if (!controller.terminalDock(ids[0]))
+            {
+                const QPointer<QMainWindow> detached(controller.detachedWindow(ids[0]));
+                const auto                  rootHandle = reinterpret_cast<HWND>(_app.mainWindow().winId());
+                RECT                        rootFrame {};
+                GetWindowRect(rootHandle, &rootFrame);
+                POINT origin {};
+                ClientToScreen(rootHandle, &origin);
+                POINT cursor {};
+                GetPhysicalCursorPos(&cursor);
+                qInfo() << "Native sticky failure: signals" << tearOff.count() << "preview" << previewObserved
+                        << "sendInputAccepted" << accepted->load() << "detached" << bool(detached) << "detachedFrame"
+                        << (detached ? detached->frameGeometry() : QRect()) << "rootGeometry"
+                        << _app.mainWindow().geometry() << "nativeRootFrame"
+                        << QRect(rootFrame.left,
+                                 rootFrame.top,
+                                 rootFrame.right - rootFrame.left,
+                                 rootFrame.bottom - rootFrame.top)
+                        << "nativeClientOrigin" << QPoint(origin.x, origin.y) << "rootDpr"
+                        << _app.mainWindow().devicePixelRatioF() << "barRect" << bar->rect() << "physicalStart"
+                        << QPoint(start.x, start.y) << "physicalVia" << QPoint(via.x, via.y) << "physicalFinish"
+                        << QPoint(finish.x, finish.y) << "logicalStart" << logicalStart << "startupHitClass"
+                        << startHitClass << "startupHitName" << startHitName << "qtCursor" << QCursor::pos()
+                        << "physicalCursor" << QPoint(cursor.x, cursor.y) << "nativeCapture" << quintptr(GetCapture());
+            }
+            QVERIFY(controller.terminalDock(ids[0]));
+            QVERIFY(accepted->load());
+            QVERIFY(!tearOff.isEmpty());
+            QVERIFY(previewObserved);
+            if (!stickyCapture.isEmpty())
+            {
+                QVERIFY(previewSaved);
+            }
+            qInfo() << "Native sticky tear-off: signals" << tearOff.count() << "preview" << previewObserved;
+            QCOMPARE(controller.terminalDock(ids[0])->widget(), panels[0]);
+            QVERIFY(!panels[0]->isWindow());
+            QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
+            QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+            QCOMPARE(drafts[0]->toPlainText(), QString("dock-draft-0"));
+            QCOMPARE(_app.mainWindow().geometry(), mainGeometry);
+            QVERIFY(controller.attachTerminal(ids[0], &error));
+            QVERIFY(controller.detachTerminal(ids[0], &error));
+            auto* shell = qobject_cast<DetachedTerminalWindow*>(controller.detachedWindow(ids[0]));
+            QVERIFY(shell);
+            shell->move(_app.mainWindow().pos() + QPoint(100, 100));
+            const auto shellHandle = reinterpret_cast<HWND>(shell->winId());
+            QVERIFY(SetWindowPos(shellHandle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE));
+            const QPointer<DetachedTerminalWindow> orderedShell(shell);
+            const auto                             restoreShellOrder = qScopeGuard([orderedShell, shellHandle] {
+                if (orderedShell)
+                {
+                    SetWindowPos(shellHandle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                }
+            });
+            shell->raise();
+            shell->activateWindow();
+            QTRY_COMPARE(QApplication::activeWindow(), shell);
+            QVERIFY(QTest::qWaitForWindowExposed(shell));
+            QCoreApplication::processEvents();
+            RECT frame {};
+            QVERIFY(GetWindowRect(shellHandle, &frame));
+            POINT clientOrigin {};
+            QVERIFY(ClientToScreen(shellHandle, &clientOrigin));
+            POINT title {};
+            bool  captionFound = false;
+            for (LONG y = frame.top + 4; y < clientOrigin.y && !captionFound; y += 2)
+            {
+                for (LONG x = frame.left + 8; x < frame.right - 8; x += 2)
+                {
+                    const auto position  = MAKELPARAM(static_cast<WORD>(x), static_cast<WORD>(y));
+                    const auto captionAt = [shellHandle](LONG px, LONG py) {
+                        return SendMessage(shellHandle,
+                                           WM_NCHITTEST,
+                                           0,
+                                           MAKELPARAM(static_cast<WORD>(px), static_cast<WORD>(py)))
+                            == HTCAPTION;
+                    };
+                    if (SendMessage(shellHandle, WM_NCHITTEST, 0, position) == HTCAPTION && captionAt(x - 4, y - 4)
+                        && captionAt(x + 4, y - 4) && captionAt(x - 4, y + 4) && captionAt(x + 4, y + 4))
+                    {
+                        title        = {x, y};
+                        captionFound = true;
+                        break;
+                    }
+                }
+            }
+            QVERIFY2(captionFound, "Detached native frame exposes no draggable HTCAPTION point");
+            const auto titleHit = SendMessage(shellHandle,
+                                              WM_NCHITTEST,
+                                              0,
+                                              MAKELPARAM(static_cast<WORD>(title.x), static_cast<WORD>(title.y)));
+            QCOMPARE(titleHit, LRESULT(HTCAPTION));
+            QCOMPARE(GetAncestor(WindowFromPhysicalPoint(title), GA_ROOT), shellHandle);
+            const POINT titleVia {title.x + 50, title.y + 45};
+            accepted        = std::make_shared<std::atomic_bool>(true);
+            previewObserved = false;
+            previewCaptured = false;
+            previewSaved    = false;
+            previewFile     = "DetachedReturnPreview.png";
+            QPointer<DetachedTerminalWindow> liveShell(shell);
+            QSignalSpy                       moved(shell, &DetachedTerminalWindow::moveFinished);
+            QSignalSpy                       moving(shell, &DetachedTerminalWindow::moveUpdated);
+            auto                             shellDriver = nativeDrag(title, titleVia, finish, accepted);
+            QElapsedTimer                    nativeWait;
+            nativeWait.start();
+            while (!controller.terminalDock(ids[0]) && nativeWait.elapsed() < 3000)
+            {
+                QTest::qWait(25);
+            }
+            shellDriver.join();
+            qInfo() << "Native detached-title drag: updates" << moving.count() << "finished" << moved.count()
+                    << "preview" << previewObserved;
+            if (!controller.terminalDock(ids[0]))
+            {
+                qInfo() << "Native detached-title failure: sendInputAccepted" << accepted->load() << "moveFinished"
+                        << moved << "sourceAlive" << bool(liveShell) << "sourceFrame"
+                        << (liveShell ? liveShell->frameGeometry() : QRect()) << "mainGeometry"
+                        << _app.mainWindow().geometry() << "physicalTitle" << QPoint(title.x, title.y)
+                        << "physicalFinish" << QPoint(finish.x, finish.y);
+                const auto capture = qEnvironmentVariable("TERMASTER_DOCK_CAPTURE");
+                if (!capture.isEmpty())
+                {
+                    QVERIFY(QDir().mkpath(capture));
+                    _app.mainWindow().grab().save(QDir(capture).filePath("DetachedTitleDragFailedMain.png"));
+                    if (liveShell)
+                    {
+                        liveShell->grab().save(QDir(capture).filePath("DetachedTitleDragFailedSource.png"));
+                    }
+                }
+            }
+            QVERIFY(controller.terminalDock(ids[0]));
+            QVERIFY(accepted->load());
+            QVERIFY(!moved.isEmpty());
+            QVERIFY(previewObserved);
+            if (!stickyCapture.isEmpty())
+            {
+                QVERIFY(previewSaved);
+            }
+            previewSampler.stop();
+            QCOMPARE(controller.terminalDock(ids[0])->widget(), panels[0]);
+            QVERIFY(!panels[0]->isWindow());
+            QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
+            QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+            QCOMPARE(drafts[0]->toPlainText(), QString("dock-draft-0"));
+            QCOMPARE(probe->closes, closes);
+            QCOMPARE(_app.mainWindow().geometry(), mainGeometry);
+            QVERIFY(controller.attachTerminal(ids[0], &error));
+        }
+#endif
         QVERIFY2(controller.dockTerminal(ids[0], &error), qPrintable(error));
         QVERIFY2(controller.dockTerminal(ids[1], &error), qPrintable(error));
         auto* first  = controller.terminalDock(ids[0]);
@@ -1309,8 +1769,12 @@ content:
         QVERIFY(first && second);
         QCOMPARE(first->objectName(), "terminalDock-" + ids[0]);
         QCOMPARE(first->widget(), panels[0]);
+        QVERIFY(!panels[0]->isWindow());
+        QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(second->widget(), panels[1]);
-        QVERIFY(!first->features().testFlag(QDockWidget::DockWidgetFloatable));
+        QVERIFY(!panels[1]->isWindow());
+        QCOMPARE(panels[1]->window(), static_cast<QWidget*>(&_app.mainWindow()));
+        QVERIFY(first->features().testFlag(QDockWidget::DockWidgetFloatable));
         dockHost->splitDockWidget(first, second, Qt::Horizontal);
         QCoreApplication::processEvents();
         QVERIFY(first->isVisible() && second->isVisible());
@@ -1327,7 +1791,108 @@ content:
         QTest::mouseClick(first, Qt::LeftButton, Qt::NoModifier, titlePoint);
         QTRY_COMPARE(_app.selectedTerminal(), ids[0]);
         QCOMPARE(first->widget(), panels[0]);
+        QVERIFY(!panels[0]->isWindow());
+        QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(host.selectedDevice(type.id), openDevice);
+#ifdef Q_OS_WIN
+        if (qEnvironmentVariableIsSet("TERMASTER_STICKY_DRAG_GESTURE"))
+        {
+            RECT rootFrame {};
+            QVERIFY(GetWindowRect(reinterpret_cast<HWND>(_app.mainWindow().winId()), &rootFrame));
+            MONITORINFO monitor {};
+            monitor.cbSize = sizeof(monitor);
+            QVERIFY(GetMonitorInfo(MonitorFromWindow(reinterpret_cast<HWND>(_app.mainWindow().winId()),
+                                                     MONITOR_DEFAULTTONEAREST),
+                                   &monitor));
+            const LONG leftGap   = rootFrame.left - monitor.rcWork.left;
+            const LONG rightGap  = monitor.rcWork.right - rootFrame.right;
+            const LONG topGap    = rootFrame.top - monitor.rcWork.top;
+            const LONG bottomGap = monitor.rcWork.bottom - rootFrame.bottom;
+            const LONG gap       = std::max({leftGap, rightGap, topGap, bottomGap});
+            QVERIFY2(gap > 16, "Native dock tear-out requires visible desktop space outside the main window");
+            POINT outside {(rootFrame.left + rootFrame.right) / 2, (rootFrame.top + rootFrame.bottom) / 2};
+            if (gap == rightGap)
+            {
+                outside.x = rootFrame.right + std::min<LONG>(80, rightGap / 2);
+            }
+            else if (gap == leftGap)
+            {
+                outside.x = rootFrame.left - std::min<LONG>(80, leftGap / 2);
+            }
+            else if (gap == bottomGap)
+            {
+                outside.y = rootFrame.bottom + std::min<LONG>(80, bottomGap / 2);
+            }
+            else
+            {
+                outside.y = rootFrame.top - std::min<LONG>(80, topGap / 2);
+            }
+            const auto            title = nativeClientPoint(first, titlePoint);
+            const POINT           via {title.x + (outside.x - title.x) / 3, title.y + (outside.y - title.y) / 3};
+            QPointer<QDockWidget> liveDock(first);
+            auto*                 nativeDock = qobject_cast<TerminalDockWidget*>(first);
+            QVERIFY(nativeDock);
+            QSignalSpy topLevel(first, &QDockWidget::topLevelChanged);
+            QSignalSpy released(nativeDock, &TerminalDockWidget::floatingReleased);
+            auto*      hit = QApplication::widgetAt(first->mapToGlobal(titlePoint));
+            qInfo() << "Native dock tear-out start: hitClass" << (hit ? hit->metaObject()->className() : "none")
+                    << "hitName" << (hit ? hit->objectName() : QString()) << "features" << first->features() << "area"
+                    << dockHost->dockWidgetArea(first) << "logicalTitle" << first->mapToGlobal(titlePoint)
+                    << "physicalTitle" << QPoint(title.x, title.y) << "physicalOutside" << QPoint(outside.x, outside.y)
+                    << "grabber" << QWidget::mouseGrabber() << "nativeCapture" << quintptr(GetCapture());
+            auto          accepted = std::make_shared<std::atomic_bool>(true);
+            auto          driver   = nativeDrag(title, via, outside, accepted);
+            QElapsedTimer nativeWait;
+            nativeWait.start();
+            while (!controller.detachedWindow(ids[0]) && nativeWait.elapsed() < 3000)
+            {
+                QTest::qWait(25);
+            }
+            driver.join();
+            QStringList detachedIds;
+            for (const auto& id : ids)
+            {
+                if (controller.detachedWindow(id))
+                {
+                    detachedIds.append(id);
+                }
+            }
+            qInfo() << "Native dock tear-out end: alive" << bool(liveDock) << "floating"
+                    << (liveDock && liveDock->isFloating()) << "windowClass"
+                    << (liveDock ? liveDock->window()->metaObject()->className() : "deleted") << "parentClass"
+                    << (liveDock && liveDock->parentWidget() ? liveDock->parentWidget()->metaObject()->className() :
+                                                               "none")
+                    << "globalFrame" << (liveDock ? QRect(liveDock->mapToGlobal(QPoint()), liveDock->size()) : QRect())
+                    << "area" << (liveDock ? dockHost->dockWidgetArea(liveDock) : Qt::NoDockWidgetArea)
+                    << "topLevelSignals" << topLevel << "releaseSignals" << released << "detachedIds" << detachedIds
+                    << "sendInputAccepted" << accepted->load();
+            QVERIFY(controller.detachedWindow(ids[0]));
+            QVERIFY(accepted->load());
+            QVERIFY(!controller.terminalDock(ids[0]));
+            auto* shell = controller.detachedWindow(ids[0]);
+            QVERIFY(shell);
+            QCOMPARE(shell->centralWidget(), panels[0]);
+            QVERIFY(!panels[0]->isWindow());
+            QCOMPARE(panels[0]->window(), static_cast<QWidget*>(shell));
+            QCOMPARE(shell->findChild<TerminalDisplay*>("terminalDisplay"), displays[0]);
+            QCOMPARE(shell->findChild<QPlainTextEdit*>("commandDraft"), drafts[0]);
+            QCOMPARE(drafts[0]->toPlainText(), QString("dock-draft-0"));
+            QVERIFY(shell->findChild<QMenu*>());
+            QVERIFY(shell->findChild<QToolBar*>("detachedTerminalToolbar"));
+            QVERIFY(shell->findChild<QToolButton*>("statusBufferedInput"));
+            QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+            QCOMPARE(probe->closes, closes);
+            QVERIFY(controller.dockTerminal(ids[0], &error));
+            first = controller.terminalDock(ids[0]);
+            QVERIFY(first);
+            QCOMPARE(first->widget(), panels[0]);
+            QVERIFY(!panels[0]->isWindow());
+            QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
+            dockHost->splitDockWidget(first, second, Qt::Horizontal);
+            QCoreApplication::processEvents();
+            qInfo() << "Native dock tear-out: full detached terminal identity preserved";
+        }
+#endif
         if (qEnvironmentVariableIsSet("TERMASTER_DOCK_GESTURE"))
         {
             const auto dragStart = first->mapToGlobal(titlePoint);
@@ -1343,6 +1908,8 @@ content:
             QTRY_VERIFY(!first->isFloating());
             QTRY_COMPARE(_app.selectedTerminal(), ids[0]);
             QCOMPARE(first->widget(), panels[0]);
+            QVERIFY(!panels[0]->isWindow());
+            QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
             QCOMPARE(panels[0]->findChild<TerminalDisplay*>("terminalDisplay"), displays[0]);
             QCOMPARE(panels[0]->findChild<QPlainTextEdit*>("commandDraft"), drafts[0]);
             QCOMPARE(host.selectedDevice(type.id), openDevice);
@@ -1397,9 +1964,22 @@ content:
         QVERIFY(!controller.terminalDock(ids[0]));
         QVERIFY(controller.detachedWindow(ids[0]));
         QCOMPARE(controller.detachedWindow(ids[0])->centralWidget(), panels[0]);
+        QVERIFY(!panels[0]->isWindow());
+        QCOMPARE(panels[0]->window(), static_cast<QWidget*>(controller.detachedWindow(ids[0])));
+        auto* cancelledShell = qobject_cast<DetachedTerminalWindow*>(controller.detachedWindow(ids[0]));
+        QVERIFY(cancelledShell);
+        emit cancelledShell->moveFinished(dockHost->mapToGlobal(QPoint(8, dockHost->height() / 2)), true);
+        QCoreApplication::processEvents();
+        QCOMPARE(controller.detachedWindow(ids[0]), cancelledShell);
+        QCOMPARE(cancelledShell->centralWidget(), panels[0]);
+        QVERIFY(!panels[0]->isWindow());
+        QCOMPARE(panels[0]->window(), static_cast<QWidget*>(cancelledShell));
+        QCOMPARE(openDevice->state(), SerialDevice::State::Open);
         QVERIFY(controller.dockTerminal(ids[0], &error));
         QVERIFY(!controller.detachedWindow(ids[0]));
         QCOMPARE(controller.terminalDock(ids[0])->widget(), panels[0]);
+        QVERIFY(!panels[0]->isWindow());
+        QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(panels[0]->findChild<TerminalDisplay*>("terminalDisplay"), displays[0]);
         QCOMPARE(panels[0]->findChild<QPlainTextEdit*>("commandDraft"), drafts[0]);
         QCOMPARE(drafts[0]->toPlainText(), QString("dock-draft-0"));
@@ -1407,11 +1987,15 @@ content:
         QVERIFY(controller.attachTerminal(ids[0], &error));
         QVERIFY(!controller.terminalDock(ids[0]));
         QCOMPARE(tabs->widget(0), panels[0]);
+        QVERIFY(!panels[0]->isWindow());
+        QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         controller.terminalDock(ids[1])->close();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QVERIFY(!controller.terminalDock(ids[1]));
         QCOMPARE(tabs->count(), 3);
         QCOMPARE(tabs->widget(1), panels[1]);
+        QVERIFY(!panels[1]->isWindow());
+        QCOMPARE(panels[1]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QCOMPARE(_app.session()->presentation().value("tabOrder"), order);
         QCOMPARE(openDevice->state(), SerialDevice::State::Open);
         QCOMPARE(probe->attempts, 1);
@@ -4043,6 +4627,8 @@ content:
                                      "Variant",
                                      &error),
                  qPrintable(error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
         QCOMPARE(probe->attempts, 1);
         const auto packet = probe->openConfiguration.value("packet").toMap();

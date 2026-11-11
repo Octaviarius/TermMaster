@@ -33,13 +33,19 @@ existing queue/processing diagnostics; acceptance into a send queue is not deliv
 status-bar buttons all resolve the terminal UUID belonging to their own window,
 including when a different terminal is selected in the main window.
 
-Detach is available in the Terminal menu and tab context menu. Dragging a tab
-outside the main strip also detaches it after Qt finishes its native tab move.
-The gesture uses the platform drag threshold and validates the original live panel
-before changing hosts, so a queued gesture cannot affect a replacement session.
-Returning uses the window's Return to main window action or its close button.
-There is no cross-window drop target: the main tab strip remains a native QTabWidget.
-No custom window moving, painting or simulated pointer handling is used.
+Detach is available in the Terminal menu and tab context menu. A tab stays attached
+within a sticky band around the strip. Dragging beyond that band transfers the
+existing panel to a complete secondary window while the button remains held;
+Qt's system move continues the same gesture. A fast release before queued delivery
+uses the ordinary detach fallback. Original panel identity is validated before
+changing hosts, so a queued gesture cannot affect a replacement session.
+
+On Windows, moving a secondary window over the main terminal area shows a
+transparent placement guide and a short destination label. Release at an outer
+edge to dock, over a dock edge to split it, over its center to tabify, or over the
+central area to return to ordinary tabs. The window's Return to main window action
+and close button remain available. Native QTabWidget/QDockWidget layouts and OS
+window movement are retained; production code does not synthesize pointer input.
 
 The detached window's X returns the terminal to the main window,
 with its connection, history, selection, input draft and processing instance intact.
@@ -83,10 +89,10 @@ states and settings dialogs belong to the same target, including plugin actions.
 
 Qt provides the required ownership operations:
 [QTabWidget::removeTab](https://doc.qt.io/qt-6/qtabwidget.html#removeTab) removes a tab
-without deleting its page, while
-[QMainWindow::takeCentralWidget](https://doc.qt.io/qt-6/qmainwindow.html#takeCentralWidget)
-returns ownership when reattaching. Headers are recreated through the current
-native layout factory; the runtime panel and its source state are retained.
+without deleting its page. The old QMainWindow layout releases its item before the panel is reparented with
+Qt::Widget. This avoids an intermediate parentless native window and retained
+window flags during adoption by a new host. Headers are recreated through the
+current native layout factory; the runtime panel and its source state are retained.
 
 ## Session state and lifecycle
 
@@ -114,10 +120,9 @@ configuration and order for later recovery.
 
 [QDockWidget](https://doc.qt.io/qt-6/qdockwidget.html#floating-prop) already supports
 native floating/docking and is suitable if terminals become a general dock layout.
-The current application uses a central QTabWidget, not docked terminal panes.
-Converting all terminal tabs to docks would broaden the change to the established
-layout and persistence model. A standard QMainWindow plus QWidget transfer keeps
-the present layout and allows host-aware commands to be delivered independently.
+The application keeps its central QTabWidget and additionally supports native docked
+terminal panes. A standard QMainWindow plus QWidget transfer preserves complete
+secondary-window controls and host-aware command dispatch.
 
 ## Verification and limits
 
@@ -132,7 +137,7 @@ backend to the resulting grid. Native Qt layouts, font/DPI handling and geometry
 recovery remain responsible for window sizing. Physical monitor removal and mixed
 DPI monitor transfers require interactive hardware acceptance; they are not
 established by synthetic tests. Windows contain one terminal each; tabbed detached
-windows and drag/drop between existing windows are outside this version.
+windows and transfers directly between secondary windows are outside this version.
 
 Verification on Windows 11 with Qt 6.12.0 / MSVC 2022:
 
@@ -178,7 +183,8 @@ remains independent of the focused dock.
 Dock title context menus offer Detach terminal and Return to terminal tabs.
 The dock close button also returns the panel to its global tab-order slot.
 Detaching uses the existing complete secondary window. Native bare floating docks
-are disabled, so floating terminals retain their own menus, toolbar and status bar.
+are temporary during native dragging. After release outside the root, a floating
+terminal becomes a complete secondary window with menus, toolbar and status bar.
 
 A dedicated child QMainWindow hosts terminal docks and the original central tab
 stack. Its saveState(1) contains terminal layout only, separate from application
@@ -208,6 +214,78 @@ APP-18 verification (Windows 11, Qt 6.12.0, MSVC 2022):
 - Fresh sessions reset the native dock host to its initial empty state, keeping
   missing-provider layout placeholders local to their original session.
 - No physical device or external network connection was used. Mixed physical
-  monitor DPI transfers were not exercised. Full secondary windows dock through
-  the Dock terminal command; dragging their native OS title bar into another
-  window is not a docking gesture in this version.
+  monitor DPI transfers were not exercised. APP-19 extends the original command-only
+  return with native title-bar dragging on Windows.
+
+## Sticky tab transfer and drop guides (APP-19)
+
+The sticky band uses the larger of twice the platform drag distance and half the
+tab-strip height. Reordering within it stays native. A queued tear-off validates
+the original page and gesture generation, transfers it once and calls
+QWindow::startSystemMove. No device, display, input editor or processor is replaced.
+
+Windows native move messages provide preview updates and a queued finish after
+the OS move loop. Resizing, programmatic placement, cancelled moves, minimized
+roots, modal dialogs and a foreign window covering the target do not trigger a
+drop. Targets are recomputed at release and validated against the original session,
+terminal, source window and target dock. Input-transparent top-level QRubberBand
+and QLabel guides do not activate a window or intercept the gesture.
+
+Native dock tabs are individually draggable. Temporary Qt floating containers are
+observed until the mouse is released and two quiet timer samples allow asynchronous
+plugging to finish. An unaccepted float transfers the same panel into a complete
+secondary window. Native splitters and tabification remain responsible for layout.
+Closing or replacing a session cancels pending transfer and preview state.
+
+Geometry preview does not write session YAML. Existing explicit presentation
+capture persists the resulting ordinary-tab, dock or secondary-window placement.
+The native OS-title bridge is Windows-specific; other platforms retain explicit
+host commands and the tab-release fallback. Mixed physical monitor DPI transfers
+and grouping several terminals in one secondary window remain outside verification.
+
+### Headless verification platform
+
+Qt 6.12's offscreen plugin can retain conflicting window-ID entries across native
+widget reparenting. Its backing-store `clearHash()` dereferences a hash end iterator
+when a previously removed ID is missing; a subsequent root resize then crashes
+inside qoffscreen.dll. The installed Windows DLL fault instruction was matched to
+[this Qt implementation](https://github.com/qt/qtbase/blob/6.12/src/plugins/platforms/offscreen/qoffscreencommon.cpp).
+The same lifecycle sequence passes with the Windows platform plugin. The minimal
+headless plugin does not satisfy the suite's window-activation contract. The
+[isolated AppTests runner](../tools/tests/App/RunIsolatedAppTests.py) enumerates all
+slots and runs each in a fresh offscreen process, preserving complete within-slot
+lifecycle assertions while avoiding cross-test window-ID contamination. Native
+Windows acceptance separately exercises the actual gesture, preview and system
+move. The monolithic offscreen suite remains affected by the upstream defect;
+no bundled Qt code or installed DLL is patched.
+
+Run the complete isolated headless suite with:
+
+```powershell
+python tools/tests/App/RunIsolatedAppTests.py build/Desktop_Qt_6_12_0_MSVC2022_64bit-Debug/AppTests.exe
+```
+
+The runner uses per-slot timeouts, treats missing results or nonzero exits as
+failures and explicitly disables inherited native pointer injection. Native
+acceptance is opt-in through `TERMASTER_STICKY_DRAG_GESTURE=1` on the Windows
+platform plugin. Its fixture temporarily makes only its own root topmost, checks
+physical hit targets before injection and restores the root's normal Z-order.
+
+### APP-19 acceptance
+
+Windows 11, Qt 6.12.0 and MSVC 2022 acceptance covers:
+
+- Real held mouse gestures at 100%, 125% and 200%: sticky central-tab tear-off,
+  native secondary-window title return and unaccepted native dock tear-out.
+- Visible, input-transparent placement guides, labeled destinations, native split
+  and tabbed layouts. Visual captures preserve readable panels and input controls.
+- Same panel/display/editor/processing identities, buffered draft and open
+  synthetic transport across transfers; no reconnect or implicit device open.
+- Quick-release fallback, sticky-band retention, stale queued-page rejection,
+  cancelled drops, provider recovery, save failure and reentrant session closure.
+- Session, command-editor and terminal-display suites in Debug and Release.
+  Two existing session symlink-confinement checks require unavailable privileges.
+
+Debug and Release application builds complete. All 48 AppTests slots pass in
+both configurations through isolated offscreen processes as explained above. No physical serial device or external network connection is
+used. Physical mixed-DPI monitor transfers remain unverified.

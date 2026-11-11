@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QDockWidget>
+#include <QPointer>
+#include <QTimer>
 
 class QCloseEvent;
 
@@ -15,11 +17,19 @@ public:
     void          allowClose();
     Q_SIGNAL void returnRequested();
     Q_SIGNAL void activated();
+    Q_SIGNAL void floatingReleased(const QRect& frameGeometry);
 
 protected:
     void closeEvent(QCloseEvent* event) override;
     bool event(QEvent* event) override;
 
 private:
-    bool _allowClose = false;
+    QTimer            _floatingReleaseTimer;
+    QPointer<QWidget> _ownerWindow;
+    bool              _allowClose      = false;
+    bool              _releaseObserved = false;
+
+    bool _floatingPresentation() const;
+    void _updateFloatingRelease();
+    void _checkFloatingRelease();
 };

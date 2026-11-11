@@ -4,6 +4,7 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QCursor>
 #include <QDockWidget>
 #include <QEvent>
 #include <QHBoxLayout>
@@ -20,6 +21,7 @@
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Action/MenuActionContainer.h>
 #include <Termaster/Core/Gui/Icons.h>
+#include <algorithm>
 #include <memory>
 
 namespace
@@ -97,8 +99,7 @@ MainWindow::MainWindow(QWidget* parent) :
     _terminalDockHost = new QMainWindow(this);
     _terminalDockHost->setWindowFlags(Qt::Widget);
     _terminalDockHost->setObjectName("terminalDockHost");
-    _terminalDockHost->setDockOptions(QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks
-                                      | QMainWindow::GroupedDragging);
+    _terminalDockHost->setDockOptions(QMainWindow::AllowNestedDocks | QMainWindow::AllowTabbedDocks);
     _terminalDockHost->setContextMenuPolicy(Qt::CustomContextMenu);
     _central = new QStackedWidget(_terminalDockHost);
     _central->addWidget(_workspacePage);
@@ -316,15 +317,67 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
         const auto* mouse = static_cast<QMouseEvent*>(event);
         if (mouse->button() == Qt::LeftButton)
         {
+            ++_dragGeneration;
             _dragTerminalId.clear();
             _dragPanel      = nullptr;
+            _dragGrabOffset = QPoint();
             _dragStart      = mouse->globalPosition().toPoint();
             const int index = bar->tabAt(mouse->position().toPoint());
             if (auto* panel = _terminalTabs->widget(index))
             {
                 _dragTerminalId = panel->property("terminalId").toString();
                 _dragPanel      = panel;
+                _dragGrabOffset = mouse->position().toPoint() - bar->tabRect(index).topLeft();
             }
+        }
+    }
+    else if (watched == bar && event->type() == QEvent::MouseMove)
+    {
+        const auto* mouse             = static_cast<QMouseEvent*>(event);
+        const int   platformThreshold = QApplication::startDragDistance();
+        const int   exitThreshold     = std::max(platformThreshold * 2, bar->height() / 2);
+        const bool  moved   = (mouse->globalPosition().toPoint() - _dragStart).manhattanLength() >= platformThreshold;
+        const bool  outside = !bar->rect()
+                                   .adjusted(-exitThreshold, -exitThreshold, exitThreshold, exitThreshold)
+                                   .contains(mouse->position().toPoint());
+        if ((mouse->buttons() & Qt::LeftButton) && _dragPanel && !_dragTerminalId.isEmpty() && moved && outside)
+        {
+            const QString           terminalId     = _dragTerminalId;
+            const QPointer<QWidget> panel          = _dragPanel;
+            const QPoint            globalPosition = mouse->globalPosition().toPoint();
+            const QPoint            grabOffset     = _dragGrabOffset;
+            const quint64           generation     = _dragGeneration;
+            _dragTerminalId.clear();
+            _dragPanel      = nullptr;
+            _dragStart      = QPoint();
+            _dragGrabOffset = QPoint();
+
+            // Qt finishes this tab move event before the owner transfers the panel
+            // and asks the platform to continue the still-held system move.
+            QTimer::singleShot(0, this, [this, terminalId, panel, globalPosition, grabOffset, generation] {
+                if (generation != _dragGeneration || !panel || _terminalTabs->indexOf(panel.data()) < 0
+                    || panel->property("terminalId").toString() != terminalId)
+                {
+                    return;
+                }
+                if (QApplication::mouseButtons() & Qt::LeftButton)
+                {
+                    emit terminalTearOffRequested(terminalId, globalPosition, grabOffset);
+                }
+                else
+                {
+                    // A quick release before delivery uses the existing one-shot
+                    // fallback, provided the pointer did not return to the strip.
+                    auto*     currentBar = _terminalTabs->tabBar();
+                    const int threshold  = std::max(QApplication::startDragDistance() * 2, currentBar->height() / 2);
+                    if (!currentBar->rect()
+                             .adjusted(-threshold, -threshold, threshold, threshold)
+                             .contains(currentBar->mapFromGlobal(QCursor::pos())))
+                    {
+                        emit terminalDetachRequested(terminalId);
+                    }
+                }
+            });
         }
     }
     else if (watched == bar && event->type() == QEvent::MouseButtonRelease)
@@ -334,20 +387,22 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
         {
             const QString           terminalId = _dragTerminalId;
             const QPointer<QWidget> panel      = _dragPanel;
+            const quint64           generation = _dragGeneration;
             _dragTerminalId.clear();
             _dragPanel           = nullptr;
-            const int  threshold = QApplication::startDragDistance();
+            const int  threshold = std::max(QApplication::startDragDistance() * 2, bar->height() / 2);
             const bool moved     = (mouse->globalPosition().toPoint() - _dragStart).manhattanLength() >= threshold;
             const bool outside   = !bar->rect()
                                         .adjusted(-threshold, -threshold, threshold, threshold)
                                         .contains(mouse->position().toPoint());
             _dragStart           = QPoint();
+            _dragGrabOffset      = QPoint();
             if (panel && !terminalId.isEmpty() && moved && outside)
             {
                 // Let the native tab bar finish its release and reorder first.
-                QTimer::singleShot(0, this, [this, terminalId, panel] {
+                QTimer::singleShot(0, this, [this, terminalId, panel, generation] {
                     // A replacement session may reuse an ID, but never this live page.
-                    if (panel && _terminalTabs->indexOf(panel.data()) >= 0
+                    if (generation == _dragGeneration && panel && _terminalTabs->indexOf(panel.data()) >= 0
                         && panel->property("terminalId").toString() == terminalId)
                     {
                         emit terminalDetachRequested(terminalId);

@@ -3,11 +3,14 @@
 #include "../Main/EditActions.h"
 
 #include <QAction>
+#include <QApplication>
 #include <QCloseEvent>
 #include <QCoreApplication>
+#include <QCursor>
 #include <QEvent>
 #include <QSignalBlocker>
 #include <QStatusBar>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <Termaster/Core/ActionContainer.h>
@@ -15,6 +18,13 @@
 #include <Termaster/Core/Gui/Action/MenuActionContainer.h>
 #include <Termaster/Core/Gui/Icons.h>
 #include <memory>
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
 
 DetachedTerminalWindow::DetachedTerminalWindow(CommandRegistry& commands, QWidget* parent) :
     QMainWindow(parent, Qt::Window), _mainMenu(menuBar()), _toolbar(new QToolBar(tr("Terminal"), this)),
@@ -99,6 +109,90 @@ bool DetachedTerminalWindow::eventFilter(QObject* watched, QEvent* event)
         _statusAction->setChecked(!_statusBar->isHidden());
     }
     return QMainWindow::eventFilter(watched, event);
+}
+
+bool DetachedTerminalWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
+{
+#ifdef Q_OS_WIN
+    if (eventType == "windows_generic_MSG" && message)
+    {
+        const auto* native = static_cast<const MSG*>(message);
+        switch (native->message)
+        {
+            case WM_ENTERSIZEMOVE:
+                ++_nativeMoveGeneration;
+                _nativeMoveCancelled = false;
+                _nativeMoveFrame     = frameGeometry();
+                _nativeMoveActive    = true;
+                _nativeMoveChanged   = false;
+                break;
+            case WM_MOVING:
+                if (_nativeMoveActive)
+                {
+                    _nativeMoveChanged = true;
+                    const QPointer<DetachedTerminalWindow> self(this);
+                    emit                                   moveUpdated(QCursor::pos());
+                    if (!self)
+                    {
+                        if (result)
+                        {
+                            *result = 0;
+                        }
+                        return true;
+                    }
+                }
+                break;
+            case WM_EXITSIZEMOVE:
+                if (_nativeMoveActive)
+                {
+                    _nativeMoveActive = false;
+                    if (_nativeMoveChanged)
+                    {
+                        _nativeMoveChanged                                    = false;
+                        const QRect                            startFrame     = _nativeMoveFrame;
+                        const QPoint                           globalPosition = QCursor::pos();
+                        const QPointer<DetachedTerminalWindow> self(this);
+                        const quint64                          generation = _nativeMoveGeneration;
+                        QTimer::singleShot(0, this, [self, startFrame, globalPosition, generation] {
+                            if (!self || self->_nativeMoveGeneration != generation)
+                            {
+                                return;
+                            }
+                            const QRect finalFrame = self->frameGeometry();
+                            const bool  cancelled  = self->_nativeMoveCancelled || finalFrame == startFrame
+                                                  || (finalFrame.topLeft() - startFrame.topLeft()).manhattanLength()
+                                                         < QApplication::startDragDistance();
+                            emit        self->moveFinished(globalPosition, cancelled);
+                        });
+                    }
+                }
+                break;
+            case WM_CANCELMODE:
+                _nativeMoveCancelled = true;
+                if (_nativeMoveActive)
+                {
+                    _nativeMoveActive = false;
+                    if (_nativeMoveChanged)
+                    {
+                        _nativeMoveChanged                                    = false;
+                        const QPoint                           globalPosition = QCursor::pos();
+                        const QPointer<DetachedTerminalWindow> self(this);
+                        const quint64                          generation = _nativeMoveGeneration;
+                        QTimer::singleShot(0, this, [self, globalPosition, generation] {
+                            if (self && self->_nativeMoveGeneration == generation)
+                            {
+                                emit self->moveFinished(globalPosition, true);
+                            }
+                        });
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+    }
+#endif
+    return QMainWindow::nativeEvent(eventType, message, result);
 }
 
 void DetachedTerminalWindow::_createMenus()

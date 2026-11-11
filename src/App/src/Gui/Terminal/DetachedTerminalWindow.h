@@ -28,11 +28,14 @@ public:
     void             addStatusAction(QAction* action, const QString& objectName);
     void             allowClose();
     Q_SIGNAL void    returnRequested();
+    Q_SIGNAL void    moveUpdated(const QPoint& globalPosition);
+    Q_SIGNAL void    moveFinished(const QPoint& globalPosition, bool cancelled);
 
 protected:
     void closeEvent(QCloseEvent* event) override;
     void changeEvent(QEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
+    bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
 
 private:
     MenubarActionContainer _mainMenu;
@@ -45,6 +48,13 @@ private:
     QPointer<QAction>      _statusAction;
     QPointer<QAction>      _fullScreenAction;
     bool                   _allowClose = false;
+#ifdef Q_OS_WIN
+    QRect   _nativeMoveFrame;
+    bool    _nativeMoveActive     = false;
+    bool    _nativeMoveChanged    = false;
+    bool    _nativeMoveCancelled  = false;
+    quint64 _nativeMoveGeneration = 0;
+#endif
 
     void _createMenus();
     void _createViewActions(CommandRegistry& commands);
