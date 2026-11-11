@@ -350,6 +350,9 @@ actual commit validation remains mandatory.
 
 ## Synthetic large-catalog timing
 
+The following records describe the initial PERF-8 implementation, before the
+cold-validation optimization below.
+
 An opt-in fixture in `LineflowEditorTests::largeCatalogTiming` measures a native
 Windows Release build with Qt 6.12/MSVC, recorded on 2026-11-11. It publishes 1000 synthetic metadata
 entries and creates a 1000-definition draft without preparing or executing any
@@ -389,3 +392,62 @@ Start-Process -FilePath ./build/Desktop_Qt_6_12_0_MSVC2022_64bit-Release/Lineflo
 The output directory must exist. The timing fixture skips ordinary test runs
 unless its output variable is set. Toolchain initialization follows the project
 build environment. Keep other builds and tests idle during measurement.
+
+
+## Cold drag validation
+
+Both editor drag-probe APIs now pass their complete prospective definition map
+directly to `ProcessorRegistry::validatePublicationDraft`. The parser prepares
+metadata once and reuses identical immutable settings descriptors within that
+pass. It does not repeatedly parse/reconstruct the same catalog on the way to
+publication validation. There is no long-lived draft/schema/provider-result cache
+and no snapshot preparation moved to editor construction or the first pointer move.
+
+The full provider, graph, incoming-reference, topology, configuration and resource
+checks still execute on every distinct probe. The existing bounded same-key hover
+result cache and authoritative final drop checks are unchanged. This avoids the
+need for a new incremental snapshot lifecycle or plugin lease policy.
+
+
+Native Windows Qt 6.12/MSVC timing used the unchanged opt-in 1000-definition
+fixture. No builds or tests overlapped timing; each cold probe changes the dragged
+catalog ID, so none can use the previous same-key result. Five cold samples per
+run are a small bounded fixture, not a worst-case latency guarantee.
+
+| Release stage | First cold probe | Median of five distinct probes |
+| --- | ---: | ---: |
+| Before | 1133.72 ms | 1129.03 ms |
+| Per-pass schema sharing | 42.98 ms | 41.91 ms |
+| Single-pass draft API | 21.24 ms | 20.45 ms |
+| Final integrated repeat | 18.76 ms | 20.42 ms |
+
+The final Release median improved from 1129.03 to 20.42 ms
+(about 55.3x). Every distinct probe still made all 1001 provider-validation calls;
+1000 same-key probes took 1.0369 ms total with zero additional provider calls.
+Final Debug median was 307.92 ms, with no controlled pre-change Debug
+timing. The full validation remains linear in catalog work and can be slower with
+many distinct descriptors, complex schemas or costly custom static validators.
+No universal constant-time or arbitrary-provider latency bound is claimed.
+
+The final Release build and all 38 configured CTest suites passed (86.18 s).
+Eight rebuilt affected Debug suites passed (139.09 s): AppTests, WorkspaceTests,
+DuplexProcessorTests, ProcessingTests, ProcessorCatalogTests,
+ProcessorRefactoringTests, LineflowEditorTests and TerminalProcessingTests.
+New checks cover per-entry defaults with shared/distinct schemas, malformed
+schema recovery, empty/default descriptor equivalence, typed/draft API agreement,
+cycles/depth/size/count limits, changed targets with unchanged incoming references,
+port topology, node configuration and fresh provider callbacks with temporary
+owner pins. Validation prepares no factories, publishes nothing and retains no
+provider pins. Native timing fixtures passed in both builds. Changed C++ was
+clang-formatted and whitespace checks passed.
+
+The first full Release link encountered exhausted C: temporary storage; rerunning
+with process-local TEMP/TMP on G: completed successfully. Tests used the same
+scoped temporary directory setting. No original workspace or hardware was used.
+
+Raw evidence: [baseline](benchmarks/catalog-filtering/Release.json),
+[schema sharing](benchmarks/catalog-filtering/SharedSchemas.json),
+[single pass](benchmarks/catalog-filtering/SinglePass.json),
+[final Release](benchmarks/catalog-filtering/SinglePassFinal.json),
+[final Debug](benchmarks/catalog-filtering/SinglePassDebug.json) and
+[environment/provenance](benchmarks/catalog-filtering/ColdValidationEnvironment.json).

@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-11",
+  "cpu": "AMD Ryzen 9 5900X",
+  "compiler": "MSVC 19.44.35225 x64",
+  "qt": "6.12.0",
+  "platform": "native Windows",
+  "implementationRevision": "c23ded47408ca8726c65bf9f6fd4167990ba2fd0",
+  "coldSamplesPerRun": 5,
+  "providersCalledPerDistinctProbe": 1001,
+  "timingOverlapBuildOrTests": false,
+  "baseline": "Release.json from preceding PERF-8 native measurement; same fixture",
+  "releaseExeSha256": "13d73c70176f04db03dcb61a514cdc11ad0397b0fb247a142e73f6bcdfa95f36",
+  "debugExeSha256": "c3275a276d78f7306cb8f3f520cf79d297d89d4160f1e82d1d64993fd7bd5ad3",
+  "productionSources": {
+    "src/Core/src/Processing/ProcessorRegistry.cpp": "387086e68428e54b2725997bc3a4ac064aaec6331c1a5339e924d05a881517c6",
+    "src/App/src/Gui/Processing/LineflowEditorModel.cpp": "0ccdebfe3ff11e27d1d217af8dec850339334680e7635e6bf28d987de4905399"
+  },
+  "fixtureSha256": "34e45956760ce675aadb1b5d879a381ba48b7b0433f853d6c5ca59e2b375f144",
+  "releaseConfiguredSuitesPassed": 38,
+  "debugAffectedSuitesPassed": 8,
+  "temporaryStorage": "Process-local TEMP/TMP moved to G: after C: linker write failure; no unrelated cleanup",
+  "downloads": false,
+  "hardware": false
+}

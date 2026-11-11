@@ -447,4 +447,13 @@ tracing was unavailable under the current Windows policy.
 Remediation measurements and remaining limits are documented in
 [application performance](application-performance.md) and
 [large-catalog interaction](lineflow-editor.md#synthetic-large-catalog-timing).
-Cold full-draft hover validation and general regex complexity remain explicit limits.
+General regex complexity and worst-case custom validation costs remain explicit limits.
+
+
+## PERF-3: Cold catalog drag validation
+
+- [x] Share immutable settings descriptors by exact normalized bytes within each bounded validation pass.
+- [x] Parse a full owner draft once and reuse prepared metadata for all publication checks.
+- [x] Route both editor drop-probe APIs through the direct draft validation path.
+- [x] Preserve fresh provider checks, whole-catalog dependencies, bounds and authoritative commit validation.
+- [x] Verify schema/default isolation, graph and provider lifetimes, native timing and affected Debug/Release builds.
