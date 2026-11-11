@@ -8,6 +8,8 @@
 #include <memory>
 #include <optional>
 
+class SettingsSchema;
+
 /** Owning-thread unified factory and saved-definition catalog. Metadata contains no
  * executable callbacks. Prepared snapshots and live instances pin provider code.
  */
@@ -77,6 +79,11 @@ public:
     bool                                    validatePublication(const QString&           owner,
                                                                 const QList<Definition>& definitions,
                                                                 QString*                 error = nullptr) const;
+    /** Validates a complete owner draft directly, retaining all publication checks while
+     * parsing each definition and immutable settings descriptor only once per pass.
+     * Does not publish entries, invoke factories or retain validation results.
+     */
+    bool validatePublicationDraft(const QString& owner, const QVariantMap& definitions, QString* error = nullptr) const;
     bool publishDefinitions(const QString& owner, const QList<Definition>& definitions, QString* error = nullptr);
     /** Independent catalog snapshot with bounded local definitions. The scope pins every
      * copied factory/provider owner until destruction. Prepared snapshots and live instances
@@ -119,6 +126,8 @@ public:
     Q_SIGNAL void changed();
 
 private:
+    using SchemaCache = QMap<QByteArray, std::shared_ptr<const SettingsSchema>>;
+
     struct Lifetime;
     struct Entry;
     struct ProviderEntry;
@@ -130,7 +139,13 @@ private:
     QList<std::shared_ptr<Entry>>                 _retired;
     QList<std::shared_ptr<ProviderEntry>>         _retiredProviders;
 
-    static std::shared_ptr<Entry> _definitionEntry(const QString& owner, const Definition& definition);
+    static std::shared_ptr<Entry>           _definitionEntry(const QString&    owner,
+                                                             const Definition& definition,
+                                                             SchemaCache*      schemas = nullptr);
+    static std::optional<QList<Definition>> _parseDefinitions(const QVariantMap&                     definitions,
+                                                              const QString&                         owner,
+                                                              QMap<QString, std::shared_ptr<Entry>>& entries,
+                                                              QString*                               error);
     bool _validateGraph(const QMap<QString, std::shared_ptr<Entry>>& entries, QString* error) const;
     bool _available(const QString& id, QSet<QString>& visiting, QString* error) const;
     std::shared_ptr<const Prepared>   _prepare(const QString&           id,

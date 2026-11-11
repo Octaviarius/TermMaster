@@ -577,3 +577,27 @@ PatternFramerProcessorTests after combining the scheduler and regex changes (4.1
 The scheduler-only raw measurements are retained in
 [Before.csv](benchmarks/lineflow-runtime/Before.csv) and
 [After.csv](benchmarks/lineflow-runtime/After.csv); these precede the regex optimization.
+
+
+## Direct publication draft validation
+
+`ProcessorRegistry::validatePublicationDraft(owner, definitions, error)` validates
+an entire owner definition map without publishing it or preparing executable
+processors. It uses the same bounded parser and full catalog validation as typed
+`validatePublication`; the typed API serializes its input and delegates to this
+path. Parsing returns prepared metadata entries, so provider and graph checks do
+not reconstruct those entries or their schemas a second time.
+
+Within a single parse or publication-construction pass, identical effective YAML
+settings descriptors share an immutable `SettingsSchema`. Empty descriptors are
+normalized to the existing default descriptor before lookup. Defaults and active
+configuration remain separate per entry and are validated independently. Sharing
+is local to the pass, bounded by the existing definition/map limits; no global
+cache, executable callbacks, provider results or plugin leases are retained.
+
+All provider validators still run freshly with their temporary owner pins.
+Whole-map value/depth/byte/count bounds, duplicate IDs and owner replacement,
+complete merged graph cycle/depth checks and every applicable Lineflow node's
+port/configuration validation remain mandatory. A changed target still validates
+unchanged incoming references. Final editor commit and publication checks remain
+authoritative even after an accepted hover.

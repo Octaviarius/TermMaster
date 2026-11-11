@@ -464,12 +464,12 @@ struct ProcessorRegistry::Lifetime
 
 struct ProcessorRegistry::Entry
 {
-    QString                         owner;
-    Type                            type;
-    std::unique_ptr<SettingsSchema> schema;
-    QVariantMap                     defaults;
-    int                             instances = 0;
-    bool                            saved     = false;
+    QString                               owner;
+    Type                                  type;
+    std::shared_ptr<const SettingsSchema> schema;
+    QVariantMap                           defaults;
+    int                                   instances = 0;
+    bool                                  saved     = false;
 };
 
 struct ProcessorRegistry::ProviderEntry
@@ -530,7 +530,8 @@ bool ProcessorRegistry::shutdown(int timeoutMs, QString* error)
 }
 
 std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(const QString&    owner,
-                                                                              const Definition& definition)
+                                                                              const Definition& definition,
+                                                                              SchemaCache*      schemas)
 {
     if (!validId(definition.id) || definition.title.trimmed().isEmpty() || definition.title.size() > 256
         || definition.title.contains(QChar::Null) || !validId(definition.kind))
@@ -570,7 +571,18 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
         }
         entry->type.references.append(owned(reference));
     }
-    entry->schema = std::make_unique<SettingsSchema>(entry->type.settingsSchema);
+    if (schemas)
+    {
+        entry->schema = schemas->value(entry->type.settingsSchema);
+    }
+    if (!entry->schema)
+    {
+        entry->schema = std::make_shared<const SettingsSchema>(entry->type.settingsSchema);
+        if (schemas)
+        {
+            schemas->insert(entry->type.settingsSchema, entry->schema);
+        }
+    }
     for (const auto& field : entry->schema->fields())
     {
         auto value = schemaDefault(field.definition);
@@ -670,6 +682,16 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
 std::optional<QList<ProcessorRegistry::Definition>> ProcessorRegistry::parseDefinitions(const QVariantMap& definitions,
                                                                                         QString*           error)
 {
+    QMap<QString, std::shared_ptr<Entry>> entries;
+    return _parseDefinitions(definitions, "validation", entries, error);
+}
+
+std::optional<QList<ProcessorRegistry::Definition>> ProcessorRegistry::_parseDefinitions(
+    const QVariantMap&                     definitions,
+    const QString&                         owner,
+    QMap<QString, std::shared_ptr<Entry>>& entries,
+    QString*                               error)
+{
     if (error)
     {
         error->clear();
@@ -719,9 +741,9 @@ std::optional<QList<ProcessorRegistry::Definition>> ProcessorRegistry::parseDefi
         {
             throw std::invalid_argument("Processor definitions exceed bounds or contain unsupported values");
         }
-        QList<Definition>                     result;
-        ProcessorRegistry                     validation;
-        QMap<QString, std::shared_ptr<Entry>> entries;
+        QList<Definition> result;
+        ProcessorRegistry validation;
+        SchemaCache       schemas;
         for (auto it = definitions.cbegin(); it != definitions.cend(); ++it)
         {
             if (it.value().typeId() != QMetaType::QVariantMap)
@@ -816,7 +838,7 @@ std::optional<QList<ProcessorRegistry::Definition>> ProcessorRegistry::parseDefi
                     definition.references.append(reference.toString());
                 }
             }
-            entries.insert(definition.id, _definitionEntry("validation", definition));
+            entries.insert(definition.id, _definitionEntry(owner, definition, &schemas));
             result.append(std::move(definition));
         }
         if (!validation._validateGraph(entries, error))
@@ -934,7 +956,34 @@ bool ProcessorRegistry::validatePublication(const QString&           owner,
                                   {    "references",                                   references}
             });
         }
-        if (!parseDefinitions(serialized, error))
+        return validatePublicationDraft(owner, serialized, error);
+    }
+    catch (const std::exception& exception)
+    {
+        return fail(error, QString::fromUtf8(exception.what()));
+    }
+    catch (...)
+    {
+        return fail(error, "Processor publication validation failed with an unknown exception");
+    }
+}
+
+bool ProcessorRegistry::validatePublicationDraft(const QString&     owner,
+                                                 const QVariantMap& definitions,
+                                                 QString*           error) const
+{
+    if (error)
+    {
+        error->clear();
+    }
+    try
+    {
+        if (owner.isEmpty() || owner.contains(QChar::Null))
+        {
+            throw std::invalid_argument("Invalid processor definition owner");
+        }
+        QMap<QString, std::shared_ptr<Entry>> replacements;
+        if (!_parseDefinitions(definitions, owner, replacements, error))
         {
             return false;
         }
@@ -950,14 +999,14 @@ bool ProcessorRegistry::validatePublication(const QString&           owner,
                 ++it;
             }
         }
-        for (const auto& definition : definitions)
+        for (auto it = replacements.cbegin(); it != replacements.cend(); ++it)
         {
-            if (entries.contains(definition.id))
+            if (entries.contains(it.key()))
             {
-                throw std::invalid_argument(("Duplicate processor ID: " + definition.id).toStdString());
+                throw std::invalid_argument(("Duplicate processor ID: " + it.key()).toStdString());
             }
-            auto       entry    = _definitionEntry(owner, definition);
-            const auto provider = _providers.value(definition.kind);
+            const auto entry    = it.value();
+            const auto provider = _providers.value(entry->type.kind);
             if (provider && provider->provider.validate)
             {
                 ++provider->instances;
@@ -972,7 +1021,7 @@ bool ProcessorRegistry::validatePublication(const QString&           owner,
                     return false;
                 }
             }
-            entries.insert(definition.id, std::move(entry));
+            entries.insert(it.key(), entry);
         }
         if (!_validateGraph(entries, error))
         {
@@ -1029,9 +1078,10 @@ bool ProcessorRegistry::publishDefinitions(const QString& owner, const QList<Def
     QMap<QString, std::shared_ptr<Entry>> replacements;
     try
     {
+        SchemaCache schemas;
         for (const auto& definition : definitions)
         {
-            replacements.insert(definition.id, _definitionEntry(owner, definition));
+            replacements.insert(definition.id, _definitionEntry(owner, definition, &schemas));
         }
     }
     catch (const std::exception& exception)

@@ -390,12 +390,12 @@ with the isolated prefilter result.
 
 ### Remaining measured limits
 
-- A distinct cold drag probe against 1000 definitions still validates the entire
-  draft: median 1129 ms. Identical probes reuse their bounded result; 1000 warm
-  probes took 0.4925 ms total. Search median was 2.92 ms with zero tree resets.
-  A further Core validation-snapshot contract is needed to narrow cold validation
-  safely; publishing only the modified block would discard owner graph context.
-  See [catalog evidence](lineflow-editor.md#synthetic-large-catalog-timing).
+- The original 1129 ms cold drag probe was subsequently optimized by sharing
+  identical immutable descriptors per pass and validating the draft in one parse,
+  while retaining every provider and whole-graph check. No persistent validation
+  snapshot was needed. See [current cold-drag results](lineflow-editor.md#cold-drag-validation).
+  Arbitrarily expensive custom provider validators and many distinct schemas can
+  still dominate a full validation; the synthetic fixture is not a worst-case bound.
 - The regex prefilter accelerates only a conservative recognized subset. General
   PCRE2 expressions retain bounded buffers/internal limits and may rescan partial
   subjects. The 64 KiB bytewise `(a+)z` partial fixture improved from about
