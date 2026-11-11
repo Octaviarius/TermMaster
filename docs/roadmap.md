@@ -491,4 +491,14 @@ General regex complexity and worst-case custom validation costs remain explicit 
 Later stages:
 
 - [ ] Incremental/paged mapping and configurable disk-backed unlimited history.
-- [ ] Whole-history search, word/line/rectangle selection, font zoom and whitespace/control visualization.
+- [ ] Whole-history search, line/rectangle selection, font zoom and whitespace/control visualization.
+
+
+## APP-16: Session order and terminal interaction
+
+- [x] Persist native tab order by object UUID through the existing session owner.
+- [x] Preserve unavailable-provider slots and validate bounded presentation metadata.
+- [x] Add selected-terminal wrap controls to View and the terminal toolbar.
+- [x] Add Unicode double-click word selection across logical and visual wrapping.
+- [x] Specify complete detached terminal windows, host-aware commands and lifecycle in [terminal windows](terminal-windows.md).
+- [ ] Implement detached window hosts, per-window controls, placement persistence and Qt drag/drop.

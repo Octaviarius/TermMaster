@@ -79,7 +79,9 @@ content:
   links: {}
   resources:
     example: resources/example.txt
-  presentation: {}
+  presentation:
+    tabOrder:
+    - terminal1
 ```
 
 All five payload sections are mappings. Objects have safe IDs, nonempty string
@@ -307,3 +309,38 @@ ProcessorRefactoringTests and full AppTests suites. The dirty path relies on its
 existing candidate validation instead of adding an extra processor-validator
 pass; the clean shortcut still validates before returning. No transaction guard,
 recovery stage or conflict check was removed.
+
+
+## Terminal tab order
+
+`content.presentation.tabOrder` is an optional ordered list of stable session
+object IDs. New terminal creation stores creation order in the same atomic session
+write as its object definition. Native tab moves update the cached presentation
+and mark the session dirty; they perform no file I/O. Explicit save, normal session
+or workspace replacement and application exit persist the order through the
+existing Session owner.
+
+Restoration follows saved IDs and appends unlisted objects in deterministic ID
+order. Unknown/stale IDs are ignored for display, and objects with unavailable
+providers retain their saved slots. Reordering visible tabs preserves slots for
+unavailable providers or closed views; a later provider registration inserts its
+terminal at the saved position. Closing a view still retains its object definition,
+following the existing session contract. This change does not add active-tab or
+detached-window restoration.
+
+The optional list is limited to 100000 unique safe string IDs. Invalid types,
+duplicates and unsafe IDs reject a candidate without replacing the current owner.
+Unknown presentation fields survive edits and saves. An absent or partial list is
+valid current-format metadata, not a legacy migration.
+
+The detached-window proposal is recorded in [terminal windows](terminal-windows.md).
+Its global docking order can reuse tabOrder without adding a second competing
+ordering list.
+
+
+Tab-order verification (Qt 6.12.0 / MSVC2022 x64): complete AppTests and SessionTests
+passed in Debug and Release. Tests cover creation/reorder/save/reopen, no disk
+write during moves, two-session isolation, late providers, stale/unlisted IDs,
+unknown-field preservation and atomic invalid-candidate rejection. Native order
+and wrap-command tests passed at 100%, 125% and 200% scaling with disconnected
+synthetic terminals and zero transport connection attempts.
