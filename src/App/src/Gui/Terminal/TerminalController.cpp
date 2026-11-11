@@ -1460,13 +1460,14 @@ void TerminalController::_changed(const QString& id)
     const auto         parameter = _mainParameter(terminal);
     const QFontMetrics metrics(_window.terminalTabs().tabBar()->font());
     const auto detail   = metrics.elidedText(parameter.simplified(), Qt::ElideMiddle, 32 * metrics.averageCharWidth());
-    const auto label    = parameter.isEmpty() ? type : type + '\n' + detail;
     const auto typeIcon = terminal.type == "serial" ? "cable" :
                           terminal.type == "socket" ? "network" :
                                                       "square-terminal";
-    _window.terminalTabs().tabBar()->setTabData(index, Icons::icon(typeIcon));
-    _window.terminalTabs().setTabText(index, QString(label).replace('&', "&&"));
-    _window.setTerminalStatusIcon(index, QIcon(":/Termaster/App/Status/" + icon + ".svg"));
+    _window.setTerminalTab(index,
+                           type,
+                           detail,
+                           Icons::icon(typeIcon),
+                           QIcon(":/Termaster/App/Status/" + icon + ".svg"));
     const auto desired = terminal.connectionRequested ? tr("Connected") : tr("Disconnected");
     QString    tooltip = type;
     if (!parameter.isEmpty())

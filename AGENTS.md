@@ -260,6 +260,8 @@ changing behavior. These rules apply repository-wide.
   scope. Groups define placement, not domain eligibility: derive visibility and
   enabled state from the current workspace/session/selected-terminal capabilities
   and state. Revalidate the active target when executing an action.
+- Prefer standard Qt widgets, layouts and interaction APIs. Use custom painting or
+  manual geometry only when standard facilities cannot meet a concrete requirement.
 - Use MVC for nontrivial behavior: models own presentation state, views render
   it and controllers perform application commands.
 - Keep authoritative state with its owner rather than duplicating it in widgets
