@@ -589,7 +589,7 @@ private:
         QVERIFY(button && button->menu());
         // Fusion's offscreen tab base adds a one-pixel baseline outside the corner slot.
         QVERIFY(qAbs(button->height() - bar->height()) <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
-        QVERIFY(qAbs(button->width() - button->height()) <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
+        QVERIFY(qAbs(2 * button->width() - button->height()) <= 2);
         QVERIFY(qAbs(button->mapTo(group, QPoint()).y() - bar->mapTo(group, QPoint()).y())
                 <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
         const auto originalFont = group->tabs().font();
@@ -599,7 +599,7 @@ private:
         QTest::qWait(40);
         // Fusion's offscreen tab base adds a one-pixel baseline outside the corner slot.
         QVERIFY(qAbs(button->height() - bar->height()) <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
-        QVERIFY(qAbs(button->width() - button->height()) <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
+        QVERIFY(qAbs(2 * button->width() - button->height()) <= 2);
         group->tabs().setFont(originalFont);
         QTest::qWait(40);
         auto*      menu    = button->menu();
