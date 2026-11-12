@@ -571,3 +571,10 @@ Later stages:
 - [x] Display plugin-provided terminal type/shell labels while preserving saved object names.
 - [x] Fit the square hidden-tab button to the complete tab-strip height.
 - [x] Verify persistence validation, plugin lifecycle, font/DPI geometry and native transfers.
+
+
+## APP-25: Generated word names
+
+- [x] Port the WordGenerator prototype's default syllable mapping into Core.
+- [x] Replace adjective/noun defaults for new sessions and unnamed terminals.
+- [x] Remove the obsolete generator/dictionaries and verify prototype parity and name persistence.
