@@ -15,6 +15,7 @@
 #include <QVBoxLayout>
 #include <QWindow>
 #include <Termaster/Core/Gui/Icons.h>
+#include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormModel.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
@@ -71,7 +72,11 @@ SettingsDialog::SettingsDialog(SettingsWidgetRegistry&       registry,
     _error->setTextFormat(Qt::PlainText);
     _error->setWordWrap(true);
     layout->addWidget(_error);
-    _buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Apply | QDialogButtonBox::Cancel, this);
+    _buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Apply | QDialogButtonBox::Cancel
+                                        | QDialogButtonBox::Help,
+                                    this);
+    _buttons->button(QDialogButtonBox::Help)->setObjectName("contextualHelp");
+    _buttons->button(QDialogButtonBox::Help)->setFocusPolicy(Qt::NoFocus);
     layout->addWidget(_buttons);
     connect(_buttons, &QDialogButtonBox::accepted, this, [this] {
         if (_apply())
@@ -80,6 +85,7 @@ SettingsDialog::SettingsDialog(SettingsWidgetRegistry&       registry,
         }
     });
     connect(_buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(_buttons, &QDialogButtonBox::helpRequested, this, &SettingsDialog::helpRequested);
     connect(_buttons->button(QDialogButtonBox::Apply), &QPushButton::clicked, this, [this] { _apply(); });
     connect(_search, &QLineEdit::textChanged, this, &SettingsDialog::_filterPages);
     connect(_tree->selectionModel(), &QItemSelectionModel::currentChanged, this, &SettingsDialog::_showSelection);
@@ -171,6 +177,44 @@ QString SettingsDialog::currentPage() const
 {
     const auto index = _tree->currentIndex();
     return index.isValid() ? index.data(PageIdRole).toString() : QString {};
+}
+
+HelpSource::Topic SettingsDialog::helpContext() const
+{
+    HelpSource::Topic topic;
+    topic.id       = "settings";
+    topic.title    = tr("Settings");
+    topic.markdown = tr("Select a settings page to view its parameter reference. Changes remain drafts until applied.");
+
+    const auto* focused = focusWidget();
+    for (const auto& page : _pages)
+    {
+        if (page.widget != _stack->currentWidget())
+        {
+            continue;
+        }
+
+        topic.id       = "settings." + page.id;
+        topic.title    = page.title;
+        topic.markdown = page.description;
+        for (const auto& field : page.model->schema().fields())
+        {
+            const auto* editor = page.form->editor(field.key);
+            if (!editor || !focused || (focused != editor && !editor->isAncestorOf(focused)))
+            {
+                continue;
+            }
+
+            const QString title  = field.title.isEmpty() ? field.key : field.title;
+            topic.id            += '.' + field.key;
+            topic.title         += " — " + title;
+            topic.markdown       = "## " + title + "\n\n" + field.description + "\n\n" + topic.markdown;
+            break;
+        }
+        topic.markdown += "\n\n" + HelpSource::schemaReference(page.model->schema());
+        break;
+    }
+    return topic;
 }
 
 SettingsFormModel* SettingsDialog::pageModel(const QString& id) const

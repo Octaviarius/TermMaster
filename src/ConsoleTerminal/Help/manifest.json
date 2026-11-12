@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "type": "termaster.help",
+  "description": "ConsoleTerminal documentation",
+  "content": {
+    "topics": [
+      {
+        "id": "terminal.console",
+        "title": "Local console",
+        "file": "Overview.md"
+      }
+    ]
+  }
+}

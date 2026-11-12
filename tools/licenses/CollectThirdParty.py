@@ -17,9 +17,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 BUNDLE = ROOT / "src/App/Res/ThirdParty"
-QT_SBOMS = ("qtbase", "qtserialport", "qtsvg")
+QT_SBOMS = ("qtbase", "qtserialport", "qtsvg", "qttools")
 QT_ROOTS = {
     "Core", "Gui", "Widgets", "Network", "SerialPort", "Svg", "ZlibPrivate",
+    "Help", "Sql", "QSQLiteDriverPlugin",
     "QWindowsIntegrationPlugin", "QModernWindowsStylePlugin", "QSvgPlugin",
     "QSvgIconPlugin", "QSchannelBackendPlugin", "QTlsBackendCertOnlyPlugin",
 }

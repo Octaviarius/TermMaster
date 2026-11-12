@@ -14,6 +14,14 @@ if(NOT TARGET Termaster::PluginApi)
 endif()
 include("${CMAKE_CURRENT_LIST_DIR}/TermasterPlugin.cmake")
 
+if(NOT TARGET Termaster::HelpCompiler)
+    add_executable(Termaster::HelpCompiler IMPORTED)
+    set_target_properties(Termaster::HelpCompiler PROPERTIES
+        IMPORTED_LOCATION "${_termaster_api_root}/bin/HelpCompiler${CMAKE_EXECUTABLE_SUFFIX}"
+    )
+endif()
+include("${CMAKE_CURRENT_LIST_DIR}/Help.cmake")
+
 check_required_components(TermasterPluginApi)
 
 unset(_termaster_api_root)

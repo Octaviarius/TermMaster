@@ -31,6 +31,8 @@ qt_add_library(App STATIC
     src/Gui/Main/MainWindow.cpp
     src/Gui/Main/EditActions.h
     src/Gui/Main/EditActions.cpp
+    src/Gui/Help/HelpController.h
+    src/Gui/Help/HelpController.cpp
     src/Gui/Help/ThirdPartyDialog.h
     src/Gui/Help/ThirdPartyDialog.cpp
     src/Gui/Settings/SettingsDialog.h
@@ -102,3 +104,17 @@ qt_add_resources(App "connectionStatusIcons"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Failed.svg"
         "${CMAKE_CURRENT_SOURCE_DIR}/Res/Status/Retry.svg"
 )
+
+termaster_compile_help(
+    TARGET TermasterHelp
+    NAMESPACE org.termaster.manual
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/help/Termaster.qch"
+    MANIFESTS
+        "${CMAKE_CURRENT_SOURCE_DIR}/Help/manifest.json"
+        "${CMAKE_SOURCE_DIR}/src/Core/Help/manifest.json"
+    SCHEMAS
+        "settings=${CMAKE_CURRENT_SOURCE_DIR}/Res/SettingsSchema.yaml"
+    NATIVE
+)
+
+add_dependencies(App TermasterHelp)

@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/ProcessorTutorial">
+        <file alias="Prefix.yaml">Prefix.yaml</file>
+    </qresource>
+</RCC>

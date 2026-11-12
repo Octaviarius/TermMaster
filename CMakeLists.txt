@@ -12,6 +12,8 @@ include(common.cmake)
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Gui
+    Widgets
+    Help
 )
 qt_standard_project_setup()
 
@@ -19,7 +21,9 @@ include(cmake/PluginApi.cmake)
 include(cmake/Valijson.cmake)
 include(cmake/Pcre2.cmake)
 include(cmake/Fmt.cmake)
+include(cmake/Help.cmake)
 
+add_subdirectory(tools/HelpCompiler)
 add_subdirectory(src)
 add_subdirectory(components/yaml-cpp)
 
@@ -133,4 +137,20 @@ option(TERMASTER_BUILD_LOGGING_TESTS "Build logger and Qt routing lifecycle test
 if(TERMASTER_BUILD_LOGGING_TESTS)
     enable_testing()
     add_subdirectory(tools/tests/Logging)
+endif()
+
+option(TERMASTER_BUILD_HELP_TESTS "Build compiled help and tutorial tests" OFF)
+if(TERMASTER_BUILD_HELP_TESTS)
+    enable_testing()
+    add_subdirectory(tools/tests/Help)
+    add_subdirectory(examples/ProcessorPlugin)
+    if(TARGET AppTests)
+        set(tutorial_package "${CMAKE_BINARY_DIR}/examples/ProcessorPlugin/tutorial-plugin/ProcessorTutorialPlugin")
+        set(tutorial_qch "${tutorial_package}/${TERMASTER_PLUGIN_LIBRARY_DIR}/help/ProcessorTutorial.qch")
+        target_compile_definitions(AppTests PRIVATE
+            "HELPER_PLUGIN_FILE=\"$<TARGET_FILE:ProcessorTutorialPlugin>\""
+            "HELPER_QCH_FILE=\"${tutorial_qch}\""
+        )
+        add_dependencies(AppTests ProcessorTutorialPlugin)
+    endif()
 endif()

@@ -6,10 +6,15 @@ find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
     Svg
+    Help
 )
 set_property(TARGET Qt6::Svg PROPERTY IMPORTED_GLOBAL TRUE)
 
 qt_add_library(${PROJECT_NAME} STATIC
+    inc/Termaster/Core/Help/HelpSource.h
+    src/Help/HelpSource.cpp
+    inc/Termaster/Core/Gui/Help/HelpBrowser.h
+    src/Gui/Help/HelpBrowser.cpp
     inc/Termaster/Core/Logging/Logger.h
     inc/Termaster/Core/Logging/Logging.h
     src/Logging/Logger.cpp
@@ -188,6 +193,7 @@ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 target_link_libraries(${PROJECT_NAME} PUBLIC
     Qt6::Core
     Qt6::Widgets
+    Qt6::Help
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

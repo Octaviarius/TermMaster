@@ -2,6 +2,7 @@
 
 #include <QDialog>
 #include <QList>
+#include <Termaster/Core/Help/HelpSource.h>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
 #include <functional>
@@ -41,9 +42,11 @@ public:
     bool               hasHeightForWidth() const override;
     bool               selectPage(const QString& id);
     QString            currentPage() const;
+    HelpSource::Topic  helpContext() const;
     SettingsFormModel* pageModel(const QString& id) const;
     void               refreshInheritedValues();
     Q_SIGNAL void      applied();
+    Q_SIGNAL void      helpRequested();
 
 private:
     struct Page

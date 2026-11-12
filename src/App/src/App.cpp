@@ -1,3 +1,4 @@
+#include "Gui/Help/HelpController.h"
 #include "Gui/Help/ThirdPartyDialog.h"
 #include "Gui/Main/EditActions.h"
 #include "Gui/Main/MainWindow.h"
@@ -30,6 +31,7 @@
 #include <QSet>
 #include <QSignalBlocker>
 #include <QStatusBar>
+#include <QStyle>
 #include <QTimer>
 #include <QUuid>
 #include <Termaster/App/App.h>
@@ -82,6 +84,7 @@ struct App::Data
     std::unique_ptr<TerminalController>             terminals;
     std::unique_ptr<EditActions>                    editing;
     QPointer<QDialog>                               pluginWindow;
+    std::unique_ptr<HelpController>                 help;
     QPointer<ThirdPartyDialog>                      thirdPartyWindow;
     QPointer<LineflowEditorDialog>                  lineflowWindow;
     QPointer<QAction>                               lineflowAction;
@@ -207,6 +210,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
         this);
     _data->terminals->setProcessorRegistry(_data->plugins.processors());
     _data->plugins.setHost(_data->terminals.get());
+    _data->help = std::make_unique<HelpController>(commands(), _data->plugins, _data->window.get(), this);
     connect(_data->terminals.get(), &TerminalController::selectionChanged, this, [this] {
         const auto dialog = _data->settingsWindows.value(SettingsContext::Terminal);
         if (dialog && dialog->property("terminalId").toString() != _data->terminals->selectedTerminal())
@@ -229,6 +233,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
 
 App::~App()
 {
+    _data->help.reset();
     delete _data->lineflowWindow.data();
     QObject::disconnect(_data->terminals.get(), nullptr, this, nullptr);
     _data->window->removeEventFilter(this);
@@ -833,6 +838,13 @@ void App::_setupActions()
                                        "management");
     _data->lineflowAction->setToolTip(tr("Edit reusable workspace processor blocks"));
     connect(_data->lineflowAction, &QAction::triggered, this, &App::_showLineflowEditor);
+    auto* contents = _addAction("Help.Contents",
+                                tr("Help contents"),
+                                QApplication::style()->standardIcon(QStyle::SP_DialogHelpButton),
+                                QKeySequence(Qt::Key_F1),
+                                "help",
+                                "documentation");
+    connect(contents, &QAction::triggered, this, [this] { _data->help->showContext(QApplication::focusWidget()); });
     auto* about = _addAction("Help.About", tr("&About Termaster"), windowIcon(), {}, "help", "about");
     about->setMenuRole(QAction::AboutRole);
     connect(about, &QAction::triggered, this, [this]() {

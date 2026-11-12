@@ -248,7 +248,10 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     _error->setWordWrap(true);
     _error->setStyleSheet("color: #b54a35;");
     layout->addWidget(_error);
-    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close, this);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close | QDialogButtonBox::Help,
+                                         this);
+    buttons->button(QDialogButtonBox::Help)->setObjectName("contextualHelp");
+    buttons->button(QDialogButtonBox::Help)->setFocusPolicy(Qt::NoFocus);
     buttons->button(QDialogButtonBox::Apply)->setObjectName("applyButton");
     buttons->button(QDialogButtonBox::Close)->setToolTip(tr("Discard unapplied changes and close."));
     layout->addWidget(buttons);
@@ -258,6 +261,7 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
         _message(error);
     });
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(buttons, &QDialogButtonBox::helpRequested, this, &LineflowEditorDialog::helpRequested);
     connect(_blocks, &QComboBox::currentIndexChanged, this, [this] {
         if (_updating)
         {
@@ -409,6 +413,66 @@ void LineflowEditorDialog::setVisible(bool visible)
 LineflowEditorModel& LineflowEditorDialog::model()
 {
     return *_model;
+}
+
+HelpSource::Topic LineflowEditorDialog::helpContext() const
+{
+    HelpSource::Topic topic;
+    topic.id       = "processing.lineflow";
+    topic.title    = tr("Lineflow");
+    topic.markdown = tr(
+        "Build reusable processing blocks by adding catalog processors and connecting their byte-packet "
+        "ports. Select an operation or catalog entry to view its parameter reference. Changes remain "
+        "drafts until applied.\n\n[First custom processor](help:developer.processor)");
+
+    const auto  index          = _tree->currentIndex();
+    const auto* focused        = focusWidget();
+    const bool  paletteFocused = focused && (focused == _catalog || _catalog->isAncestorOf(focused));
+    QString     id;
+    if (paletteFocused || !index.isValid())
+    {
+        if (const auto* item = _catalog->currentItem())
+        {
+            id = item->data(0, Qt::UserRole).toString();
+        }
+    }
+    else
+    {
+        // Linked nested rows already expose the referenced processor's catalog ID.
+        id = index.data(LineflowEditorModel::CatalogIdRole).toString();
+    }
+    if (id.isEmpty())
+    {
+        return topic;
+    }
+
+    const auto metadata = _registry.type(id);
+    topic.id            = "processor." + id;
+    topic.title         = metadata ? metadata->title : id;
+    if (!metadata)
+    {
+        topic
+            .markdown = tr("The selected processor or reusable block `%1` is currently unavailable in the catalog. "
+                           "Its saved configuration is preserved. Enable its provider or open its block definition "
+                           "to inspect the available operations.\n\n[First custom processor](help:developer.processor)")
+                            .arg(id);
+        return topic;
+    }
+
+    const auto authoredTopic = metadata->editor.value("helpTopic").toString();
+    if (!authoredTopic.isEmpty())
+    {
+        topic.id = authoredTopic;
+    }
+    topic.markdown = tr("## Ports\n\nInputs: %1. Outputs: %2. Each invocation carries one complete byte packet.")
+                         .arg(metadata->inputCount)
+                         .arg(metadata->outputCount);
+    if (!metadata->available)
+    {
+        topic.markdown.prepend(tr("This processor is unavailable: %1\n\n").arg(metadata->unavailableReason));
+    }
+    topic.markdown += "\n\n" + HelpSource::schemaReference(metadata->settingsSchema);
+    return topic;
 }
 void LineflowEditorDialog::_message(const QString& message)
 {

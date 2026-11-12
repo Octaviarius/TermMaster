@@ -32,3 +32,14 @@ if(WIN32)
         advapi32
     )
 endif()
+
+termaster_compile_help(
+    TARGET SerialTerminalHelp
+    NAMESPACE org.termaster.serialterminal
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/plugin/SerialTerminal/${TERMASTER_PLUGIN_LIBRARY_DIR}/help/SerialTerminal.qch"
+    MANIFESTS
+        "${CMAKE_CURRENT_SOURCE_DIR}/Help/manifest.json"
+    SCHEMAS
+        "terminal.serial=${CMAKE_CURRENT_SOURCE_DIR}/Resources/Settings.yaml"
+)
+add_dependencies(SerialTerminal SerialTerminalHelp)
