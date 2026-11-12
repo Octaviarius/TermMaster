@@ -17,6 +17,8 @@ class MainWindow final : public QMainWindow
     Q_OBJECT
 
 public:
+    static constexpr bool MainToolbarEnabled = false;
+
     explicit MainWindow(QWidget* parent = nullptr);
     MenubarActionContainer& mainMenu();
     ToolbarActionContainer& toolbar();

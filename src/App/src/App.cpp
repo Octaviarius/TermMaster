@@ -754,7 +754,14 @@ void App::_setupActions()
         action->setCheckable(true);
         action->setChecked(true);
     }
+    _data->toolbarAction->setChecked(MainWindow::MainToolbarEnabled);
+    _data->toolbarAction->setVisible(MainWindow::MainToolbarEnabled);
+    _data->toolbarAction->setEnabled(MainWindow::MainToolbarEnabled);
     connect(_data->toolbarAction, &QAction::toggled, this, [this](bool visible) {
+        if (!MainWindow::MainToolbarEnabled)
+        {
+            return;
+        }
         toolbar().toolbar()->setVisible(visible);
         _storeViewSetting("ui/toolbarVisible", visible);
     });
@@ -1222,7 +1229,8 @@ void App::_applyConfiguration()
     qCDebug(appSettingsTrace) << "Applying application configuration";
     _configureLogging();
     const QScopedValueRollback guard(_data->applyingConfiguration, true);
-    const bool                 toolbarVisible = _data->applicationSettings().value("ui/toolbarVisible", true).toBool();
+    const bool                 toolbarVisible = MainWindow::MainToolbarEnabled
+                                             && _data->applicationSettings().value("ui/toolbarVisible", true).toBool();
     const bool                 statusVisible = _data->applicationSettings().value("ui/statusBarVisible", true).toBool();
     if (_data->toolbarAction)
     {

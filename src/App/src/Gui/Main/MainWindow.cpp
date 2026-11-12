@@ -4,6 +4,7 @@
 #include "../Terminal/TerminalWorkspace.h"
 #include "../Workspace/WorkspacePage.h"
 
+#include <QAction>
 #include <QCoreApplication>
 #include <QStackedWidget>
 #include <QStatusBar>
@@ -35,6 +36,9 @@ MainWindow::MainWindow(QWidget* parent) :
     _toolbar.toolbar()->setIconSize(QSize(24, 24));
     _toolbar.toolbar()->setToolButtonStyle(Qt::ToolButtonIconOnly);
     addToolBar(_toolbar.toolbar());
+    _toolbar.toolbar()->setVisible(MainToolbarEnabled);
+    _toolbar.toolbar()->toggleViewAction()->setVisible(MainToolbarEnabled);
+    _toolbar.toolbar()->toggleViewAction()->setEnabled(MainToolbarEnabled);
     statusBar()->showMessage(tr("Ready"));
 }
 
