@@ -557,3 +557,9 @@ Later stages:
 - [x] Scroll overflowing tab strips with the wheel without changing the terminal.
 - [x] Move exact groups between native splits/windows and detach whole groups.
 - [x] Verify runtime identity, persistence, shutdown reentry and native gestures.
+
+
+## APP-23: Neutral terminal group frames
+
+- [x] Retain uniform neutral panel boundaries without focus/click accent outlines.
+- [x] Remove obsolete visual activation state; verify focused commands, group transfers and native appearance in Debug.

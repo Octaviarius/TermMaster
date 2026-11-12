@@ -2923,19 +2923,6 @@ void TerminalController::_refreshGroupControls(TerminalTabGroup* group)
     {
         return;
     }
-    auto* activeGroup = _focusedGroups.value(group->window()).data();
-    if (!activeGroup)
-    {
-        auto* parent = group->parentWidget();
-        while (parent && !qobject_cast<TerminalWorkspace*>(parent))
-        {
-            parent = parent->parentWidget();
-        }
-        auto* workspace = qobject_cast<TerminalWorkspace*>(parent);
-        activeGroup     = workspace ? workspace->initialGroup() : group;
-    }
-    group->setActive(activeGroup == group);
-
     auto*      panel    = group->tabs().currentWidget();
     const auto id       = panel ? panel->property("terminalId").toString() : QString();
     const auto previous = _commandTarget;
