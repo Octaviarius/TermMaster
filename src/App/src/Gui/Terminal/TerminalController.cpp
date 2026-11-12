@@ -20,6 +20,7 @@
 #include <QFileDialog>
 #include <QFontMetrics>
 #include <QHash>
+#include <QKeyEvent>
 #include <QLoggingCategory>
 #include <QMenu>
 #include <QMessageBox>
@@ -241,9 +242,51 @@ TerminalController::TerminalController(MainWindow&                 window,
         action.title    = requested ? tr("Start all") : tr("Stop all");
         action.iconName = requested ? "play" : "square";
         action.group    = "allConnections";
+        action.shortcut = QKeySequence(Qt::CTRL | Qt::ALT | Qt::SHIFT | (requested ? Qt::Key_S : Qt::Key_X));
         action.enabled  = [this, requested] { return _canSetAllConnections(requested); };
         action.trigger  = [this, requested] { _setAllConnections(requested); };
         registerAction(std::move(action));
+    }
+
+    struct ConnectionShortcut
+    {
+        const char*  id;
+        const char*  title;
+        const char*  icon;
+        Action::Role role;
+        Qt::Key      key;
+    };
+    for (const auto& definition : std::array {
+             ConnectionShortcut {  "Terminal.Start",
+                                 QT_TR_NOOP("Start active terminal"),
+                                 "play",    Action::Role::Connect,
+                                 Qt::Key_S},
+             ConnectionShortcut {   "Terminal.Stop",
+                                 QT_TR_NOOP("Stop active terminal"),
+                                 "square", Action::Role::Disconnect,
+                                 Qt::Key_X},
+             ConnectionShortcut {"Terminal.Restart",
+                                 QT_TR_NOOP("Reconnect active terminal"),
+                                 "rotate-cw",    Action::Role::Restart,
+                                 Qt::Key_R}
+    })
+    {
+        Action action;
+        action.id       = definition.id;
+        action.title    = tr(definition.title);
+        action.iconName = definition.icon;
+        action.group    = "connection";
+        action.shortcut = QKeySequence(Qt::CTRL | Qt::SHIFT | definition.key);
+        action.enabled  = [this, role = definition.role] { return !_connectionAction(role).isEmpty(); };
+        action.trigger  = [this, role = definition.role] {
+            const auto command = _connectionAction(role);
+            if (!command.isEmpty())
+            {
+                _triggerAction(command, selectedTerminal(), selectedWindow());
+            }
+        };
+        // One editable shortcut per operation; backend menu/button actions stay unchanged.
+        _registerAction(std::move(action), nullptr);
     }
 
     Action echo;
@@ -603,6 +646,143 @@ void TerminalController::_focusChanged()
     }
 }
 
+bool TerminalController::eventFilter(QObject* watched, QEvent* event)
+{
+    if (event->type() == QEvent::Shortcut && qobject_cast<QAction*>(watched) && _shortcutCandidate)
+    {
+        // Qt resolves keyboard layouts and multi-key sequences. Suppress a release
+        // only after its shortcut was actually consumed, never for an unbound key.
+        _shortcutReleases[_shortcutCandidate].insert(_shortcutCandidateKey);
+        _shortcutCandidate.clear();
+    }
+
+    auto* display = qobject_cast<TerminalDisplay*>(watched);
+    if (!display)
+    {
+        return QObject::eventFilter(watched, event);
+    }
+    if (event->type() == QEvent::KeyPress)
+    {
+        // A delivered press was not consumed by Qt's shortcut map.
+        _shortcutReleases[watched].remove(static_cast<QKeyEvent*>(event)->key());
+        if (_shortcutCandidate == display)
+        {
+            _shortcutCandidate.clear();
+        }
+    }
+    if (event->type() == QEvent::KeyRelease)
+    {
+        auto* key     = static_cast<QKeyEvent*>(event);
+        auto  pending = _shortcutReleases.find(watched);
+        if (pending != _shortcutReleases.end() && pending->remove(key->key()))
+        {
+            if (pending->isEmpty())
+            {
+                _shortcutReleases.erase(pending);
+            }
+            key->accept();
+            return true;
+        }
+    }
+    if (event->type() != QEvent::ShortcutOverride)
+    {
+        return QObject::eventFilter(watched, event);
+    }
+
+    const auto current = _terminals.find(display->property("terminalId").toString());
+    if (current == _terminals.end() || current->second->display != display
+        || display->window() != QApplication::activeWindow())
+    {
+        return QObject::eventFilter(watched, event);
+    }
+    auto*              key = static_cast<QKeyEvent*>(event);
+    const QKeySequence pressed(key->keyCombination());
+    if ((key->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier)) == (Qt::ControlModifier | Qt::ShiftModifier))
+    {
+        _shortcutCandidate    = display;
+        _shortcutCandidateKey = key->key();
+        key->ignore();
+        return true;
+    }
+    for (const auto& [id, item] : _actions)
+    {
+        auto* presentation = display->window() == &_window ?
+                                 item.action.data() :
+                                 display->window()->findChild<QAction*>(id, Qt::FindDirectChildrenOnly);
+        if (!presentation || !presentation->isEnabled() || !presentation->isVisible())
+        {
+            continue;
+        }
+        for (const auto& shortcut : presentation->shortcuts())
+        {
+            if (!shortcut.isEmpty() && pressed.matches(shortcut) != QKeySequence::NoMatch)
+            {
+                _shortcutCandidate    = display;
+                _shortcutCandidateKey = key->key();
+                // Leave delivery to Qt's shortcut map instead of encoding terminal bytes.
+                key->ignore();
+                return true;
+            }
+        }
+    }
+    return QObject::eventFilter(watched, event);
+}
+
+QString TerminalController::_connectionAction(Action::Role role) const
+{
+    const auto* terminal = _current();
+    if (!terminal)
+    {
+        return {};
+    }
+    const auto                               id = terminal->id;
+    const QPointer<QWidget>                  panel(terminal->panel);
+    const QPointer<const TerminalController> self(this);
+    QStringList                              candidates;
+    for (const auto& [command, item] : _actions)
+    {
+        if (item.registration.role == role
+            && (item.registration.terminalType.isEmpty() || item.registration.terminalType == terminal->type))
+        {
+            candidates.append(command);
+        }
+    }
+    for (const auto& command : candidates)
+    {
+        const auto found = _actions.find(command);
+        if (found == _actions.end())
+        {
+            continue;
+        }
+        const auto item     = found->second;
+        bool       eligible = false;
+        try
+        {
+            eligible = (!item.registration.visible || item.registration.visible())
+                    && (!item.registration.enabled || item.registration.enabled());
+        }
+        catch (const std::exception&)
+        {
+            eligible = false;
+        }
+        if (!self || !panel)
+        {
+            return {};
+        }
+        const auto live       = _terminals.find(id);
+        const auto registered = _actions.find(command);
+        if (live == _terminals.end() || live->second->panel != panel || _current() != live->second.get())
+        {
+            return {};
+        }
+        if (eligible && registered != _actions.end() && registered->second.action == item.action)
+        {
+            return command;
+        }
+    }
+    return {};
+}
+
 void TerminalController::registerTerminalType(TerminalType type)
 {
     if (type.id.isEmpty() || type.plugin.isEmpty() || !type.createDevice || _types.contains(type.id))
@@ -675,7 +855,7 @@ void TerminalController::_registerAction(Action action, ActionContainer* menu)
     {
         throw std::invalid_argument("Invalid terminal action registration");
     }
-    if (!menu || !menu->groups().contains(action.group))
+    if (menu && !menu->groups().contains(action.group))
     {
         throw std::invalid_argument("Unknown action group");
     }
@@ -690,7 +870,10 @@ void TerminalController::_registerAction(Action action, ActionContainer* menu)
     {
         presentation = command->newAction(&_window);
         presentation->setToolTip(action.title);
-        menu->addAction(presentation, action.group);
+        if (menu)
+        {
+            menu->addAction(presentation, action.group);
+        }
         if (action.role == Action::Role::Create)
         {
             const auto group = "terminalCreation";
@@ -715,7 +898,10 @@ void TerminalController::_registerAction(Action action, ActionContainer* menu)
     {
         if (presentation)
         {
-            menu->removeAction(presentation);
+            if (menu)
+            {
+                menu->removeAction(presentation);
+            }
             _window.toolbar().removeAction(presentation);
             delete presentation;
         }
@@ -724,6 +910,7 @@ void TerminalController::_registerAction(Action action, ActionContainer* menu)
     }
     presentation->setObjectName(id);
     presentation->setShortcutContext(Qt::WindowShortcut);
+    presentation->installEventFilter(this);
     _window.addAction(presentation);
     connect(presentation, &QAction::triggered, this, [this, id] { _triggerAction(id, _mainTerminalId(), &_window); });
     refreshTerminalActions();
@@ -754,7 +941,10 @@ void TerminalController::unregisterAction(const QString& id)
     auto* action = it->second.action.data();
     if (action)
     {
-        it->second.menu->removeAction(action);
+        if (it->second.menu)
+        {
+            it->second.menu->removeAction(action);
+        }
         _window.toolbar().removeAction(action);
         delete action;
     }
@@ -1112,6 +1302,11 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         }
         terminal->display = new TerminalDisplay;
         terminal->display->setObjectName("terminalDisplay");
+        terminal->display->setProperty("terminalId", id);
+        terminal->display->installEventFilter(this);
+        connect(terminal->display, &QObject::destroyed, this, [this, display = terminal->display.data()] {
+            _shortcutReleases.remove(display);
+        });
         const auto effective = _effective(type, terminal->settings);
         terminal->display->setAppearance(effective.value("appearance").toMap());
         terminal->panel = type.registration.createPanel ?
@@ -3167,7 +3362,7 @@ void TerminalController::_refreshWindowActions(DetachedTerminalWindow* window)
             continue;
         }
         const auto item = current->second;
-        if (item.registration.role == Action::Role::Create || item.registration.group == "allConnections")
+        if (item.registration.role == Action::Role::Create)
         {
             continue;
         }
@@ -3182,11 +3377,15 @@ void TerminalController::_refreshWindowActions(DetachedTerminalWindow* window)
             action = command->newAction(host);
             action->setObjectName(id);
             action->setShortcutContext(Qt::WindowShortcut);
+            action->installEventFilter(this);
             host->addAction(action);
-            auto& menu = id == "View.WrapLines" ? host->viewMenu() : host->terminalMenu();
-            menu.addAction(action,
-                           menu.groups().contains(item.registration.group) ? item.registration.group :
-                                                                             QString("management"));
+            if (item.menu)
+            {
+                auto& menu = id == "View.WrapLines" ? host->viewMenu() : host->terminalMenu();
+                menu.addAction(action,
+                               menu.groups().contains(item.registration.group) ? item.registration.group :
+                                                                                 QString("management"));
+            }
             connect(action, &QAction::triggered, this, [this, host, id] {
                 if (!host)
                 {
@@ -3205,8 +3404,10 @@ void TerminalController::_refreshWindowActions(DetachedTerminalWindow* window)
             });
         }
         const QPointer<QAction> source    = group->action(id);
-        const bool              visible   = source && source->isVisible();
-        const bool              enabled   = source && source->isEnabled();
+        const bool              bulk      = item.registration.group == "allConnections";
+        const bool              visible   = bulk || (source && source->isVisible());
+        const bool              enabled   = bulk ? (!item.registration.enabled || item.registration.enabled()) :
+                                                   source && source->isEnabled();
         const bool              checkable = source && source->isCheckable();
         const bool              checked   = source && source->isChecked();
         action->setVisible(visible);
@@ -3274,6 +3475,10 @@ void TerminalController::_showGroupMenu(const QString& id, const QPoint& positio
     connect(&group->tabs(), &QTabWidget::currentChanged, menu, invalidate);
     for (const auto& [command, item] : _actions)
     {
+        if (!item.menu)
+        {
+            continue;
+        }
         const QPointer<QAction> source = group->action(command);
         if (!source || !source->isVisible())
         {

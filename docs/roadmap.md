@@ -588,3 +588,11 @@ Later stages:
 ## APP-27: Disable the common toolbar
 
 - [x] Disable the main toolbar in code while retaining group-local controls and stored preferences; verify Debug configuration/view tests and native appearance.
+
+
+## APP-28: Default terminal connection shortcuts
+
+- [x] Register shared editable defaults for active-terminal start, stop and reconnect, plus session-wide start/stop.
+- [x] Resolve backend operations by semantic role and retain exact group/window targeting.
+- [x] Preserve terminal Ctrl control bytes and explicit saved shortcut priority, including disabled bindings.
+- [x] Complete Debug/Release regression suites and native Windows keyboard/settings verification.

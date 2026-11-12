@@ -198,7 +198,9 @@ void DetachedTerminalWindow::_createMenus()
         item.release();
         return result;
     };
-    _terminalMenu = menu("terminal", tr("&Terminal"), {"connection", "management", "output", "settings", "window"});
+    _terminalMenu = menu("terminal",
+                         tr("&Terminal"),
+                         {"allConnections", "connection", "management", "output", "settings", "window"});
     _editMenu     = menu("edit", tr("&Edit"), {"history", "clipboard", "selection"});
     _viewMenu     = menu("view", tr("&View"), {"terminal", "panels", "window"});
     _windowMenu   = menu("window", tr("&Window"), {"navigation"});
