@@ -7,3 +7,5 @@
 /.vscode/
 
 !src/Core/inc/Termaster/Core/BuildTime.h
+
+/.codegraph/
