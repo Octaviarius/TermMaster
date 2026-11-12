@@ -3,6 +3,7 @@
 #include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorCatalogTree.h"
 #include "Gui/Session/SessionPicker.h"
+#include "Gui/Settings/ActionLayoutEditor.h"
 #include "Gui/Settings/FavoritesEditor.h"
 #include "Gui/Settings/LoggingTagsEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
@@ -30,6 +31,7 @@
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListView>
 #include <QMainWindow>
 #include <QMap>
 #include <QMenu>
@@ -504,7 +506,7 @@ private:
         QVERIFY(plugins);
         QVERIFY(quit);
         QCOMPARE(plugins->actions().size(), 1);
-        QCOMPARE(quit->shortcut(), QKeySequence(QKeySequence::Quit));
+        QCOMPARE(quit->shortcut(), QKeySequence("Ctrl+Shift+Q"));
         QVERIFY(tools->actions("management").contains(plugins->actions().first()));
         QVERIFY(!_app.toolbar().toolbar()->actions().contains(plugins->actions().first()));
         QCOMPARE(_app.toolbar().groups(), QStringList({"terminalCreation"}));
@@ -2746,7 +2748,7 @@ content:
             QVERIFY(image.save(QDir(capture).filePath("FontPopup.png")));
             family->hidePopup();
             dialog->selectPage("application.appearance");
-            dialog->pageModel("application.appearance")->setValue("toolbar", false);
+            dialog->pageModel("application.appearance")->setValue("statusBar", false);
             QApplication::processEvents();
             QVERIFY(dialog->grab().save(QDir(capture).filePath("Reset.png")));
         }
@@ -2762,11 +2764,82 @@ content:
         QCOMPARE(child.exitCode(), 0);
     }
 
+    Q_SLOT void actionLayoutSettingsDrafts()
+    {
+        const auto original = _app.settings().value("settings/ui/terminalGroups");
+        const auto cleanup  = qScopeGuard([&] {
+            for (auto* dialog : _app.mainWindow().findChildren<SettingsDialog*>())
+            {
+                delete dialog;
+            }
+            if (original.isValid())
+            {
+                _app.settings().setValue("settings/ui/terminalGroups", original);
+            }
+            else
+            {
+                _app.settings().remove("settings/ui/terminalGroups");
+            }
+        });
+        const auto open     = [&] {
+            _app.commands().find("Application.Settings")->actions().first()->trigger();
+            auto* dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+            if (dialog)
+            {
+                dialog->selectPage("application.appearance");
+            }
+            return dialog;
+        };
+        QPointer<SettingsDialog> dialog(open());
+        QVERIFY(dialog);
+        auto*      model   = dialog->pageModel("application.appearance");
+        const auto editors = dialog->findChildren<ActionLayoutEditor*>();
+        QCOMPARE(editors.size(), 4);
+        auto*              editor = editors.first();
+        const QVariantList selectors {"command:Unavailable.Plugin", "group:connection"};
+        model->setValue("embeddedToolbar", selectors);
+        QCOMPARE(editor->value().toList(), selectors);
+        auto* list = editor->findChild<QListView*>("actionLayoutList");
+        list->setCurrentIndex(list->model()->index(1, 0));
+        editor->findChild<QPushButton*>("actionLayoutUp")->click();
+        const QVariantList reordered {"group:connection", "command:Unavailable.Plugin"};
+        QCOMPARE(model->value("embeddedToolbar").toList(), reordered);
+        QVERIFY(model->isValid());
+        dialog->reject();
+        QTRY_VERIFY(dialog.isNull());
+        QCOMPARE(_app.settings().value("settings/ui/terminalGroups"), original);
+
+        dialog = open();
+        QVERIFY(dialog);
+        model  = dialog->pageModel("application.appearance");
+        editor = dialog->findChildren<ActionLayoutEditor*>().first();
+        model->setValue("embeddedToolbar", selectors);
+        auto* selector = editor->findChild<QComboBox*>("actionLayoutSelector");
+        selector->setEditText("command:Future.Node");
+        editor->findChild<QPushButton*>("actionLayoutAdd")->click();
+        auto expected = selectors;
+        expected.append("command:Future.Node");
+        QCOMPARE(model->value("embeddedToolbar").toList(), expected);
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(_app.settings().value("settings/ui/terminalGroups/embedded/toolbar").toList(), expected);
+        list = editor->findChild<QListView*>("actionLayoutList");
+        while (list->model()->rowCount())
+        {
+            list->setCurrentIndex(list->model()->index(0, 0));
+            editor->findChild<QPushButton*>("actionLayoutRemove")->click();
+        }
+        QVERIFY(model->value("embeddedToolbar").toList().isEmpty());
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        QVERIFY(_app.settings().value("settings/ui/terminalGroups/embedded/toolbar").toList().isEmpty());
+        dialog->reject();
+        QTRY_VERIFY(dialog.isNull());
+    }
+
     Q_SLOT void generatedSettingsDialog()
     {
         QTemporaryDir temporary;
         QString       error;
-        QVERIFY(_app.settings().setValue("settings/ui/toolbarVisible", true));
+        QVERIFY(_app.settings().setValue("settings/ui/statusBarVisible", true));
         QVERIFY(_app.settings().setValue("settings/ui/statusBarVisible", true));
         QVERIFY(_app.createWorkspace(Path(temporary.filePath("Settings.termaster")), "Settings", &error));
         const auto cleanup = qScopeGuard([&] {
@@ -2775,7 +2848,7 @@ content:
                 delete dialog;
             }
             _app.closeWorkspace();
-            auto* action = _app.commands().find("View.Toolbar")->actions().first();
+            auto* action = _app.commands().find("View.StatusBar")->actions().first();
             if (!action->isChecked())
             {
                 action->trigger();
@@ -2788,9 +2861,9 @@ content:
         QVERIFY(!dialog->pageModel("workspace.terminal"));
         QVERIFY(!dialog->pageModel("terminal.connection"));
         auto* model = dialog->pageModel("application.appearance");
-        model->setValue("toolbar", false);
+        model->setValue("statusBar", false);
         QVERIFY(_app.toolbar().toolbar()->isHidden());
-        auto* reset = dialog->findChild<QToolButton*>("reset_toolbar");
+        auto* reset = dialog->findChild<QToolButton*>("reset_statusBar");
         QVERIFY(reset && !reset->isHidden());
         auto* booleanEditor = reset->parentWidget()->findChild<QCheckBox*>();
         QVERIFY(booleanEditor);
@@ -2812,11 +2885,11 @@ content:
         _app.commands().find("Application.Settings")->actions().first()->trigger();
         dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
         model  = dialog->pageModel("application.appearance");
-        model->setValue("toolbar", false);
+        model->setValue("statusBar", false);
         dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
         QVERIFY(_app.toolbar().toolbar()->isHidden());
-        QVERIFY(!_app.settings().value("settings/ui/toolbarVisible").toBool());
-        QVERIFY(!_app.workspace()->settings().containsOverride("ui/toolbarVisible"));
+        QVERIFY(!_app.settings().value("settings/ui/statusBarVisible").toBool());
+        QVERIFY(!_app.workspace()->settings().containsOverride("ui/statusBarVisible"));
         QVERIFY(_app.createSession("Settings session", &error));
         QVERIFY(dialog);
         auto* applicationDraft = dialog->pageModel("application.terminal");
@@ -3556,9 +3629,9 @@ content:
         QVERIFY(_menuAction(menu, "Serial.Close"));
         QVERIFY(!_menuAction(menu, "Serial.New"));
         QVERIFY(!_menuAction(menu, "Console.Environment.Refresh"));
-        QVERIFY(_menuAction(menu, "Serial.Connect")->isEnabled());
-        QVERIFY(!_menuAction(menu, "Serial.Disconnect")->isEnabled());
-        QVERIFY(!_menuAction(menu, "Serial.Reconnect")->isEnabled());
+        QVERIFY(_menuAction(menu, "Terminal.Start")->isEnabled());
+        QVERIFY(!_menuAction(menu, "Terminal.Stop")->isEnabled());
+        QVERIFY(!_menuAction(menu, "Terminal.Restart")->isEnabled());
         const auto capture = qEnvironmentVariable("TERMASTER_CONTROLS_CAPTURE");
         if (!capture.isEmpty())
         {
@@ -3815,7 +3888,7 @@ content:
             actions.append(action);
             QVERIFY(!action->icon().isNull());
             QVERIFY(!action->toolTip().isEmpty());
-            QVERIFY(terminalMenu->actions(it.value()).contains(action));
+            QCOMPARE(terminalMenu->actions(it.value()).contains(action), it.value() != "connection");
             QCOMPARE(_app.toolbar().toolbar()->actions().contains(action), it.value() == "create");
         }
         QVERIFY(!_app.commands().find("Serial.New")->actions().first()->isEnabled());
@@ -3862,7 +3935,8 @@ content:
         QVERIFY(!editAction("Edit.Cut")->isEnabled());
         QVERIFY(!editAction("Edit.Undo")->isEnabled());
         QVERIFY(!editAction("Edit.Redo")->isEnabled());
-        editAction("Edit.Copy")->trigger();
+        clipboard->setText("unrelated");
+        QTest::keyClick(display, Qt::Key_C, Qt::AltModifier);
         QVERIFY(clipboard->text().contains("synthetic output"));
         clipboard->setText("synthetic paste");
         QTRY_VERIFY(editAction("Edit.Paste")->isEnabled());
@@ -3879,7 +3953,7 @@ content:
         QVERIFY(display->hasFocus());
         terminalOutput.clear();
 
-        editAction("Edit.Paste")->trigger();
+        QTest::keyClick(display, Qt::Key_V, Qt::AltModifier);
         QCOMPARE(terminalOutput.size(), 1);
         QCOMPARE(terminalOutput.first().at(0).toByteArray(), QByteArray("synthetic paste"));
         QCOMPARE(terminalOutput.first().at(1).value<TerminalDisplay::OutputKind>(), TerminalDisplay::OutputKind::Paste);
@@ -5506,6 +5580,25 @@ content:
             const auto* command = _app.commands().find(it.key());
             QVERIFY(command);
             QCOMPARE(command->defaultShortcut(), QKeySequence(it.value().toString()));
+            const auto group = it.key().endsWith("All") ? "allConnections" : "connection";
+            QVERIFY(_app.mainMenu().findMenu("/terminal")->actions(group).contains(command->actions().first()));
+            QCOMPARE(command->actions().first()->shortcut(), command->defaultShortcut());
+        }
+        const QVariantMap editingDefaults {
+            {      "Edit.Copy",         "Alt+C"},
+            {     "Edit.Paste",         "Alt+V"},
+            {       "Edit.Cut",         "Alt+X"},
+            { "Edit.SelectAll",  "Ctrl+Shift+A"},
+            {      "Edit.Undo",  "Ctrl+Shift+Z"},
+            {      "Edit.Redo",  "Ctrl+Shift+Y"},
+            {  "Workspace.New",  "Ctrl+Shift+N"},
+            { "Workspace.Open",  "Ctrl+Shift+O"},
+            { "Workspace.Save", "Ctrl+Shift+F2"},
+            {"Workspace.Close",  "Ctrl+Shift+W"}
+        };
+        for (auto it = editingDefaults.cbegin(); it != editingDefaults.cend(); ++it)
+        {
+            QCOMPARE(_app.commands().find(it.key())->defaultShortcut(), QKeySequence(it.value().toString()));
         }
         for (const auto* id : {"Serial.Connect",
                                "Serial.Disconnect",
@@ -5678,8 +5771,11 @@ content:
         if (!capture.isEmpty())
         {
             QVERIFY(QDir().mkpath(capture));
+            auto* search = dialog->findChild<QLineEdit*>("shortcutSearch");
+            search->setText("Ctrl+Shift");
             QTest::qWait(100);
             QVERIFY(dialog->grab().save(QDir(capture).filePath("ConnectionShortcuts.png")));
+            search->clear();
         }
 
         auto assignments = originalAssignments.toMap();

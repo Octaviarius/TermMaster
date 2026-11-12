@@ -4,6 +4,7 @@
 #include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorFavorites.h"
 #include "Gui/Session/SessionPicker.h"
+#include "Gui/Settings/ActionLayoutEditor.h"
 #include "Gui/Settings/FavoritesEditor.h"
 #include "Gui/Settings/LoggingTagsEditor.h"
 #include "Gui/Settings/SettingsDialog.h"
@@ -166,6 +167,9 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
     registerNativeProcessors(_data->plugins.processors(), "core.processing");
     _data->settingsWidgets.registerWidget("commandShortcuts", [this](const SettingsSchema::Field&, QWidget* parent) {
         return new ShortcutEditor(_data->commands, _data->shortcuts, parent);
+    });
+    _data->settingsWidgets.registerWidget("actionLayout", [](const SettingsSchema::Field&, QWidget* parent) {
+        return new ActionLayoutEditor(parent);
     });
     _data->settingsWidgets.registerWidget("commandFavorites", [](const SettingsSchema::Field&, QWidget* parent) {
         return new FavoritesEditor(parent);
@@ -566,7 +570,7 @@ void App::_setupActions()
     auto* create = _addAction("Workspace.New",
                               tr("&New workspace…"),
                               Icons::icon("folder-plus"),
-                              QKeySequence::New,
+                              QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N),
                               "file",
                               "workspace");
     create->setToolTip(tr("Create a workspace"));
@@ -574,7 +578,7 @@ void App::_setupActions()
     auto* open = _addAction("Workspace.Open",
                             tr("&Open workspace…"),
                             Icons::icon("folder-open"),
-                            QKeySequence::Open,
+                            QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_O),
                             "file",
                             "workspace");
     open->setToolTip(tr("Open a workspace"));
@@ -582,7 +586,7 @@ void App::_setupActions()
     _data->saveAction = _addAction("Workspace.Save",
                                    tr("&Save workspace"),
                                    Icons::icon("save"),
-                                   QKeySequence::Save,
+                                   QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F2),
                                    "file",
                                    "workspace");
     _data->saveAction->setToolTip(tr("Save the current workspace"));
@@ -596,7 +600,7 @@ void App::_setupActions()
     _data->closeAction = _addAction("Workspace.Close",
                                     tr("&Close workspace"),
                                     Icons::icon("x"),
-                                    QKeySequence::Close,
+                                    QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_W),
                                     "file",
                                     "workspace");
     _data->closeAction->setToolTip(tr("Close the current workspace"));
@@ -737,7 +741,12 @@ void App::_setupActions()
                 this,
                 &App::_updateRecent);
     }
-    auto* quit = _addAction("Application.Exit", tr("E&xit"), {}, QKeySequence::Quit, "file", "application");
+    auto* quit = _addAction("Application.Exit",
+                            tr("E&xit"),
+                            {},
+                            QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Q),
+                            "file",
+                            "application");
     quit->setMenuRole(QAction::QuitRole);
     connect(quit, &QAction::triggered, _data->window.get(), &QWidget::close);
 
@@ -803,7 +812,7 @@ void App::_setupActions()
     auto* preferences = _addAction("Application.Settings",
                                    tr("&Settings…"),
                                    Icons::icon("sliders-horizontal"),
-                                   QKeySequence::Preferences,
+                                   QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Comma),
                                    "tools",
                                    "management");
     preferences->setMenuRole(QAction::PreferencesRole);

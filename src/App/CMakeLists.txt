@@ -37,6 +37,8 @@ qt_add_library(App STATIC
     src/Gui/Settings/SettingsDialog.cpp
     src/Gui/Settings/LoggingTagsEditor.h
     src/Gui/Settings/LoggingTagsEditor.cpp
+    src/Gui/Settings/ActionLayoutEditor.h
+    src/Gui/Settings/ActionLayoutEditor.cpp
     src/Gui/Settings/FavoritesEditor.h
     src/Gui/Settings/FavoritesEditor.cpp
     src/Gui/Settings/ShortcutEditor.h

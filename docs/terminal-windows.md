@@ -280,8 +280,9 @@ ToolbarActionContainers and status controls remain active.
 The three active-terminal commands resolve the current backend's registered Connect,
 Disconnect or Restart action by semantic role. They revalidate its visibility,
 eligibility and exact terminal/window identity before execution. These commands are
-shortcut-editor entries; existing plugin menu and toolbar actions remain the visible
-controls. Bulk actions are also available in secondary windows' Terminal menu.
+the menu presentations, so their active shortcuts are displayed by Qt. Backend
+role actions remain the local toolbar controls. Bulk actions are also available in
+secondary windows' Terminal menu.
 
 App's terminal controller lets Qt resolve application shortcuts before terminal byte
 encoding. Plain Ctrl+C/S/X/R retain terminal control-byte behavior. An unbound key still
@@ -299,3 +300,33 @@ settings page was visually inspected. Group-transfer checks compare meaningful
 selected fixture text because viewport-only trailing blank rows change with resizing.
 Transport checks use synthetic devices; physical hardware and external traffic are
 not part of this acceptance.
+
+
+## Shortcut and action-layout usability (APP-29)
+
+Connection menus use the shared Terminal.Start/Stop/Restart commands rather than
+separate backend actions without bindings. Window shortcuts activate once; tab
+context menus display the same binding without registering another accelerator.
+App routes enabled window commands before terminal encoding, including Alt-based
+editing bindings, while plain Ctrl control bytes continue to reach terminal input.
+
+Editing defaults are Alt+C (copy), Alt+V (paste), Alt+X (cut), Ctrl+Shift+A
+(select all), Ctrl+Shift+Z (undo) and Ctrl+Shift+Y (redo). Workspace commands use
+Ctrl+Shift+N/O/W for new/open/close and Ctrl+Shift+F2 for save. The save key avoids
+the active-terminal start and session-wide start-all bindings. Exit uses Ctrl+Shift+Q;
+application settings use Ctrl+Shift+Comma. Explicit saved assignments remain unchanged.
+
+The Interface page selects `actionLayout` editors through schema descriptors.
+Each embedded/secondary toolbar/status list shows readable labels and supports
+adding, removing and moving selectors. Unknown plugin selectors retain their
+original IDs; an explicit empty list remains empty. Editors only change form drafts;
+Cancel discards them and Apply uses the existing atomic settings owner. YAML syntax
+and explicit scalar tags are not exposed by these list controls.
+
+The disabled common toolbar has no Interface toggle; its stored visibility preference
+is retained for future use. View menu mnemonics avoid Alt+V so paste is unambiguous.
+Qt 6.12/MSVC 2022 native acceptance covers displayed menu shortcuts, Alt copy/paste,
+ordinary Ctrl bytes, action-layout reorder/add/remove, unknown selectors, explicit
+empty lists, Cancel and Apply. The affected menus and Interface page were visually
+inspected. Debug and Release AppTests, CommandTests, TerminalDisplayTests, TerminalInputTests
+and CodecProcessorTests suites pass; device traffic is synthetic.
