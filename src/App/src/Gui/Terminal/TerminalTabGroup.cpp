@@ -86,7 +86,7 @@ private:
     }
 };
 
-/** Borrow the sibling bar's size hint so Qt lays out a full-height square corner. */
+/** Borrow the sibling bar's size hint so Qt lays out a full-height narrow corner. */
 class HiddenTabsButton final : public QToolButton
 {
 public:
@@ -98,7 +98,7 @@ public:
     QSize sizeHint() const override
     {
         const int side = std::max(QToolButton::sizeHint().height(), _tabBar->sizeHint().height());
-        return QSize(side, side);
+        return QSize((side + 1) / 2, side);
     }
 
     QSize minimumSizeHint() const override

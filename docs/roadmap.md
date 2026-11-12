@@ -578,3 +578,8 @@ Later stages:
 - [x] Port the WordGenerator prototype's default syllable mapping into Core.
 - [x] Replace adjective/noun defaults for new sessions and unnamed terminals.
 - [x] Remove the obsolete generator/dictionaries and verify prototype parity and name persistence.
+
+
+## APP-26: Narrow hidden-tab button
+
+- [x] Halve the menu button width while preserving full strip height; verify native 100%/200%, font changes and overflow navigation in Debug.

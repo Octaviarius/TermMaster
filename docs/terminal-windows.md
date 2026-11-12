@@ -241,18 +241,18 @@ Acceptance with Qt 6.12/MSVC 2022 on Windows:
 
 ## Naming and tab-strip button acceptance (APP-24)
 
-The hidden-tab menu button uses native corner layout with a square size hint tied
+The hidden-tab menu button uses native corner layout with a half-width size hint tied
 to the tab bar. Its full height follows the two-line strip and font/DPI changes.
 No timer-based geometry adjustment is used.
 
 Verification covers stable window numbers through save/reopen and vacant-number
 allocation, invalid/duplicate numeric metadata, real plugin labels and live shell/
-protocol settings changes, full-height square corner geometry after font changes,
+protocol settings changes, full-height half-width corner geometry after font changes,
 and native group/tab gestures. Debug and Release application builds and the four
 affected CTest suites pass. AppTests reports 58 passes with one default native-input
 skip; opt-in native acceptance passes at 100%, 125% and 200%. Visual captures confirm
 labels and full-height corner alignment. The offscreen Fusion style reserves a
 one-pixel tab-base line outside its corner slot; native Windows checks require
-exact height, square dimensions and top alignment. Hosted plugins use ABI 12 and
+exact height, half-width proportions and top alignment. Hosted plugins use ABI 12 and
 all built-in modules are rebuilt. Mixed-monitor DPI and physical traffic remain
 outside these checks.
