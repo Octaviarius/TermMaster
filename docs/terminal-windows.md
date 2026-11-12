@@ -173,3 +173,8 @@ observations are being collected.
   commands separate. This clarifies the earlier concern about unexpected toolbars;
   removing all group-local controls is not the intended outcome. Record only;
   implementation remains deferred during feedback collection.
+
+- The compact toolbar size shown in the latest reference is comfortable: small
+  icons, tightly spaced buttons and a low-height panel. Use that capture as the
+  visual size reference for group-local toolbars. Exact pixel measurements have
+  not been specified; implementation remains deferred during feedback collection.
