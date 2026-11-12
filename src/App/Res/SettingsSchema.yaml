@@ -6,7 +6,7 @@ content:
   title: Display
   type: object
   additionalProperties: false
-  required: [toolbar, statusBar]
+  required: [statusBar]
   x-groups:
     - id: appearance
       title: Appearance
@@ -15,14 +15,6 @@ content:
       title: Terminal group controls
       order: 1
   properties:
-    toolbar:
-      type: boolean
-      title: Show toolbar
-      description: Show the main action toolbar for the application.
-      default: true
-      x-settings-path: ui/toolbarVisible
-      x-group: appearance
-      x-order: 0
     statusBar:
       type: boolean
       title: Show status bar
@@ -45,7 +37,7 @@ content:
       maxItems: 64
       uniqueItems: true
       x-settings-path: ui/terminalGroups/embedded/toolbar
-      x-widget: yaml
+      x-widget: actionLayout
       x-group: terminalGroups
       x-order: 0
     embeddedStatus:
@@ -62,7 +54,7 @@ content:
       maxItems: 64
       uniqueItems: true
       x-settings-path: ui/terminalGroups/embedded/status
-      x-widget: yaml
+      x-widget: actionLayout
       x-group: terminalGroups
       x-order: 1
     secondaryToolbar:
@@ -79,7 +71,7 @@ content:
       maxItems: 64
       uniqueItems: true
       x-settings-path: ui/terminalGroups/secondary/toolbar
-      x-widget: yaml
+      x-widget: actionLayout
       x-group: terminalGroups
       x-order: 2
     secondaryStatus:
@@ -96,6 +88,6 @@ content:
       maxItems: 64
       uniqueItems: true
       x-settings-path: ui/terminalGroups/secondary/status
-      x-widget: yaml
+      x-widget: actionLayout
       x-group: terminalGroups
       x-order: 3

@@ -596,3 +596,18 @@ Later stages:
 - [x] Resolve backend operations by semantic role and retain exact group/window targeting.
 - [x] Preserve terminal Ctrl control bytes and explicit saved shortcut priority, including disabled bindings.
 - [x] Complete Debug/Release regression suites and native Windows keyboard/settings verification.
+
+
+## APP-29: Shortcut visibility and usable action-layout settings
+
+- [x] Show canonical connection bindings in main/secondary menus and tab context menus.
+- [x] Use Alt+C/V/X editing defaults and move remaining application defaults off plain Ctrl keys.
+- [x] Replace raw action-selector YAML with native ordered list editors preserving drafts and unavailable plugins.
+- [x] Complete Debug/Release and native Windows GUI acceptance.
+
+
+## APP-30: Four-port Bypass
+
+- [x] Register native.duplex-bypass with distinct named two-input/two-output ports.
+- [x] Preserve independent packet boundaries, binary/empty payloads, limits and cancellation.
+- [x] Verify Debug/Release CodecProcessorTests and application integration.

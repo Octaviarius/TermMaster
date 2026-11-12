@@ -21,19 +21,19 @@ EditActions::EditActions(QMainWindow& window, CommandRegistry& commands, ActionC
 {
     struct Definition
     {
-        const char*               id;
-        const char*               text;
-        const char*               icon;
-        const char*               group;
-        QKeySequence::StandardKey shortcut;
+        const char* id;
+        const char* text;
+        const char* icon;
+        const char* group;
+        Qt::Key     key;
     };
     const std::array definitions {
-        Definition {     "Edit.Undo",       QT_TR_NOOP("&Undo"),          "undo-2",   "history",      QKeySequence::Undo},
-        Definition {     "Edit.Redo",       QT_TR_NOOP("&Redo"),          "redo-2",   "history",      QKeySequence::Redo},
-        Definition {      "Edit.Cut",        QT_TR_NOOP("Cu&t"),        "scissors", "clipboard",       QKeySequence::Cut},
-        Definition {     "Edit.Copy",       QT_TR_NOOP("&Copy"),            "copy", "clipboard",      QKeySequence::Copy},
-        Definition {    "Edit.Paste",      QT_TR_NOOP("&Paste"), "clipboard-paste", "clipboard",     QKeySequence::Paste},
-        Definition {"Edit.SelectAll", QT_TR_NOOP("Select &All"),       "scan-text", "selection", QKeySequence::SelectAll}
+        Definition {     "Edit.Undo",       QT_TR_NOOP("&Undo"),          "undo-2",   "history", Qt::Key_Z},
+        Definition {     "Edit.Redo",       QT_TR_NOOP("&Redo"),          "redo-2",   "history", Qt::Key_Y},
+        Definition {      "Edit.Cut",        QT_TR_NOOP("Cu&t"),        "scissors", "clipboard", Qt::Key_X},
+        Definition {     "Edit.Copy",       QT_TR_NOOP("&Copy"),            "copy", "clipboard", Qt::Key_C},
+        Definition {    "Edit.Paste",      QT_TR_NOOP("&Paste"), "clipboard-paste", "clipboard", Qt::Key_V},
+        Definition {"Edit.SelectAll", QT_TR_NOOP("Select &All"),       "scan-text", "selection", Qt::Key_A}
     };
     for (std::size_t index = 0; index < definitions.size(); ++index)
     {
@@ -45,7 +45,9 @@ EditActions::EditActions(QMainWindow& window, CommandRegistry& commands, ActionC
             command = commands.create(id,
                                       tr(definition.text),
                                       Icons::icon(QString::fromLatin1(definition.icon)),
-                                      QKeySequence(definition.shortcut));
+                                      QKeySequence(
+                                          (definition.group == QString("clipboard") ? Qt::ALT : Qt::CTRL | Qt::SHIFT)
+                                          | definition.key));
         }
         auto* action = command->newAction(&window);
         action->setObjectName(QString::fromLatin1(definition.id));

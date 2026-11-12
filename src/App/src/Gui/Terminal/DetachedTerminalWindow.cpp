@@ -202,7 +202,7 @@ void DetachedTerminalWindow::_createMenus()
                          tr("&Terminal"),
                          {"allConnections", "connection", "management", "output", "settings", "window"});
     _editMenu     = menu("edit", tr("&Edit"), {"history", "clipboard", "selection"});
-    _viewMenu     = menu("view", tr("&View"), {"terminal", "panels", "window"});
+    _viewMenu     = menu("view", tr("V&iew"), {"terminal", "panels", "window"});
     _windowMenu   = menu("window", tr("&Window"), {"navigation"});
 }
 
