@@ -178,3 +178,9 @@ observations are being collected.
   icons, tightly spaced buttons and a low-height panel. Use that capture as the
   visual size reference for group-local toolbars. Exact pixel measurements have
   not been specified; implementation remains deferred during feedback collection.
+
+- Adjacent tab-group boundaries are not sufficiently visible in split layouts.
+  Add a clearly discernible frame around each complete group, enclosing its tab
+  strip, local toolbar, terminal area and status bar. The red rectangle in the
+  reference identifies the intended extent; a specific frame color or thickness
+  has not been selected. Implementation remains deferred during feedback collection.
