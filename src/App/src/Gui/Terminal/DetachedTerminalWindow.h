@@ -6,56 +6,51 @@
 
 class QAction;
 class QCloseEvent;
-class QToolBar;
-class QStatusBar;
 class ActionContainer;
 class CommandRegistry;
+class TerminalWorkspace;
+class TerminalTabGroup;
 
-/** Native detached presentation shell. The GUI-thread owner supplies the terminal
- * panel, domain actions and persistence. Commands outlive this window; each action
- * presentation and editing controller belongs to this window.
+/** Native presentation shell. Terminal pages and their controls belong to groups;
+ * the GUI-thread controller owns domain actions and transfer operations.
  */
 class DetachedTerminalWindow final : public QMainWindow
 {
     Q_OBJECT
 public:
     explicit DetachedTerminalWindow(CommandRegistry& commands, QWidget* parent = nullptr);
+    ~DetachedTerminalWindow() override;
 
-    ActionContainer& terminalMenu();
-    ActionContainer& editMenu();
-    ActionContainer& viewMenu();
-    QToolBar&        terminalToolbar();
-    void             addStatusAction(QAction* action, const QString& objectName);
-    void             allowClose();
-    Q_SIGNAL void    returnRequested();
-    Q_SIGNAL void    moveUpdated(const QPoint& globalPosition);
-    Q_SIGNAL void    moveFinished(const QPoint& globalPosition, bool cancelled);
+    TerminalWorkspace& terminalWorkspace();
+    ActionContainer&   terminalMenu();
+    ActionContainer&   editMenu();
+    ActionContainer&   viewMenu();
+    void               setContextNames(const QString& terminal, const QString& session, const QString& workspace);
+    void               allowClose();
+    Q_SIGNAL void      returnRequested();
+    Q_SIGNAL void      mainWindowRequested();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
     void changeEvent(QEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
-    bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
 
 private:
-    MenubarActionContainer _mainMenu;
-    ActionContainer*       _terminalMenu = nullptr;
-    ActionContainer*       _editMenu     = nullptr;
-    ActionContainer*       _viewMenu     = nullptr;
-    QToolBar*              _toolbar      = nullptr;
-    QPointer<QStatusBar>   _statusBar;
-    QPointer<QAction>      _toolbarAction;
-    QPointer<QAction>      _statusAction;
-    QPointer<QAction>      _fullScreenAction;
-    bool                   _allowClose = false;
-#ifdef Q_OS_WIN
-    QRect   _nativeMoveFrame;
-    bool    _nativeMoveActive     = false;
-    bool    _nativeMoveChanged    = false;
-    bool    _nativeMoveCancelled  = false;
-    quint64 _nativeMoveGeneration = 0;
-#endif
+    MenubarActionContainer     _mainMenu;
+    ActionContainer*           _terminalMenu      = nullptr;
+    ActionContainer*           _editMenu          = nullptr;
+    ActionContainer*           _viewMenu          = nullptr;
+    ActionContainer*           _windowMenu        = nullptr;
+    TerminalWorkspace*         _terminalWorkspace = nullptr;
+    QPointer<TerminalTabGroup> _activeGroup;
+    QPointer<QAction>          _toolbarAction;
+    QPointer<QAction>          _statusAction;
+    QPointer<QAction>          _fullScreenAction;
+    bool                       _allowClose = false;
 
     void _createMenus();
     void _createViewActions(CommandRegistry& commands);
+    void _observeGroup(TerminalTabGroup* group);
+    void _setActiveGroup(TerminalTabGroup* group);
+    void _refreshPanelActions();
 };

@@ -1,47 +1,95 @@
 #include "DetachedTerminalWindow.h"
 
 #include "../Main/EditActions.h"
+#include "TerminalTabGroup.h"
+#include "TerminalWorkspace.h"
 
 #include <QAction>
-#include <QApplication>
 #include <QCloseEvent>
 #include <QCoreApplication>
-#include <QCursor>
 #include <QEvent>
 #include <QSignalBlocker>
 #include <QStatusBar>
 #include <QTimer>
 #include <QToolBar>
-#include <QToolButton>
 #include <Termaster/Core/ActionContainer.h>
 #include <Termaster/Core/CommandRegistry.h>
 #include <Termaster/Core/Gui/Action/MenuActionContainer.h>
 #include <Termaster/Core/Gui/Icons.h>
 #include <memory>
 
-#ifdef Q_OS_WIN
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#endif
-
 DetachedTerminalWindow::DetachedTerminalWindow(CommandRegistry& commands, QWidget* parent) :
-    QMainWindow(parent, Qt::Window), _mainMenu(menuBar()), _toolbar(new QToolBar(tr("Terminal"), this)),
-    _statusBar(statusBar())
+    QMainWindow(parent, Qt::Window), _mainMenu(menuBar())
 {
     setObjectName("detachedTerminalWindow");
-    setWindowTitle(QCoreApplication::applicationName());
+    setContextNames({}, {}, {});
     resize(1000, 650);
+
+    _terminalWorkspace = new TerminalWorkspace(this);
+    setCentralWidget(_terminalWorkspace);
     _createMenus();
-    _toolbar->setObjectName("detachedTerminalToolbar");
-    _toolbar->setIconSize(QSize(24, 24));
-    _toolbar->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    addToolBar(_toolbar);
-    _statusBar->showMessage(tr("Ready"));
-    _statusBar->installEventFilter(this);
+
+    auto* toolbar = new QToolBar(tr("Window"), this);
+    toolbar->setObjectName("detachedWindowToolbar");
+    toolbar->setIconSize(QSize(16, 16));
+    toolbar->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    toolbar->setMovable(false);
+    addToolBar(toolbar);
+
+    const auto windowAction = [this, &commands, toolbar](const QString& id,
+                                                         const QString& text,
+                                                         const QString& icon,
+                                                         const QString& tooltip) {
+        auto* command = commands.find(id);
+        if (!command)
+        {
+            command = commands.create(id, text, Icons::icon(icon));
+        }
+        auto* action = command->newAction(this);
+        action->setObjectName(id);
+        action->setToolTip(tooltip);
+        action->setShortcutContext(Qt::WindowShortcut);
+        addAction(action);
+        _windowMenu->addAction(action, "navigation");
+        toolbar->addAction(action);
+        return action;
+    };
+    auto* returnAction = windowAction("Window.ReturnAllToMain",
+                                      tr("Return all to main"),
+                                      "panel-top",
+                                      tr("Return every terminal in this window to the main window"));
+    auto* mainAction   = windowAction("Window.GoToMain",
+                                      tr("Go to main window"),
+                                      "app-window",
+                                      tr("Activate the main Termaster window"));
+    connect(returnAction, &QAction::triggered, this, &DetachedTerminalWindow::returnRequested);
+    connect(mainAction, &QAction::triggered, this, &DetachedTerminalWindow::mainWindowRequested);
+
     _createViewActions(commands);
+    connect(_terminalWorkspace, &TerminalWorkspace::groupAdded, this, &DetachedTerminalWindow::_observeGroup);
+    connect(_terminalWorkspace, &TerminalWorkspace::activated, this, &DetachedTerminalWindow::_setActiveGroup);
+    for (auto* group : _terminalWorkspace->groups())
+    {
+        _observeGroup(group);
+    }
+    _setActiveGroup(_terminalWorkspace->initialGroup());
     new EditActions(*this, commands, *_editMenu, this);
+}
+
+DetachedTerminalWindow::~DetachedTerminalWindow()
+{
+    // QWidget tears down children after this class's members have been destroyed.
+    // Stop child visibility and destruction notifications before that boundary.
+    for (auto* object : findChildren<QObject*>())
+    {
+        object->removeEventFilter(this);
+        disconnect(object, nullptr, this, nullptr);
+    }
+}
+
+TerminalWorkspace& DetachedTerminalWindow::terminalWorkspace()
+{
+    return *_terminalWorkspace;
 }
 
 ActionContainer& DetachedTerminalWindow::terminalMenu()
@@ -59,19 +107,17 @@ ActionContainer& DetachedTerminalWindow::viewMenu()
     return *_viewMenu;
 }
 
-QToolBar& DetachedTerminalWindow::terminalToolbar()
+void DetachedTerminalWindow::setContextNames(const QString& terminal, const QString& session, const QString& workspace)
 {
-    return *_toolbar;
-}
-
-void DetachedTerminalWindow::addStatusAction(QAction* action, const QString& objectName)
-{
-    auto* button = new QToolButton(this);
-    button->setObjectName(objectName);
-    button->setAutoRaise(true);
-    button->setIconSize(QSize(16, 16));
-    button->setDefaultAction(action);
-    _statusBar->addPermanentWidget(button);
+    QStringList parts;
+    for (const auto& name : {terminal, session, workspace, QCoreApplication::applicationName()})
+    {
+        if (!name.isEmpty())
+        {
+            parts.append(name);
+        }
+    }
+    setWindowTitle(parts.join(QString::fromUtf8(" — ")));
 }
 
 void DetachedTerminalWindow::allowClose()
@@ -102,97 +148,12 @@ void DetachedTerminalWindow::changeEvent(QEvent* event)
 
 bool DetachedTerminalWindow::eventFilter(QObject* watched, QEvent* event)
 {
-    if (watched == _statusBar.data() && _statusAction
+    if (_activeGroup && watched == &_activeGroup->statusBar()
         && (event->type() == QEvent::Show || event->type() == QEvent::Hide))
     {
-        const QSignalBlocker blocker(_statusAction);
-        _statusAction->setChecked(!_statusBar->isHidden());
+        QTimer::singleShot(0, this, [this] { _refreshPanelActions(); });
     }
     return QMainWindow::eventFilter(watched, event);
-}
-
-bool DetachedTerminalWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
-{
-#ifdef Q_OS_WIN
-    if (eventType == "windows_generic_MSG" && message)
-    {
-        const auto* native = static_cast<const MSG*>(message);
-        switch (native->message)
-        {
-            case WM_ENTERSIZEMOVE:
-                ++_nativeMoveGeneration;
-                _nativeMoveCancelled = false;
-                _nativeMoveFrame     = frameGeometry();
-                _nativeMoveActive    = true;
-                _nativeMoveChanged   = false;
-                break;
-            case WM_MOVING:
-                if (_nativeMoveActive)
-                {
-                    _nativeMoveChanged = true;
-                    const QPointer<DetachedTerminalWindow> self(this);
-                    emit                                   moveUpdated(QCursor::pos());
-                    if (!self)
-                    {
-                        if (result)
-                        {
-                            *result = 0;
-                        }
-                        return true;
-                    }
-                }
-                break;
-            case WM_EXITSIZEMOVE:
-                if (_nativeMoveActive)
-                {
-                    _nativeMoveActive = false;
-                    if (_nativeMoveChanged)
-                    {
-                        _nativeMoveChanged                                    = false;
-                        const QRect                            startFrame     = _nativeMoveFrame;
-                        const QPoint                           globalPosition = QCursor::pos();
-                        const QPointer<DetachedTerminalWindow> self(this);
-                        const quint64                          generation = _nativeMoveGeneration;
-                        QTimer::singleShot(0, this, [self, startFrame, globalPosition, generation] {
-                            if (!self || self->_nativeMoveGeneration != generation)
-                            {
-                                return;
-                            }
-                            const QRect finalFrame = self->frameGeometry();
-                            const bool  cancelled  = self->_nativeMoveCancelled || finalFrame == startFrame
-                                                  || (finalFrame.topLeft() - startFrame.topLeft()).manhattanLength()
-                                                         < QApplication::startDragDistance();
-                            emit        self->moveFinished(globalPosition, cancelled);
-                        });
-                    }
-                }
-                break;
-            case WM_CANCELMODE:
-                _nativeMoveCancelled = true;
-                if (_nativeMoveActive)
-                {
-                    _nativeMoveActive = false;
-                    if (_nativeMoveChanged)
-                    {
-                        _nativeMoveChanged                                    = false;
-                        const QPoint                           globalPosition = QCursor::pos();
-                        const QPointer<DetachedTerminalWindow> self(this);
-                        const quint64                          generation = _nativeMoveGeneration;
-                        QTimer::singleShot(0, this, [self, globalPosition, generation] {
-                            if (self && self->_nativeMoveGeneration == generation)
-                            {
-                                emit self->moveFinished(globalPosition, true);
-                            }
-                        });
-                    }
-                }
-                break;
-            default:
-                break;
-        }
-    }
-#endif
-    return QMainWindow::nativeEvent(eventType, message, result);
 }
 
 void DetachedTerminalWindow::_createMenus()
@@ -212,6 +173,7 @@ void DetachedTerminalWindow::_createMenus()
     _terminalMenu = menu("terminal", tr("&Terminal"), {"connection", "management", "output", "settings", "window"});
     _editMenu     = menu("edit", tr("&Edit"), {"history", "clipboard", "selection"});
     _viewMenu     = menu("view", tr("&View"), {"terminal", "panels", "window"});
+    _windowMenu   = menu("window", tr("&Window"), {"navigation"});
 }
 
 void DetachedTerminalWindow::_createViewActions(CommandRegistry& commands)
@@ -236,17 +198,18 @@ void DetachedTerminalWindow::_createViewActions(CommandRegistry& commands)
     _toolbarAction    = action("View.Toolbar", tr("&Toolbar"), Icons::icon("panel-top"), {}, "panels");
     _statusAction     = action("View.StatusBar", tr("&Status bar"), Icons::icon("panel-bottom"), {}, "panels");
     _fullScreenAction = action("View.FullScreen", tr("&Full screen"), {}, QKeySequence(Qt::Key_F11), "window");
-    _toolbarAction->setChecked(true);
-    _statusAction->setChecked(true);
-    connect(_toolbarAction, &QAction::toggled, _toolbar, &QWidget::setVisible);
-    connect(_toolbar, &QToolBar::visibilityChanged, this, [this] {
-        if (_toolbarAction)
+    connect(_toolbarAction, &QAction::toggled, this, [this](bool visible) {
+        if (_activeGroup)
         {
-            const QSignalBlocker blocker(_toolbarAction);
-            _toolbarAction->setChecked(!_toolbar->isHidden());
+            _activeGroup->toolbar().setVisible(visible);
         }
     });
-    connect(_statusAction, &QAction::toggled, _statusBar.data(), &QWidget::setVisible);
+    connect(_statusAction, &QAction::toggled, this, [this](bool visible) {
+        if (_activeGroup)
+        {
+            _activeGroup->statusBar().setVisible(visible);
+        }
+    });
     connect(_fullScreenAction, &QAction::toggled, this, [this](bool full) {
         if (full)
         {
@@ -257,4 +220,41 @@ void DetachedTerminalWindow::_createViewActions(CommandRegistry& commands)
             showNormal();
         }
     });
+}
+
+void DetachedTerminalWindow::_observeGroup(TerminalTabGroup* group)
+{
+    if (!_activeGroup)
+    {
+        _setActiveGroup(group);
+    }
+    group->statusBar().installEventFilter(this);
+    connect(
+        &group->toolbar(),
+        &QToolBar::visibilityChanged,
+        this,
+        [this] { _refreshPanelActions(); },
+        Qt::QueuedConnection);
+    connect(group, &QObject::destroyed, this, [this] { _refreshPanelActions(); }, Qt::QueuedConnection);
+}
+
+void DetachedTerminalWindow::_setActiveGroup(TerminalTabGroup* group)
+{
+    _activeGroup = group;
+    _refreshPanelActions();
+}
+
+void DetachedTerminalWindow::_refreshPanelActions()
+{
+    if (!_toolbarAction || !_statusAction)
+    {
+        return;
+    }
+
+    _toolbarAction->setEnabled(_activeGroup);
+    _statusAction->setEnabled(_activeGroup);
+    const QSignalBlocker toolbarBlocker(_toolbarAction);
+    const QSignalBlocker statusBlocker(_statusAction);
+    _toolbarAction->setChecked(_activeGroup && !_activeGroup->toolbar().isHidden());
+    _statusAction->setChecked(_activeGroup && !_activeGroup->statusBar().isHidden());
 }

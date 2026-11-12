@@ -1,7 +1,5 @@
 #pragma once
 
-#include "TerminalDockDrop.h"
-
 #include <QObject>
 #include <QPointer>
 #include <Termaster/Core/Plugin/PluginHost.h>
@@ -26,8 +24,9 @@ class SettingsDialog;
 class TerminalDisplay;
 class QAction;
 class QToolButton;
-class QDockWidget;
-class DetachedTerminalWindow;
+class QTabWidget;
+class TerminalTabGroup;
+class TerminalWorkspace;
 
 /** GUI-thread runtime owner. Session definitions survive closed views and module unload. */
 class TerminalController final : public QObject, public PluginHost
@@ -44,27 +43,32 @@ public:
     ~TerminalController() override;
     Q_DISABLE_COPY_MOVE(TerminalController)
 
-    void            setProcessorRegistry(ProcessorRegistry& registry);
-    void            setProcessorFavorites(ProcessorFavorites& favorites);
-    void            setSession(Session* session);
-    void            closeAll();
-    bool            dockTerminal(const QString& id, QString* error = nullptr);
-    QDockWidget*    terminalDock(const QString& id) const;
-    bool            detachTerminal(const QString& id, QString* error = nullptr);
-    bool            attachTerminal(const QString& id, QString* error = nullptr);
-    QMainWindow*    detachedWindow(const QString& id) const;
-    QWidget*        selectedWindow() const;
-    bool            capturePresentation(QString* error = nullptr);
-    bool            createTerminal(const QString&     type,
-                                   const QVariantMap& overrides,
-                                   const QString&     name,
-                                   QString*           error = nullptr);
-    QString         selectedTerminal() const;
-    QStringList     terminalIds() const;
-    SettingsOverlay selectedSettings();
-    void            addSettingsPages(SettingsDialog& dialog);
-    void            addDefaultSettingsPages(SettingsDialog& dialog, const QString& scope, SettingsOverlay settings);
-    void            applySettings();
+    void                    setProcessorRegistry(ProcessorRegistry& registry);
+    void                    setProcessorFavorites(ProcessorFavorites& favorites);
+    void                    setSession(Session* session);
+    void                    closeAll();
+    TerminalTabGroup*       terminalGroup(const QString& id) const;
+    bool                    moveTerminal(const QString&    id,
+                                         TerminalTabGroup* target,
+                                         Qt::Edge          edge  = Qt::Edge(0),
+                                         int               index = -1,
+                                         QString*          error = nullptr);
+    bool                    returnWindow(DetachedTerminalWindow* window, QString* error = nullptr);
+    bool                    detachTerminal(const QString& id, QString* error = nullptr);
+    bool                    attachTerminal(const QString& id, QString* error = nullptr);
+    DetachedTerminalWindow* detachedWindow(const QString& id) const;
+    QWidget*                selectedWindow() const;
+    bool                    capturePresentation(QString* error = nullptr);
+    bool                    createTerminal(const QString&     type,
+                                           const QVariantMap& overrides,
+                                           const QString&     name,
+                                           QString*           error = nullptr);
+    QString                 selectedTerminal() const;
+    QStringList             terminalIds() const;
+    SettingsOverlay         selectedSettings();
+    void                    addSettingsPages(SettingsDialog& dialog);
+    void addDefaultSettingsPages(SettingsDialog& dialog, const QString& scope, SettingsOverlay settings);
+    void applySettings();
 
     QVariantMap   workspaceSettings() const override;
     void          showMessage(const QString& message) override;
@@ -118,27 +122,32 @@ private:
     std::map<QString, std::unique_ptr<Runtime>> _terminals;
     std::map<QString, RegisteredAction>         _actions;
     QPointer<SettingsDialog>                    _creation;
-    std::array<QPointer<QToolButton>, 3>        _statusButtons;
-    int                                         _batchDepth            = 0;
-    bool                                        _batchSignalsBlocked   = false;
-    bool                                        _batchUpdatesEnabled   = true;
-    bool                                        _batchSelectionChanged = false;
-    QPointer<QWidget>                           _batchSelected;
 
-    std::optional<QString>            _commandTarget;
-    bool                              _movingHost        = false;
-    bool                              _refreshingActions = false;
-    QString                           _focusedTerminal;
-    QPointer<QWidget>                 _mainSelected;
-    bool                              _dockLayoutRestored = false;
-    bool                              _restoringDocks     = false;
-    QByteArray                        _initialDockLayout;
-    std::unique_ptr<TerminalDockDrop> _dockDrop;
-    QPointer<DetachedTerminalWindow>  _dragWindow;
-    QPointer<QWidget>                 _dragPanel;
-    QString                           _dragTerminal;
-    QString                           _dragSession;
-    TerminalDockDrop::Target          _dragTarget;
+    int                                      _batchDepth            = 0;
+    bool                                     _batchSelectionChanged = false;
+    QPointer<QWidget>                        _batchSelected;
+    QList<QPair<QPointer<QTabWidget>, bool>> _batchTabs;
+
+    std::optional<QString>                      _commandTarget;
+    bool                                        _movingHost        = false;
+    bool                                        _refreshingActions = false;
+    QString                                     _focusedTerminal;
+    bool                                        _layoutRestored = false;
+    QList<QPointer<DetachedTerminalWindow>>     _windows;
+    QHash<QString, QString>                     _placements;
+    QHash<QWidget*, QPointer<TerminalTabGroup>> _focusedGroups;
+
+    void                      _wireWorkspace(TerminalWorkspace& workspace);
+    void                      _wireGroup(TerminalTabGroup* group);
+    void                      _refreshGroupControls(TerminalTabGroup* group);
+    void                      _refreshWindowActions(DetachedTerminalWindow* window);
+    DetachedTerminalWindow*   _createWindow(const QString& id = {});
+    void                      _restoreLayout();
+    void                      _cleanupGroups();
+    TerminalTabGroup*         _findGroup(const QString& id) const;
+    QList<TerminalWorkspace*> _workspaces() const;
+    QStringList               _surfaceCommands(const QString& surface, bool secondary) const;
+    void                      _showGroupMenu(const QString& id, const QPoint& position);
 
     Runtime* _current() const;
     QString  _mainTerminalId() const;
@@ -146,16 +155,6 @@ private:
     void     _triggerAction(const QString& command, const QString& target, QWidget* window);
     void     _refreshHostActions(const QString& id);
     bool     _actionChecked(const QString& command, const Runtime* terminal) const;
-    bool     _captureDetached(const QString& id, QString* error);
-    void     _restoreDetached();
-    void     _restoreDocks();
-    bool     _setDockPlacement(const QString& id, bool docked, QString* error);
-    QWidget* _releasePanel(Runtime& terminal);
-    void     _beginTabDrag(const QString& id, const QPoint& position, const QPoint& grabOffset);
-    void     _updateWindowDrag(DetachedTerminalWindow* source, const QPoint& position);
-    void     _finishWindowDrag(DetachedTerminalWindow* source, const QPoint& position, bool cancelled);
-    void     _clearWindowDrag();
-    void     _applyWindowDrop(const QString& id, const TerminalDockDrop::Target& target);
     bool     _activeWindow() const;
     bool     _materialize(const QString& id, QString* error);
     void     _restore();
@@ -172,7 +171,6 @@ private:
                                                                               QString*           error);
     bool                            _configureProcessing(Runtime& terminal, QString* error, bool txOnly = false);
     void                            _close(const QString& id, bool preservePlacement = false);
-    void                            _showTabMenu(const QPoint& position);
     bool                            _canSetAllConnections(bool requested) const;
     void                            _setAllConnections(bool requested);
     void                            _setConnectionRequested(QString id, bool requested);

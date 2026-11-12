@@ -51,10 +51,10 @@ qt_add_library(App STATIC
     src/Gui/Terminal/TerminalController.cpp
     src/Gui/Terminal/DetachedTerminalWindow.h
     src/Gui/Terminal/DetachedTerminalWindow.cpp
-    src/Gui/Terminal/TerminalDockWidget.h
-    src/Gui/Terminal/TerminalDockWidget.cpp
-    src/Gui/Terminal/TerminalDockDrop.h
-    src/Gui/Terminal/TerminalDockDrop.cpp
+    src/Gui/Terminal/TerminalTabGroup.h
+    src/Gui/Terminal/TerminalTabGroup.cpp
+    src/Gui/Terminal/TerminalWorkspace.h
+    src/Gui/Terminal/TerminalWorkspace.cpp
     src/Gui/Workspace/WorkspacePage.h
     src/Gui/Workspace/WorkspacePage.cpp
 )
