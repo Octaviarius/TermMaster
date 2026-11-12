@@ -159,3 +159,8 @@ observations are being collected.
   their purpose is unclear. They repeat terminal controls from the main toolbar
   and occupy tab-strip space. Review their visibility, placement and distinction
   from the common terminal controls. No replacement layout has been selected.
+
+- Overflow navigation in a crowded tab strip needs a faster direct selection path.
+  Provide a drop-down listing tabs hidden by insufficient strip width, allowing
+  selection without repeatedly using the left/right scroll arrows. Implementation
+  remains deferred during feedback collection.
