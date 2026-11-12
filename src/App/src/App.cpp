@@ -43,12 +43,12 @@
 #include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
-#include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
 #include <Termaster/Core/SettingsSchema.h>
 #include <Termaster/Core/Version.h>
+#include <Termaster/Core/WordGenerator.h>
 #include <Termaster/Core/Workspace.h>
 #include <array>
 #include <exception>
@@ -1396,7 +1396,7 @@ bool App::createSession(const QString& requestedName, QString* error)
     }
     const auto id        = QUuid::createUuid().toString(QUuid::WithoutBraces);
     const auto directory = root.join(id);
-    const auto name      = requestedName.isEmpty() ? RandomNames::generate().toString() : requestedName;
+    const auto name      = requestedName.isEmpty() ? WordGenerator::generate() : requestedName;
     auto       candidate = std::make_unique<Session>(directory, _data->workspace->settings());
     if (!candidate->create(id, name, error))
     {
@@ -1666,7 +1666,7 @@ void App::_chooseNewSession()
                                                 tr("Create session"),
                                                 tr("Name:"),
                                                 QLineEdit::Normal,
-                                                RandomNames::generate().toString(),
+                                                WordGenerator::generate(),
                                                 &accepted);
     if (!accepted)
     {

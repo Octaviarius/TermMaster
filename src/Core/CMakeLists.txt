@@ -28,8 +28,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/BuildTime.h
     inc/Termaster/Core/CompileTime.h
     src/Version.cpp
-    inc/Termaster/Core/RandomNames.h
-    src/RandomNames.cpp
+    inc/Termaster/Core/WordGenerator.h
+    src/WordGenerator.cpp
     inc/Termaster/Core/PurePath.h
     src/PurePath.cpp
     inc/Termaster/Core/Path.h
@@ -215,24 +215,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}/src"
     "${CMAKE_BINARY_DIR}/generated"
 )
-
-function(file_to_qstringlist file var_name out_var)
-    file(STRINGS ${file} lines)
-    set(out "const QStringList ${var_name} {")
-    foreach(line ${lines})
-        list(APPEND out "\"${line}\",")
-    endforeach()
-    string(JOIN "\r\n" out ${out})
-
-    set(${out_var} "${out}\r\n};" PARENT_SCOPE)
-endfunction()
-
-# create a variables file
-file_to_qstringlist(${CMAKE_CURRENT_SOURCE_DIR}/src/nouns.lst nounsList nouns_var)
-file_to_qstringlist(${CMAKE_CURRENT_SOURCE_DIR}/src/adjectives.lst adjectivesList adj_var)
-
-file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/src/RandomNamesData.h CONTENT "#include <QStringList>\r\n${nouns_var}\r\n${adj_var}")
-
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC
