@@ -149,3 +149,13 @@ The native fixture temporarily raises only its own windows, verifies physical
 start/drop targets before input, then restores their prior topmost flags. All
 transport checks use synthetic devices. Physical devices, external connections
 and mixed physical-monitor DPI transfers are not established by these checks.
+
+## Feedback collection
+
+Feedback is recorded for later design review; interface changes are deferred while
+observations are being collected.
+
+- The per-group toolbars at the right end of each tab strip are unexpected and
+  their purpose is unclear. They repeat terminal controls from the main toolbar
+  and occupy tab-strip space. Review their visibility, placement and distinction
+  from the common terminal controls. No replacement layout has been selected.
