@@ -401,13 +401,13 @@ See [processing nodes](processing-nodes.md#stuffing-wrap-and-stuffing-unwrap).
 
 ## HELP-1: Contextual module documentation
 
-Next scheduled stage after FLOW-27 paired processor families.
+Delivered as compiled Qt Help packages with native offline navigation and contextual F1.
 
 - [x] Assess Markdown/schema generation and Doxygen API documentation boundaries.
-- [ ] Package module-owned help and generated parameter reference with stable context topics.
-- [ ] Add a short, compiled end-to-end developer tutorial for implementing, building, registering and unloading a custom processor plugin.
-- [ ] Add offline Widgets navigation, search and selected-node Help/F1 integration.
-- [ ] Verify missing topics, plugin unload, resource paths, links and native rendering.
+- [x] Package module-owned help and generated parameter reference with stable context topics.
+- [x] Add a short, compiled end-to-end developer tutorial for implementing, building, registering and unloading a custom processor plugin.
+- [x] Add offline Widgets navigation, search and selected-node Help/F1 integration.
+- [x] Verify missing topics, plugin unload, resource paths, links and native rendering.
 
 ## HELP-2: Third-party components and credits
 

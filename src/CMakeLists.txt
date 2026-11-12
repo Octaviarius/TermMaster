@@ -66,3 +66,5 @@ add_subdirectory(SerialTerminal)
 add_subdirectory(ConsoleTerminal)
 
 add_subdirectory(SocketTerminal)
+
+add_dependencies(Termaster TermasterHelp)

@@ -7,9 +7,11 @@
     "qtbase-6.12.0.cdx.json": "1a3fcf6b54e0062a01a5a48bd9022cf9308155aa0bb1d6dab1070d1ee7376366",
     "qtserialport-6.12.0.cdx.json": "e9e131af8a920221d0c3f8205a9e385cb1910eff316cb9bf987cffb253f2a340",
     "qtsvg-6.12.0.cdx.json": "9e9df4859cc12bc58a06dddc3ff67b8db17fd083e888303e1359b168cca2de21",
+    "qttools-6.12.0.cdx.json": "5b6a1f5227d977c19e5782f51e647b029b24dd93ae6a85db87b7d24c0f231a4a",
     "qtbase-6.12.0.spdx.json": "ec627100f721386be2a72e904af13f2ef3d52e2714aee3e25db279fc9464884d",
     "qtserialport-6.12.0.spdx.json": "3f71f2415ef99cda967caa4972b24f95714da06f147a8d7e179588cf1a92d528",
-    "qtsvg-6.12.0.spdx.json": "70ea12dda11f4b39772fd731c3fb50a7dd4ed72afc06800a88494d3904e11e36"
+    "qtsvg-6.12.0.spdx.json": "70ea12dda11f4b39772fd731c3fb50a7dd4ed72afc06800a88494d3904e11e36",
+    "qttools-6.12.0.spdx.json": "c8742b1c98b7edcb65f9be989d2dfc37b6dc507218dea0e28d9ff22d449bc6bd"
   },
   "localSources": [
     {
@@ -191,6 +193,10 @@
       "qtDocumentation": "qtnetwork/qtnetwork-attribution-psl-data.html",
       "sourceSha256": "d0cd6079ee3a2416931856d6f4e31e644cbf28db9bc02bad90e4ec6896b10d2e"
     },
+    "Licenses/Qt/sqlite.txt": {
+      "qtDocumentation": "qtsql/qtsql-attribution-sqlite.html",
+      "sourceSha256": "26133c8bd9d1ef0e78ecc2d1bcd706f55e154f4b2fb231e5cd07426692159e1b"
+    },
     "Licenses/Qt/wintab.txt": {
       "qtDocumentation": "qtgui/qtgui-attribution-wintab.html",
       "sourceSha256": "111bf022f3f1c062a552fe2dd13e247b001b1ecb515ca684f5a2e7e9c4ca0181"
@@ -224,14 +230,17 @@
   "runtimeRoots": [
     "Core",
     "Gui",
+    "Help",
     "Network",
     "QModernWindowsStylePlugin",
+    "QSQLiteDriverPlugin",
     "QSchannelBackendPlugin",
     "QSvgIconPlugin",
     "QSvgPlugin",
     "QTlsBackendCertOnlyPlugin",
     "QWindowsIntegrationPlugin",
     "SerialPort",
+    "Sql",
     "Svg",
     "Widgets",
     "ZlibPrivate"
@@ -257,17 +266,21 @@
     }
   },
   "qtRuntimePackages": [
+    "Concurrent",
     "Core",
     "Gui",
+    "Help",
     "Network",
     "OpenGL",
     "QModernWindowsStylePlugin",
+    "QSQLiteDriverPlugin",
     "QSchannelBackendPlugin",
     "QSvgIconPlugin",
     "QSvgPlugin",
     "QTlsBackendCertOnlyPlugin",
     "QWindowsIntegrationPlugin",
     "SerialPort",
+    "Sql",
     "Svg",
     "Widgets"
   ],
@@ -791,6 +804,20 @@
       ]
     },
     {
+      "id": "qt-sqlite",
+      "name": "SQLite",
+      "version": "3.53.4",
+      "authors": "The authors disclaim copyright to the source code. However, a license can be obtained if needed.",
+      "homepage": "https://www.sqlite.org/",
+      "license": "blessing",
+      "notices": [
+        {
+          "title": "Copyright and license",
+          "path": "Licenses/Qt/sqlite.txt"
+        }
+      ]
+    },
+    {
       "id": "qt-wintab",
       "name": "Wintab API",
       "version": "Not specified",
@@ -878,12 +905,12 @@
     "Licenses/Qt/freetype-pcf.txt": "4000101ae6216b499a2c55d9163bfc74a8cf1901588269bdcef4e5c82eae5143",
     "Licenses/Qt/freetype-zlib.txt": "6016bde0e44eb6be78c3b61061168195fec3fcc43a20d9cf0853be4b0db370f2",
     "Licenses/Qt/freetype.txt": "0dc434f5039f2c14f53e6e5212b32b478b2d82e03d7a5297e420da164c25bf72",
-    "Licenses/Qt/GPL-2.0-only.txt": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
-    "Licenses/Qt/GPL-3.0-only.txt": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "Licenses/Qt/GPL-2.0-only.txt": "189b1af95d661151e054cea10c91b3d754e4de4d3fecfb074c1fb29476f7167b",
+    "Licenses/Qt/GPL-3.0-only.txt": "0b383d5a63da644f628d99c33976ea6487ed89aaa59f0b3257992deac1171e6b",
     "Licenses/Qt/grayraster.txt": "7cc417f54d0e4a91d1ea88d6b8bad80f48182c20d9cca27a115ae4146dbbd23f",
     "Licenses/Qt/harfbuzz-ng.txt": "e634f16e9decdbc8e6b5c113a9e7942fe34b40e62f343ae8bfd3cb50bd3a514f",
     "Licenses/Qt/icc-srgb-color-profile.txt": "455973cad6f149a8e81a7974c4baee2a673c460b3af79bb22920132a99c2eaf9",
-    "Licenses/Qt/LGPL-3.0-only.txt": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+    "Licenses/Qt/LGPL-3.0-only.txt": "ea7d049c7705dc13afc202dd18e1827f3484f8212fd3fa7b82fc4a0c363432c9",
     "Licenses/Qt/libpng.txt": "37815522c8b9fa8e1eae328b0209364f7c4155107143b25c4b14c81223585193",
     "Licenses/Qt/libpsl.txt": "d479c09d6b79cc2a74d1339257a11f3ce3f14577212865e42d1fc75e883eaac2",
     "Licenses/Qt/Logo.txt": "884b64edeb595f9b1e152419de3a875c735b27ab80166339989f22a11e6489b7",
@@ -902,6 +929,7 @@
     "Licenses/Qt/sha3_keccak.txt": "5588cbb1f5c0feab4d46fbb4435d75af86692c110f0b516640de5ca22f8ff158",
     "Licenses/Qt/siphash.txt": "3a7ff43f0def981be3c428a3dcb619f695ac13344f734bc2d2b1dbf2d8443856",
     "Licenses/Qt/smooth-scaling-algorithm.txt": "bdb0007179cacbd0a99e08b6905f74f1c145eb3ba472cfd71885719c29dd3e4b",
+    "Licenses/Qt/sqlite.txt": "71865d1a32153eaf7a8c1844519057dab804c8270c90b9a68fa9ed419ee56dd1",
     "Licenses/Qt/tika-mimetypes.txt": "ed3d80c5577e522e5935a0f2ad040efbf7f7a4c79c7cc5ce0f6596e03ae14c0d",
     "Licenses/Qt/tinycbor.txt": "4ad810f201ea2eda22ecd2dd30f39eec3cc9c7b25793e4f2d23797c020789f2b",
     "Licenses/Qt/tlexpected.txt": "1ff16991ac3b2ba3d9770407c3197b8fa88fba83600afb15ab68ed99b8c3bc30",
@@ -912,7 +940,7 @@
     "Licenses/Qt/webgradients.txt": "29ecfe366c6d640e3e34589130ef4051a1eef6a2315276ceba97f0a46d2a96d8",
     "Licenses/Qt/wintab.txt": "f647f7101dd7b85fcfd85d869a1a225aee9c23c2eb967fb000172b27946d28f3",
     "Licenses/Qt/xserverhelper.txt": "f3911b6f95bdc8679f6c7f52e1fa5125b1ffaf01ab1b49861186c781ae572047",
-    "Licenses/Qt/XSVG.txt": "3a946598a9f674d44df764279ca0b85b5d6faba08f3bc75d8e0fcf6cd729a9bd",
+    "Licenses/Qt/XSVG.txt": "c5c512493297ca632327dbc2bdadabf42ef79ed3b1273542ac53cc0a18007c58",
     "Licenses/Qt/zlib.txt": "34728a0457153ee4979ba0093bfff7af2c2416fff68f9e01d47aff71722a2aae",
     "Licenses/sljit.txt": "37c7a090fc61388430d63fc97bf8a22ffce92d3ca2249aac572cfaf411d3070f",
     "Licenses/valijson.txt": "4ee8628c25c2a60e343853f0c416481f80914a28d038bcbf9a5bca3ac5fd4de3",

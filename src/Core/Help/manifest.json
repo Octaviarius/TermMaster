@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "type": "termaster.help",
+  "description": "Core documentation",
+  "content": {
+    "topics": [
+      {
+        "id": "processing",
+        "title": "Packet processing",
+        "parent": "index",
+        "file": "Processing.md"
+      },
+      {
+        "id": "processing.lineflow",
+        "title": "Lineflow editor",
+        "parent": "processing",
+        "file": "Lineflow.md"
+      },
+      {
+        "id": "processing.nodes",
+        "title": "Processor parameter reference",
+        "parent": "processing",
+        "file": "Nodes.md"
+      },
+      {
+        "id": "processing.framing",
+        "title": "Framing and extraction",
+        "parent": "processing",
+        "file": "Framing.md"
+      },
+      {
+        "id": "processing.codecs",
+        "title": "Codecs and packet envelopes",
+        "parent": "processing",
+        "file": "Codecs.md"
+      },
+      {
+        "id": "processing.timestamp",
+        "title": "Timestamp templates",
+        "parent": "processing",
+        "file": "Timestamp.md"
+      },
+      {
+        "id": "developer.processor",
+        "title": "Create a processor plugin",
+        "parent": "index",
+        "file": "DeveloperProcessor.md"
+      }
+    ]
+  }
+}

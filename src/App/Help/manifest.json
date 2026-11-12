@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "type": "termaster.help",
+  "description": "App documentation",
+  "content": {
+    "topics": [
+      {
+        "id": "index",
+        "title": "Termaster help",
+        "parent": "",
+        "file": "Welcome.md"
+      },
+      {
+        "id": "workspace",
+        "title": "Workspaces and sessions",
+        "parent": "index",
+        "file": "Workspace.md"
+      },
+      {
+        "id": "terminal",
+        "title": "Terminal windows and input",
+        "parent": "index",
+        "file": "Terminal.md"
+      },
+      {
+        "id": "shortcuts",
+        "title": "Keyboard shortcuts",
+        "parent": "index",
+        "file": "Shortcuts.md"
+      },
+      {
+        "id": "settings",
+        "title": "Settings and inheritance",
+        "parent": "index",
+        "file": "Settings.md"
+      }
+    ],
+    "assets": [
+      "Images/Termaster.png"
+    ]
+  }
+}

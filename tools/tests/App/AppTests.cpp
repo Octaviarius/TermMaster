@@ -1,4 +1,5 @@
 #include "../SettingsVariantFixture.h"
+#include "Gui/Help/HelpController.h"
 #include "Gui/Main/MainWindow.h"
 #include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorCatalogTree.h"
@@ -27,6 +28,8 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QHelpContentModel>
+#include <QHelpEngine>
 #include <QHelpEvent>
 #include <QKeySequenceEdit>
 #include <QLabel>
@@ -59,6 +62,7 @@
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextBrowser>
 #include <QTextDocumentFragment>
 #include <QTimer>
 #include <QToolBar>
@@ -73,6 +77,7 @@
 #include <Termaster/Core/Gui/Action/MenuActionContainer.h>
 #include <Termaster/Core/Gui/Action/MenubarActionContainer.h>
 #include <Termaster/Core/Gui/Action/ToolbarActionContainer.h>
+#include <Termaster/Core/Gui/Help/HelpBrowser.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormModel.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
@@ -2833,6 +2838,239 @@ content:
         QVERIFY(_app.settings().value("settings/ui/terminalGroups/embedded/toolbar").toList().isEmpty());
         dialog->reject();
         QTRY_VERIFY(dialog.isNull());
+    }
+
+    Q_SLOT void disabledPluginHelpPackageDiscovery()
+    {
+#if defined(HELPER_PLUGIN_FILE) && defined(HELPER_QCH_FILE)
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        const QString root = temporary.filePath("plugin");
+        const QString bin  = root + "/bin";
+        QVERIFY(QDir().mkpath(bin + "/help"));
+        const QString library = bin + '/' + QFileInfo(HELPER_PLUGIN_FILE).fileName();
+        const QString package = bin + "/help/ProcessorTutorial.qch";
+        QVERIFY(QFile::copy(HELPER_PLUGIN_FILE, library));
+        QVERIFY(QFile::copy(HELPER_QCH_FILE, package));
+        Settings preferences(temporary.filePath("preferences.yaml"));
+        QVERIFY(preferences.load());
+        QVERIFY(preferences.setValue("enabled/ProcessorTutorialPlugin", false));
+        QVERIFY(preferences.sync());
+        PluginManager manager(preferences, root);
+        QSignalSpy    started(&manager, &PluginManager::pluginStarted);
+        QString       error;
+        // start() activates discovery; persisted false prevents every plugin startup.
+        QVERIFY2(manager.start(&error), qPrintable(error));
+        QCOMPARE(manager.plugins().size(), 1);
+        QCOMPARE(manager.plugins().first().status, PluginManager::Status::Disabled);
+        QVERIFY(!manager.processors().type("sample.prefix"));
+        QWidget         parent;
+        CommandRegistry commands;
+        HelpController  controller(commands, manager, &parent);
+        controller.showTopic("example.prefix");
+        auto* browser = parent.findChild<HelpBrowser*>("helpBrowser");
+        QVERIFY(browser);
+        QCOMPARE(browser->currentTopic(), QString("example.prefix"));
+        QVERIFY(browser->namespaces().contains("org.termaster.example.prefix"));
+        auto* text   = browser->findChild<QTextBrowser*>("helpText");
+        auto* status = browser->findChild<QLabel*>("helpStatus");
+        QVERIFY(text && status);
+        QCOMPARE(text->source().scheme(), QString("qthelp"));
+        QVERIFY(text->toPlainText().contains("sample.prefix"));
+        const auto retained = text->toPlainText();
+        QCOMPARE(started.count(), 0);
+        QVERIFY(QFile::remove(library));
+        QVERIFY(QFile::remove(package));
+        QVERIFY2(manager.rescan(&error), qPrintable(error));
+        QTRY_VERIFY(manager.plugins().isEmpty());
+        QTRY_VERIFY(!browser->namespaces().contains("org.termaster.example.prefix"));
+        QCOMPARE(text->toPlainText(), retained);
+        QVERIFY(status->text().contains("unavailable", Qt::CaseInsensitive));
+        QVERIFY(!manager.processors().type("sample.prefix"));
+        QCOMPARE(started.count(), 0);
+#else
+        QSKIP("Build with the HELP tutorial fixture to verify disabled-plugin package discovery.");
+#endif
+    }
+
+    Q_SLOT void contextualHelpPreservesDrafts()
+    {
+        int                            factoryCalls = 0;
+        ProcessorRegistry              registry;
+        QPointer<SettingsDialog>       settings;
+        QPointer<LineflowEditorDialog> lineflow;
+        const auto                     cleanup    = qScopeGuard([&] {
+            delete _app.mainWindow().findChild<QDialog*>("helpDialog");
+            delete settings.data();
+            delete lineflow.data();
+        });
+        const auto                     helpDialog = [&] { return _app.mainWindow().findChild<QDialog*>("helpDialog"); };
+        const auto                     capture    = [&](const QString& name) {
+            const auto directory = qEnvironmentVariable("TERMASTER_HELP_CAPTURE");
+            if (directory.isEmpty())
+            {
+                return true;
+            }
+            QApplication::processEvents();
+            QTest::qWait(150);
+            return helpDialog() && QDir().mkpath(directory)
+                && helpDialog()->grab().save(QDir(directory).filePath(name + ".png"));
+        };
+        auto* contents = _app.commands().find("Help.Contents");
+        QVERIFY(contents);
+        QCOMPARE(contents->defaultShortcut(), QKeySequence(Qt::Key_F1));
+        QCOMPARE(contents->shortcut(), QKeySequence(Qt::Key_F1));
+        QVERIFY(_app.mainMenu().findMenu("/help"));
+        QVERIFY(_app.mainMenu().findMenu("/help")->actions("documentation").contains(contents->actions().first()));
+        QVERIFY(QFileInfo::exists(QDir(QCoreApplication::applicationDirPath()).filePath("help/Termaster.qch")));
+
+        auto native = _app.plugins().processors().type("native.pattern-framer");
+        QVERIFY(native.has_value());
+        native->create = [&](const QVariantMap&, const Processor::Limits&, QString*) -> std::unique_ptr<Processor> {
+            ++factoryCalls;
+            return {};
+        };
+        registry.registerType("help-fixture", std::move(*native));
+        const auto savedSettings  = _app.settings().values();
+        const auto savedSession   = _app.session();
+        const auto savedWorkspace = _app.workspace();
+        _app.mainWindow().activateWindow();
+        _app.mainWindow().setFocus();
+        contents->actions().first()->trigger();
+        QTRY_VERIFY(helpDialog() && helpDialog()->isVisible());
+        auto* browser = helpDialog()->findChild<HelpBrowser*>("helpBrowser");
+        QVERIFY(browser);
+        QVERIFY(!browser->namespaces().isEmpty());
+        QTRY_VERIFY(browser->engine().contentModel()->rowCount() > 0);
+        QCOMPARE(browser->currentTopic(), QString("index"));
+        auto* text = browser->findChild<QTextBrowser*>("helpText");
+        QVERIFY(text);
+        QCOMPARE(text->source().scheme(), QString("qthelp"));
+        QVERIFY(text->toPlainText().contains("Workspaces and sessions"));
+        QVERIFY(text->toPlainText().contains("Keyboard shortcuts"));
+        QVERIFY(!text->toPlainText().contains("Help topic unavailable"));
+        QVERIFY(capture("MainHelp"));
+        helpDialog()->close();
+        QTRY_VERIFY(!helpDialog());
+
+        _app.commands().find("Application.Settings")->actions().first()->trigger();
+        settings = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+        QVERIFY(settings);
+        QVERIFY(settings->selectPage("application.appearance"));
+        auto* model = settings->pageModel("application.appearance");
+        QVERIFY(model);
+        const bool draftValue = !model->value("statusBar").toBool();
+        model->setValue("statusBar", draftValue);
+        QVERIFY(model->isDirty());
+        QSignalSpy applied(settings, &SettingsDialog::applied);
+        auto*      reset = settings->findChild<QToolButton*>("reset_statusBar");
+        QVERIFY(reset);
+        auto* checkbox = reset->parentWidget()->findChild<QCheckBox*>();
+        QVERIFY(checkbox);
+        settings->activateWindow();
+        checkbox->setFocus();
+        QTRY_VERIFY(checkbox->hasFocus());
+        QTest::keyClick(checkbox, Qt::Key_F1);
+        QTRY_VERIFY(helpDialog() && helpDialog()->isVisible());
+        browser = helpDialog()->findChild<HelpBrowser*>("helpBrowser");
+        QVERIFY(browser);
+        QVERIFY(browser->currentTopic().startsWith("settings.application.appearance"));
+        text = browser->findChild<QTextBrowser*>("helpText");
+        QVERIFY(text);
+        QVERIFY(text->toPlainText().contains("Parameters"));
+        QVERIFY(text->toPlainText().contains("Show status bar"));
+        QVERIFY(capture("SettingsHelp"));
+        QVERIFY(model->isDirty());
+        QCOMPARE(model->value("statusBar").toBool(), draftValue);
+        QCOMPARE(applied.count(), 0);
+        QCOMPARE(_app.settings().values(), savedSettings);
+        helpDialog()->close();
+        QTRY_VERIFY(!helpDialog());
+        auto* helpButton = settings->findChild<QPushButton*>("contextualHelp");
+        QVERIFY(helpButton);
+        helpButton->click();
+        QTRY_VERIFY(helpDialog() && helpDialog()->isVisible());
+        browser = helpDialog()->findChild<HelpBrowser*>("helpBrowser");
+        QVERIFY(browser);
+        QVERIFY(browser->currentTopic().startsWith("settings.application.appearance"));
+        QCOMPARE(applied.count(), 0);
+        QVERIFY(model->isDirty());
+        helpDialog()->close();
+        QTRY_VERIFY(!helpDialog());
+        QVERIFY(settings->selectPage("application.shortcuts"));
+        auto* shortcutSearch = settings->findChild<QLineEdit*>("shortcutSearch");
+        shortcutSearch->setText("Help.Contents");
+        auto* shortcutTable = settings->findChild<QTableView*>("shortcutTable");
+        shortcutTable->selectRow(0);
+        auto* recorder = settings->findChild<QKeySequenceEdit*>("shortcutSequence");
+        settings->activateWindow();
+        recorder->setFocus();
+        QTRY_VERIFY(recorder->hasFocus());
+        QTest::keyClick(recorder, Qt::Key_F1);
+        QTRY_COMPARE(recorder->keySequence(), QKeySequence(Qt::Key_F1));
+        QVERIFY(!helpDialog());
+
+        settings->reject();
+        QTRY_VERIFY(!settings);
+        QCOMPARE(_app.settings().values(), savedSettings);
+
+        const QVariantMap child {
+            {    "id",                                       "shared"                      },
+            {  "name",                                                     "Shared framing"},
+            {  "kind",                                                           "lineflow"},
+            {"source",
+             QVariantMap {{"nodes",
+             QVariantList {QVariantMap {{"name", "frame"},
+             {"type", "native.pattern-framer"},
+             {"configuration", QVariantMap {}}}}}}                                         }
+        };
+        const QVariantMap root {
+            {    "id",                                                            "root"                      },
+            {  "name",                                                                           "Nested help"},
+            {  "kind",                                                                              "lineflow"},
+            {"source",
+             QVariantMap {{"nodes", QVariantList {QVariantMap {{"name", "nested"}, {"reference", "shared"}}}}}}
+        };
+        int applyCalls = 0;
+        lineflow       = new LineflowEditorDialog(
+            {
+                {  "root",  root},
+                {"shared", child}
+        },
+            registry,
+            _app.settingsWidgets(),
+            [&](const auto&, const auto&, const auto&, QString*) {
+                ++applyCalls;
+                return LineflowEditorDialog::ApplyResult(false);
+            },
+            &_app.mainWindow());
+        lineflow->show();
+        lineflow->activateWindow();
+        auto* canvas = lineflow->findChild<QAbstractItemView*>("lineflowCanvas");
+        QVERIFY(canvas);
+        const auto parent = lineflow->model().index(0, 0);
+        const auto nested = lineflow->model().index(0, 0, parent);
+        QVERIFY(nested.isValid());
+        QVERIFY(nested.data(LineflowEditorModel::LinkedRole).toBool());
+        QCOMPARE(nested.data(LineflowEditorModel::CatalogIdRole).toString(), QString("native.pattern-framer"));
+        canvas->setCurrentIndex(nested);
+        canvas->setFocus();
+        QTRY_VERIFY(canvas->hasFocus());
+        QTest::keyClick(canvas, Qt::Key_F1);
+        QTRY_VERIFY(helpDialog() && helpDialog()->isVisible());
+        browser = helpDialog()->findChild<HelpBrowser*>("helpBrowser");
+        QVERIFY(browser);
+        QCOMPARE(browser->currentTopic(), QString("processor.native.pattern-framer"));
+        QVERIFY(browser->openTopic("processor.native.pattern-framer")); // Packaged manual reference exists.
+        text = browser->findChild<QTextBrowser*>("helpText");
+        QVERIFY(text);
+        QVERIFY(text->toPlainText().contains("Parameters"));
+        QVERIFY(capture("NodeHelp"));
+        QCOMPARE(factoryCalls, 0);
+        QCOMPARE(applyCalls, 0);
+        QCOMPARE(_app.settings().values(), savedSettings);
+        QCOMPARE(_app.session(), savedSession);
+        QCOMPARE(_app.workspace(), savedWorkspace);
     }
 
     Q_SLOT void generatedSettingsDialog()

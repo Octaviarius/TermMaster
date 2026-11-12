@@ -137,7 +137,7 @@ void MainWindow::_createMenus()
     recentSessions.release();
     menu("terminal", tr("&Terminal"), {"create", "allConnections", "connection", "management", "output", "settings"});
     menu("tools", tr("&Tools"), {"management"});
-    menu("help", tr("&Help"), {"about"});
+    menu("help", tr("&Help"), {"documentation", "about"});
     _toolbar.addGroup("terminalCreation");
 }
 

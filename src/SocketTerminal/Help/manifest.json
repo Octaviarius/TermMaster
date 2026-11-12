@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "type": "termaster.help",
+  "description": "SocketTerminal documentation",
+  "content": {
+    "topics": [
+      {
+        "id": "terminal.socket",
+        "title": "Socket connections",
+        "file": "Overview.md"
+      }
+    ]
+  }
+}

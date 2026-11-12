@@ -86,3 +86,14 @@ if(WIN32)
     )
     add_dependencies(ConsoleTerminal ConsoleHost)
 endif()
+
+termaster_compile_help(
+    TARGET ConsoleTerminalHelp
+    NAMESPACE org.termaster.consoleterminal
+    OUTPUT_FILE "${CMAKE_BINARY_DIR}/plugin/ConsoleTerminal/${TERMASTER_PLUGIN_LIBRARY_DIR}/help/ConsoleTerminal.qch"
+    MANIFESTS
+        "${CMAKE_CURRENT_SOURCE_DIR}/Help/manifest.json"
+    SCHEMAS
+        "terminal.console=${CMAKE_CURRENT_SOURCE_DIR}/Resources/Settings.yaml"
+)
+add_dependencies(ConsoleTerminal ConsoleTerminalHelp)

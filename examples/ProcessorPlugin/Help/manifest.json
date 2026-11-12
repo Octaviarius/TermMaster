@@ -1,0 +1,14 @@
+{
+    "version": 1,
+    "type": "termaster.help",
+    "description": "Prefix processor tutorial help",
+    "content": {
+        "topics": [
+            {
+                "id": "example.prefix",
+                "title": "Prefix processor example",
+                "file": "Prefix.md"
+            }
+        ]
+    }
+}

@@ -1068,7 +1068,8 @@ private slots:
         dialog.model().setSelectedBlock(paired);
         QVERIFY(contains(catalog, "native.hex-encoder"));
         QVERIFY(contains(catalog, "fixture.duplex"));
-        QCOMPARE(nativeCount(catalog), 26);
+        QCOMPARE(nativeCount(catalog), 27);
+        QVERIFY(contains(catalog, "native.duplex-bypass"));
         dialog.model().setSelectedBlock("root");
         QVERIFY(!contains(catalog, "fixture.duplex"));
 
@@ -1087,7 +1088,8 @@ private slots:
         QVERIFY(selector.currentText().contains("Unavailable"));
         QVERIFY(!contains(tree, "native.hex-encoder"));
         QVERIFY(contains(tree, "fixture.duplex"));
-        QCOMPARE(nativeCount(tree), 6);
+        QCOMPARE(nativeCount(tree), 7);
+        QVERIFY(contains(tree, "native.duplex-bypass"));
         QCOMPARE(changed.count(), 0);
         selector.setInplaceAvailable(true);
         QCOMPARE(changed.count(), 0);

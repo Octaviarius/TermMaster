@@ -37,3 +37,9 @@ target_link_libraries(TermasterPluginApi INTERFACE
 target_include_directories(TermasterPluginApi INTERFACE "${plugin_api_root}/include")
 
 include("${CMAKE_CURRENT_LIST_DIR}/TermasterPlugin.cmake")
+
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/Help.cmake"
+    "${plugin_api_package}/Help.cmake"
+    COPYONLY
+)

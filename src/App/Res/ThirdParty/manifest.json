@@ -181,6 +181,10 @@
             "path": "Licenses/Qt/psl-data.txt"
           },
           {
+            "title": "SQLite — 3.53.4 — blessing",
+            "path": "Licenses/Qt/sqlite.txt"
+          },
+          {
             "title": "Wintab API — Not specified — LicenseRef-Lcs-Telegraphics",
             "path": "Licenses/Qt/wintab.txt"
           },

@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <Termaster/Core/Gui/Settings/SettingsFormModel.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
+#include <Termaster/Core/Help/HelpSource.h>
 #include <map>
 
 class QComboBox;
@@ -47,12 +48,14 @@ public:
                          ProcessorFavorites*     favorites = nullptr);
     ~LineflowEditorDialog() override;
     LineflowEditorModel& model();
+    HelpSource::Topic    helpContext() const;
     bool                 applyDraft(QString* error = nullptr);
     void                 releaseEditors();
     void                 setVisible(bool visible) override;
     QByteArray           dockLayout() const;
     bool                 restoreDockLayout(const QByteArray& state);
     Q_SIGNAL void        dockLayoutChanged(const QByteArray& state);
+    Q_SIGNAL void        helpRequested();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

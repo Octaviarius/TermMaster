@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "type": "termaster.help",
+  "description": "SerialTerminal documentation",
+  "content": {
+    "topics": [
+      {
+        "id": "terminal.serial",
+        "title": "Serial ports",
+        "file": "Overview.md"
+      }
+    ]
+  }
+}
