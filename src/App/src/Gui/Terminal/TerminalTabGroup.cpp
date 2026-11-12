@@ -27,6 +27,7 @@
 #include <QToolButton>
 #include <QUuid>
 #include <QVBoxLayout>
+#include <QWheelEvent>
 #include <Termaster/Core/Gui/Icons.h>
 #include <algorithm>
 
@@ -70,7 +71,10 @@ private:
                               (4 * background.blue() + accent.blue()) / 5);
         const auto   sheet = QString("QTabBar::tab { background-color: %1; color: %2; "
                                      "border-right: 1px solid %5; border-bottom: 3px solid transparent; } "
-                                     "QTabBar::tab:selected { background-color: %3; border-bottom-color: %4; }")
+                                     "QTabBar::tab:selected { background-color: %3; border-bottom-color: %4; } "
+                                     "QTabBar::scroller { width: 44px; } "
+                                     "QTabBar > QToolButton { background-color: %1; color: %2; border: 1px solid %5; } "
+                                     "QTabBar > QToolButton:disabled { color: %5; }")
                                  .arg(background.name(),
                                       colors.color(QPalette::WindowText).name(),
                                       selected.name(),
@@ -137,7 +141,22 @@ TerminalTabGroup::TerminalTabGroup(QString id, QWidget* parent) :
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(_toolbar);
+    auto* header = new QWidget(this);
+    header->setObjectName("terminalGroupHeader");
+    auto* headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(0, 0, 0, 0);
+    headerLayout->setSpacing(1);
+    _groupDragHandle = new QToolButton(header);
+    _groupDragHandle->setObjectName("terminalGroupDragHandle");
+    _groupDragHandle->setIcon(Icons::icon("panels-top-left"));
+    _groupDragHandle->setIconSize(QSize(16, 16));
+    _groupDragHandle->setAutoRaise(true);
+    _groupDragHandle->setCursor(Qt::OpenHandCursor);
+    _groupDragHandle->setToolTip(tr("Drag the entire terminal group; release outside to open a new window"));
+    _groupDragHandle->setAccessibleName(tr("Move terminal group"));
+    headerLayout->addWidget(_groupDragHandle);
+    headerLayout->addWidget(_toolbar, 1);
+    layout->addWidget(header);
     layout->addWidget(_tabs, 1);
     layout->addWidget(_statusBar);
     _preview = new QRubberBand(QRubberBand::Rectangle, this);
@@ -349,6 +368,64 @@ bool TerminalTabGroup::eventFilter(QObject* watched, QEvent* event)
     }
 
     auto* bar = _tabs->tabBar();
+    if (watched == bar && event->type() == QEvent::Wheel)
+    {
+        auto*      wheel = static_cast<QWheelEvent*>(event);
+        const auto delta = wheel->angleDelta().isNull() ? wheel->pixelDelta() : wheel->angleDelta();
+        if (!delta.isNull())
+        {
+            const bool   backwards = delta.y() != 0 ? delta.y() > 0 : delta.x() > 0;
+            const bool   right     = backwards == (bar->layoutDirection() == Qt::RightToLeft);
+            QToolButton* scroll    = nullptr;
+            for (auto* button : bar->findChildren<QToolButton*>(QString(), Qt::FindDirectChildrenOnly))
+            {
+                if (button->isVisible()
+                    && (!scroll
+                        || (right ? button->geometry().center().x() > scroll->geometry().center().x() :
+                                    button->geometry().center().x() < scroll->geometry().center().x())))
+                {
+                    scroll = button;
+                }
+            }
+            if (scroll)
+            {
+                if (scroll->isEnabled())
+                {
+                    scroll->click();
+                }
+                wheel->accept();
+                return true;
+            }
+        }
+    }
+
+    const bool groupHandle = watched == _groupDragHandle || watched == _toolbar;
+    if (groupHandle && event->type() == QEvent::MouseButtonPress)
+    {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        if (mouse->button() == Qt::LeftButton)
+        {
+            _dragWholeGroup = true;
+            _dragStart      = mouse->globalPosition().toPoint();
+            _dragOffset     = mapFromGlobal(_dragStart);
+        }
+    }
+    else if (groupHandle && event->type() == QEvent::MouseMove)
+    {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        if (_dragWholeGroup && (mouse->buttons() & Qt::LeftButton)
+            && (mouse->globalPosition().toPoint() - _dragStart).manhattanLength() >= QApplication::startDragDistance())
+        {
+            _groupDragHandle->setDown(false);
+            _startDrag(true);
+            return true;
+        }
+    }
+    else if (groupHandle && event->type() == QEvent::MouseButtonRelease)
+    {
+        _dragWholeGroup = false;
+    }
+
     if (watched == bar && event->type() == QEvent::MouseButtonPress)
     {
         const auto* mouse = static_cast<QMouseEvent*>(event);
@@ -379,10 +456,12 @@ bool TerminalTabGroup::eventFilter(QObject* watched, QEvent* event)
 
     if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove)
     {
-        auto* drag = static_cast<QDragMoveEvent*>(event);
-        if (!_mimeId(drag->mimeData(), drag->source()).isEmpty() && (drag->possibleActions() & Qt::MoveAction))
+        auto* drag        = static_cast<QDragMoveEvent*>(event);
+        auto* sourceGroup = _groupSource(drag->mimeData(), drag->source());
+        if ((sourceGroup || !_mimeId(drag->mimeData(), drag->source()).isEmpty())
+            && (drag->possibleActions() & Qt::MoveAction))
         {
-            _showPreview(widget->mapToGlobal(drag->position().toPoint()));
+            _showPreview(widget->mapToGlobal(drag->position().toPoint()), sourceGroup != nullptr);
             drag->setDropAction(Qt::MoveAction);
             drag->accept();
             return true;
@@ -391,17 +470,25 @@ bool TerminalTabGroup::eventFilter(QObject* watched, QEvent* event)
     }
     else if (event->type() == QEvent::Drop)
     {
-        auto*         drop = static_cast<QDropEvent*>(event);
-        const QString id   = _mimeId(drop->mimeData(), drop->source());
-        if (!id.isEmpty() && (drop->possibleActions() & Qt::MoveAction))
+        auto*         drop        = static_cast<QDropEvent*>(event);
+        const QString id          = _mimeId(drop->mimeData(), drop->source());
+        auto*         sourceGroup = _groupSource(drop->mimeData(), drop->source());
+        if ((sourceGroup || !id.isEmpty()) && (drop->possibleActions() & Qt::MoveAction))
         {
-            _showPreview(widget->mapToGlobal(drop->position().toPoint()));
+            _showPreview(widget->mapToGlobal(drop->position().toPoint()), sourceGroup != nullptr);
             const Qt::Edge edge  = _dropEdge;
             const int      index = _dropIndex;
             _hidePreview();
             drop->setDropAction(Qt::MoveAction);
             drop->accept();
-            emit transferRequested(id, this, edge, index);
+            if (sourceGroup)
+            {
+                emit groupTransferRequested(sourceGroup, this, edge);
+            }
+            else
+            {
+                emit transferRequested(id, this, edge, index);
+            }
             return true;
         }
         _hidePreview();
@@ -541,7 +628,37 @@ QString TerminalTabGroup::_mimeId(const QMimeData* mime, QObject* source) const
     return sourceRoot == targetRoot ? id : QString();
 }
 
-void TerminalTabGroup::_showPreview(const QPoint& globalPosition)
+TerminalTabGroup* TerminalTabGroup::_groupSource(const QMimeData* mime, QObject* source) const
+{
+    auto* group = qobject_cast<TerminalTabGroup*>(source);
+    if (!mime || !group || !group->_activeGroupDrag
+        || mime->data("application/x-termaster-terminal-group") != group->_id.toUtf8()
+        || group->_tabs->count() != group->_activeGroupPages.size())
+    {
+        return nullptr;
+    }
+    for (int index = 0; index < group->_tabs->count(); ++index)
+    {
+        if (!group->_activeGroupPages[index] || group->_tabs->widget(index) != group->_activeGroupPages[index]
+            || group->_terminalId(index) != group->_activeGroupIds[index])
+        {
+            return nullptr;
+        }
+    }
+    QWidget* sourceRoot = group;
+    while (sourceRoot->parentWidget())
+    {
+        sourceRoot = sourceRoot->parentWidget();
+    }
+    const QWidget* targetRoot = this;
+    while (targetRoot->parentWidget())
+    {
+        targetRoot = targetRoot->parentWidget();
+    }
+    return sourceRoot == targetRoot ? group : nullptr;
+}
+
+void TerminalTabGroup::_showPreview(const QPoint& globalPosition, bool wholeGroup)
 {
     const QPoint position    = mapFromGlobal(globalPosition);
     auto*        bar         = _tabs->tabBar();
@@ -550,7 +667,7 @@ void TerminalTabGroup::_showPreview(const QPoint& globalPosition)
     _dropIndex               = _tabs->count();
     QRect   area             = rect();
     QString caption          = tr("Add to tab group");
-    if (bar->rect().contains(barPosition))
+    if (!wholeGroup && bar->rect().contains(barPosition))
     {
         for (int index = 0; index < bar->count(); ++index)
         {
@@ -579,7 +696,7 @@ void TerminalTabGroup::_showPreview(const QPoint& globalPosition)
         const double top     = double(position.y()) / height();
         const double bottom  = double(height() - position.y()) / height();
         const double nearest = std::min({left, right, top, bottom});
-        if (nearest < 0.25)
+        if (wholeGroup || nearest < 0.25)
         {
             if (nearest == left)
             {
@@ -607,6 +724,10 @@ void TerminalTabGroup::_showPreview(const QPoint& globalPosition)
             }
         }
     }
+    if (wholeGroup)
+    {
+        caption = tr("Move terminal group: %1").arg(caption);
+    }
     _preview->setGeometry(area);
     _preview->show();
     _preview->raise();
@@ -624,15 +745,17 @@ void TerminalTabGroup::_hidePreview()
     _previewCaption->hide();
 }
 
-void TerminalTabGroup::_startDrag()
+void TerminalTabGroup::_startDrag(bool wholeGroup)
 {
-    const QString           id   = _dragId;
+    const QString           id   = wholeGroup ? _id : _dragId;
     const QPointer<QWidget> page = _dragPage;
     _dragId.clear();
     _dragPage.clear();
+    _dragWholeGroup        = false;
     const int        index = _tabs->indexOf(page);
     const QByteArray bytes = id.toUtf8();
-    if (index < 0 || bytes.isEmpty() || bytes.size() > 128 || bytes.contains('\0'))
+    if ((!wholeGroup && index < 0) || (wholeGroup && !_tabs->count() && !property("retainedPlacement").toBool())
+        || bytes.isEmpty() || bytes.size() > 128 || bytes.contains('\0'))
     {
         return;
     }
@@ -640,9 +763,11 @@ void TerminalTabGroup::_startDrag()
     auto* bar  = _tabs->tabBar();
     auto* drag = new QDrag(this);
     auto* mime = new QMimeData;
-    mime->setData("application/x-termaster-terminal-tab", bytes);
+    mime->setData(wholeGroup ? "application/x-termaster-terminal-group" : "application/x-termaster-terminal-tab",
+                  bytes);
     drag->setMimeData(mime);
-    const QPixmap original = bar->grab(bar->tabRect(index));
+    const QPixmap original = wholeGroup ? grab(QRect(0, 0, std::min(width(), 600), _tabs->y() + bar->height())) :
+                                          bar->grab(bar->tabRect(index));
     QPixmap       ghost(original.size());
     ghost.setDevicePixelRatio(original.devicePixelRatio());
     ghost.fill(Qt::transparent);
@@ -652,7 +777,17 @@ void TerminalTabGroup::_startDrag()
         painter.drawPixmap(QPoint(), original);
     }
     drag->setPixmap(ghost);
-    drag->setHotSpot(_dragOffset);
+    drag->setHotSpot(wholeGroup ? QPoint(std::clamp(_dragOffset.x(), 0, std::min(width(), 600) - 1), _dragOffset.y()) :
+                                  _dragOffset);
+    _activeGroupDrag = wholeGroup;
+    if (wholeGroup)
+    {
+        for (int tab = 0; tab < _tabs->count(); ++tab)
+        {
+            _activeGroupPages.append(_tabs->widget(tab));
+            _activeGroupIds.append(_terminalId(tab));
+        }
+    }
     _activeDragPage = page;
     _activeDragId   = id;
     const QPointer<TerminalTabGroup> guard(this);
@@ -662,6 +797,10 @@ void TerminalTabGroup::_startDrag()
     {
         return;
     }
+    const bool groupStillValid = wholeGroup && dragGuard && _groupSource(dragGuard->mimeData(), this) == this;
+    _activeGroupDrag           = false;
+    _activeGroupPages.clear();
+    _activeGroupIds.clear();
     _activeDragPage.clear();
     _activeDragId.clear();
     if (dragGuard)
@@ -694,9 +833,15 @@ void TerminalTabGroup::_startDrag()
         buttonHeld       = GetAsyncKeyState(button) & 0x8000;
     }
 #endif
-    if (result == Qt::IgnoreAction && !overWorkspace && !buttonHeld && page && _tabs->indexOf(page) >= 0
-        && page->property("terminalId").toString() == id && outside)
+    if (result == Qt::IgnoreAction && !overWorkspace && !buttonHeld && outside)
     {
-        emit detachRequested(id, globalPosition);
+        if (groupStillValid)
+        {
+            emit groupDetachRequested(this, globalPosition);
+        }
+        else if (!wholeGroup && page && _tabs->indexOf(page) >= 0 && page->property("terminalId").toString() == id)
+        {
+            emit detachRequested(id, globalPosition);
+        }
     }
 }

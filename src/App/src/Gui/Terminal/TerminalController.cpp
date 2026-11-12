@@ -1896,6 +1896,37 @@ void TerminalController::_wireWorkspace(TerminalWorkspace& workspace)
                     showMessage(error);
                 }
             });
+    connect(&workspace,
+            &TerminalWorkspace::groupTransferRequested,
+            this,
+            [this](TerminalTabGroup* source, TerminalTabGroup* target, Qt::Edge edge) {
+                const QPointer<TerminalController> self(this);
+                QString                            error;
+                if (!moveGroup(source, target, edge, &error) && self)
+                {
+                    showMessage(error);
+                }
+            });
+    connect(&workspace,
+            &TerminalWorkspace::groupDetachRequested,
+            this,
+            [this](TerminalTabGroup* group, const QPoint& position) {
+                const QPointer<TerminalController> self(this);
+                const QPointer<TerminalTabGroup>   guarded(group);
+                QString                            error;
+                if (!detachGroup(group, &error))
+                {
+                    if (self)
+                    {
+                        showMessage(error);
+                    }
+                    return;
+                }
+                if (self && guarded)
+                {
+                    guarded->window()->move(position - QPoint(40, 12));
+                }
+            });
     connect(&workspace, &TerminalWorkspace::detachRequested, this, [this](const QString& id, const QPoint& position) {
         QString error;
         if (!detachTerminal(id, &error))
@@ -2146,6 +2177,288 @@ bool TerminalController::moveTerminal(const QString&    id,
         return false;
     }
     return _rememberTabOrder(error);
+}
+
+bool TerminalController::moveGroup(TerminalTabGroup* source,
+                                   TerminalTabGroup* destination,
+                                   Qt::Edge          edge,
+                                   QString*          error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!_session || _movingHost || !source || !destination)
+    {
+        return fail(error, tr("Terminal group is no longer available for moving."));
+    }
+    if (edge != Qt::Edge(0) && edge != Qt::LeftEdge && edge != Qt::RightEdge && edge != Qt::TopEdge
+        && edge != Qt::BottomEdge)
+    {
+        return fail(error, tr("Invalid split direction."));
+    }
+    QPointer<TerminalWorkspace> sourceOwner;
+    QPointer<TerminalWorkspace> targetOwner;
+    for (auto* workspace : _workspaces())
+    {
+        const auto groups = workspace->groups();
+        if (groups.contains(source))
+        {
+            sourceOwner = workspace;
+        }
+        if (groups.contains(destination))
+        {
+            targetOwner = workspace;
+        }
+    }
+    if (!sourceOwner || !targetOwner)
+    {
+        return fail(error, tr("Terminal groups must belong to the current session."));
+    }
+    if (source == destination)
+    {
+        return true;
+    }
+
+    const QPointer<TerminalController> self(this);
+    const QPointer<TerminalTabGroup>   group(source);
+    const QPointer<TerminalTabGroup>   target(destination);
+    const auto                         session = _session;
+    const auto                         alive   = [self, group, sourceOwner, targetOwner, session] {
+        return self && group && sourceOwner && targetOwner && self->_session == session;
+    };
+    QList<QPair<QPointer<TerminalDisplay>, bool>> blocked;
+    QHash<QString, QPointer<QWidget>>             pages;
+    QHash<QString, QPointer<QWidget>>             affectedPages;
+    QHash<QString, QPointer<TerminalDisplay>>     affectedDisplays;
+    const auto                                    sourceGroups = sourceOwner->groups();
+    const auto                                    targetGroups = targetOwner->groups();
+    for (const auto& [id, terminal] : _terminals)
+    {
+        if ((sourceGroups.contains(terminal->group) || targetGroups.contains(terminal->group)) && terminal->panel
+            && terminal->display)
+        {
+            affectedPages.insert(id, terminal->panel);
+            affectedDisplays.insert(id, terminal->display);
+        }
+        if (terminal->group != source)
+        {
+            continue;
+        }
+        if (!terminal->panel || !terminal->display || source->tabs().indexOf(terminal->panel) < 0)
+        {
+            return fail(error, tr("Terminal page is unavailable in its source group."));
+        }
+        pages.insert(id, terminal->panel);
+    }
+    _movingHost = true;
+    for (auto it = affectedDisplays.cbegin(); it != affectedDisplays.cend(); ++it)
+    {
+        blocked.append({it.value(), it.value()->blockSignals(true)});
+    }
+    const auto restore = qScopeGuard([self, blocked] {
+        for (const auto& entry : blocked)
+        {
+            if (entry.first)
+            {
+                entry.first->blockSignals(entry.second);
+            }
+        }
+        if (self)
+        {
+            self->_movingHost = false;
+        }
+    });
+    if (!targetOwner->transferGroup(group, *sourceOwner, target, edge, error))
+    {
+        return false;
+    }
+    if (!alive())
+    {
+        return false;
+    }
+
+    // Publish every runtime's new host before invoking any backend or action callback.
+    const QPointer<QWidget>                host(group->window());
+    const QPointer<DetachedTerminalWindow> secondary(qobject_cast<DetachedTerminalWindow*>(host.data()));
+    for (auto it = pages.cbegin(); it != pages.cend(); ++it)
+    {
+        const auto current = _terminals.find(it.key());
+        if (current != _terminals.end() && current->second->panel == it.value())
+        {
+            current->second->window = secondary;
+        }
+    }
+    _focusedGroups[host] = group;
+    _cleanupGroups();
+    if (!alive() || !host)
+    {
+        return false;
+    }
+    _refreshGroupControls(group);
+    if (!alive() || !host)
+    {
+        return false;
+    }
+    host->show();
+    if (!alive() || !host)
+    {
+        return false;
+    }
+    // Removing a group and inserting a split can resize siblings in both windows.
+    QList<QPointer<TerminalWorkspace>> affectedOwners {sourceOwner};
+    if (targetOwner != sourceOwner)
+    {
+        affectedOwners.append(targetOwner);
+    }
+    for (const auto& owner : affectedOwners)
+    {
+        if (!alive() || !host || !owner)
+        {
+            return false;
+        }
+        owner->layout()->activate();
+        if (!alive() || !host || !owner)
+        {
+            return false;
+        }
+        const auto groups = owner->groups();
+        for (auto* item : groups)
+        {
+            const QPointer<TerminalTabGroup> guarded(item);
+            if (guarded->layout())
+            {
+                guarded->layout()->activate();
+            }
+            if (!alive() || !host || !guarded)
+            {
+                return false;
+            }
+        }
+    }
+    for (auto it = affectedPages.cbegin(); it != affectedPages.cend(); ++it)
+    {
+        const auto current = _terminals.find(it.key());
+        const auto display = affectedDisplays.value(it.key());
+        if (current == _terminals.end() || !it.value() || current->second->panel != it.value() || !display
+            || current->second->display != display || !current->second->group)
+        {
+            continue;
+        }
+        const auto terminalGroup = current->second->group;
+        if ((!sourceOwner->groups().contains(terminalGroup) && !targetOwner->groups().contains(terminalGroup))
+            || (!pages.contains(it.key()) && !display->isVisible()))
+        {
+            continue;
+        }
+        if (it.value()->layout())
+        {
+            it.value()->layout()->activate();
+        }
+        if (!alive() || !host || !display || !it.value())
+        {
+            return false;
+        }
+        const auto latest = _terminals.find(it.key());
+        if (latest == _terminals.end() || latest->second->panel != it.value() || latest->second->display != display
+            || latest->second->group != terminalGroup)
+        {
+            continue;
+        }
+        const auto grid = display->terminalSize();
+        latest->second->device->resize(grid.width(), grid.height());
+        if (!alive() || !host)
+        {
+            return false;
+        }
+        if (pages.contains(it.key()))
+        {
+            _changed(it.key());
+            if (!alive() || !host)
+            {
+                return false;
+            }
+        }
+    }
+    host->raise();
+    host->activateWindow();
+    if (!alive() || !host)
+    {
+        return false;
+    }
+    if (auto* page = group->tabs().currentWidget())
+    {
+        const auto current = _terminals.find(page->property("terminalId").toString());
+        if (current != _terminals.end() && current->second->group == group && current->second->display)
+        {
+            current->second->display->setFocus();
+        }
+    }
+    if (!alive())
+    {
+        return false;
+    }
+    _movingHost = false;
+    refreshTerminalActions();
+    if (!alive())
+    {
+        return false;
+    }
+    emit selectionChanged();
+    if (!alive())
+    {
+        return false;
+    }
+    return _rememberTabOrder(error);
+}
+
+bool TerminalController::detachGroup(TerminalTabGroup* group, QString* error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    if (!_session || _movingHost || !group)
+    {
+        return fail(error, tr("Terminal group is no longer available for detaching."));
+    }
+    bool owned = false;
+    for (auto* workspace : _workspaces())
+    {
+        owned = owned || workspace->groups().contains(group);
+    }
+    if (!owned)
+    {
+        return fail(error, tr("Terminal group belongs to another session."));
+    }
+    if (_windows.size() >= 64)
+    {
+        return fail(error, tr("At most 64 secondary windows are supported."));
+    }
+
+    const QPointer<TerminalController>     self(this);
+    const QPointer<TerminalTabGroup>       guarded(group);
+    const auto                             session = _session;
+    const auto                             size    = group->size();
+    const QPointer<DetachedTerminalWindow> window  = _createWindow();
+    if (self && window && guarded && _session == session)
+    {
+        window->resize(size);
+    }
+    if (!self || !guarded || !window || _session != session
+        || !moveGroup(guarded, window->terminalWorkspace().initialGroup(), Qt::Edge(0), error))
+    {
+        // A callback can close or replace the session after transfer; never delete a live host.
+        if (self && window && (!guarded || guarded->window() != window))
+        {
+            _windows.removeAll(window);
+            _focusedGroups.remove(window);
+            window->allowClose();
+            window->deleteLater();
+        }
+        return false;
+    }
+    return self && window && guarded && _session == session;
 }
 
 bool TerminalController::detachTerminal(const QString& id, QString* error)

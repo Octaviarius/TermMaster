@@ -53,6 +53,11 @@ public:
                                          Qt::Edge          edge  = Qt::Edge(0),
                                          int               index = -1,
                                          QString*          error = nullptr);
+    bool                    moveGroup(TerminalTabGroup* source,
+                                      TerminalTabGroup* destination,
+                                      Qt::Edge          edge  = Qt::Edge(0),
+                                      QString*          error = nullptr);
+    bool                    detachGroup(TerminalTabGroup* group, QString* error = nullptr);
     bool                    returnWindow(DetachedTerminalWindow* window, QString* error = nullptr);
     bool                    detachTerminal(const QString& id, QString* error = nullptr);
     bool                    attachTerminal(const QString& id, QString* error = nullptr);

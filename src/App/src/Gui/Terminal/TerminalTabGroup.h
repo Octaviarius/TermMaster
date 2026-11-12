@@ -38,6 +38,8 @@ public:
     QAction*    action(const QString& id) const;
     void        setAction(const QString& id, QAction* action);
 
+    Q_SIGNAL void groupTransferRequested(TerminalTabGroup* source, TerminalTabGroup* target, Qt::Edge edge);
+    Q_SIGNAL void groupDetachRequested(TerminalTabGroup* source, const QPoint& globalPosition);
     Q_SIGNAL void activated();
     Q_SIGNAL void closeRequested(const QString& id);
     Q_SIGNAL void contextMenuRequested(const QString& id, const QPoint& globalPosition);
@@ -50,7 +52,12 @@ protected:
 
 private:
     QString                           _id;
-    bool                              _active           = false;
+    bool                              _active          = false;
+    bool                              _dragWholeGroup  = false;
+    bool                              _activeGroupDrag = false;
+    QToolButton*                      _groupDragHandle = nullptr;
+    QList<QPointer<QWidget>>          _activeGroupPages;
+    QStringList                       _activeGroupIds;
     QToolButton*                      _hiddenTabsButton = nullptr;
     QMenu*                            _hiddenTabsMenu   = nullptr;
     QTabWidget*                       _tabs             = nullptr;
@@ -68,11 +75,12 @@ private:
     Qt::Edge                          _dropEdge  = Qt::Edge(0);
     int                               _dropIndex = -1;
 
-    void    _refreshFrame();
-    void    _refreshHiddenTabs();
-    QString _terminalId(int index) const;
-    QString _mimeId(const QMimeData* mime, QObject* source) const;
-    void    _showPreview(const QPoint& globalPosition);
-    void    _hidePreview();
-    void    _startDrag();
+    void              _refreshFrame();
+    void              _refreshHiddenTabs();
+    QString           _terminalId(int index) const;
+    QString           _mimeId(const QMimeData* mime, QObject* source) const;
+    TerminalTabGroup* _groupSource(const QMimeData* mime, QObject* source) const;
+    void              _showPreview(const QPoint& globalPosition, bool wholeGroup = false);
+    void              _hidePreview();
+    void              _startDrag(bool wholeGroup = false);
 };
