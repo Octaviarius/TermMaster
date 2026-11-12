@@ -7,6 +7,44 @@
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Workspace.h>
 #include <filesystem>
+#include <limits>
+
+namespace
+{
+QString layoutId(int index)
+{
+    return QString("00000000-0000-4000-8000-%1").arg(index, 12, 16, QLatin1Char('0'));
+}
+QVariantMap group(int index, const QVariantList& tabs = {})
+{
+    return {
+        {"type",         "group"},
+        {  "id", layoutId(index)},
+        {"tabs",            tabs}
+    };
+}
+QVariantMap split(const QVariantList& children)
+{
+    QVariantList sizes;
+    for (qsizetype index = 0; index < children.size(); ++index)
+    {
+        sizes.append(100);
+    }
+    return {
+        {       "type",      "split"},
+        {"orientation", "horizontal"},
+        {      "sizes",        sizes},
+        {   "children",     children}
+    };
+}
+QVariantMap terminalLayout(const QVariantMap& main)
+{
+    return {
+        {   "main",            main},
+        {"windows", QVariantList {}}
+    };
+}
+} // namespace
 
 class SessionTests : public QObject
 {
@@ -288,230 +326,281 @@ private slots:
         }
     }
 
-    void detachedWindowMetadataRoundTrip()
+    void terminalLayoutRoundTripPreservesUnavailableObjectsAndExtensions()
     {
         QTemporaryDir temporary;
         Settings      base(temporary.filePath("base.yaml"));
         Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
         QString       error;
-        QVERIFY2(session.create("windows", "Windows", &error), qPrintable(error));
+        QVERIFY2(session.create("groups", "Groups", &error), qPrintable(error));
         const QVariantMap object {
             {    "type",           "terminal"},
             {  "module", "unavailable.plugin"},
             {"settings",       QVariantMap {}}
         };
         QVERIFY(session.objects().setValue("unavailable", object));
+        auto first = group(1, {"unavailable", "stale-object"});
+        first.insert("active", "stale-object");
+        first.insert("toolbarVisible", false);
+        first.insert("statusBarVisible", true);
+        first.insert("futureGroup",
+                     QVariantMap {
+                         {"position", 7}
+        });
+        auto empty = group(2);
+        empty.insert("active", "");
+        auto root = split({first, empty});
+        root.insert("orientation", "vertical");
+        root.insert("sizes", QVariantList {0, std::numeric_limits<int>::max()});
+        root.insert("futureSplit", "preserved");
         const QVariantMap window {
-            {        "geometry", QString::fromLatin1(QByteArray::fromHex("00ff010203").toBase64())},
-            {  "toolbarVisible",                                                             false},
-            {"statusBarVisible",                                                              true},
-            {          "future",                                     QVariantMap {{"position", 7}}}
+            {"id", layoutId(3)},
+            {"geometry", QString::fromLatin1(QByteArray(16384, 'x').toBase64())},
+            {"tree", group(4, {"secondary"})},
+            {"futureWindow", true}
         };
-        const QVariantMap windows {
-            { "unavailable",                                                                             window},
-            {"stale-object",                                                                             window},
-            {     "bounded", QVariantMap {{"geometry", QString::fromLatin1(QByteArray(16384, 'x').toBase64())}}}
-        };
-        QVERIFY(session.presentation().setValue("detachedWindows", windows));
+        auto layout = terminalLayout(root);
+        layout.insert("windows", QVariantList {window});
+        layout.insert("activeGroup", layoutId(4));
+        layout.insert("futureLayout", QVariantList {"preserved"});
+        const QVariantList order {"secondary", "unavailable", "dormant", "stale-object"};
+        QVERIFY(session.presentation().setValue("terminalLayout", layout));
+        QVERIFY(session.presentation().setValue("tabOrder", order));
         QVERIFY(session.presentation().setValue("future", "preserved"));
         QVERIFY2(session.sync(&error), qPrintable(error));
+
         Session loaded(session.directory(), SettingsOverlay(base.node(""), base.node("")));
         QVERIFY2(loaded.load(&error), qPrintable(error));
-        QCOMPARE(loaded.presentation().value("detachedWindows").toMap(), windows);
+        QCOMPARE(loaded.presentation().value("terminalLayout").toMap(), layout);
+        QCOMPARE(loaded.presentation().value("tabOrder").toList(), order);
         QCOMPARE(loaded.presentation().value("future").toString(), QString("preserved"));
         QCOMPARE(loaded.objects().value("unavailable").toMap(), object);
-        QVERIFY(loaded.presentation().setValue("detachedWindows", QVariantMap {}));
+
+        const auto emptyLayout = terminalLayout(group(1));
+        QVERIFY(loaded.presentation().setValue("terminalLayout", emptyLayout));
         QVERIFY2(loaded.sync(&error), qPrintable(error));
         QVERIFY2(loaded.load(&error), qPrintable(error));
-        QVERIFY(loaded.presentation().value("detachedWindows").toMap().isEmpty());
+        QCOMPARE(loaded.presentation().value("terminalLayout").toMap(), emptyLayout);
     }
 
-    void invalidDetachedWindowsRejectCandidatesWithoutReplacingOwner()
+    void invalidTerminalLayoutsRejectCandidatesWithoutReplacingOwner()
     {
         QTemporaryDir temporary;
         Settings      base(temporary.filePath("base.yaml"));
         Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
         QString       error;
-        QVERIFY2(session.create("windows", "Windows", &error), qPrintable(error));
-        const QVariantMap validWindow {
-            {"geometry",      "YQ=="},
-            {  "future", "preserved"}
-        };
-        const QVariantMap windows {
-            {"unavailable", validWindow}
-        };
-        QVERIFY(session.presentation().setValue("detachedWindows", windows));
+        QVERIFY2(session.create("groups", "Groups", &error), qPrintable(error));
+        const auto layout = terminalLayout(group(1, {"unavailable"}));
+        QVERIFY(session.presentation().setValue("terminalLayout", layout));
+        QVERIFY(session.presentation().setValue("future", "preserved"));
         QVERIFY2(session.sync(&error), qPrintable(error));
-        QFile disk(session.filePath().toString());
+        const auto presentation = session.presentation().values();
+        QFile      disk(session.filePath().toString());
         QVERIFY(disk.open(QIODevice::ReadOnly));
         const auto baseline = disk.readAll();
         disk.close();
-        const QVariantList
-            invalidWindows {"window",
-                            QVariantList {},
-                            QVariantMap {{"bad id", validWindow}},
-                            QVariantMap {{"terminal", "window"}},
-                            QVariantMap {{"terminal", QVariantMap {}}},
-                            QVariantMap {{"terminal", QVariantMap {{"geometry", 42}}}},
-                            QVariantMap {{"terminal", QVariantMap {{"geometry", ""}}}},
-                            QVariantMap {{"terminal", QVariantMap {{"geometry", "%%%="}}}},
-                            QVariantMap {{"terminal", QVariantMap {{"geometry", "YQ"}}}},
-                            QVariantMap {{"terminal", QVariantMap {{"geometry", "YR=="}}}},
-                            QVariantMap {{"terminal", QVariantMap {{"geometry", "YQ== "}}}},
-                            QVariantMap {{"terminal", QVariantMap {{"geometry", "YQ=="}, {"toolbarVisible", 1}}}},
-                            QVariantMap {
-                                {"terminal", QVariantMap {{"geometry", "YQ=="}, {"statusBarVisible", "true"}}}},
-                            QVariantMap {
-                                {"terminal",
-                                 QVariantMap {{"geometry", QString::fromLatin1(QByteArray(16385, 'x').toBase64())}}}}};
-        for (const auto& invalid : invalidWindows)
-        {
-            Settings candidate(session.filePath(), Settings::Info {"termaster.session", "Candidate"});
-            QVERIFY(candidate.replaceSerialized(baseline, &error));
-            QVERIFY(candidate.setValue("presentation/detachedWindows", invalid, &error));
-            const auto bytes = candidate.serializedPatch({}, {}, &error);
-            QVERIFY2(bytes, qPrintable(error));
-            const auto borrowed = session.presentation();
-            QVERIFY(!session.acceptPreparedDocument(*bytes, &error));
-            QVERIFY(!error.isEmpty());
-            QVERIFY(borrowed.isValid());
-            QCOMPARE(session.presentation().value("detachedWindows").toMap(), windows);
-            QVERIFY(!session.isDirty());
 
-            QVERIFY(session.presentation().setValue("detachedWindows", invalid));
-            QVERIFY(!session.sync(&error));
-            QVERIFY(session.isDirty());
-            QVERIFY(disk.open(QIODevice::ReadOnly));
-            QCOMPARE(disk.readAll(), baseline);
-            disk.close();
-            QVERIFY2(session.load(&error), qPrintable(error));
-
-            QVERIFY(disk.open(QIODevice::WriteOnly | QIODevice::Truncate));
-            QCOMPARE(disk.write(*bytes), bytes->size());
-            disk.close();
-            const auto live = session.presentation();
-            QVERIFY(!session.load(&error));
-            QVERIFY(live.isValid());
-            QCOMPARE(session.presentation().value("detachedWindows").toMap(), windows);
-            QVERIFY(disk.open(QIODevice::WriteOnly | QIODevice::Truncate));
-            QCOMPARE(disk.write(baseline), baseline.size());
-            disk.close();
-        }
-    }
-
-    void dockingMetadataRoundTripPreservesUnavailableObjects()
-    {
-        QTemporaryDir temporary;
-        Settings      base(temporary.filePath("base.yaml"));
-        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
-        QString       error;
-        QVERIFY2(session.create("docking", "Docking", &error), qPrintable(error));
-        const QVariantMap object {
-            {    "type",           "terminal"},
-            {  "module", "unavailable.plugin"},
-            {"settings",       QVariantMap {}}
-        };
-        QVERIFY(session.objects().setValue("unavailable", object));
-        const QVariantList ids {"unavailable", "stale-object"};
-        const auto         layout = QString::fromLatin1(QByteArray(1024 * 1024, '\0').toBase64());
-        QVERIFY(session.presentation().setValue("dockedTerminals", ids));
-        QVERIFY(session.presentation().setValue("dockLayout", layout));
-        QVERIFY(session.presentation().setValue("future",
-                                                QVariantMap {
-                                                    {"nested", 7}
-        }));
-        QVERIFY2(session.sync(&error), qPrintable(error));
-
-        Session loaded(session.directory(), SettingsOverlay(base.node(""), base.node("")));
-        QVERIFY2(loaded.load(&error), qPrintable(error));
-        QCOMPARE(loaded.presentation().value("dockedTerminals").toList(), ids);
-        QCOMPARE(loaded.presentation().value("dockLayout").toString(), layout);
-        QCOMPARE(loaded.presentation().value("future").toMap(),
-                 QVariantMap({
-                     {"nested", 7}
-        }));
-        QCOMPARE(loaded.objects().value("unavailable").toMap(), object);
-        QVERIFY(loaded.presentation().setValue("dockedTerminals", QStringList {}));
-        QVERIFY2(loaded.sync(&error), qPrintable(error));
-        QVERIFY2(loaded.load(&error), qPrintable(error));
-        QVERIFY(loaded.presentation().value("dockedTerminals").toList().isEmpty());
-        QCOMPARE(loaded.presentation().value("dockLayout").toString(), layout);
-    }
-
-    void invalidDockingMetadataRejectsCandidatesWithoutReplacingOwner()
-    {
-        QTemporaryDir temporary;
-        Settings      base(temporary.filePath("base.yaml"));
-        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
-        QString       error;
-        QVERIFY2(session.create("docking", "Docking", &error), qPrintable(error));
-        const QVariantMap presentation {
-            {"dockedTerminals", QVariantList {"unavailable"}},
-            {     "dockLayout",                       "YQ=="},
-            {         "future",                  "preserved"}
-        };
-        QVERIFY(session.presentation().applyValues(presentation, {}));
-        QVERIFY2(session.sync(&error), qPrintable(error));
-        QFile disk(session.filePath().toString());
-        QVERIFY(disk.open(QIODevice::ReadOnly));
-        const auto baseline = disk.readAll();
-        disk.close();
-        const QVariantList invalidIds {
-            "terminal",
-            QVariantMap {},
-            QVariantList {"first", "first"},
-            QVariantList {"bad id"},
-            QVariantList {"../escape"},
-            QVariantList {""},
-            QVariantList {42},
-            QVariantList {true},
-            QVariantList {QString(129, 'a')},
-            QVariantList {QString("bad") + QChar::Null}
-        };
-        QVariantList invalidPresentations;
-        for (const auto& ids : invalidIds)
-        {
-            auto invalid = presentation;
-            invalid.insert("dockedTerminals", ids);
-            invalidPresentations.append(invalid);
-        }
-        const QVariantList invalidLayouts {42,
-                                           true,
-                                           QVariantMap {},
+        QVariantList       invalidLayouts {"layout",
                                            QVariantList {},
-                                           "",
-                                           "%%% =",
-                                           "YQ",
-                                           "YR==",
-                                           "YQ== ",
-                                           QString::fromLatin1(QByteArray(1024 * 1024 + 1, 'x').toBase64())};
-        for (const auto& layout : invalidLayouts)
+                                           QVariantMap {},
+                                           QVariantMap {{"main", group(1)}},
+                                           QVariantMap {{"windows", QVariantList {}}}};
+        const QVariantList invalidGroups {
+            "group",
+            QVariantList {},
+            QVariantMap {},
+            QVariantMap {{"type", 42}, {"id", layoutId(1)}, {"tabs", QVariantList {}}},
+            QVariantMap {{"type", "leaf"}, {"id", layoutId(1)}, {"tabs", QVariantList {}}}
+        };
+        for (const auto& invalid : invalidGroups)
         {
-            auto invalid = presentation;
-            invalid.insert("dockLayout", layout);
-            invalidPresentations.append(invalid);
+            auto candidate = layout;
+            candidate.insert("main", invalid);
+            invalidLayouts.append(candidate);
         }
-        auto overlapping = presentation;
-        overlapping.insert("detachedWindows",
-                           QVariantMap {
-                               {"unavailable", QVariantMap {{"geometry", "YQ=="}}}
-        });
-        invalidPresentations.append(overlapping);
-        for (const auto& invalid : invalidPresentations)
+        for (const auto& id : QVariantList {42,
+                                            "",
+                                            "bad id",
+                                            "../escape",
+                                            "group-1",
+                                            "00000000-0000-0000-0000-000000000000",
+                                            "{00000000-0000-4000-8000-000000000001}"})
         {
-            Settings candidate(session.filePath(), Settings::Info {"termaster.session", "Candidate"});
-            QVERIFY(candidate.replaceSerialized(baseline, &error));
-            QVERIFY(candidate.setValue("presentation", invalid, &error));
+            auto invalid = group(1);
+            invalid.insert("id", id);
+            invalidLayouts.append(terminalLayout(invalid));
+        }
+        for (const auto& tabs : QVariantList {
+                 "terminal",
+                 QVariantMap {},
+                 QVariantList {"first", "first"},
+                 QVariantList {"bad id"},
+                 QVariantList {"../escape"},
+                 QVariantList {""},
+                 QVariantList {42},
+                 QVariantList {true},
+                 QVariantList {QString(129, 'a')},
+                 QVariantList {QString("bad") + QChar::Null}
+        })
+        {
+            auto invalid = group(1);
+            invalid.insert("tabs", tabs);
+            invalidLayouts.append(terminalLayout(invalid));
+        }
+        for (const auto& active : QVariantList {42, true, "absent", layoutId(1)})
+        {
+            auto invalid = group(1, {"first"});
+            invalid.insert("active", active);
+            invalidLayouts.append(terminalLayout(invalid));
+        }
+        for (const auto& active : QVariantList {42, true, "", "group-1", layoutId(2)})
+        {
+            auto invalid = layout;
+            invalid.insert("activeGroup", active);
+            invalidLayouts.append(invalid);
+        }
+        const auto twoGroups  = QVariantList {group(1, {"first"}), group(2, {"second"})};
+        const auto validSplit = split(twoGroups);
+        for (const auto& orientation : QVariantList {42, true, "", "diagonal"})
+        {
+            auto invalid = validSplit;
+            invalid.insert("orientation", orientation);
+            invalidLayouts.append(terminalLayout(invalid));
+        }
+        for (const auto& children : QVariantList {
+                 "children",
+                 QVariantMap {},
+                 QVariantList {},
+                 QVariantList {group(1)},
+                 QVariantList {group(1), "group"}
+        })
+        {
+            auto invalid = validSplit;
+            invalid.insert("children", children);
+            invalidLayouts.append(terminalLayout(invalid));
+        }
+        for (const auto& sizes : QVariantList {
+                 "sizes",
+                 QVariantMap {},
+                 QVariantList {},
+                 QVariantList {1},
+                 QVariantList {1, 2, 3},
+                 QVariantList {-1, 1},
+                 QVariantList {true, 1},
+                 QVariantList {"1", 1},
+                 QVariantList {1.0, 1},
+                 QVariantList {0.5, 1},
+                 QVariantList {QVariant::fromValue(qlonglong(std::numeric_limits<int>::max()) + 1), 1},
+                 QVariantList {QVariant::fromValue(std::numeric_limits<qulonglong>::max()), 1}
+        })
+        {
+            auto invalid = validSplit;
+            invalid.insert("sizes", sizes);
+            invalidLayouts.append(terminalLayout(invalid));
+        }
+        for (const auto& field : {"toolbarVisible", "statusBarVisible"})
+        {
+            for (const auto& value : QVariantList {1, "true", QVariantMap {}})
+            {
+                auto invalid = group(1);
+                invalid.insert(field, value);
+                invalidLayouts.append(terminalLayout(invalid));
+            }
+        }
+        invalidLayouts.append(terminalLayout(split({group(1), group(1)})));
+        invalidLayouts.append(terminalLayout(split({group(1, {"first"}), split({group(2), group(3, {"first"})})})));
+        auto deep = group(1);
+        for (int depth = 0; depth < 16; ++depth)
+        {
+            deep = split({deep, group(depth + 2)});
+        }
+        invalidLayouts.append(terminalLayout(deep));
+        QVariantList tooManyGroups;
+        for (int index = 1; index <= 256; ++index)
+        {
+            tooManyGroups.append(group(index));
+        }
+        invalidLayouts.append(terminalLayout(split({split(tooManyGroups), group(257)})));
+
+        const QVariantMap validWindow {
+            {"id", layoutId(2)},
+            {"geometry", "YQ=="},
+            {"tree", group(3, {"second"})}
+        };
+        for (const auto& windows : QVariantList {
+                 "windows",
+                 QVariantMap {},
+                 QVariantList {"window"},
+                 QVariantList {QVariantMap {}},
+                 QVariantList {validWindow, validWindow}
+        })
+        {
+            auto invalid = layout;
+            invalid.insert("windows", windows);
+            invalidLayouts.append(invalid);
+        }
+        QVariantList invalidWindows;
+        for (const auto& id : QVariantList {42, "", "window-1", layoutId(1), layoutId(3)})
+        {
+            auto window = validWindow;
+            window.insert("id", id);
+            invalidWindows.append(window);
+        }
+        for (const auto& geometry : QVariantList {42,
+                                                  true,
+                                                  QVariantMap {},
+                                                  "",
+                                                  "%%% =",
+                                                  "YQ",
+                                                  "YR==",
+                                                  "YQ== ",
+                                                  QString::fromLatin1(QByteArray(16385, 'x').toBase64())})
+        {
+            auto window = validWindow;
+            window.insert("geometry", geometry);
+            invalidWindows.append(window);
+        }
+        for (const auto& tree : QVariantList {"tree", group(1), group(3, {"unavailable"})})
+        {
+            auto window = validWindow;
+            window.insert("tree", tree);
+            invalidWindows.append(window);
+        }
+        for (const auto& window : invalidWindows)
+        {
+            auto invalid = layout;
+            invalid.insert("windows", QVariantList {window});
+            invalidLayouts.append(invalid);
+        }
+        QVariantList tooManyWindows;
+        for (int index = 0; index < 65; ++index)
+        {
+            tooManyWindows.append(QVariantMap {
+                {      "id", layoutId(2 + index * 2)},
+                {"geometry",                  "YQ=="},
+                {    "tree",    group(3 + index * 2)}
+            });
+        }
+        auto excessiveWindows = layout;
+        excessiveWindows.insert("windows", tooManyWindows);
+        invalidLayouts.append(excessiveWindows);
+
+        for (qsizetype index = 0; index < invalidLayouts.size(); ++index)
+        {
+            const auto& invalid = invalidLayouts[index];
+            Settings    candidate(session.filePath(), Settings::Info {"termaster.session", "Candidate"});
+            QVERIFY2(candidate.replaceSerialized(baseline, &error), qPrintable(error));
+            QVERIFY2(candidate.setValue("presentation/terminalLayout", invalid, &error), qPrintable(error));
             const auto bytes = candidate.serializedPatch({}, {}, &error);
-            QVERIFY2(bytes, qPrintable(error));
+            QVERIFY2(bytes, qPrintable(QString("Case %1: %2").arg(index).arg(error)));
             const auto borrowed = session.presentation();
-            QVERIFY(!session.acceptPreparedDocument(*bytes, &error));
+            QVERIFY2(!session.acceptPreparedDocument(*bytes, &error), qPrintable(QString("Case %1").arg(index)));
             QVERIFY(!error.isEmpty());
             QVERIFY(borrowed.isValid());
             QCOMPARE(session.presentation().values(), presentation);
             QVERIFY(!session.isDirty());
 
-            QVERIFY(session.presentation().applyValues(invalid.toMap(), {}));
+            QVERIFY2(session.presentation().setValue("terminalLayout", invalid, &error), qPrintable(error));
             QVERIFY(!session.sync(&error));
             QVERIFY(session.isDirty());
             QVERIFY(disk.open(QIODevice::ReadOnly));
@@ -537,12 +626,54 @@ private slots:
         {
             excessiveIds.append(QString("terminal-%1").arg(index));
         }
-        QVERIFY(!session.presentation().setValue("dockedTerminals", excessiveIds, &error));
+        QVERIFY(!session.presentation().setValue("terminalLayout", terminalLayout(group(1, excessiveIds)), &error));
         QVERIFY(!error.isEmpty());
         QCOMPARE(session.presentation().values(), presentation);
         QVERIFY(!session.isDirty());
         QVERIFY(disk.open(QIODevice::ReadOnly));
         QCOMPARE(disk.readAll(), baseline);
+    }
+
+    void terminalLayoutAcceptsBoundaryDepthGroupsAndWindows()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
+        QString       error;
+        QVERIFY2(session.create("limits", "Limits", &error), qPrintable(error));
+        auto deep = group(1);
+        for (int depth = 0; depth < 15; ++depth)
+        {
+            deep = split({deep, group(depth + 2)});
+        }
+        QVERIFY(session.presentation().setValue("terminalLayout", terminalLayout(deep)));
+        QVERIFY2(session.sync(&error), qPrintable(error));
+        QVERIFY2(session.load(&error), qPrintable(error));
+
+        QVariantList groups;
+        for (int index = 1; index <= 256; ++index)
+        {
+            groups.append(group(index));
+        }
+        QVERIFY(session.presentation().setValue("terminalLayout", terminalLayout(split(groups))));
+        QVERIFY2(session.sync(&error), qPrintable(error));
+        QVERIFY2(session.load(&error), qPrintable(error));
+
+        auto         layout = terminalLayout(group(1));
+        QVariantList windows;
+        for (int index = 0; index < 64; ++index)
+        {
+            windows.append(QVariantMap {
+                {      "id", layoutId(2 + index * 2)},
+                {"geometry",                  "YQ=="},
+                {    "tree",    group(3 + index * 2)}
+            });
+        }
+        layout.insert("windows", windows);
+        QVERIFY(session.presentation().setValue("terminalLayout", layout));
+        QVERIFY2(session.sync(&error), qPrintable(error));
+        QVERIFY2(session.load(&error), qPrintable(error));
+        QCOMPARE(session.presentation().value("terminalLayout").toMap(), layout);
     }
 
     void noClobberAndWriteFailure()

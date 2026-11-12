@@ -5,6 +5,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <Termaster/Core/Session.h>
+#include <limits>
 #include <utility>
 
 namespace
@@ -23,6 +24,181 @@ bool validId(const QString& id)
 {
     static const QRegularExpression pattern("\\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\z");
     return pattern.match(id).hasMatch();
+}
+bool validLayoutId(const QVariant& value)
+{
+    static const QRegularExpression pattern("\\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\z");
+    return value.typeId() == QMetaType::QString && pattern.match(value.toString()).hasMatch()
+        && value.toString() != "00000000-0000-0000-0000-000000000000";
+}
+bool validSplitterSize(const QVariant& value)
+{
+    switch (value.typeId())
+    {
+        case QMetaType::Int:
+        case QMetaType::LongLong:
+            return value.toLongLong() >= 0 && value.toLongLong() <= std::numeric_limits<int>::max();
+        case QMetaType::UInt:
+        case QMetaType::ULongLong:
+            return value.toULongLong() <= static_cast<qulonglong>(std::numeric_limits<int>::max());
+        default:
+            return false;
+    }
+}
+bool validTerminalLayout(const QVariant& value, QString* error)
+{
+    if (value.typeId() != QMetaType::QVariantMap)
+    {
+        return fail(error, "Session presentation terminalLayout must be a mapping");
+    }
+    const auto layout       = value.toMap();
+    const auto windowsValue = layout.value("windows");
+    if (windowsValue.typeId() != QMetaType::QVariantList || windowsValue.toList().size() > 64)
+    {
+        return fail(error, "Terminal layout windows must be a list of at most 64 windows");
+    }
+    QSet<QString> identities;
+    QSet<QString> groups;
+    QSet<QString> terminals;
+    const auto    tree = [&](const auto& self, const QVariant& nodeValue, int depth) -> bool {
+        if (depth > 16 || nodeValue.typeId() != QMetaType::QVariantMap)
+        {
+            return fail(error, "Terminal layout tree must contain mappings with depth at most 16");
+        }
+        const auto node = nodeValue.toMap();
+        const auto type = node.value("type");
+        if (type.typeId() != QMetaType::QString)
+        {
+            return fail(error, "Terminal layout tree type must be group or split");
+        }
+        if (type.toString() == "group")
+        {
+            const auto id = node.value("id");
+            if (!validLayoutId(id) || identities.contains(id.toString()) || groups.size() >= 256)
+            {
+                return fail(error, "Terminal layout requires unique UUID identities and at most 256 groups");
+            }
+            identities.insert(id.toString());
+            groups.insert(id.toString());
+
+            for (const auto& field : {"toolbarVisible", "statusBarVisible"})
+            {
+                if (node.contains(field) && node.value(field).typeId() != QMetaType::Bool)
+                {
+                    return fail(error, QString("Terminal group %1 must be boolean").arg(field));
+                }
+            }
+
+            const auto tabsValue = node.value("tabs");
+            if (tabsValue.typeId() != QMetaType::QVariantList)
+            {
+                return fail(error, "Terminal group tabs must be a list of object IDs");
+            }
+            const auto tabs = tabsValue.toList();
+            if (tabs.size() > 100000 - terminals.size())
+            {
+                return fail(error, "Terminal layout exceeds 100000 terminal IDs");
+            }
+            QSet<QString> members;
+            for (const auto& tab : tabs)
+            {
+                const auto terminal = tab.toString();
+                if (tab.typeId() != QMetaType::QString || !validId(terminal) || terminals.contains(terminal))
+                {
+                    return fail(error, "Terminal layout requires unique safe terminal object IDs");
+                }
+                terminals.insert(terminal);
+                members.insert(terminal);
+            }
+            if (node.contains("active"))
+            {
+                const auto active = node.value("active");
+                if (active.typeId() != QMetaType::QString
+                    || (!active.toString().isEmpty() && !members.contains(active.toString())))
+                {
+                    return fail(error, "Terminal group active tab must be empty or a member object ID");
+                }
+            }
+            return true;
+        }
+        const auto orientation   = node.value("orientation");
+        const auto childrenValue = node.value("children");
+        const auto sizesValue    = node.value("sizes");
+        if (type.toString() != "split" || orientation.typeId() != QMetaType::QString
+            || (orientation.toString() != "horizontal" && orientation.toString() != "vertical")
+            || childrenValue.typeId() != QMetaType::QVariantList || sizesValue.typeId() != QMetaType::QVariantList)
+        {
+            return fail(error, "Terminal split requires an orientation and lists of children and sizes");
+        }
+        const auto children = childrenValue.toList();
+        const auto sizes    = sizesValue.toList();
+        if (children.size() < 2 || children.size() > 256 || sizes.size() != children.size())
+        {
+            return fail(error, "Terminal split requires 2 to 256 children and one size per child");
+        }
+        for (const auto& size : sizes)
+        {
+            if (!validSplitterSize(size))
+            {
+                return fail(error, "Terminal split sizes must be nonnegative integers within the Qt int range");
+            }
+        }
+        for (const auto& child : children)
+        {
+            if (!self(self, child, depth + 1))
+            {
+                return false;
+            }
+        }
+        return true;
+    };
+    if (!tree(tree, layout.value("main"), 1))
+    {
+        return false;
+    }
+    for (const auto& windowValue : windowsValue.toList())
+    {
+        if (windowValue.typeId() != QMetaType::QVariantMap)
+        {
+            return fail(error, "Terminal layout window must be a mapping");
+        }
+        const auto window = windowValue.toMap();
+        const auto id     = window.value("id");
+        if (!validLayoutId(id) || identities.contains(id.toString()))
+        {
+            return fail(error, "Terminal layout windows require unique UUID identities");
+        }
+        identities.insert(id.toString());
+
+        constexpr qsizetype maxDecodedBytes = 16384;
+        constexpr qsizetype maxEncodedBytes = ((maxDecodedBytes + 2) / 3) * 4;
+        const auto          geometry        = window.value("geometry");
+        const auto          encoded         = geometry.toString();
+        if (geometry.typeId() != QMetaType::QString || encoded.isEmpty() || encoded.size() > maxEncodedBytes)
+        {
+            return fail(error, "Terminal window geometry must be nonempty bounded Base64");
+        }
+        const auto decoded = QByteArray::fromBase64Encoding(encoded.toLatin1(),
+                                                            QByteArray::AbortOnBase64DecodingErrors);
+        if (!decoded || decoded.decoded.size() > maxDecodedBytes
+            || QString::fromLatin1(decoded.decoded.toBase64()) != encoded)
+        {
+            return fail(error, "Terminal window geometry must be canonical Base64 of at most 16 KiB");
+        }
+        if (!tree(tree, window.value("tree"), 1))
+        {
+            return false;
+        }
+    }
+    if (layout.contains("activeGroup"))
+    {
+        const auto active = layout.value("activeGroup");
+        if (!validLayoutId(active) || !groups.contains(active.toString()))
+        {
+            return fail(error, "Terminal layout activeGroup must identify a layout group");
+        }
+    }
+    return true;
 }
 bool validName(const QString& name, QString* error)
 {
@@ -278,87 +454,9 @@ bool Session::_validate(const Settings& settings, QString* error) const
             seen.insert(id);
         }
     }
-    QSet<QString> dockedTerminals;
-    if (presentation.contains("dockedTerminals"))
+    if (presentation.contains("terminalLayout") && !validTerminalLayout(presentation.value("terminalLayout"), error))
     {
-        const auto value = presentation.value("dockedTerminals");
-        if (value.typeId() != QMetaType::QVariantList && value.typeId() != QMetaType::QStringList)
-        {
-            return fail(error, "Session presentation dockedTerminals must be a list of object IDs");
-        }
-        const auto ids = value.toList();
-        if (ids.size() > 100000)
-        {
-            return fail(error, "Session presentation dockedTerminals exceeds 100000 entries");
-        }
-        for (const auto& entry : ids)
-        {
-            const auto id = entry.toString();
-            if (entry.typeId() != QMetaType::QString || !validId(id) || dockedTerminals.contains(id))
-            {
-                return fail(error, "Session presentation dockedTerminals must contain unique safe object IDs");
-            }
-            dockedTerminals.insert(id);
-        }
-    }
-    if (presentation.contains("dockLayout"))
-    {
-        constexpr qsizetype maxDecodedBytes = 1024 * 1024;
-        constexpr qsizetype maxEncodedBytes = ((maxDecodedBytes + 2) / 3) * 4;
-        const auto          value           = presentation.value("dockLayout");
-        const auto          encoded         = value.toString();
-        if (value.typeId() != QMetaType::QString || encoded.isEmpty() || encoded.size() > maxEncodedBytes)
-        {
-            return fail(error, "Session presentation dockLayout must be nonempty bounded Base64");
-        }
-        const auto decoded = QByteArray::fromBase64Encoding(encoded.toLatin1(),
-                                                            QByteArray::AbortOnBase64DecodingErrors);
-        if (!decoded || decoded.decoded.size() > maxDecodedBytes
-            || QString::fromLatin1(decoded.decoded.toBase64()) != encoded)
-        {
-            return fail(error, "Session presentation dockLayout must be canonical Base64 of at most 1 MiB");
-        }
-    }
-    if (presentation.contains("detachedWindows"))
-    {
-        const auto value = presentation.value("detachedWindows");
-        if (value.typeId() != QMetaType::QVariantMap || value.toMap().size() > 100000)
-        {
-            return fail(error, "Session presentation detachedWindows must be a mapping of at most 100000 entries");
-        }
-        const auto windows = value.toMap();
-        for (auto it = windows.cbegin(); it != windows.cend(); ++it)
-        {
-            if (!validId(it.key()) || it.value().typeId() != QMetaType::QVariantMap)
-            {
-                return fail(error, "Invalid detached terminal window: " + it.key());
-            }
-            if (dockedTerminals.contains(it.key()))
-            {
-                return fail(error, "Terminal cannot be both docked and detached: " + it.key());
-            }
-            const auto window   = it.value().toMap();
-            const auto geometry = window.value("geometry");
-            const auto encoded  = geometry.toString();
-            if (geometry.typeId() != QMetaType::QString || encoded.isEmpty() || encoded.size() > 21848)
-            {
-                return fail(error, "Detached terminal window geometry must be nonempty bounded Base64: " + it.key());
-            }
-            const auto decoded = QByteArray::fromBase64Encoding(encoded.toLatin1(),
-                                                                QByteArray::AbortOnBase64DecodingErrors);
-            if (!decoded || decoded.decoded.size() > 16384
-                || QString::fromLatin1(decoded.decoded.toBase64()) != encoded)
-            {
-                return fail(error, "Detached terminal window geometry must be canonical Base64: " + it.key());
-            }
-            for (const auto& field : {"toolbarVisible", "statusBarVisible"})
-            {
-                if (window.contains(field) && window.value(field).typeId() != QMetaType::Bool)
-                {
-                    return fail(error, QString("Detached terminal window %1 must be boolean: %2").arg(field, it.key()));
-                }
-            }
-        }
+        return false;
     }
     const auto objects = settings.value("objects").toMap();
     for (auto it = objects.cbegin(); it != objects.cend(); ++it)
