@@ -50,7 +50,8 @@ private:
         QString          error;
         QVERIFY(!shortcuts.setAssignments(
             {
-                {"first", "Ctrl+B"}
+                { "first", "Ctrl+B"},
+                {"second", "Ctrl+B"}
         },
             &error));
         QVERIFY(error.contains("first") && error.contains("second"));
@@ -111,7 +112,35 @@ private:
         QCOMPARE(triggered.size(), 2);
     }
 
-    Q_SLOT void lateConflictsAreSuppressedAndRestored()
+    Q_SLOT void savedAssignmentsOverrideNewDefaults()
+    {
+        CommandRegistry   registry;
+        auto*             existing   = registry.create("z.existing", {}, {}, QKeySequence("Ctrl+E"));
+        auto*             newDefault = registry.create("a.new", {}, {}, QKeySequence("Ctrl+K"));
+        CommandShortcuts  shortcuts(&registry);
+        QSignalSpy        diagnostics(&shortcuts, &CommandShortcuts::diagnostic);
+        auto*             defaultAction = newDefault->newAction();
+        const QVariantMap values {
+            {"z.existing", "Ctrl+K, Ctrl+C"}
+        };
+        QVERIFY(shortcuts.validateAssignments(values).isEmpty());
+        QVERIFY(shortcuts.setAssignments(values));
+        QCOMPARE(existing->shortcut(), QKeySequence("Ctrl+K, Ctrl+C"));
+        QVERIFY(defaultAction->shortcut().isEmpty());
+        QCOMPARE(shortcuts.assignments(), values);
+        QCOMPARE(diagnostics.size(), 1);
+        QVERIFY(diagnostics.first().first().toString().contains("a.new"));
+        QVERIFY(shortcuts.setAssignments({
+            {"z.existing", ""}
+        }));
+        QVERIFY(existing->shortcut().isEmpty());
+        QCOMPARE(defaultAction->shortcut(), QKeySequence("Ctrl+K"));
+        QVERIFY(shortcuts.setAssignments(values));
+        QVERIFY(registry.remove("z.existing"));
+        QCOMPARE(defaultAction->shortcut(), QKeySequence("Ctrl+K"));
+    }
+
+    Q_SLOT void lateExplicitAssignmentEvictsDefaults()
     {
         CommandRegistry  registry;
         CommandShortcuts shortcuts(&registry);
@@ -119,20 +148,52 @@ private:
         QVERIFY(shortcuts.setAssignments({
             {"late.override", "Ctrl+K, Ctrl+C"}
         }));
-        registry.create("active", {}, {}, QKeySequence("Ctrl+K"));
-        auto* defaultConflict  = registry.create("late.default", {}, {}, QKeySequence("Ctrl+K"));
-        auto* overrideConflict = registry.create("late.override", {}, {}, QKeySequence("Ctrl+O"));
-        QVERIFY(defaultConflict->newAction()->shortcut().isEmpty());
-        QVERIFY(overrideConflict->newAction()->shortcut().isEmpty());
-        QCOMPARE(defaultConflict->defaultShortcut(), QKeySequence("Ctrl+K"));
+        auto* active          = registry.create("active", {}, {}, QKeySequence("Ctrl+K"));
+        auto* defaultConflict = registry.create("late.default", {}, {}, QKeySequence("Ctrl+K"));
+        QVERIFY(defaultConflict->shortcut().isEmpty());
+        auto* overrideCommand = registry.create("late.override", {}, {}, QKeySequence("Ctrl+O"));
+        QVERIFY(active->shortcut().isEmpty());
+        QVERIFY(defaultConflict->shortcut().isEmpty());
+        QCOMPARE(overrideCommand->shortcut(), QKeySequence("Ctrl+K, Ctrl+C"));
         QCOMPARE(shortcuts.assignments().value("late.override").toString(), QString("Ctrl+K, Ctrl+C"));
         QCOMPARE(diagnostics.size(), 2);
+        QVERIFY(registry.remove("late.override"));
+        QCOMPARE(active->shortcut(), QKeySequence("Ctrl+K"));
+        QVERIFY(defaultConflict->shortcut().isEmpty());
         QVERIFY(registry.remove("active"));
         QCOMPARE(defaultConflict->shortcut(), QKeySequence("Ctrl+K"));
-        QVERIFY(overrideConflict->shortcut().isEmpty());
-        QVERIFY(registry.remove("late.default"));
-        QCOMPARE(overrideConflict->shortcut(), QKeySequence("Ctrl+K, Ctrl+C"));
         QCOMPARE(diagnostics.size(), 2);
+    }
+
+    Q_SLOT void lateExplicitConflictsRemainSuppressed()
+    {
+        CommandRegistry   registry;
+        CommandShortcuts  shortcuts(&registry);
+        QSignalSpy        diagnostics(&shortcuts, &CommandShortcuts::diagnostic);
+        const QVariantMap values {
+            { "first",         "Ctrl+K"},
+            {"second", "Ctrl+K, Ctrl+C"}
+        };
+        QVERIFY(shortcuts.setAssignments(values));
+        auto* first  = registry.create("first");
+        auto* second = registry.create("second");
+        QCOMPARE(first->shortcut(), QKeySequence("Ctrl+K"));
+        QVERIFY(second->shortcut().isEmpty());
+        QCOMPARE(shortcuts.assignments(), values);
+        QCOMPARE(diagnostics.size(), 1);
+        QVERIFY(!shortcuts.validateAssignments(values).isEmpty());
+        QVERIFY(registry.remove("first"));
+        QCOMPARE(second->shortcut(), QKeySequence("Ctrl+K, Ctrl+C"));
+    }
+
+    Q_SLOT void conflictingDefaultsFailValidation()
+    {
+        CommandRegistry  registry;
+        CommandShortcuts shortcuts(&registry);
+        registry.create("first", {}, {}, QKeySequence("Ctrl+K"));
+        registry.create("second", {}, {}, QKeySequence("Ctrl+K, Ctrl+C"));
+        QVERIFY(!shortcuts.validateAssignments({}).isEmpty());
+        QVERIFY(!shortcuts.setAssignments({}));
     }
 
     Q_SLOT void assignmentSwapsDoNotSuppressCommands()

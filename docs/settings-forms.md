@@ -562,12 +562,14 @@ Application settings persist the map at `content/settings/shortcuts`, using
 PortableText strings keyed by stable command ID. An absent key selects the default;
 an empty string disables it. Core's CommandShortcuts owner applies the map to
 current commands and later registrations, including plugin unload/reload. Unknown
-command assignments remain available. Duplicate and sequence-prefix conflicts
-identify both command IDs and sequences and block Apply. A newly registered command
-that conflicts with an active binding is temporarily disabled, with a concrete
-status message; its configured assignment/default is retained and retried when the
-conflicting command unloads. Persisted defaults and assignments are not rewritten
-by this suppression.
+command assignments remain available. Explicit saved assignments take priority over
+implicit defaults, so adding a new default never replaces a custom shortcut. Duplicate
+and sequence-prefix conflicts between two explicit assignments or two defaults identify
+both command IDs and sequences and block Apply. Late explicit registration can suppress
+a conflicting default; other late conflicts temporarily disable the arriving binding.
+Suppressed bindings produce a concrete status message and are retried when conflicting
+commands unload or assignments change. Persisted defaults and assignments are not
+rewritten by this suppression.
 
 Editing, filtering, clearing and resetting remain drafts. Cancel discards unapplied
 changes. App persists through the existing Settings owner before applying shortcut

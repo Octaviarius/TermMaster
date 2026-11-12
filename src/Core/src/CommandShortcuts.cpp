@@ -64,7 +64,7 @@ QString CommandShortcuts::validateAssignments(const QVariantMap& assignments) co
         auto second = first;
         for (++second; second != effective.cend(); ++second)
         {
-            if (!second.value().isEmpty()
+            if (assignments.contains(first.key()) == assignments.contains(second.key()) && !second.value().isEmpty()
                 && (first.value().matches(second.value()) != QKeySequence::NoMatch
                     || second.value().matches(first.value()) != QKeySequence::NoMatch))
             {
@@ -102,22 +102,28 @@ bool CommandShortcuts::setAssignments(const QVariantMap& assignments, QString* e
         }
         for (const auto& id : ids)
         {
-            _apply(id);
+            if (auto* command = _registry ? _registry->find(id) : nullptr)
+            {
+                command->setShortcut({});
+            }
+        }
+        for (const auto& id : ids)
+        {
+            if (_assignments.contains(id))
+            {
+                _applyLate(id);
+            }
+        }
+        for (const auto& id : ids)
+        {
+            if (!_assignments.contains(id))
+            {
+                _applyLate(id);
+            }
         }
     }
     emit assignmentsChanged();
     return true;
-}
-
-void CommandShortcuts::_apply(const QString& id)
-{
-    auto* command = _registry ? _registry->find(id) : nullptr;
-    if (command)
-    {
-        command->setShortcut(_assignments.contains(id) ? QKeySequence::fromString(_assignments.value(id).toString(),
-                                                                                  QKeySequence::PortableText) :
-                                                         command->defaultShortcut());
-    }
 }
 
 void CommandShortcuts::_applyLate(const QString& id)
@@ -127,10 +133,11 @@ void CommandShortcuts::_applyLate(const QString& id)
     {
         return;
     }
-    const auto desired = _assignments.contains(id) ?
-                             QKeySequence::fromString(_assignments.value(id).toString(), QKeySequence::PortableText) :
-                             command->defaultShortcut();
-    QString    conflictId;
+    const auto  desired = _assignments.contains(id) ?
+                              QKeySequence::fromString(_assignments.value(id).toString(), QKeySequence::PortableText) :
+                              command->defaultShortcut();
+    QString     conflictId;
+    QStringList displaced;
     if (!desired.isEmpty())
     {
         for (auto* other : _registry->commands())
@@ -140,25 +147,51 @@ void CommandShortcuts::_applyLate(const QString& id)
                 && (desired.matches(active) != QKeySequence::NoMatch
                     || active.matches(desired) != QKeySequence::NoMatch))
             {
-                conflictId = other->name();
-                break;
+                if (_assignments.contains(id) && !_assignments.contains(other->name()))
+                {
+                    displaced.append(other->name());
+                }
+                else
+                {
+                    conflictId = other->name();
+                    break;
+                }
             }
         }
     }
     if (!conflictId.isEmpty())
     {
-        const bool newlySuppressed = !_suppressed.contains(id);
-        _suppressed.insert(id);
-        command->setShortcut({});
-        if (newlySuppressed)
-        {
-            emit diagnostic(tr("Shortcut '%1' for '%2' was disabled because it conflicts with '%3'.")
-                                .arg(desired.toString(QKeySequence::PortableText), id, conflictId));
-        }
+        _suppress(id, desired, conflictId);
         return;
     }
+    for (const auto& displacedId : displaced)
+    {
+        auto* other = _registry ? _registry->find(displacedId) : nullptr;
+        if (other)
+        {
+            _suppress(displacedId, other->shortcut(), id);
+        }
+    }
     _suppressed.remove(id);
-    command->setShortcut(desired);
+    if (command)
+    {
+        command->setShortcut(desired);
+    }
+}
+
+void CommandShortcuts::_suppress(const QString& id, const QKeySequence& desired, const QString& conflictId)
+{
+    const bool newlySuppressed = !_suppressed.contains(id);
+    _suppressed.insert(id);
+    if (auto* command = _registry ? _registry->find(id) : nullptr)
+    {
+        command->setShortcut({});
+    }
+    if (newlySuppressed)
+    {
+        emit diagnostic(tr("Shortcut '%1' for '%2' was disabled because it conflicts with '%3'.")
+                            .arg(desired.toString(QKeySequence::PortableText), id, conflictId));
+    }
 }
 
 void CommandShortcuts::_retrySuppressed(const QString& removedId)
@@ -166,8 +199,14 @@ void CommandShortcuts::_retrySuppressed(const QString& removedId)
     _suppressed.remove(removedId);
     auto ids = _suppressed.values();
     ids.sort();
-    for (const auto& id : ids)
+    for (bool explicitAssignment : {true, false})
     {
-        _applyLate(id);
+        for (const auto& id : ids)
+        {
+            if (_assignments.contains(id) == explicitAssignment)
+            {
+                _applyLate(id);
+            }
+        }
     }
 }
