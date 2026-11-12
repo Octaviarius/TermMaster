@@ -134,10 +134,7 @@ void MainWindow::_createMenus()
     menu("terminal", tr("&Terminal"), {"create", "allConnections", "connection", "management", "output", "settings"});
     menu("tools", tr("&Tools"), {"management"});
     menu("help", tr("&Help"), {"about"});
-    for (const auto& group : QStringList {"terminalCreation", "terminal"})
-    {
-        _toolbar.addGroup(group);
-    }
+    _toolbar.addGroup("terminalCreation");
 }
 
 void MainWindow::_refreshTitle()

@@ -506,9 +506,9 @@ private:
         QCOMPARE(quit->shortcut(), QKeySequence(QKeySequence::Quit));
         QVERIFY(tools->actions("management").contains(plugins->actions().first()));
         QVERIFY(!_app.toolbar().toolbar()->actions().contains(plugins->actions().first()));
-        QCOMPARE(_app.toolbar().groups(), QStringList({"terminalCreation", "terminal"}));
+        QCOMPARE(_app.toolbar().groups(), QStringList({"terminalCreation"}));
         QCOMPARE(_app.toolbar().toolbar()->toolButtonStyle(), Qt::ToolButtonIconOnly);
-        QCOMPARE(_app.toolbar().toolbar()->actions().size(), 2);
+        QCOMPARE(_app.toolbar().toolbar()->actions().size(), 0);
         QVERIFY(!_app.commands().find("Terminal.LocalEcho")->actions().first()->isEnabled());
         for (auto* action : _app.toolbar().toolbar()->actions())
         {
@@ -530,6 +530,66 @@ private:
             QVERIFY(!_app.toolbar().toolbar()->actions().contains(_app.commands().find(id)->actions().first()));
         }
         QVERIFY(!QFileInfo::exists(_app.paths().configFile("plugins").toString()));
+    }
+
+    Q_SLOT void terminalGroupFrameAndOverflowNavigation()
+    {
+        TerminalWorkspace workspace;
+        workspace.resize(680, 420);
+        auto* group = workspace.initialGroup();
+        for (int index = 0; index < 12; ++index)
+        {
+            auto* page = new QWidget;
+            page->setProperty("terminalId", QString::number(index));
+            group->tabs().addTab(page, QString());
+            group->setTabPresentation(index, QString("Terminal %1").arg(index), "Endpoint", {}, {});
+        }
+        group->toolbar().addAction("Start");
+        group->statusBar().showMessage("Terminal 0: Disconnected");
+        workspace.show();
+        QTest::qWait(60);
+        QVERIFY(qobject_cast<QFrame*>(group));
+        QVERIFY(group->contentsRect().left() >= 2);
+        QVERIFY(group->contentsRect().contains(group->toolbar().geometry()));
+        QVERIFY(group->contentsRect().contains(group->statusBar().geometry()));
+        QVERIFY(group->toolbar().geometry().bottom() < group->tabs().geometry().top());
+        QCOMPARE(group->toolbar().iconSize(), QSize(16, 16));
+        const auto tabGeometry = group->tabs().geometry();
+        group->setActive(true);
+        QCoreApplication::processEvents();
+        QVERIFY(group->isActive());
+        group->setActive(false);
+        QCoreApplication::processEvents();
+        QVERIFY(!group->isActive());
+        QCOMPARE(group->tabs().geometry(), tabGeometry);
+
+        auto* button = group->findChild<QToolButton*>("terminalHiddenTabsButton");
+        QVERIFY(button && button->menu());
+        auto* menu = button->menu();
+        QVERIFY(QMetaObject::invokeMethod(menu, "aboutToShow", Qt::DirectConnection));
+        QVERIFY(!menu->actions().isEmpty());
+        auto* target = group->tabs().widget(11);
+        auto* action = menu->actions().last();
+        QVERIFY(action->text().contains("Terminal 11"));
+        // A queued menu selection must resolve the page after tab reordering.
+        group->tabs().tabBar()->moveTab(11, 2);
+        action->trigger();
+        QCOMPARE(group->tabs().currentWidget(), target);
+        group->tabs().removeTab(group->tabs().indexOf(target));
+        auto* selected = group->tabs().currentWidget();
+        action->trigger();
+        QCOMPARE(group->tabs().currentWidget(), selected);
+        delete target;
+        action->trigger();
+        QCOMPARE(group->tabs().currentWidget(), selected);
+
+        workspace.resize(2600, 420);
+        QTest::qWait(40);
+        QVERIFY(QMetaObject::invokeMethod(menu, "aboutToShow", Qt::DirectConnection));
+        const auto visibleActions = menu->actions();
+        QVERIFY(std::none_of(visibleActions.cbegin(), visibleActions.cend(), [](const auto* item) {
+            return item->isEnabled();
+        }));
     }
 
     Q_SLOT void loggingTagEditorPreservesInvalidDrafts()
@@ -1064,6 +1124,8 @@ content:
         displays[0]->setFocus();
         QTRY_COMPARE(QApplication::focusWidget(), displays[0]);
         QTRY_COMPARE(_app.selectedTerminal(), ids[0]);
+        QTRY_VERIFY(firstGroup->isActive());
+        QVERIFY(!secondGroup->isActive());
         wrap->trigger();
         echo->trigger();
         QVERIFY(!wrap->isChecked());
@@ -1776,7 +1838,7 @@ content:
         auto* action = command->actions().first();
         QVERIFY(action->isCheckable());
         QVERIFY(_app.mainMenu().findMenu("/view")->actions("terminal").contains(action));
-        QVERIFY(_app.toolbar().toolbar()->actions().contains(action));
+        QVERIFY(!_app.toolbar().toolbar()->actions().contains(action));
         for (const auto& group : _app.mainMenu().findMenu("/terminal")->groups())
         {
             QVERIFY(!_app.mainMenu().findMenu("/terminal")->actions(group).contains(action));
@@ -1816,6 +1878,9 @@ content:
         host.refreshTerminalActions();
         QVERIFY(action->isEnabled());
         QVERIFY(action->isChecked());
+        auto* group = controller.terminalGroup(_app.selectedTerminal());
+        QVERIFY(group);
+        QVERIFY(group->toolbar().actions().contains(group->action("View.WrapLines")));
         auto* display = tabs->currentWidget()->findChild<TerminalDisplay*>("terminalDisplay");
         QVERIFY(display);
         display->receive(QByteArray("word ").repeated(120));
@@ -3049,15 +3114,22 @@ content:
                     visible.append(action->text());
                 }
             }
+            QCOMPARE(visible, QStringList({"New console", "New serial", "New socket"}));
+            auto* group = static_cast<TerminalController&>(_app.pluginHost()).terminalGroup(_app.selectedTerminal());
+            QVERIFY(group);
+            QStringList local;
+            for (const auto* action : group->toolbar().actions())
+            {
+                if (action->isVisible() && !action->isSeparator())
+                {
+                    local.append(action->text());
+                }
+            }
             const bool console = QString(type) == "console";
-            QCOMPARE(visible,
-                     QStringList({"New console",
-                                  "New serial",
-                                  "New socket",
-                                  console ? "Start" : "Connect",
+            QCOMPARE(local,
+                     QStringList({console ? "Start" : "Connect",
                                   console ? "Stop" : "Disconnect",
                                   console ? "Restart" : "Reconnect",
-                                  "Clear screen",
                                   "Local echo",
                                   "Wrap lines",
                                   "Settings..."}));
@@ -3389,8 +3461,7 @@ content:
             QVERIFY(!action->icon().isNull());
             QVERIFY(!action->toolTip().isEmpty());
             QVERIFY(terminalMenu->actions(it.value()).contains(action));
-            QCOMPARE(_app.toolbar().actions(it.value() == "create" ? "terminalCreation" : "terminal").contains(action),
-                     it.key() != "Serial.Close");
+            QCOMPARE(_app.toolbar().toolbar()->actions().contains(action), it.value() == "create");
         }
         QVERIFY(!_app.commands().find("Serial.New")->actions().first()->isEnabled());
         QVERIFY(_app.settings().setValue("settings/appearance/fontSize", 15));
@@ -4227,7 +4298,7 @@ content:
         QVERIFY(command && !command->actions().isEmpty());
         auto* action = command->actions().first();
         QVERIFY(action->isCheckable());
-        QVERIFY(_app.toolbar().toolbar()->actions().contains(action));
+        QVERIFY(!_app.toolbar().toolbar()->actions().contains(action));
         QVERIFY(!action->icon().isNull());
         QVERIFY(!action->toolTip().isEmpty());
         QVERIFY(!action->isChecked());

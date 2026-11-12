@@ -1,20 +1,22 @@
 #pragma once
 
+#include <QFrame>
 #include <QHash>
 #include <QPointer>
-#include <QWidget>
 
 class QAction;
 class QIcon;
 class QLabel;
 class QMimeData;
+class QMenu;
 class QRubberBand;
 class QStatusBar;
 class QTabWidget;
 class QToolBar;
+class QToolButton;
 
 /** GUI-thread presentation group. Terminal pages and actions remain controller-owned. */
-class TerminalTabGroup final : public QWidget
+class TerminalTabGroup final : public QFrame
 {
     Q_OBJECT
 public:
@@ -22,6 +24,8 @@ public:
     ~TerminalTabGroup() override;
 
     QString     id() const;
+    bool        isActive() const;
+    void        setActive(bool active);
     QTabWidget& tabs();
     QToolBar&   toolbar();
     QStatusBar& statusBar();
@@ -42,12 +46,16 @@ public:
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
 private:
     QString                           _id;
-    QTabWidget*                       _tabs      = nullptr;
-    QToolBar*                         _toolbar   = nullptr;
-    QStatusBar*                       _statusBar = nullptr;
+    bool                              _active           = false;
+    QToolButton*                      _hiddenTabsButton = nullptr;
+    QMenu*                            _hiddenTabsMenu   = nullptr;
+    QTabWidget*                       _tabs             = nullptr;
+    QToolBar*                         _toolbar          = nullptr;
+    QStatusBar*                       _statusBar        = nullptr;
     QHash<QString, QPointer<QAction>> _actions;
     QRubberBand*                      _preview        = nullptr;
     QLabel*                           _previewCaption = nullptr;
@@ -60,6 +68,8 @@ private:
     Qt::Edge                          _dropEdge  = Qt::Edge(0);
     int                               _dropIndex = -1;
 
+    void    _refreshFrame();
+    void    _refreshHiddenTabs();
     QString _terminalId(int index) const;
     QString _mimeId(const QMimeData* mime, QObject* source) const;
     void    _showPreview(const QPoint& globalPosition);
