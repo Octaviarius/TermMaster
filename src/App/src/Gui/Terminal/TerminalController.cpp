@@ -44,11 +44,11 @@
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
-#include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/SettingsSchema.h>
 #include <Termaster/Core/Terminal/CommandInput.h>
 #include <Termaster/Core/Terminal/TerminalSendQueue.h>
+#include <Termaster/Core/WordGenerator.h>
 #include <Termaster/Core/Workspace.h>
 #include <algorithm>
 #include <stdexcept>
@@ -1041,7 +1041,7 @@ bool TerminalController::createTerminal(const QString&     type,
         return fail(error, "No session or terminal type is available");
     }
     const auto  id    = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    const auto  label = name.isEmpty() ? RandomNames::generate().toString() : name;
+    const auto  label = name.isEmpty() ? WordGenerator::generate() : name;
     QVariantMap definition {
         {    "type",                                type},
         {  "module", _types.at(type).registration.plugin},

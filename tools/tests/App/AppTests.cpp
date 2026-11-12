@@ -79,10 +79,10 @@
 #include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
-#include <Termaster/Core/RandomNames.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
+#include <Termaster/Core/WordGenerator.h>
 #include <Termaster/Core/Workspace.h>
 #include <cstdlib>
 #include <stdexcept>
@@ -1614,8 +1614,18 @@ content:
         QStringList ids;
         for (int index = 0; index < 3; ++index)
         {
-            QVERIFY(_app.createTerminal(type.id, {}, QString("Readable name %1").arg(index), &error));
+            const auto requestedName = index == 0 ? QString() : QString("Readable name %1").arg(index);
+            QVERIFY(_app.createTerminal(type.id, {}, requestedName, &error));
             ids.append(_app.selectedTerminal());
+            const auto storedName = _app.session()->objects().value(ids.last()).toMap().value("name").toString();
+            if (requestedName.isEmpty())
+            {
+                QVERIFY(WordGenerator::number(storedName.toLower()).has_value());
+            }
+            else
+            {
+                QCOMPARE(storedName, requestedName);
+            }
         }
         QVERIFY(controller.detachTerminal(ids[0], &error));
         QVERIFY(controller.detachTerminal(ids[1], &error));
@@ -2320,6 +2330,59 @@ content:
         QVERIFY(editor->buffered());
     }
 
+    Q_SLOT void generatedWordsMatchPrototypeAndRoundTrip()
+    {
+        QCOMPARE(WordGenerator::capacity(), quint32(6220800));
+        const QList<QPair<quint32, QString>> reference {
+            {      0,     "cenum"},
+            {      1,    "fradil"},
+            {      2,    "kotath"},
+            {      3,     "rikos"},
+            {      4,    "thawer"},
+            {      5,    "clunun"},
+            {      6,     "godem"},
+            {      7,     "mesul"},
+            {     42,     "tirom"},
+            {    999,    "stavas"},
+            {  76798,    "plukur"},
+            {  76799,    "stiwin"},
+            {  76800,   "bagenum"},
+            {  76801,   "basadil"},
+            { 123456,   "hupawem"},
+            {1000000,   "fafofor"},
+            {6220799, "truthiwin"}
+        };
+        for (const auto& pair : reference)
+        {
+            QCOMPARE(WordGenerator::word(pair.first), pair.second);
+            QCOMPARE(WordGenerator::number(pair.second), std::optional<quint32>(pair.first));
+        }
+        for (quint32 id = 0; id < 76800; ++id)
+        {
+            const auto word = WordGenerator::word(id);
+            QCOMPARE(WordGenerator::number(word), std::optional<quint32>(id));
+        }
+        for (quint32 sample = 0; sample < 10000; ++sample)
+        {
+            const quint32 id = 76800 + quint32((quint64(sample) * 104729) % 6144000);
+            QCOMPARE(WordGenerator::number(WordGenerator::word(id)), std::optional<quint32>(id));
+        }
+        for (const auto& invalid :
+             QStringList {"", "Cenum", "cenum ", "bagenum!", "aeiou", "c", "cénum", "cenum cenum"})
+        {
+            QVERIFY(!WordGenerator::number(invalid).has_value());
+        }
+        QVERIFY_THROWS_EXCEPTION(std::out_of_range, WordGenerator::word(WordGenerator::capacity()));
+        for (int count = 0; count < 100; ++count)
+        {
+            const auto generated = WordGenerator::generate();
+            QVERIFY(!generated.isEmpty());
+            QVERIFY(generated.front().isUpper());
+            QVERIFY(!generated.contains(' '));
+            QVERIFY(WordGenerator::number(generated.toLower()).has_value());
+        }
+    }
+
     Q_SLOT void sessionLifecycleAndPersistence()
     {
         QTemporaryDir temporary;
@@ -2330,11 +2393,17 @@ content:
         QVERIFY(_app.workspace()->settings().setValue("sessionTest/value", 20));
         QVERIFY2(_app.createSession({}, &error), qPrintable(error));
         QVERIFY(_app.session());
-        const auto generated = _app.session()->name().toLower().split(' ');
-        QCOMPARE(generated.size(), 2);
-        const RandomNames names;
-        QVERIFY(names.adjectives().contains(generated.first(), Qt::CaseInsensitive));
-        QVERIFY(names.nouns().contains(generated.last(), Qt::CaseInsensitive));
+        const auto generated = _app.session()->name();
+        QVERIFY(!generated.contains(' '));
+        QVERIFY(generated.front().isUpper());
+        QVERIFY(WordGenerator::number(generated.toLower()).has_value());
+        const auto generatedNamesCapture = qEnvironmentVariable("TERMASTER_GENERATED_NAMES_CAPTURE");
+        if (!generatedNamesCapture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(generatedNamesCapture));
+            QCoreApplication::processEvents();
+            QVERIFY(_app.mainWindow().grab().save(QDir(generatedNamesCapture).filePath("GeneratedSession.png")));
+        }
         const auto id = _app.session()->id();
         QVERIFY(!QUuid(id).isNull());
         QVERIFY(_app.session()->setName("Saved through workspace"));

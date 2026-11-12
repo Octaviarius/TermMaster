@@ -118,8 +118,8 @@ plugin-window capture was visually inspected. No GUI behavior change is intended
 
 Obsolete Registree, EnumReflection, Singleton, Deque and utils infrastructure was
 removed from Core. Settings was replaced by a general YAML document owner with
-scoped views. RandomNames is an ordinary explicitly constructed object;
-BuildTime is a dedicated helper used by Version. ApplicationPaths resolves only
+scoped views. WordGenerator produces syllable-based default names without
+building an indexed adjective/noun permutation. BuildTime is a dedicated helper used by Version. ApplicationPaths resolves only
 application locations. PluginManager borrows Settings directly and validates its
 own preferences. Core links Qt Core/Widgets and pinned yaml-cpp; the active target
 graph excludes the reference modules and their serial dependencies.

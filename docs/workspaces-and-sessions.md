@@ -94,7 +94,8 @@ configuration. Unknown fields survive writes.
 
 App assigns a UUID to a new session and uses it as the folder name and stable
 catalog/document ID. The human-readable name is independent and mutable. Empty
-creation names use `RandomNames::generate()` to select an adjective and noun.
+creation names use `WordGenerator::generate()` to create one capitalized,
+pronounceable pseudo-word. Explicit names and existing saved names are preserved.
 Renaming changes the name without moving the folder or changing the ID.
 Session creation refuses to replace existing data. App validates that a loaded
 document ID matches its selected catalog key before activating it.
@@ -344,3 +345,25 @@ write during moves, two-session isolation, late providers, stale/unlisted IDs,
 unknown-field preservation and atomic invalid-candidate rejection. Native order
 and wrap-command tests passed at 100%, 125% and 200% scaling with disconnected
 synthetic terminals and zero transport connection attempts.
+
+
+## Generated default names
+
+Core `WordGenerator` implements the fixed shuffled two/three-syllable configuration
+from `tools/previews/WordGenerator.py` directly in C++20. It has 6,220,800 lowercase
+spellings with reversible integer mapping; `generate()` uniformly selects a
+spelling and capitalizes its initial letter. Examples are Cenum, Fradil and Bagenum.
+The mapping uses immutable lexicons and bounded arithmetic, without Python startup,
+dictionary loading or an indexed permutation allocation.
+
+New unnamed sessions and terminals use this helper. Existing saved names, explicit
+creation names and UUID identities are preserved. Generated names may repeat and
+are never used as unique application identities. The previous adjective/noun
+generator and its build-time dictionary generation have been removed.
+
+Verification checks prototype reference values, every two-syllable mapping, 10,000
+three-syllable samples, both block boundaries, invalid input and generated labels.
+Application checks cover automatic session/terminal names, explicit names and
+save/reopen behavior. Debug and Release application builds complete. The complete
+Release AppTests suite passes; focused Debug generator/session/terminal tests pass,
+and a native generated-session capture was visually inspected.
