@@ -531,3 +531,13 @@ Later stages:
 - [x] Convert unaccepted native dock tear-outs into complete secondary windows.
 - [x] Preserve panel identity, live runtime state, focused commands and explicit presentation persistence.
 - [x] Verify native gestures at 100%, 125% and 200%, Debug/Release builds and lifecycle scenarios; see [terminal windows](terminal-windows.md) for the Qt offscreen limitation.
+
+## APP-20: Unified terminal tab groups
+
+- [x] Define split/tab-group/window ownership and local command targets.
+- [x] Replace per-terminal docks with native splitter trees of tab groups.
+- [x] Add translucent ghost-tab drag/drop between windows and edge splits.
+- [x] Keep terminal controls and status bars in each group, with configurable placement.
+- [x] Return complete secondary-window group trees through window navigation.
+- [x] Persist bounded layout trees and preserve unavailable-provider positions.
+- [x] Verify lifecycle, native ghost-tab drag/cancellation at 100%, 125% and 200%, visual layouts and Debug/Release builds.
