@@ -556,15 +556,6 @@ private:
         QVERIFY(group->contentsRect().contains(group->statusBar().geometry()));
         QVERIFY(group->toolbar().geometry().bottom() < group->tabs().geometry().top());
         QCOMPARE(group->toolbar().iconSize(), QSize(16, 16));
-        const auto tabGeometry = group->tabs().geometry();
-        group->setActive(true);
-        QCoreApplication::processEvents();
-        QVERIFY(group->isActive());
-        group->setActive(false);
-        QCoreApplication::processEvents();
-        QVERIFY(!group->isActive());
-        QCOMPARE(group->tabs().geometry(), tabGeometry);
-
         auto*       bar         = group->tabs().tabBar();
         auto*       currentPage = group->tabs().currentWidget();
         const auto  firstTab    = bar->tabRect(0);
@@ -1165,8 +1156,7 @@ content:
         displays[0]->setFocus();
         QTRY_COMPARE(QApplication::focusWidget(), displays[0]);
         QTRY_COMPARE(_app.selectedTerminal(), ids[0]);
-        QTRY_VERIFY(firstGroup->isActive());
-        QVERIFY(!secondGroup->isActive());
+        QCOMPARE(firstGroup->styleSheet(), secondGroup->styleSheet());
         wrap->trigger();
         echo->trigger();
         QVERIFY(!wrap->isChecked());

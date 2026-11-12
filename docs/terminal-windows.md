@@ -155,8 +155,8 @@ and mixed physical-monitor DPI transfers are not established by these checks.
 
 Each group is one framed container enclosing its compact toolbar, tab strip,
 terminal panel and status bar. A two-pixel palette-based frame marks the complete
-scope: neutral for inactive groups and accent-colored for the focused group.
-Changing the accent preserves frame thickness and terminal geometry.
+scope with the same neutral border for every group. Focus and clicks do not add
+an accent outline; selected tabs retain their normal selection presentation.
 
 Terminal controls use a separate compact row above the tabs, with 16-pixel icons.
 Only applicable commands target that group's selected terminal. The main toolbar
@@ -174,12 +174,12 @@ Acceptance completed with Qt 6.12/MSVC 2022 on Windows:
 
 - Debug and Release application builds complete; AppTests, SessionTests,
   CommandEditorTests and TerminalDisplayTests pass in both configurations.
-- Group tests cover frame containment, unchanged child geometry on activation,
+- Group tests cover frame containment, neutral frame consistency across focused groups,
   focused-group command scope, compact applicable commands and overflow selection
   after reordering, removal and destruction of a page.
 - Native drag tests pass at 100%, 125% and 200%, including reorder, edge split,
   cross-window transfer, outside release and Escape cancellation. Visual captures
-  confirm complete active/neutral group boundaries, compact controls and a
+  confirm complete neutral group boundaries, compact controls and a
   palette-aware overflow icon in light/dark schemes.
 - Final focused tests pass after the overflow icon refinement. Windows may clamp
   oversized test-window geometry to the physical monitor; mixed-monitor DPI

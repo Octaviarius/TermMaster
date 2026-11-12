@@ -24,8 +24,6 @@ public:
     ~TerminalTabGroup() override;
 
     QString     id() const;
-    bool        isActive() const;
-    void        setActive(bool active);
     QTabWidget& tabs();
     QToolBar&   toolbar();
     QStatusBar& statusBar();
@@ -52,7 +50,6 @@ protected:
 
 private:
     QString                           _id;
-    bool                              _active          = false;
     bool                              _dragWholeGroup  = false;
     bool                              _activeGroupDrag = false;
     QToolButton*                      _groupDragHandle = nullptr;

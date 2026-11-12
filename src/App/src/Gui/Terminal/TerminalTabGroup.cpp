@@ -20,7 +20,6 @@
 #include <QRegion>
 #include <QRubberBand>
 #include <QStatusBar>
-#include <QStyle>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QToolBar>
@@ -192,23 +191,6 @@ TerminalTabGroup::~TerminalTabGroup()
 QString TerminalTabGroup::id() const
 {
     return _id;
-}
-
-bool TerminalTabGroup::isActive() const
-{
-    return _active;
-}
-
-void TerminalTabGroup::setActive(bool active)
-{
-    if (_active != active)
-    {
-        _active = active;
-        setProperty("activeGroup", active);
-        style()->unpolish(this);
-        style()->polish(this);
-        update();
-    }
 }
 
 QTabWidget& TerminalTabGroup::tabs()
@@ -518,9 +500,8 @@ void TerminalTabGroup::changeEvent(QEvent* event)
 
 void TerminalTabGroup::_refreshFrame()
 {
-    const QString sheet = QString("QFrame#terminalTabGroup { border: 2px solid %1; } "
-                                  "QFrame#terminalTabGroup[activeGroup=\"true\"] { border-color: %2; }")
-                              .arg(palette().color(QPalette::Mid).name(), palette().color(QPalette::Highlight).name());
+    const QString sheet = QString("QFrame#terminalTabGroup { border: 2px solid %1; }")
+                              .arg(palette().color(QPalette::Mid).name());
     if (styleSheet() != sheet)
     {
         setStyleSheet(sheet);
