@@ -24,6 +24,14 @@ preserves packet boundaries, including empty packets. Stub completes every accep
 input with no output at all, including empty packets. It does not buffer input for
 later release. Both enforce input limits and stop acceptance after cancellation.
 
+`native.duplex-bypass` (Bypass (Duplex)) is the four-port Control variant for
+Duplex selectors and diagrams. Its two inputs independently forward each complete
+packet to the output with the same port index: Rx is port zero and Tx is port one.
+Rx maps Wire input to Bytes output; Tx maps Bytes input to Wire output.
+Both lanes preserve binary and empty packets,
+enforce the configured input byte limit and stop after cancellation. It has no
+editable parameters and does not alter the unary `native.bypass` catalog entry.
+
 An unnamed favorites section appears above the named origin branches, separated
 by a dashed line. Its ordered IDs belong to the workspace document under
 `content/state/processing/favorites`. A newly created workspace contains Bypass.

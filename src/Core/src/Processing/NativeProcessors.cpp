@@ -31,6 +31,14 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
     };
     QList<Definition> definitions {
         Definition("native.bypass", "Bypass", "Control", Bypass::schema(), Bypass::create, "Data", "Data"),
+        Definition("native.duplex-bypass",
+                   "Bypass (Duplex)",
+                   "Control",
+                   Bypass::schema(),
+                   Bypass::createDuplex,
+                   "Wire",
+                   "Bytes",
+                   2),
         Definition("native.stub", "Stub", "Control", Stub::schema(), Stub::create, "Data", "Data"),
         Definition("native.gate", "Gate", "Control", Gate::schema(), Gate::create, "Data", "Data"),
         Definition("native.timestamp", "Timestamp", "Timing", Timestamp::schema(), Timestamp::create, "Data", "Data"),

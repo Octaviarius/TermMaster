@@ -74,6 +74,91 @@ class CodecProcessorTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void duplexBypassPreservesIndependentPacketsAndLimits()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        const auto type = registry.type("native.duplex-bypass");
+        QVERIFY(type);
+        QCOMPARE(type->inputCount, 2);
+        QCOMPARE(type->outputCount, 2);
+        QCOMPARE(type->inputNames, (QStringList {"Wire", "Bytes"}));
+        QCOMPARE(type->outputNames, (QStringList {"Bytes", "Wire"}));
+        QCOMPARE(registry.type("native.bypass")->inputCount, 1);
+        QCOMPARE(registry.type("native.bypass")->outputCount, 1);
+
+        QString    error;
+        const auto defaults = registry.resolveConfiguration(type->id, {}, {}, &error);
+        QVERIFY2(defaults.has_value(), qPrintable(error));
+        QVERIFY(defaults->isEmpty());
+        Processor::Limits limits;
+        limits.maxBytes = 256;
+        auto runtime    = registry.create(type->id, {}, limits, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QCOMPARE(runtime->inputCount(), 2);
+        QCOMPARE(runtime->outputCount(), 2);
+        QVERIFY(runtime->configuration().isEmpty());
+
+        for (int port : {0, 1, 1, 0})
+        {
+            for (const auto& packet : QList<QByteArray> {allBytes(), {}, QByteArray("a\0b", 3)})
+            {
+                const auto result = invoke(*runtime, packet, port);
+                QCOMPARE(result.accepted, Processor::AcceptResult::Accepted);
+                QCOMPARE(result.completed, 1);
+                QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+                QCOMPARE(result.outputs.size(), 1);
+                QCOMPARE(result.outputs.first().port, port);
+                QCOMPARE(result.outputs.first().bytes, packet);
+            }
+        }
+
+        // A peer lane remains available while the first lane is inside its output callback.
+        int completed = 0;
+        QCOMPARE(runtime->accept({"rx", 0},
+                                 {[&](Processor::Chunk output) {
+                                      QCOMPARE(output.port, 0);
+                                      QCOMPARE(output.bytes, QByteArray("rx"));
+                                      const auto peer = invoke(*runtime, "tx", 1);
+                                      QCOMPARE(peer.accepted, Processor::AcceptResult::Accepted);
+                                      QCOMPARE(peer.outputs.size(), 1);
+                                      QCOMPARE(peer.outputs.first().port, 1);
+                                      QCOMPARE(peer.outputs.first().bytes, QByteArray("tx"));
+                                      QCOMPARE(peer.completed, 1);
+                                  },
+                                  [&](QString failure) {
+                                      QVERIFY(failure.isEmpty());
+                                      ++completed;
+                                  }}),
+                 Processor::AcceptResult::Accepted);
+        QCOMPARE(completed, 1);
+
+        for (int port : {0, 1})
+        {
+            const auto rejected = invoke(*runtime, QByteArray(257, 'x'), port);
+            QCOMPARE(rejected.accepted, Processor::AcceptResult::Rejected);
+            QCOMPARE(rejected.completed, 0);
+            QVERIFY(rejected.outputs.isEmpty());
+            QCOMPARE(invoke(*runtime, "valid", port).accepted, Processor::AcceptResult::Accepted);
+        }
+        for (int port : {-1, 2})
+        {
+            const auto rejected = invoke(*runtime, {}, port);
+            QCOMPARE(rejected.accepted, Processor::AcceptResult::Rejected);
+            QCOMPARE(rejected.completed, 0);
+            QVERIFY(rejected.outputs.isEmpty());
+        }
+
+        int cancelled = 0;
+        runtime->cancel([&] { ++cancelled; });
+        runtime->cancel([&] { ++cancelled; });
+        QCOMPARE(cancelled, 2);
+        for (int port : {0, 1})
+        {
+            QCOMPARE(invoke(*runtime, "stopped", port).accepted, Processor::AcceptResult::Rejected);
+        }
+    }
+
     void unaryNodesRejectInvalidPorts()
     {
         for (const auto& id : QStringList {"native.bypass",
