@@ -265,3 +265,37 @@ The common creation toolbar is temporarily disabled by
 unavailable; applying stored visibility settings does not restore it or rewrite
 those preferences. Terminal creation remains available from the menu. Group-local
 ToolbarActionContainers and status controls remain active.
+
+
+## Default connection shortcuts (APP-28)
+
+| Command | Default | Scope |
+| --- | --- | --- |
+| `Terminal.Start` | Ctrl+Shift+S | Active terminal |
+| `Terminal.Stop` | Ctrl+Shift+X | Active terminal |
+| `Terminal.Restart` | Ctrl+Shift+R | Active terminal |
+| `Terminal.StartAll` | Ctrl+Alt+Shift+S | All session terminals |
+| `Terminal.StopAll` | Ctrl+Alt+Shift+X | All session terminals |
+
+The three active-terminal commands resolve the current backend's registered Connect,
+Disconnect or Restart action by semantic role. They revalidate its visibility,
+eligibility and exact terminal/window identity before execution. These commands are
+shortcut-editor entries; existing plugin menu and toolbar actions remain the visible
+controls. Bulk actions are also available in secondary windows' Terminal menu.
+
+App's terminal controller lets Qt resolve application shortcuts before terminal byte
+encoding. Plain Ctrl+C/S/X/R retain terminal control-byte behavior. An unbound key still
+reaches terminal input, and a consumed shortcut command key's release is withheld from enhanced
+keyboard reporting. Core's standalone display does not acquire application commands.
+Settings can rebind or explicitly disable the defaults; saved assignments take priority
+when a new implicit default conflicts with an existing custom binding.
+
+Verification on Qt 6.12/MSVC 2022: Debug and Release application builds and the
+AppTests, CommandTests, TerminalDisplayTests and TerminalInputTests suites pass.
+Native Windows checks exercise focused main/secondary groups, start/stop/reconnect,
+bulk commands, plain control bytes, command-key release suppression with enhanced
+keyboard reporting, persisted rebinding and explicit clearing. The native shortcut
+settings page was visually inspected. Group-transfer checks compare meaningful
+selected fixture text because viewport-only trailing blank rows change with resizing.
+Transport checks use synthetic devices; physical hardware and external traffic are
+not part of this acceptance.

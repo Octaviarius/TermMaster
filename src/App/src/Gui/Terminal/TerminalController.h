@@ -1,7 +1,9 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QPointer>
+#include <QSet>
 #include <Termaster/Core/Plugin/PluginHost.h>
 #include <Termaster/Core/Processing/Processor.h>
 #include <Termaster/Core/SettingsOverlay.h>
@@ -98,6 +100,9 @@ public:
 
     Q_SIGNAL void selectionChanged();
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     struct Type
     {
@@ -126,6 +131,9 @@ private:
     std::map<QString, Type>                     _types;
     std::map<QString, std::unique_ptr<Runtime>> _terminals;
     std::map<QString, RegisteredAction>         _actions;
+    QHash<QObject*, QSet<int>>                  _shortcutReleases;
+    QPointer<TerminalDisplay>                   _shortcutCandidate;
+    int                                         _shortcutCandidateKey = 0;
     QPointer<SettingsDialog>                    _creation;
 
     int                                      _batchDepth            = 0;
@@ -154,6 +162,7 @@ private:
     QStringList               _surfaceCommands(const QString& surface, bool secondary) const;
     void                      _showGroupMenu(const QString& id, const QPoint& position);
 
+    QString  _connectionAction(Action::Role role) const;
     Runtime* _current() const;
     QString  _mainTerminalId() const;
     void     _focusChanged();
