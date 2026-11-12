@@ -583,3 +583,8 @@ Later stages:
 ## APP-26: Narrow hidden-tab button
 
 - [x] Halve the menu button width while preserving full strip height; verify native 100%/200%, font changes and overflow navigation in Debug.
+
+
+## APP-27: Disable the common toolbar
+
+- [x] Disable the main toolbar in code while retaining group-local controls and stored preferences; verify Debug configuration/view tests and native appearance.

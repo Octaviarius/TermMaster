@@ -256,3 +256,12 @@ one-pixel tab-base line outside its corner slot; native Windows checks require
 exact height, half-width proportions and top alignment. Hosted plugins use ABI 12 and
 all built-in modules are rebuilt. Mixed-monitor DPI and physical traffic remain
 outside these checks.
+
+
+## Main toolbar availability
+
+The common creation toolbar is temporarily disabled by
+`MainWindow::MainToolbarEnabled = false`. Its View command and native toggle are
+unavailable; applying stored visibility settings does not restore it or rewrite
+those preferences. Terminal creation remains available from the menu. Group-local
+ToolbarActionContainers and status controls remain active.

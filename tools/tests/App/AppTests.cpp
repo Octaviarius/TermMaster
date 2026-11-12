@@ -934,7 +934,7 @@ private:
         action("View.Toolbar")->trigger();
         QVERIFY(_app.toolbar().toolbar()->isHidden());
         QVERIFY(!_app.workspace()->settings().containsOverride("ui/toolbarVisible"));
-        QCOMPARE(_app.settings().value("settings/ui/toolbarVisible").toBool(), false);
+        QCOMPARE(_app.settings().value("settings/ui/toolbarVisible").toBool(), true);
         action("View.StatusBar")->trigger();
         QVERIFY(_app.mainWindow().statusBar()->isHidden());
         QVERIFY(!_app.workspace()->settings().containsOverride("ui/statusBarVisible"));
@@ -943,9 +943,11 @@ private:
         QVERIFY(_app.toolbar().toolbar()->isHidden());
         action("View.Toolbar")->trigger();
         action("View.StatusBar")->trigger();
-        QVERIFY(!_app.toolbar().toolbar()->isHidden());
+        QVERIFY(_app.toolbar().toolbar()->isHidden());
         QVERIFY(!_app.mainWindow().statusBar()->isHidden());
-        QVERIFY(action("View.Toolbar")->isChecked());
+        QVERIFY(!action("View.Toolbar")->isChecked());
+        QVERIFY(!action("View.Toolbar")->isVisible());
+        QVERIFY(!action("View.Toolbar")->isEnabled());
         QVERIFY(action("View.StatusBar")->isChecked());
     }
 
@@ -2779,7 +2781,7 @@ content:
         QVERIFY(!dialog->pageModel("terminal.connection"));
         auto* model = dialog->pageModel("application.appearance");
         model->setValue("toolbar", false);
-        QVERIFY(!_app.toolbar().toolbar()->isHidden());
+        QVERIFY(_app.toolbar().toolbar()->isHidden());
         auto* reset = dialog->findChild<QToolButton*>("reset_toolbar");
         QVERIFY(reset && !reset->isHidden());
         auto* booleanEditor = reset->parentWidget()->findChild<QCheckBox*>();
@@ -2798,7 +2800,7 @@ content:
         }
         dialog->reject();
         QTRY_VERIFY(dialog.isNull());
-        QVERIFY(!_app.toolbar().toolbar()->isHidden());
+        QVERIFY(_app.toolbar().toolbar()->isHidden());
         _app.commands().find("Application.Settings")->actions().first()->trigger();
         dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
         model  = dialog->pageModel("application.appearance");
