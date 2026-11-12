@@ -68,10 +68,18 @@ group IDs, pages and local state. X performs the same return; explicit terminal
 closure remains a separate command. Closing the main application saves once and
 closes all hosts and runtime resources.
 
-Main titles use workspace name, session name and application name. Secondary
-titles use the active terminal name, session name, workspace name and application
-name, omitting empty components. Tabs show the terminal's user-visible name;
-connection parameters remain secondary text and tooltip details.
+Main titles use `workspace / session`. Secondary titles use
+`workspace / session / number`, without an application-name suffix or active
+terminal name. Empty components are omitted; the application name is the fallback
+when no context is available. Additional windows receive unique numbers starting
+at 2. Existing window numbers remain stable across tab/group transfers and are
+saved as integer `number` metadata in each session window entry. Unspecified
+numbers are allocated from the unused values; explicit numbers are reserved first.
+
+Tabs show concise plugin-provided type labels: Serial, TCP/UDP and configured
+console executable names such as PowerShell or CMD. Automatic consoles use Console.
+Connection parameters remain on the second line. Saved object names and identities
+are unchanged and remain available in tooltips and accessible descriptions.
 
 ## Configurable action placement
 
@@ -133,7 +141,7 @@ Acceptance on Windows 11, Qt 6.12.0 and MSVC 2022:
 
 - Debug and Release application builds complete. Standard CTest runs pass AppTests,
   SessionTests, CommandEditorTests and TerminalDisplayTests in both configurations.
-- AppTests includes 57 passing results and one default native-input skip; session
+- AppTests includes 58 passing results and one default native-input skip; session
   tests include 12 passing results and two existing symlink-privilege skips.
 - Synthetic connections, page/display/editor/processing identity, selected terminal,
   input drafts, local action isolation, stale context-menu safety, shutdown and
@@ -229,3 +237,22 @@ Acceptance with Qt 6.12/MSVC 2022 on Windows:
   were visually inspected.
 - Physical-device traffic and mixed-monitor DPI transfers remain outside these
   synthetic acceptance checks. Oversized fixture geometry can be clamped by Windows.
+
+
+## Naming and tab-strip button acceptance (APP-24)
+
+The hidden-tab menu button uses native corner layout with a square size hint tied
+to the tab bar. Its full height follows the two-line strip and font/DPI changes.
+No timer-based geometry adjustment is used.
+
+Verification covers stable window numbers through save/reopen and vacant-number
+allocation, invalid/duplicate numeric metadata, real plugin labels and live shell/
+protocol settings changes, full-height square corner geometry after font changes,
+and native group/tab gestures. Debug and Release application builds and the four
+affected CTest suites pass. AppTests reports 58 passes with one default native-input
+skip; opt-in native acceptance passes at 100%, 125% and 200%. Visual captures confirm
+labels and full-height corner alignment. The offscreen Fusion style reserves a
+one-pixel tab-base line outside its corner slot; native Windows checks require
+exact height, square dimensions and top alignment. Hosted plugins use ABI 12 and
+all built-in modules are rebuilt. Mixed-monitor DPI and physical traffic remain
+outside these checks.

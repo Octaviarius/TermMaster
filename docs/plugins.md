@@ -374,7 +374,7 @@ capability permits partial writes; UDP reports atomic writes so the shared outpu
 queue preserves datagram boundaries. Byte/line timing belongs to native Pacer
 processing, which reports an error when byte spacing would split a packet.
 Rebuild every hosted plugin against this SDK. Interface IID
-`org.octaviarius.Termaster.HostedPlugin/11.0` rejects older hosted binary interfaces.
+`org.octaviarius.Termaster.HostedPlugin/12.0` rejects older hosted binary interfaces.
 
 ## Native processor registrations
 
@@ -402,3 +402,14 @@ plus processor port metadata and lifecycle output/error handlers. Native
 metadata and saved workspace definitions expose the same subgroup label; origin
 remains independent. Catalog queries copy group strings before module unload.
 Rebuild hosted plugins against this SDK. See [processing nodes](processing-nodes.md).
+
+
+## Terminal tab labels
+
+HostedPlugin ABI version 12 adds optional `TerminalType::tabTitle`, a pure
+presentation callback receiving effective terminal settings. It returns a concise
+type or shell label; empty, oversized or invalid labels fall back to the registered
+type title. The callback must not perform I/O or process events. Arguments and
+environment values must not be exposed in labels. The host owns copied label text.
+Rebuild hosted plugins against the current SDK; its IID is
+`org.octaviarius.Termaster.HostedPlugin/12.0`.

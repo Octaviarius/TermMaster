@@ -197,7 +197,7 @@ Terminal tabs use the connection-status glyph geometry and colors from the local
 Flowgate `src/gui/qml/ConnectionStatus.qml` component (Drawngate naming). Standalone
 SVG resources under `src/App/Res/Status` represent closed, open, transitional and
 failed states. Tabs show two native Qt text lines: the concise terminal type
-(Console, Serial or Socket), then its effective main connection parameter. Serial
+(Serial, TCP/UDP or the configured console program), then its effective main connection parameter. Serial
 uses the raw port name, sockets use host:port with IPv6 brackets, and consoles use
 the configured executable or "Automatic shell" when unset. Connection parameters
 refresh after settings apply and saved-definition reconstruction; they describe

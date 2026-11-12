@@ -563,3 +563,11 @@ Later stages:
 
 - [x] Retain uniform neutral panel boundaries without focus/click accent outlines.
 - [x] Remove obsolete visual activation state; verify focused commands, group transfers and native appearance in Debug.
+
+
+## APP-24: Window and tab naming
+
+- [x] Use workspace/session paths and stable persisted numeric secondary-window suffixes.
+- [x] Display plugin-provided terminal type/shell labels while preserving saved object names.
+- [x] Fit the square hidden-tab button to the complete tab-strip height.
+- [x] Verify persistence validation, plugin lifecycle, font/DPI geometry and native transfers.
