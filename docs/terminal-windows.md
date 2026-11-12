@@ -27,7 +27,7 @@ flowchart TD
 ```
 
 A TerminalWorkspace owns a bounded tree of QSplitters and TerminalTabGroups.
-A group owns its QTabWidget, corner toolbar and status bar. Each tab is the
+A framed group owns its QTabWidget, compact toolbar row and status bar. Each tab is the
 presentation of one existing terminal page. The controller retains authoritative
 runtime ownership; a page belongs to exactly one group's native stacked layout.
 
@@ -85,17 +85,18 @@ The existing interface settings page exposes four flat YAML-list fields:
 | secondary/status | Secondary-window group status controls |
 
 Lists contain ordered `group:connection` or `command:Terminal.LocalEcho` selectors.
-Group selectors collect registered terminal action groups; command selectors select
-one registered command. Duplicate matches are shown once. Explicit empty lists
+Group selectors collect primary registered terminal actions in semantic role order;
+command selectors select one registered command, including auxiliary commands.
+Duplicate matches are shown once. Explicit empty lists
 hide the corresponding controls. Unknown selectors remain in settings for late
 plugin registration. Each list is bounded to 64 strings of at most 128 characters.
 ToolbarActionContainer borrows the actual QToolBar, including the small toolbar
 inside the native QStatusBar. Placement does not grant command eligibility.
 
 Default toolbars include connection commands, Local echo, Wrap lines and settings.
-Default status controls include Buffered input, Send file and Processing. Those
-three are excluded from broad group selectors unless explicitly requested, keeping
-the two surfaces compact. Application settings provide defaults and workspace
+Default status controls include Buffered input, Send file and Processing.
+Auxiliary commands, including environment refresh and those three status commands, require explicit command selectors instead of broad groups,
+keeping the two surfaces compact. Application settings provide defaults and workspace
 overlays may override the lists. Changes apply through the existing settings owner.
 
 ## Session presentation
@@ -132,7 +133,7 @@ Acceptance on Windows 11, Qt 6.12.0 and MSVC 2022:
 
 - Debug and Release application builds complete. Standard CTest runs pass AppTests,
   SessionTests, CommandEditorTests and TerminalDisplayTests in both configurations.
-- AppTests includes 55 passing results and one default native-input skip; session
+- AppTests includes 56 passing results and one default native-input skip; session
   tests include 12 passing results and two existing symlink-privilege skips.
 - Synthetic connections, page/display/editor/processing identity, selected terminal,
   input drafts, local action isolation, stale context-menu safety, shutdown and
@@ -150,37 +151,37 @@ start/drop targets before input, then restores their prior topmost flags. All
 transport checks use synthetic devices. Physical devices, external connections
 and mixed physical-monitor DPI transfers are not established by these checks.
 
-## Feedback collection
+## Group surface clarity (APP-21)
 
-Feedback is recorded for later design review; interface changes are deferred while
-observations are being collected.
+Each group is one framed container enclosing its compact toolbar, tab strip,
+terminal panel and status bar. A two-pixel palette-based frame marks the complete
+scope: neutral for inactive groups and accent-colored for the focused group.
+Changing the accent preserves frame thickness and terminal geometry.
 
-- The per-group toolbars at the right end of each tab strip are unexpected and
-  their purpose is unclear. They repeat terminal controls from the main toolbar
-  and occupy tab-strip space. Review their visibility, placement and distinction
-  from the common terminal controls. No replacement layout has been selected.
+Terminal controls use a separate compact row above the tabs, with 16-pixel icons.
+Only applicable commands target that group's selected terminal. The main toolbar
+contains terminal creation commands; terminal menus and shortcuts remain available
+without repeating terminal controls in the common toolbar. Existing workspace
+surface selectors continue to configure local commands and visibility.
 
-- Overflow navigation in a crowded tab strip needs a faster direct selection path.
-  Provide a drop-down listing tabs hidden by insufficient strip width, allowing
-  selection without repeatedly using the left/right scroll arrows. Implementation
-  remains deferred during feedback collection.
+The tab strip has a drop-down for direct selection of fully or partly obscured
+tabs. Entries include the terminal name and endpoint. Selection resolves the
+original page at invocation, so reordering does not change the target and a removed
+page cannot select another terminal. When every tab fits, the menu reports that
+all tabs are visible. The corner button keeps a stable footprint across resizes.
 
-- Clarification of toolbar ownership and placement: terminal controls belong to
-  their tab group and should be visually attached to that group's tab widget.
-  Multiple visible groups each need a local toolbar within their own scope.
-  Show only commands applicable to that group's active terminal; avoid redundant
-  terminal controls in a detached common toolbar. Keep genuinely window-wide
-  commands separate. This clarifies the earlier concern about unexpected toolbars;
-  removing all group-local controls is not the intended outcome. Record only;
-  implementation remains deferred during feedback collection.
+Acceptance completed with Qt 6.12/MSVC 2022 on Windows:
 
-- The compact toolbar size shown in the latest reference is comfortable: small
-  icons, tightly spaced buttons and a low-height panel. Use that capture as the
-  visual size reference for group-local toolbars. Exact pixel measurements have
-  not been specified; implementation remains deferred during feedback collection.
-
-- Adjacent tab-group boundaries are not sufficiently visible in split layouts.
-  Add a clearly discernible frame around each complete group, enclosing its tab
-  strip, local toolbar, terminal area and status bar. The red rectangle in the
-  reference identifies the intended extent; a specific frame color or thickness
-  has not been selected. Implementation remains deferred during feedback collection.
+- Debug and Release application builds complete; AppTests, SessionTests,
+  CommandEditorTests and TerminalDisplayTests pass in both configurations.
+- Group tests cover frame containment, unchanged child geometry on activation,
+  focused-group command scope, compact applicable commands and overflow selection
+  after reordering, removal and destruction of a page.
+- Native drag tests pass at 100%, 125% and 200%, including reorder, edge split,
+  cross-window transfer, outside release and Escape cancellation. Visual captures
+  confirm complete active/neutral group boundaries, compact controls and a
+  palette-aware overflow icon in light/dark schemes.
+- Final focused tests pass after the overflow icon refinement. Windows may clamp
+  oversized test-window geometry to the physical monitor; mixed-monitor DPI
+  transfers remain outside this acceptance. All devices are synthetic or unused
+  disconnected endpoints; no physical device receives traffic.

@@ -541,3 +541,11 @@ Later stages:
 - [x] Return complete secondary-window group trees through window navigation.
 - [x] Persist bounded layout trees and preserve unavailable-provider positions.
 - [x] Verify lifecycle, native ghost-tab drag/cancellation at 100%, 125% and 200%, visual layouts and Debug/Release builds.
+
+
+## APP-21: Distinct terminal group surfaces
+
+- [x] Enclose toolbar, tabs, terminal and status bar in one clearly visible group frame.
+- [x] Keep compact terminal controls attached to their group and remove global duplicates.
+- [x] Provide direct hidden-tab selection from a drop-down menu.
+- [x] Verify command targeting, overflow safety, native dragging and visual layouts.
