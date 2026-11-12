@@ -12,6 +12,11 @@ public:
                                              const Limits&      limits,
                                              QString*           error = nullptr);
 
+    /** Two independent packet-preserving lanes using the standard duplex port mapping. */
+    static std::unique_ptr<Processor> createDuplex(const QVariantMap& configuration,
+                                                   const Limits&      limits,
+                                                   QString*           error = nullptr);
+
 private:
     Bypass(QVariantMap configuration, Limits limits);
     void _process(const Chunk& input, QByteArray& output, QString& error) override;
