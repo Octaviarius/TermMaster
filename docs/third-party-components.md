@@ -24,15 +24,15 @@ both upstream notices.
 | yaml-cpp | 0.8.0 plus 31 commits, `1d8ca1f35eb3a9c9142462b28282a848e5d29a91` | `components/yaml-cpp/LICENSE` |
 | Lucide / Feather icons | `53fab88ff9d1b48f4704b5b5b560d6b4d560bf4c` | `components/lucide/LICENSE` and `SOURCE.md` |
 
-The Qt inventory follows the installed Qt Base, Qt Serial Port and Qt SVG SBOM
-dependency graph from Core, Gui, Widgets, Network, SerialPort, Svg and ZlibPrivate,
-plus the Windows platform/style, SVG image/icon and native TLS runtime plugins.
+The Qt inventory follows the installed Qt Base, Qt Tools, Qt Serial Port and Qt SVG SBOM
+dependency graph from Core, Gui, Widgets, Help, Sql, Network, SerialPort, Svg and ZlibPrivate,
+plus the Windows platform/style, SVG image/icon, SQLite SQL driver and native TLS runtime plugins.
 It also includes OpenGL where the selected Qt graph requires it. Runtime package
 names, selected roots, bundled component metadata, source hashes and notice hashes
 are recorded in `provenance.json`.
 
 Qt build-system metadata and tools are excluded. The inventory does not enumerate
-unused submodule test frameworks, Qt Quick/Declarative, SQL drivers, optional
+unused submodule test frameworks, Qt Quick/Declarative, unused SQL drivers, optional
 image-format modules or other installed Qt modules. In particular, the application's
 PCRE2 10.49 has its own entry; Qt's bundled PCRE2 10.48 is acknowledged within the
 Qt entry. Qt's bundled zlib 1.3.2 notice also covers the selected compression
