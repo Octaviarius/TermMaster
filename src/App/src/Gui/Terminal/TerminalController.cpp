@@ -691,9 +691,9 @@ void TerminalController::_registerAction(Action action, ActionContainer* menu)
         presentation = command->newAction(&_window);
         presentation->setToolTip(action.title);
         menu->addAction(presentation, action.group);
-        if (action.role != Action::Role::Close && action.role != Action::Role::Additional)
+        if (action.role == Action::Role::Create)
         {
-            const auto group = action.role == Action::Role::Create ? "terminalCreation" : "terminal";
+            const auto group = "terminalCreation";
             qsizetype  index = 0;
             for (const auto* existing : _window.toolbar().actions(group))
             {
@@ -2544,11 +2544,23 @@ QStringList TerminalController::_surfaceCommands(const QString& surface, bool se
     {
         rules = {"command:Terminal.BufferedInput", "command:Terminal.SendFile", "command:Terminal.Processing"};
     }
+    QStringList commandIds;
+    for (const auto& [id, action] : _actions)
+    {
+        commandIds.append(id);
+    }
+    std::stable_sort(commandIds.begin(), commandIds.end(), [this](const auto& left, const auto& right) {
+        const auto leftRole  = _actions.at(left).registration.role;
+        const auto rightRole = _actions.at(right).registration.role;
+        return leftRole != rightRole ? leftRole < rightRole : left < right;
+    });
+
     QStringList result;
     for (const auto& rule : rules)
     {
-        for (const auto& [id, action] : _actions)
+        for (const auto& id : commandIds)
         {
+            const auto& action = _actions.at(id);
             if (action.registration.role == Action::Role::Create || action.registration.group == "allConnections")
             {
                 continue;
@@ -2558,8 +2570,7 @@ QStringList TerminalController::_surfaceCommands(const QString& surface, bool se
             {
                 continue;
             }
-            if (!explicitCommand
-                && (id == "Terminal.Processing" || id == "Terminal.BufferedInput" || id == "Terminal.SendFile"))
+            if (!explicitCommand && action.registration.role == Action::Role::Additional)
             {
                 continue;
             }
@@ -2599,6 +2610,19 @@ void TerminalController::_refreshGroupControls(TerminalTabGroup* group)
     {
         return;
     }
+    auto* activeGroup = _focusedGroups.value(group->window()).data();
+    if (!activeGroup)
+    {
+        auto* parent = group->parentWidget();
+        while (parent && !qobject_cast<TerminalWorkspace*>(parent))
+        {
+            parent = parent->parentWidget();
+        }
+        auto* workspace = qobject_cast<TerminalWorkspace*>(parent);
+        activeGroup     = workspace ? workspace->initialGroup() : group;
+    }
+    group->setActive(activeGroup == group);
+
     auto*      panel    = group->tabs().currentWidget();
     const auto id       = panel ? panel->property("terminalId").toString() : QString();
     const auto previous = _commandTarget;

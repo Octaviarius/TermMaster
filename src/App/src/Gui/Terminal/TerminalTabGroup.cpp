@@ -12,12 +12,15 @@
 #include <QDropEvent>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
+#include <QRegion>
 #include <QRubberBand>
 #include <QStatusBar>
+#include <QStyle>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QToolBar>
@@ -91,10 +94,11 @@ public:
 } // namespace
 
 TerminalTabGroup::TerminalTabGroup(QString id, QWidget* parent) :
-    QWidget(parent), _id(QUuid(id).isNull() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : id)
+    QFrame(parent), _id(QUuid(id).isNull() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : id)
 {
     setObjectName("terminalTabGroup");
     setAcceptDrops(true);
+    _refreshFrame();
     _tabs = new TerminalTabs(this);
     _tabs->setObjectName("terminalTabs");
     _tabs->setDocumentMode(true);
@@ -111,7 +115,21 @@ TerminalTabGroup::TerminalTabGroup(QString id, QWidget* parent) :
     _toolbar->setFloatable(false);
     _toolbar->setIconSize(QSize(16, 16));
     _toolbar->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    _tabs->setCornerWidget(_toolbar, Qt::TopRightCorner);
+    _toolbar->setStyleSheet("QToolBar#terminalGroupToolbar { spacing: 1px; padding: 0px; border: 0px; }");
+    _hiddenTabsButton = new QToolButton(_tabs);
+    _hiddenTabsButton->setObjectName("terminalHiddenTabsButton");
+    _hiddenTabsButton->setAutoRaise(true);
+    _hiddenTabsButton->setIcon(Icons::icon("chevron-down"));
+    _hiddenTabsButton->setIconSize(QSize(16, 16));
+    _hiddenTabsButton->setStyleSheet("QToolButton::menu-indicator { image: none; }");
+    _hiddenTabsButton->setToolTip(tr("Show hidden terminal tabs"));
+    _hiddenTabsButton->setAccessibleName(tr("Show hidden terminal tabs"));
+    _hiddenTabsButton->setPopupMode(QToolButton::InstantPopup);
+    _hiddenTabsMenu = new QMenu(_hiddenTabsButton);
+    _hiddenTabsMenu->setObjectName("terminalHiddenTabsMenu");
+    _hiddenTabsButton->setMenu(_hiddenTabsMenu);
+    _tabs->setCornerWidget(_hiddenTabsButton, Qt::TopRightCorner);
+    connect(_hiddenTabsMenu, &QMenu::aboutToShow, this, &TerminalTabGroup::_refreshHiddenTabs);
     _statusBar = new QStatusBar(this);
     _statusBar->setObjectName("terminalGroupStatusBar");
     _statusBar->setSizeGripEnabled(false);
@@ -119,6 +137,7 @@ TerminalTabGroup::TerminalTabGroup(QString id, QWidget* parent) :
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
+    layout->addWidget(_toolbar);
     layout->addWidget(_tabs, 1);
     layout->addWidget(_statusBar);
     _preview = new QRubberBand(QRubberBand::Rectangle, this);
@@ -154,6 +173,23 @@ TerminalTabGroup::~TerminalTabGroup()
 QString TerminalTabGroup::id() const
 {
     return _id;
+}
+
+bool TerminalTabGroup::isActive() const
+{
+    return _active;
+}
+
+void TerminalTabGroup::setActive(bool active)
+{
+    if (_active != active)
+    {
+        _active = active;
+        setProperty("activeGroup", active);
+        style()->unpolish(this);
+        style()->polish(this);
+        update();
+    }
 }
 
 QTabWidget& TerminalTabGroup::tabs()
@@ -309,7 +345,7 @@ bool TerminalTabGroup::eventFilter(QObject* watched, QEvent* event)
     auto* widget = qobject_cast<QWidget*>(watched);
     if (!widget || (widget != this && !isAncestorOf(widget)))
     {
-        return QWidget::eventFilter(watched, event);
+        return QFrame::eventFilter(watched, event);
     }
 
     auto* bar = _tabs->tabBar();
@@ -381,7 +417,88 @@ bool TerminalTabGroup::eventFilter(QObject* watched, QEvent* event)
         emit                    activated();
         return guard.isNull();
     }
-    return QWidget::eventFilter(watched, event);
+    return QFrame::eventFilter(watched, event);
+}
+
+void TerminalTabGroup::changeEvent(QEvent* event)
+{
+    QFrame::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)
+    {
+        _refreshFrame();
+    }
+}
+
+void TerminalTabGroup::_refreshFrame()
+{
+    const QString sheet = QString("QFrame#terminalTabGroup { border: 2px solid %1; } "
+                                  "QFrame#terminalTabGroup[activeGroup=\"true\"] { border-color: %2; }")
+                              .arg(palette().color(QPalette::Mid).name(), palette().color(QPalette::Highlight).name());
+    if (styleSheet() != sheet)
+    {
+        setStyleSheet(sheet);
+    }
+}
+
+void TerminalTabGroup::_refreshHiddenTabs()
+{
+    _hiddenTabsMenu->clear();
+    auto*   bar = _tabs->tabBar();
+    QRegion available(bar->rect());
+    // Native scroll buttons obscure the ends of the bar even though those
+    // tab rectangles still intersect its bounds.
+    const auto buttons = bar->findChildren<QToolButton*>(QString(), Qt::FindDirectChildrenOnly);
+    for (auto* button : buttons)
+    {
+        if (button->isVisible())
+        {
+            available -= button->geometry();
+        }
+    }
+
+    for (int index = 0; index < _tabs->count(); ++index)
+    {
+        if (!_tabs->isTabVisible(index) || QRegion(bar->tabRect(index)).subtracted(available).isEmpty())
+        {
+            continue;
+        }
+
+        auto*   header  = bar->tabButton(index, QTabBar::LeftSide);
+        auto*   title   = header ? header->findChild<QLabel*>("terminalTabTitle") : nullptr;
+        auto*   detail  = header ? header->findChild<QLabel*>("terminalTabDetail") : nullptr;
+        auto*   glyph   = header ? header->findChild<QToolButton*>("terminalTypeIcon") : nullptr;
+        QString caption = title ? title->text() : _tabs->tabText(index);
+        if (detail && !detail->text().isEmpty())
+        {
+            caption += QStringLiteral(" — ") + detail->text();
+        }
+        // QAction labels use ampersands for mnemonics; terminal names are literal.
+        caption.replace("&", "&&");
+        auto* action = _hiddenTabsMenu->addAction(glyph ? glyph->icon() : _tabs->tabIcon(index), caption);
+        action->setEnabled(_tabs->isTabEnabled(index));
+        action->setCheckable(true);
+        action->setChecked(index == _tabs->currentIndex());
+        const QPointer<QWidget> page(_tabs->widget(index));
+        connect(action, &QAction::triggered, this, [this, page] {
+            const int currentIndex = page ? _tabs->indexOf(page) : -1;
+            if (currentIndex < 0 || !_tabs->isTabVisible(currentIndex) || !_tabs->isTabEnabled(currentIndex))
+            {
+                return;
+            }
+
+            const QPointer<TerminalTabGroup> guard(this);
+            _tabs->setCurrentWidget(page);
+            if (guard && page && _tabs->currentWidget() == page)
+            {
+                page->setFocus(Qt::OtherFocusReason);
+            }
+        });
+    }
+
+    if (_hiddenTabsMenu->isEmpty())
+    {
+        _hiddenTabsMenu->addAction(tr("All terminal tabs are visible"))->setEnabled(false);
+    }
 }
 
 QString TerminalTabGroup::_terminalId(int index) const
