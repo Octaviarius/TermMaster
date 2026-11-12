@@ -611,3 +611,9 @@ Later stages:
 - [x] Register native.duplex-bypass with distinct named two-input/two-output ports.
 - [x] Preserve independent packet boundaries, binary/empty payloads, limits and cancellation.
 - [x] Verify Debug/Release CodecProcessorTests and application integration.
+
+
+## APP-31: Input toggle shortcuts
+
+- [x] Assign Ctrl+Shift+B to buffered input and Ctrl+Shift+E to local echo.
+- [x] Verify focused main/secondary toggling and build Debug.

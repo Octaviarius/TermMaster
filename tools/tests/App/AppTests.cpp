@@ -5585,16 +5585,18 @@ content:
             QCOMPARE(command->actions().first()->shortcut(), command->defaultShortcut());
         }
         const QVariantMap editingDefaults {
-            {      "Edit.Copy",         "Alt+C"},
-            {     "Edit.Paste",         "Alt+V"},
-            {       "Edit.Cut",         "Alt+X"},
-            { "Edit.SelectAll",  "Ctrl+Shift+A"},
-            {      "Edit.Undo",  "Ctrl+Shift+Z"},
-            {      "Edit.Redo",  "Ctrl+Shift+Y"},
-            {  "Workspace.New",  "Ctrl+Shift+N"},
-            { "Workspace.Open",  "Ctrl+Shift+O"},
-            { "Workspace.Save", "Ctrl+Shift+F2"},
-            {"Workspace.Close",  "Ctrl+Shift+W"}
+            {    "Terminal.LocalEcho",  "Ctrl+Shift+E"},
+            {"Terminal.BufferedInput",  "Ctrl+Shift+B"},
+            {             "Edit.Copy",         "Alt+C"},
+            {            "Edit.Paste",         "Alt+V"},
+            {              "Edit.Cut",         "Alt+X"},
+            {        "Edit.SelectAll",  "Ctrl+Shift+A"},
+            {             "Edit.Undo",  "Ctrl+Shift+Z"},
+            {             "Edit.Redo",  "Ctrl+Shift+Y"},
+            {         "Workspace.New",  "Ctrl+Shift+N"},
+            {        "Workspace.Open",  "Ctrl+Shift+O"},
+            {        "Workspace.Save", "Ctrl+Shift+F2"},
+            {       "Workspace.Close",  "Ctrl+Shift+W"}
         };
         for (auto it = editingDefaults.cbegin(); it != editingDefaults.cend(); ++it)
         {
@@ -5711,6 +5713,25 @@ content:
         QTRY_VERIFY(display->hasFocus());
         constexpr auto connectionModifiers = Qt::ControlModifier | Qt::ShiftModifier;
         QSignalSpy     output(display, &TerminalDisplay::outputBytes);
+        const auto     toggleInput = [&] {
+            for (const auto key : {Qt::Key_B, Qt::Key_E})
+            {
+                const auto command  = key == Qt::Key_B ? "Terminal.BufferedInput" : "Terminal.LocalEcho";
+                auto*      selected = controller.terminalGroup(ids[0])->action(command);
+                auto*      other    = controller.terminalGroup(ids[1])->action(command);
+                QVERIFY(selected && other);
+                const bool initial      = selected->isChecked();
+                const bool otherInitial = other->isChecked();
+                for (const bool expected : {!initial, initial})
+                {
+                    QTest::keyClick(QApplication::focusWidget(), key, connectionModifiers);
+                    QTRY_COMPARE(selected->isChecked(), expected);
+                    QCOMPARE(other->isChecked(), otherInitial);
+                }
+            }
+            QCOMPARE(output.count(), 0);
+        };
+        toggleInput();
         QTest::keyClick(display, Qt::Key_S, connectionModifiers);
         QTRY_COMPARE(probes[0]->device->state(), SerialDevice::State::Open);
         QCOMPARE(probes[1]->attempts, 0);
@@ -5741,6 +5762,7 @@ content:
         display->setFocus();
         QTRY_COMPARE(QApplication::activeWindow(), secondary);
         QTRY_VERIFY(display->hasFocus());
+        toggleInput();
         QTest::keyClick(display, Qt::Key_S, connectionModifiers);
         QTRY_COMPARE(probes[0]->attempts, 3);
         QTest::keyClick(display, Qt::Key_R, connectionModifiers);

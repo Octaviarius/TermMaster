@@ -330,3 +330,15 @@ ordinary Ctrl bytes, action-layout reorder/add/remove, unknown selectors, explic
 empty lists, Cancel and Apply. The affected menus and Interface page were visually
 inspected. Debug and Release AppTests, CommandTests, TerminalDisplayTests, TerminalInputTests
 and CodecProcessorTests suites pass; device traffic is synthetic.
+
+
+## Input toggle shortcuts (APP-31)
+
+`Terminal.BufferedInput` defaults to Ctrl+Shift+B and `Terminal.LocalEcho` to
+Ctrl+Shift+E. Both toggle the focused terminal in its main or secondary window,
+including toggling buffered mode back from its editor. Menu/status/toolbar checked
+states follow the terminal settings. Explicit saved assignments keep priority.
+
+Debug application build and native Windows shortcut/settings tests pass. Acceptance
+covers both directions of each toggle in main and secondary groups, retained other
+group state, zero terminal byte leakage and persisted assignment editing.
