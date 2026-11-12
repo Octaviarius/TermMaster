@@ -133,7 +133,7 @@ Acceptance on Windows 11, Qt 6.12.0 and MSVC 2022:
 
 - Debug and Release application builds complete. Standard CTest runs pass AppTests,
   SessionTests, CommandEditorTests and TerminalDisplayTests in both configurations.
-- AppTests includes 56 passing results and one default native-input skip; session
+- AppTests includes 57 passing results and one default native-input skip; session
   tests include 12 passing results and two existing symlink-privilege skips.
 - Synthetic connections, page/display/editor/processing identity, selected terminal,
   input drafts, local action isolation, stale context-menu safety, shutdown and
@@ -185,3 +185,47 @@ Acceptance completed with Qt 6.12/MSVC 2022 on Windows:
   oversized test-window geometry to the physical monitor; mixed-monitor DPI
   transfers remain outside this acceptance. All devices are synthetic or unused
   disconnected endpoints; no physical device receives traffic.
+
+
+## Whole-group movement and overflow controls (APP-22)
+
+The group header includes a small panels handle to the left of the terminal
+toolbar. Dragging this handle or empty toolbar space moves the complete group.
+Individual tab headers retain their existing single-terminal gesture. Both use
+standard QDrag with a translucent preview; the scroll buttons themselves have
+solid palette-based backgrounds and visible borders. Native buttons remain
+readable when they cover a partially visible tab.
+
+Wheel input over an overflowing tab strip operates its native scroll buttons in
+both directions without changing the active terminal. Wheel input in the terminal
+body keeps its existing terminal scrolling behavior. The hidden-tab menu remains
+available for direct selection.
+
+Group drops choose the nearest edge of the destination and insert a separate
+group beside it. They never merge the group's tabs into another group. Releasing
+outside terminal workspaces creates a secondary window; Escape cancels. Returning
+to an empty main area replaces its placeholder group.
+
+The original TerminalTabGroup, QTabWidget, toolbar, status bar, pages and tab
+headers move together. Group UUID, order, selected page, drafts, processing and
+live connections are retained. Native splitter removal collapses the source
+layout and preserves unaffected sizing and metadata. Layout ownership, duplicate
+IDs and depth/group limits are checked before mutation. Runtime hosts are
+published before final backend resize callbacks, and affected visible siblings
+receive their final grid sizes as well. The existing session layout format stores
+the resulting group placement; no additional persistence format is introduced.
+
+Acceptance with Qt 6.12/MSVC 2022 on Windows:
+
+- Debug and Release application builds complete. AppTests, SessionTests,
+  CommandEditorTests and TerminalDisplayTests pass in both configurations.
+- Added checks cover wheel scrolling without selection, exact group/control/page
+  identity, connected synthetic transport lifetime, cross-window movement, session
+  reopen and reentrant session closure from a backend resize during group detach.
+- Native pointer tests cover whole-group split/transfer, outside detach, return
+  and cancellation alongside existing single-tab gestures at 100%, 125% and 200%.
+  The Windows-native wheel check also passes after accounting for style-specific
+  scroll-button arrow implementations. Overflow controls, menu and drag previews
+  were visually inspected.
+- Physical-device traffic and mixed-monitor DPI transfers remain outside these
+  synthetic acceptance checks. Oversized fixture geometry can be clamped by Windows.
