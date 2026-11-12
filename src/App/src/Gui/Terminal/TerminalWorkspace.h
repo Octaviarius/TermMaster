@@ -24,11 +24,18 @@ public:
     bool                     restoreLayout(const QVariantMap& layout, QString* error = nullptr);
     void                     clear();
     bool                     appendWorkspace(TerminalWorkspace& source, QString* error = nullptr);
+    bool                     transferGroup(TerminalTabGroup*  group,
+                                           TerminalWorkspace& source,
+                                           TerminalTabGroup*  destination,
+                                           Qt::Edge           edge,
+                                           QString*           error = nullptr);
 
     Q_SIGNAL void groupAdded(TerminalTabGroup* group);
     Q_SIGNAL void activated(TerminalTabGroup* group);
     Q_SIGNAL void transferRequested(const QString& id, TerminalTabGroup* target, Qt::Edge edge, int index);
     Q_SIGNAL void detachRequested(const QString& id, const QPoint& globalPosition);
+    Q_SIGNAL void groupTransferRequested(TerminalTabGroup* source, TerminalTabGroup* target, Qt::Edge edge);
+    Q_SIGNAL void groupDetachRequested(TerminalTabGroup* group, const QPoint& globalPosition);
     Q_SIGNAL void closeRequested(const QString& id);
     Q_SIGNAL void contextMenuRequested(const QString& id, const QPoint& globalPosition);
 

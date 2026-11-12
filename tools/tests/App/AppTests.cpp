@@ -64,6 +64,7 @@
 #include <QToolTip>
 #include <QTreeView>
 #include <QUuid>
+#include <QWheelEvent>
 #include <Termaster/App/App.h>
 #include <Termaster/Core/ApplicationPaths.h>
 #include <Termaster/Core/CommandRegistry.h>
@@ -550,7 +551,8 @@ private:
         QTest::qWait(60);
         QVERIFY(qobject_cast<QFrame*>(group));
         QVERIFY(group->contentsRect().left() >= 2);
-        QVERIFY(group->contentsRect().contains(group->toolbar().geometry()));
+        QVERIFY(
+            group->contentsRect().contains(QRect(group->toolbar().mapTo(group, QPoint()), group->toolbar().size())));
         QVERIFY(group->contentsRect().contains(group->statusBar().geometry()));
         QVERIFY(group->toolbar().geometry().bottom() < group->tabs().geometry().top());
         QCOMPARE(group->toolbar().iconSize(), QSize(16, 16));
@@ -563,9 +565,48 @@ private:
         QVERIFY(!group->isActive());
         QCOMPARE(group->tabs().geometry(), tabGeometry);
 
+        auto*       bar         = group->tabs().tabBar();
+        auto*       currentPage = group->tabs().currentWidget();
+        const auto  firstTab    = bar->tabRect(0);
+        const auto  point       = bar->rect().center();
+        QWheelEvent wheel(point,
+                          bar->mapToGlobal(point),
+                          QPoint(),
+                          QPoint(0, -120),
+                          Qt::NoButton,
+                          Qt::NoModifier,
+                          Qt::NoScrollPhase,
+                          false);
+        QCoreApplication::sendEvent(bar, &wheel);
+        QTest::qWait(40);
+        QVERIFY(bar->tabRect(0).left() < firstTab.left());
+        QCOMPARE(group->tabs().currentWidget(), currentPage);
+        QWheelEvent back(point,
+                         bar->mapToGlobal(point),
+                         QPoint(),
+                         QPoint(0, 120),
+                         Qt::NoButton,
+                         Qt::NoModifier,
+                         Qt::NoScrollPhase,
+                         false);
+        QCoreApplication::sendEvent(bar, &back);
+        QTest::qWait(40);
+        QCOMPARE(bar->tabRect(0), firstTab);
+        QCOMPARE(group->tabs().currentWidget(), currentPage);
+
         auto* button = group->findChild<QToolButton*>("terminalHiddenTabsButton");
         QVERIFY(button && button->menu());
-        auto* menu = button->menu();
+        auto*      menu    = button->menu();
+        const auto capture = qEnvironmentVariable("TERMASTER_GROUP_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(QDir().mkpath(capture));
+            QVERIFY(workspace.grab().save(QDir(capture).filePath("OverflowStrip.png")));
+            menu->popup(button->mapToGlobal(QPoint(0, button->height())));
+            QTest::qWait(80);
+            QVERIFY(menu->grab().save(QDir(capture).filePath("OverflowMenu.png")));
+            menu->hide();
+        }
         QVERIFY(QMetaObject::invokeMethod(menu, "aboutToShow", Qt::DirectConnection));
         QVERIFY(!menu->actions().isEmpty());
         auto* target = group->tabs().widget(11);
@@ -1313,7 +1354,8 @@ content:
                                const QPoint&  end,
                                const QString& name,
                                bool           cancel     = false,
-                               bool           horizontal = false) {
+                               bool           horizontal = false,
+                               bool           wholeGroup = false) {
             auto* group = controller.terminalGroup(id);
             if (!group)
             {
@@ -1333,11 +1375,18 @@ content:
             {
                 return false;
             }
-            const QPoint press  = bar->tabRect(index).center();
-            const QPoint beyond = horizontal ? QPoint(press.x() + 3 * QApplication::startDragDistance(), press.y()) :
-                                               QPoint(press.x(), bar->height() + 3 * QApplication::startDragDistance());
-            const POINT  start  = nativeGroupPoint(bar, press);
-            const POINT  via    = nativeGroupPoint(bar, beyond);
+            QWidget* surface = wholeGroup ? group->findChild<QToolButton*>("terminalGroupDragHandle") :
+                                            static_cast<QWidget*>(bar);
+            if (!surface)
+            {
+                return false;
+            }
+            const QPoint press  = wholeGroup ? surface->rect().center() : bar->tabRect(index).center();
+            const QPoint beyond = horizontal ?
+                                      QPoint(press.x() + 3 * QApplication::startDragDistance(), press.y()) :
+                                      QPoint(press.x(), surface->height() + 3 * QApplication::startDragDistance());
+            const POINT  start  = nativeGroupPoint(surface, press);
+            const POINT  via    = nativeGroupPoint(surface, beyond);
             const POINT  finish = nativeGroupPoint(destination, end);
             const HWND   sourceHandle = reinterpret_cast<HWND>(bar->window()->winId());
             const HWND   targetHandle = reinterpret_cast<HWND>(destination->window()->winId());
@@ -1494,6 +1543,37 @@ content:
         QCOMPARE(controller.terminalGroup(ids[0])->id(), cancelGroupId);
         QCOMPARE(controller.terminalGroup(ids[0])->tabs().currentWidget(), panels[0]);
         QCOMPARE(controller.terminalIds().size(), 3);
+        auto* complete = controller.terminalGroup(ids[2]);
+        QVERIFY(controller.moveTerminal(ids[1], complete, Qt::Edge(0), -1, &error));
+        const auto completeId   = complete->id();
+        auto*      completeTabs = &complete->tabs();
+        raiseOwn(&main, left);
+        raiseOwn(torn, right);
+        auto* destination = controller.terminalGroup(ids[0]);
+        QVERIFY(drag(ids[2], destination, QPoint(8, destination->height() / 2), "WholeGroupSplit", false, false, true));
+        QCOMPARE(controller.terminalGroup(ids[2]), complete);
+        QCOMPARE(controller.terminalGroup(ids[1]), complete);
+        QCOMPARE(&complete->tabs(), completeTabs);
+        QCOMPARE(controller.detachedWindow(ids[2]), torn.data());
+        QCOMPARE(complete->tabs().count(), 2);
+        raiseOwn(&main, left);
+        raiseOwn(torn, right);
+        QVERIFY(drag(ids[2], menu, outside, "WholeGroupCancelled", true, false, true));
+        QCOMPARE(controller.detachedWindow(ids[2]), torn.data());
+        QCOMPARE(complete->id(), completeId);
+        QVERIFY(drag(ids[2], menu, outside, "WholeGroupOutside", false, false, true));
+        QPointer<DetachedTerminalWindow> wholeWindow(controller.detachedWindow(ids[2]));
+        QVERIFY(wholeWindow && wholeWindow != torn);
+        QCOMPARE(controller.detachedWindow(ids[1]), wholeWindow.data());
+        QCOMPARE(controller.terminalGroup(ids[2]), complete);
+        raiseOwn(&main, left);
+        raiseOwn(wholeWindow, right);
+        auto* empty = static_cast<MainWindow&>(main).terminalWorkspace().initialGroup();
+        QVERIFY(drag(ids[2], empty, empty->rect().center(), "WholeGroupReturn", false, false, true));
+        QVERIFY(!controller.detachedWindow(ids[2]));
+        QCOMPARE(controller.terminalGroup(ids[2]), complete);
+        QCOMPARE(complete->id(), completeId);
+        QCOMPARE(complete->tabs().count(), 2);
         QCOMPARE(probe->attempts, 0);
         if (!capture.isEmpty())
         {
@@ -1501,6 +1581,107 @@ content:
             QVERIFY(torn->grab().save(QDir(capture).filePath("NativeGroupsSecondary.png")));
         }
 #endif
+    }
+
+    Q_SLOT void wholeGroupMovesPreserveRuntimeAndPresentation()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("WholeGroup.termaster")), "Whole group", &error));
+        QVERIFY(_app.createSession("Whole group", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        auto                     probe      = std::make_shared<ReconnectDevice::Probe>();
+        PluginHost::TerminalType type;
+        type.id     = "wholeGroupFixture";
+        type.title  = "Whole group fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Group fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice  = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        const auto cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType(type.id);
+        });
+        host.registerTerminalType(type);
+        QStringList     ids;
+        QList<QWidget*> pages;
+        QList<QWidget*> headers;
+        for (int index = 0; index < 3; ++index)
+        {
+            QVERIFY(_app.createTerminal(type.id, {}, QString("Member %1").arg(index), &error));
+            ids.append(_app.selectedTerminal());
+            auto* group = controller.terminalGroup(ids.last());
+            pages.append(group->tabs().currentWidget());
+            headers.append(group->tabs().tabBar()->tabButton(index, QTabBar::LeftSide));
+        }
+        auto* group = controller.terminalGroup(ids[0]);
+        QVERIFY(controller.moveTerminal(ids[2], group, Qt::RightEdge, -1, &error));
+        auto*      other   = controller.terminalGroup(ids[2]);
+        auto*      tabs    = &group->tabs();
+        auto*      toolbar = &group->toolbar();
+        auto*      status  = &group->statusBar();
+        const auto groupId = group->id();
+        group->tabs().setCurrentIndex(0);
+        auto* selected = group->tabs().currentWidget();
+        auto* draft    = selected->findChild<QPlainTextEdit*>("commandDraft");
+        QVERIFY(draft);
+        draft->setPlainText("keep input");
+        probe->available = true;
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        auto* device = host.selectedDevice(type.id);
+        QVERIFY(device);
+        host.connectSelectedTerminal();
+        QCOMPARE(device->state(), SerialDevice::State::Open);
+        const auto closes = probe->closes;
+        QVERIFY(controller.moveGroup(group, other, Qt::BottomEdge, &error));
+        QCOMPARE(controller.terminalGroup(ids[0]), group);
+        QCOMPARE(controller.terminalGroup(ids[1]), group);
+        QCOMPARE(group->tabs().widget(0), pages[0]);
+        QCOMPARE(group->tabs().widget(1), pages[1]);
+        QCOMPARE(group->tabs().tabBar()->tabButton(0, QTabBar::LeftSide), headers[0]);
+        QCOMPARE(group->tabs().tabBar()->tabButton(1, QTabBar::LeftSide), headers[1]);
+        QVERIFY(controller.detachGroup(group, &error));
+        QPointer<DetachedTerminalWindow> first(controller.detachedWindow(ids[0]));
+        QVERIFY(first);
+        QCOMPARE(controller.detachedWindow(ids[1]), first.data());
+        QCOMPARE(&group->tabs(), tabs);
+        QCOMPARE(&group->toolbar(), toolbar);
+        QCOMPARE(&group->statusBar(), status);
+        QCOMPARE(group->tabs().currentWidget(), selected);
+        QCOMPARE(group->id(), groupId);
+        QCOMPARE(draft->toPlainText(), QString("keep input"));
+        QCOMPARE(device->state(), SerialDevice::State::Open);
+        QCOMPARE(probe->closes, closes);
+        QCOMPARE(probe->attempts, 1);
+        QVERIFY(controller.detachGroup(other, &error));
+        auto* second = controller.detachedWindow(ids[2]);
+        QVERIFY(second && second != first);
+        QVERIFY(controller.moveGroup(group, other, Qt::LeftEdge, &error));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(first.isNull());
+        QCOMPARE(controller.detachedWindow(ids[0]), second);
+        QCOMPARE(controller.detachedWindow(ids[1]), second);
+        QCOMPARE(second->terminalWorkspace().groups().size(), 2);
+        QVERIFY(controller.returnWindow(second, &error));
+        QCOMPARE(controller.terminalGroup(ids[0]), group);
+        QVERIFY(!controller.detachedWindow(ids[0]));
+        QCOMPARE(group->tabs().currentWidget(), selected);
+        QCOMPARE(draft->toPlainText(), QString("keep input"));
+        QCOMPARE(probe->attempts, 1);
+        QCOMPARE(probe->closes, closes);
+        QVERIFY(_app.saveSession(&error));
+        const auto saved = _app.session()->presentation().value("terminalLayout").toMap();
+        QVERIFY(!saved.isEmpty());
+        const auto sessionId = _app.session()->id();
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(_app.openSession(sessionId, &error));
+        QCOMPARE(controller.terminalGroup(ids[0])->id(), groupId);
+        QCOMPARE(controller.terminalGroup(ids[1]), controller.terminalGroup(ids[0]));
+        QCOMPARE(controller.terminalGroup(ids[0])->tabs().widget(0)->property("terminalId").toString(), ids[0]);
+        QCOMPARE(controller.terminalGroup(ids[0])->tabs().widget(1)->property("terminalId").toString(), ids[1]);
+        QCOMPARE(probe->attempts, 1);
     }
 
     Q_SLOT void groupedTransitionsTolerateSessionClosureFromBackendResize()
@@ -1530,7 +1711,7 @@ content:
             host.unregisterTerminalType(type.id);
         });
         host.registerTerminalType(type);
-        for (const bool detached : {true, false})
+        for (const int mode : {0, 1, 2})
         {
             if (!_app.session())
             {
@@ -1544,8 +1725,9 @@ content:
                 probe->resized = {};
                 closed         = _app.closeSession(&error);
             };
-            const bool moved = detached ? controller.detachTerminal(id, &error) :
-                                          controller.moveTerminal(id, target, Qt::RightEdge, -1, &error);
+            const bool moved = mode == 0 ? controller.detachTerminal(id, &error) :
+                               mode == 1 ? controller.moveTerminal(id, target, Qt::RightEdge, -1, &error) :
+                                           controller.detachGroup(target, &error);
             QVERIFY(!moved);
             QVERIFY(closed);
             QVERIFY(!_app.session());

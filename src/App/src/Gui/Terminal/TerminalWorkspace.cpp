@@ -3,8 +3,10 @@
 #include "TerminalTabGroup.h"
 
 #include <QMetaType>
+#include <QPointer>
 #include <QRegularExpression>
 #include <QSet>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTabWidget>
@@ -438,6 +440,207 @@ bool TerminalWorkspace::appendWorkspace(TerminalWorkspace& source, QString* erro
     return true;
 }
 
+bool TerminalWorkspace::transferGroup(TerminalTabGroup*  group,
+                                      TerminalWorkspace& source,
+                                      TerminalTabGroup*  destination,
+                                      Qt::Edge           edge,
+                                      QString*           error)
+{
+    if (error)
+    {
+        error->clear();
+    }
+    const auto fail = [error](const QString& message) {
+        if (error)
+        {
+            *error = message;
+        }
+        return false;
+    };
+    const auto sourceGroups      = source.groups();
+    const auto destinationGroups = groups();
+    if (!group || !sourceGroups.contains(group) || !destination || !destinationGroups.contains(destination))
+    {
+        return fail(tr("Terminal group does not belong to its workspace."));
+    }
+    if (&source == this && group == destination)
+    {
+        return true;
+    }
+    if (edge == Qt::Edge(0))
+    {
+        edge = Qt::RightEdge;
+    }
+    if (edge != Qt::LeftEdge && edge != Qt::RightEdge && edge != Qt::TopEdge && edge != Qt::BottomEdge)
+    {
+        return fail(tr("Terminal group placement edge is invalid."));
+    }
+
+    const bool crossWorkspace = &source != this;
+    const bool replaceEmpty   = crossWorkspace && _root == destination && destination->tabs().count() == 0
+                             && !destination->property("retainedPlacement").toBool();
+    if (destinationGroups.size() + (crossWorkspace ? 1 : 0) - (replaceEmpty ? 1 : 0) > 256)
+    {
+        return fail(tr("Terminal layout exceeds its group limit."));
+    }
+    QSet<QString> ids;
+    for (auto* existing : destinationGroups)
+    {
+        if (existing == group || (replaceEmpty && existing == destination))
+        {
+            continue;
+        }
+        if (ids.contains(existing->id()) || existing->id() == group->id())
+        {
+            return fail(tr("Terminal layout has duplicate group IDs."));
+        }
+        ids.insert(existing->id());
+    }
+
+    const Qt::Orientation orientation  = edge == Qt::LeftEdge || edge == Qt::RightEdge ? Qt::Horizontal : Qt::Vertical;
+    const bool            before       = edge == Qt::LeftEdge || edge == Qt::TopEdge;
+    auto*                 sourceParent = qobject_cast<QSplitter*>(group->parentWidget());
+    auto*                 projectedParent = qobject_cast<QSplitter*>(destination->parentWidget());
+    int                   depth           = 0;
+    for (auto* ancestor = destination->parentWidget(); ancestor && ancestor != this;
+         ancestor       = ancestor->parentWidget())
+    {
+        if (auto* splitter = qobject_cast<QSplitter*>(ancestor))
+        {
+            // Removing a leaf from a binary splitter collapses that splitter, including
+            // when the destination belongs to its surviving subtree.
+            if (!crossWorkspace && splitter == sourceParent && splitter->count() == 2)
+            {
+                if (projectedParent == splitter)
+                {
+                    projectedParent = qobject_cast<QSplitter*>(splitter->parentWidget());
+                }
+                continue;
+            }
+            ++depth;
+        }
+    }
+    if (!replaceEmpty && (!projectedParent || projectedParent->orientation() != orientation) && depth >= 15)
+    {
+        return fail(tr("Terminal layout exceeds its depth limit."));
+    }
+
+    // Block group activation while native reparenting temporarily removes it from both trees.
+    // No event loop is entered and workspace notifications follow the completed mutation.
+    QSignalBlocker    sourceSignals(&source);
+    QSignalBlocker    destinationSignals(this);
+    QSignalBlocker    groupSignals(group);
+    TerminalTabGroup* replacement = nullptr;
+    if (sourceParent)
+    {
+        auto sizes = sourceParent->sizes();
+        sizes.removeAt(sourceParent->indexOf(group));
+        group->hide();
+        group->setParent(&source);
+        if (sourceParent->count() == 1)
+        {
+            auto* survivor    = sourceParent->widget(0);
+            auto* grandparent = qobject_cast<QSplitter*>(sourceParent->parentWidget());
+            if (grandparent)
+            {
+                const auto parentSizes = grandparent->sizes();
+                const int  index       = grandparent->indexOf(sourceParent);
+                survivor->setParent(&source);
+                sourceParent->hide();
+                sourceParent->setParent(&source);
+                grandparent->insertWidget(index, survivor);
+                grandparent->setSizes(parentSizes);
+            }
+            else
+            {
+                survivor->setParent(&source);
+                source._setRoot(survivor);
+                sourceParent->hide();
+            }
+            sourceParent->deleteLater();
+            survivor->show();
+        }
+        else
+        {
+            sourceParent->setSizes(sizes);
+        }
+    }
+    else
+    {
+        source._layout->removeWidget(group);
+        source._root = nullptr;
+        group->hide();
+        replacement = source._createGroup();
+        source._setRoot(replacement);
+    }
+
+    if (replaceEmpty)
+    {
+        _layout->removeWidget(destination);
+        destination->hide();
+        destination->deleteLater();
+        _setRoot(group);
+    }
+    else
+    {
+        auto* parent = qobject_cast<QSplitter*>(destination->parentWidget());
+        if (parent && parent->orientation() == orientation)
+        {
+            const int index        = parent->indexOf(destination);
+            auto      sizes        = parent->sizes();
+            const int originalSize = sizes.value(index, 2);
+            sizes[index]           = std::max(1, originalSize / 2);
+            sizes.insert(index + (before ? 0 : 1), std::max(1, originalSize - sizes[index]));
+            parent->insertWidget(index + (before ? 0 : 1), group);
+            parent->setSizes(sizes);
+        }
+        else
+        {
+            auto* splitter = new QSplitter(orientation, this);
+            splitter->setChildrenCollapsible(false);
+            QList<int> parentSizes;
+            if (parent)
+            {
+                parentSizes = parent->sizes();
+                parent->insertWidget(parent->indexOf(destination), splitter);
+            }
+            else
+            {
+                _layout->removeWidget(destination);
+                _setRoot(splitter);
+            }
+            splitter->addWidget(before ? group : destination);
+            splitter->addWidget(before ? destination : group);
+            splitter->setSizes({1, 1});
+            if (parent)
+            {
+                parent->setSizes(parentSizes);
+            }
+        }
+        destination->show();
+        group->show();
+    }
+    if (crossWorkspace)
+    {
+        disconnect(group, nullptr, &source, nullptr);
+        _connectGroup(group);
+    }
+    groupSignals.unblock();
+    destinationSignals.unblock();
+    sourceSignals.unblock();
+    QPointer<TerminalWorkspace> sourceGuard(&source);
+    QPointer<TerminalTabGroup>  replacementGuard(replacement);
+    if (crossWorkspace)
+    {
+        emit groupAdded(group);
+    }
+    if (sourceGuard && replacementGuard && sourceGuard->groups().contains(replacementGuard.data()))
+    {
+        emit sourceGuard->groupAdded(replacementGuard.data());
+    }
+    return true;
+}
+
 TerminalTabGroup* TerminalWorkspace::_createGroup(const QString& id)
 {
     auto* group = new TerminalTabGroup(id, this);
@@ -452,6 +655,8 @@ void TerminalWorkspace::_connectGroup(TerminalTabGroup* group)
     connect(group, &TerminalTabGroup::contextMenuRequested, this, &TerminalWorkspace::contextMenuRequested);
     connect(group, &TerminalTabGroup::detachRequested, this, &TerminalWorkspace::detachRequested);
     connect(group, &TerminalTabGroup::transferRequested, this, &TerminalWorkspace::transferRequested);
+    connect(group, &TerminalTabGroup::groupTransferRequested, this, &TerminalWorkspace::groupTransferRequested);
+    connect(group, &TerminalTabGroup::groupDetachRequested, this, &TerminalWorkspace::groupDetachRequested);
 }
 
 QWidget* TerminalWorkspace::_restoreNode(const QVariantMap& node)
