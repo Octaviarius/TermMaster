@@ -25,7 +25,9 @@ public:
     ActionContainer&   terminalMenu();
     ActionContainer&   editMenu();
     ActionContainer&   viewMenu();
-    void               setContextNames(const QString& terminal, const QString& session, const QString& workspace);
+    void               setContextNames(const QString& workspace, const QString& session);
+    int                number() const;
+    void               setNumber(int number);
     void               allowClose();
     Q_SIGNAL void      returnRequested();
     Q_SIGNAL void      mainWindowRequested();
@@ -46,9 +48,13 @@ private:
     QPointer<QAction>          _toolbarAction;
     QPointer<QAction>          _statusAction;
     QPointer<QAction>          _fullScreenAction;
+    QString                    _workspaceName;
+    QString                    _sessionName;
+    int                        _number     = 2;
     bool                       _allowClose = false;
 
     void _createMenus();
+    void _refreshTitle();
     void _createViewActions(CommandRegistry& commands);
     void _observeGroup(TerminalTabGroup* group);
     void _setActiveGroup(TerminalTabGroup* group);

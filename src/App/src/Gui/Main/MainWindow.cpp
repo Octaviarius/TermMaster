@@ -140,12 +140,16 @@ void MainWindow::_createMenus()
 void MainWindow::_refreshTitle()
 {
     QStringList parts;
-    for (const auto& name : {_workspaceName, _sessionName, QCoreApplication::applicationName()})
+    for (const auto& name : {_workspaceName, _sessionName})
     {
         if (!name.isEmpty())
         {
             parts.append(name);
         }
     }
-    setWindowTitle(parts.join(QString::fromUtf8(" — ")));
+    if (parts.isEmpty())
+    {
+        parts.append(QCoreApplication::applicationName());
+    }
+    setWindowTitle(parts.join(" / "));
 }

@@ -36,9 +36,11 @@ public:
     using EditorFactory = std::function<std::unique_ptr<FieldEditor>(const QVariantMap&, QWidget*)>;
     struct TerminalType
     {
-        QString                                        id;
-        QString                                        title;
-        QString                                        plugin;
+        QString id;
+        QString title;
+        QString plugin;
+        /** Optional pure presentation callback over effective settings; no I/O or event processing. */
+        std::function<QString(const QVariantMap&)>     tabTitle;
         QByteArray                                     settingsSchema;
         QByteArray                                     defaultSettingsSchema;
         QByteArray                                     workspaceSettingsSchema;

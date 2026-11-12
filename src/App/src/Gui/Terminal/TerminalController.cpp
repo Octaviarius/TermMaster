@@ -1941,9 +1941,28 @@ void TerminalController::_wireWorkspace(TerminalWorkspace& workspace)
     });
 }
 
-DetachedTerminalWindow* TerminalController::_createWindow(const QString& requestedId)
+DetachedTerminalWindow* TerminalController::_createWindow(const QString& requestedId, int requestedNumber)
 {
+    QSet<int> usedNumbers;
+    for (const auto& existing : _windows)
+    {
+        if (existing)
+        {
+            usedNumbers.insert(existing->number());
+        }
+    }
+    int number = requestedNumber;
+    if (number < 2 || usedNumbers.contains(number))
+    {
+        number = 2;
+        while (usedNumbers.contains(number))
+        {
+            ++number;
+        }
+    }
     auto* window = new DetachedTerminalWindow(_commands, &_window);
+    window->setNumber(number);
+    window->setContextNames(_workspace() ? _workspace()->name() : QString(), _session ? _session->name() : QString());
     window->setProperty("windowId",
                         requestedId.isEmpty() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : requestedId);
     _windows.append(window);
@@ -2684,10 +2703,29 @@ void TerminalController::_restoreLayout()
         showMessage(error);
         return;
     }
+    QSet<int> reservedNumbers;
+    for (const auto& value : saved.value("windows").toList())
+    {
+        const auto entry = value.toMap();
+        if (entry.contains("number"))
+        {
+            reservedNumbers.insert(entry.value("number").toInt());
+        }
+    }
     for (const auto& value : saved.value("windows").toList())
     {
         const auto entry  = value.toMap();
-        auto*      window = _createWindow(entry.value("id").toString());
+        int        number = entry.value("number").toInt();
+        if (!entry.contains("number"))
+        {
+            number = 2;
+            while (reservedNumbers.contains(number))
+            {
+                ++number;
+            }
+            reservedNumbers.insert(number);
+        }
+        auto* window = _createWindow(entry.value("id").toString(), number);
         if (!window->terminalWorkspace().restoreLayout(entry.value("tree").toMap(), &error))
         {
             window->allowClose();
@@ -2818,6 +2856,7 @@ bool TerminalController::capturePresentation(QString* error)
             }
         }
         entry.insert("id", id);
+        entry.insert("number", window->number());
         entry.insert("geometry", QString::fromLatin1(window->saveGeometry().toBase64()));
         entry.insert("tree", mergeTree(mergeTree, window->terminalWorkspace().saveLayout()));
         windows.append(entry);
@@ -3455,12 +3494,30 @@ void TerminalController::_changed(const QString& id)
     const auto         type      = _types.at(terminal.type).registration.title;
     const auto         parameter = _mainParameter(terminal);
     const QFontMetrics metrics(tabs.tabBar()->font());
-    const auto detail   = metrics.elidedText(parameter.simplified(), Qt::ElideMiddle, 32 * metrics.averageCharWidth());
-    const auto typeIcon = terminal.type == "serial" ? "cable" :
-                          terminal.type == "socket" ? "network" :
-                                                      "square-terminal";
+    const auto  detail   = metrics.elidedText(parameter.simplified(), Qt::ElideMiddle, 32 * metrics.averageCharWidth());
+    const auto  typeIcon = terminal.type == "serial" ? "cable" :
+                           terminal.type == "socket" ? "network" :
+                                                       "square-terminal";
+    QString     tabTitle = type;
+    const auto& registration = _types.at(terminal.type).registration;
+    if (registration.tabTitle)
+    {
+        try
+        {
+            const auto label = registration.tabTitle(_effective(_types.at(terminal.type), terminal.settings))
+                                   .simplified();
+            if (!label.isEmpty() && !label.contains(QChar::Null) && label.size() <= 256)
+            {
+                tabTitle = owned(label);
+            }
+        }
+        catch (const std::exception&)
+        {
+            // Presentation failures retain the registered terminal type label.
+        }
+    }
     terminal.group->setTabPresentation(index,
-                                       terminal.name,
+                                       tabTitle,
                                        detail,
                                        Icons::icon(typeIcon),
                                        QIcon(":/Termaster/App/Status/" + icon + ".svg"));
@@ -3471,9 +3528,8 @@ void TerminalController::_changed(const QString& id)
             + (terminal.lastError.isEmpty() ? QString() : " — " + terminal.lastError));
         if (terminal.window && _focusedGroups.value(terminal.window) == terminal.group)
         {
-            terminal.window->setContextNames(terminal.name,
-                                             _session ? _session->name() : QString(),
-                                             _workspace() ? _workspace()->name() : QString());
+            terminal.window->setContextNames(_workspace() ? _workspace()->name() : QString(),
+                                             _session ? _session->name() : QString());
         }
     }
     const auto desired = terminal.connectionRequested ? tr("Connected") : tr("Disconnected");

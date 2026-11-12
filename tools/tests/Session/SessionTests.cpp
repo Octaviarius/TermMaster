@@ -357,7 +357,8 @@ private slots:
             {"id", layoutId(3)},
             {"geometry", QString::fromLatin1(QByteArray(16384, 'x').toBase64())},
             {"tree", group(4, {"secondary"})},
-            {"futureWindow", true}
+            {"futureWindow", true},
+            {"number", 5}
         };
         auto layout = terminalLayout(root);
         layout.insert("windows", QVariantList {window});
@@ -540,6 +541,27 @@ private slots:
             invalidLayouts.append(invalid);
         }
         QVariantList invalidWindows;
+        for (const auto& number : QVariantList {1,
+                                                0,
+                                                -1,
+                                                true,
+                                                "2",
+                                                2.0,
+                                                QVariant::fromValue(qlonglong(std::numeric_limits<int>::max()) + 1)})
+        {
+            auto window = validWindow;
+            window.insert("number", number);
+            invalidWindows.append(window);
+        }
+        auto firstNumbered = validWindow;
+        firstNumbered.insert("number", 5);
+        auto secondNumbered = validWindow;
+        secondNumbered.insert("id", layoutId(4));
+        secondNumbered.insert("tree", group(5));
+        secondNumbered.insert("number", 5);
+        auto repeatedNumber = layout;
+        repeatedNumber.insert("windows", QVariantList {firstNumbered, secondNumbered});
+        invalidLayouts.append(repeatedNumber);
         for (const auto& id : QVariantList {42, "", "window-1", layoutId(1), layoutId(3)})
         {
             auto window = validWindow;
