@@ -49,6 +49,16 @@ changing behavior. These rules apply repository-wide.
   The primary agent reviews results, integrates changes, verifies and commits.
   Never pass real secrets to workers.
 
+## Code navigation
+
+- Use Codegraph MCP as the first index for source symbols, callers and related code.
+  Pass this repository's absolute root as `projectPath`; the user-level server may
+  have a different default project. The index is local under `.codegraph/`.
+- Run `python tools/Codegraph.py sync` after edits before relying on changed symbols
+  if no project watcher is active. Use `status --json` to check freshness.
+- Use direct reads or `rg` for unindexed files, parser failures and missing results.
+  Cross-file C++ resolution is best effort; compilation and tests remain authoritative.
+
 ## Architecture
 
 - Core, App, SerialTerminal, ConsoleTerminal and SocketTerminal are the active

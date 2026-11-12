@@ -1,0 +1,9 @@
+{
+  "exclude": [
+    "components/",
+    "build/",
+    "assets/",
+    "**/autogen/",
+    "**/*_autogen/"
+  ]
+}
