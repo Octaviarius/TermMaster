@@ -587,6 +587,21 @@ private:
 
         auto* button = group->findChild<QToolButton*>("terminalHiddenTabsButton");
         QVERIFY(button && button->menu());
+        // Fusion's offscreen tab base adds a one-pixel baseline outside the corner slot.
+        QVERIFY(qAbs(button->height() - bar->height()) <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
+        QVERIFY(qAbs(button->width() - button->height()) <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
+        QVERIFY(qAbs(button->mapTo(group, QPoint()).y() - bar->mapTo(group, QPoint()).y())
+                <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
+        const auto originalFont = group->tabs().font();
+        auto       largerFont   = originalFont;
+        largerFont.setPointSize(originalFont.pointSize() + 3);
+        group->tabs().setFont(largerFont);
+        QTest::qWait(40);
+        // Fusion's offscreen tab base adds a one-pixel baseline outside the corner slot.
+        QVERIFY(qAbs(button->height() - bar->height()) <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
+        QVERIFY(qAbs(button->width() - button->height()) <= (QGuiApplication::platformName() == "windows" ? 0 : 1));
+        group->tabs().setFont(originalFont);
+        QTest::qWait(40);
         auto*      menu    = button->menu();
         const auto capture = qEnvironmentVariable("TERMASTER_GROUP_CAPTURE");
         if (!capture.isEmpty())
@@ -1573,6 +1588,65 @@ content:
 #endif
     }
 
+    Q_SLOT void windowTitlesAndNumbersPersist()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("lab.termaster")), "lab", &error));
+        QVERIFY(_app.createSession("Debug session", &error));
+        QCOMPARE(_app.mainWindow().windowTitle(), QString("lab / Debug session"));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        PluginHost::TerminalType type;
+        type.id     = "windowNamesFixture";
+        type.title  = "Fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Window names fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [] {
+            return std::make_unique<ReconnectDevice>(std::make_shared<ReconnectDevice::Probe>());
+        };
+        const auto cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType(type.id);
+        });
+        host.registerTerminalType(type);
+        QStringList ids;
+        for (int index = 0; index < 3; ++index)
+        {
+            QVERIFY(_app.createTerminal(type.id, {}, QString("Readable name %1").arg(index), &error));
+            ids.append(_app.selectedTerminal());
+        }
+        QVERIFY(controller.detachTerminal(ids[0], &error));
+        QVERIFY(controller.detachTerminal(ids[1], &error));
+        auto* first  = controller.detachedWindow(ids[0]);
+        auto* second = controller.detachedWindow(ids[1]);
+        QCOMPARE(first->number(), 2);
+        QCOMPARE(second->number(), 3);
+        second->setNumber(5);
+        QCOMPARE(first->windowTitle(), QString("lab / Debug session / 2"));
+        QCOMPARE(second->windowTitle(), QString("lab / Debug session / 5"));
+        QVERIFY(controller.moveTerminal(ids[2], controller.terminalGroup(ids[0]), Qt::Edge(0), -1, &error));
+        QCOMPARE(first->windowTitle(), QString("lab / Debug session / 2"));
+        controller.terminalGroup(ids[0])->tabs().setCurrentIndex(0);
+        QCOMPARE(first->windowTitle(), QString("lab / Debug session / 2"));
+        QVERIFY(_app.saveSession(&error));
+        const auto windows = _app.session()->presentation().value("terminalLayout").toMap().value("windows").toList();
+        QCOMPARE(windows.size(), 2);
+        QCOMPARE(windows[0].toMap().value("number").toInt(), 2);
+        QCOMPARE(windows[1].toMap().value("number").toInt(), 5);
+        const auto sessionId = _app.session()->id();
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(_app.openSession(sessionId, &error));
+        QCOMPARE(controller.detachedWindow(ids[0])->number(), 2);
+        QCOMPARE(controller.detachedWindow(ids[1])->number(), 5);
+        QCOMPARE(controller.detachedWindow(ids[1])->windowTitle(), QString("lab / Debug session / 5"));
+        QVERIFY(controller.detachTerminal(ids[2], &error));
+        QCOMPARE(controller.detachedWindow(ids[2])->number(), 3);
+        QCOMPARE(controller.detachedWindow(ids[0])->number(), 2);
+        QCOMPARE(controller.detachedWindow(ids[1])->number(), 5);
+    }
+
     Q_SLOT void wholeGroupMovesPreserveRuntimeAndPresentation()
     {
         QTemporaryDir temporary;
@@ -1802,6 +1876,7 @@ content:
         QCOMPARE(layout.value("main").toMap().value("type").toString(), QString("split"));
         const auto windows = layout.value("windows").toList();
         QCOMPARE(windows.size(), 1);
+        QCOMPARE(windows.first().toMap().value("number").toInt(), shell->number());
         QCOMPARE(windows.first().toMap().value("tree").toMap().value("type").toString(), QString("split"));
         const auto geometry = windows.first().toMap().value("geometry").toString().toLatin1();
         QVERIFY(!geometry.isEmpty());
@@ -2853,7 +2928,7 @@ content:
         QVERIFY(tabs);
         QVERIFY2(_app.createTerminal("socket", {}, "Saved <friendly> socket", &error), qPrintable(error));
         const auto socketId = _app.selectedTerminal();
-        QCOMPARE(_tabCaption(tabs, 0), "Saved <friendly> socket\nlocalhost:5000");
+        QCOMPARE(_tabCaption(tabs, 0), "Fixture socket\nlocalhost:5000");
         const auto socketGlyph = _tabType(tabs, 0)->icon().pixmap(16, 16).toImage();
         QVERIFY(!socketGlyph.isNull());
         QVERIFY(tabs->tabBar()->tabButton(0, QTabBar::LeftSide));
@@ -2873,24 +2948,24 @@ content:
         dialog->refreshInheritedValues();
         model->setValue("port", 5001);
         dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
-        QCOMPARE(_tabCaption(tabs, 0), "Saved <friendly> socket\ninherited.example:5001");
+        QCOMPARE(_tabCaption(tabs, 0), "Fixture socket\ninherited.example:5001");
         QVERIFY(!_app.session()->objects().node(socketId + "/settings").contains("transport/host"));
         model->setValue("host", "2001:db8::1");
         model->setValue("port", 6000);
         dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
-        QCOMPARE(_tabCaption(tabs, 0), "Saved <friendly> socket\n[2001:db8::1]:6000");
+        QCOMPARE(_tabCaption(tabs, 0), "Fixture socket\n[2001:db8::1]:6000");
         delete dialog;
         const auto objectBefore = _app.session()->objects().value(socketId);
         QVERIFY(host.unregisterTerminalType("socket", &error));
         host.registerTerminalType(registration("socket"));
         QCOMPARE(_app.selectedTerminal(), socketId);
-        QCOMPARE(_tabCaption(tabs, 0), "Saved <friendly> socket\n[2001:db8::1]:6000");
+        QCOMPARE(_tabCaption(tabs, 0), "Fixture socket\n[2001:db8::1]:6000");
         QCOMPARE(_app.session()->objects().value(socketId), objectBefore);
         QCOMPARE(_tabType(tabs, 0)->icon().pixmap(16, 16).toImage(), socketGlyph);
         QVERIFY(tabs->tabBar()->accessibleTabName(0).contains("Saved <friendly> socket"));
 
         QVERIFY2(_app.createTerminal("serial", {}, "Saved serial", &error), qPrintable(error));
-        QCOMPARE(_tabCaption(tabs, 1), "Saved serial\nCOM1");
+        QCOMPARE(_tabCaption(tabs, 1), "Fixture serial\nCOM1");
         QVERIFY2(_app.createTerminal("console",
                                      {
                                          {"transport",
@@ -2901,7 +2976,7 @@ content:
                                      "Saved console",
                                      &error),
                  qPrintable(error));
-        QCOMPARE(_tabCaption(tabs, 2), "Saved console\nsh");
+        QCOMPARE(_tabCaption(tabs, 2), "Fixture console\nsh");
         const auto serialGlyph  = _tabType(tabs, 1)->icon().pixmap(16, 16).toImage();
         const auto consoleGlyph = _tabType(tabs, 2)->icon().pixmap(16, 16).toImage();
         QVERIFY(!serialGlyph.isNull());
@@ -2912,7 +2987,7 @@ content:
         QVERIFY(!tabs->tabToolTip(2).contains("private-"));
         QVERIFY(!tabs->tabBar()->accessibleTabName(2).contains("private-"));
         tabs->tabBar()->moveTab(2, 0);
-        QCOMPARE(_tabCaption(tabs, tabs->currentIndex()), "Saved console\nsh");
+        QCOMPARE(_tabCaption(tabs, tabs->currentIndex()), "Fixture console\nsh");
         QCOMPARE(_tabType(tabs, 0)->icon().pixmap(16, 16).toImage(), consoleGlyph);
         QCOMPARE(_tabType(tabs, 1)->icon().pixmap(16, 16).toImage(), socketGlyph);
         _app.mainWindow().activateWindow();
@@ -3018,7 +3093,7 @@ content:
         _tabHeadersAreCoherent(tabs, true);
         QTRY_VERIFY(_tabHeadersAreCoherent(tabs));
         const auto label = _tabCaption(tabs, 1);
-        QVERIFY(label.startsWith("Saved <friendly> socket\n"));
+        QVERIFY(label.startsWith("Fixture socket\n"));
         QVERIFY(label.size() < longHost.size());
         QVERIFY(tabs->tabToolTip(1).contains(longHost));
         QVERIFY(tabs->tabBar()->accessibleTabName(1).contains(longHost));
@@ -3264,6 +3339,10 @@ content:
             {
                 transport.insert("host", "127.0.0.1");
             }
+            else
+            {
+                transport.insert("program", "cmd.exe");
+            }
             QVERIFY2(_app.createTerminal(type,
                                          {
                                              {"transport", transport}
@@ -3298,6 +3377,31 @@ content:
                 }
             }
             const bool console = QString(type) == "console";
+            QCOMPARE(_tabCaption(tabs, tabs->currentIndex()).section('\n', 0, 0),
+                     QString(console                   ? "CMD" :
+                             QString(type) == "serial" ? "Serial" :
+                                                         "TCP"));
+            if (QString(type) == "socket")
+            {
+                auto settings = static_cast<TerminalController&>(_app.pluginHost()).selectedSettings();
+                QVERIFY(settings.setValue("transport/protocol", "udp"));
+                static_cast<TerminalController&>(_app.pluginHost()).applySettings();
+                QCOMPARE(_tabCaption(tabs, tabs->currentIndex()).section('\n', 0, 0), QString("UDP"));
+                QVERIFY(settings.setValue("transport/protocol", "tcp"));
+                static_cast<TerminalController&>(_app.pluginHost()).applySettings();
+            }
+            if (console)
+            {
+                auto settings = static_cast<TerminalController&>(_app.pluginHost()).selectedSettings();
+                for (const auto& shell : QStringList {"powershell.exe", "pwsh.exe", "C:/Tools/PowerShell.EXE"})
+                {
+                    QVERIFY(settings.setValue("transport/program", shell));
+                    static_cast<TerminalController&>(_app.pluginHost()).applySettings();
+                    QCOMPARE(_tabCaption(tabs, tabs->currentIndex()).section('\n', 0, 0), QString("PowerShell"));
+                }
+                QVERIFY(settings.setValue("transport/program", "cmd.exe"));
+                static_cast<TerminalController&>(_app.pluginHost()).applySettings();
+            }
             QCOMPARE(local,
                      QStringList({console ? "Start" : "Connect",
                                   console ? "Stop" : "Disconnect",
@@ -3784,7 +3888,7 @@ content:
         QVERIFY(tabs);
         QVERIFY(tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide));
         QVERIFY(!tabs->tabBar()->tabButton(tabs->currentIndex(), QTabBar::LeftSide)->grab().isNull());
-        QCOMPARE(_tabCaption(tabs, tabs->currentIndex()), QString("Synthetic serial\nCOM_TERMASTER_TEST_UNUSED"));
+        QCOMPARE(_tabCaption(tabs, tabs->currentIndex()), QString("Serial\nCOM_TERMASTER_TEST_UNUSED"));
         QVERIFY(settings->selectPage("terminal.connection"));
         if (QGuiApplication::platformName() == "windows")
         {

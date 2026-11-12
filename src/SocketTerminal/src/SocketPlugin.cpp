@@ -49,9 +49,13 @@ bool SocketPlugin::startup(QString* error)
     try
     {
         PluginHost::TerminalType type;
-        type.id                    = "socket";
-        type.title                 = "Socket";
-        type.plugin                = "SocketTerminal";
+        type.id       = "socket";
+        type.title    = "Socket";
+        type.plugin   = "SocketTerminal";
+        type.tabTitle = [](const QVariantMap& settings) {
+            return settings.value("transport").toMap().value("protocol").toString() == "udp" ? QStringLiteral("UDP") :
+                                                                                               QStringLiteral("TCP");
+        };
         type.settingsSchema        = schema.readAll();
         type.defaultSettingsSchema = defaultSchema.readAll();
         type.createDevice          = createSocketDevice;

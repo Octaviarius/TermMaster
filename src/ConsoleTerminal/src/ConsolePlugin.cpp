@@ -5,6 +5,7 @@
 #include "Gui/Launch/ShellSelector.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <Termaster/ConsoleTerminal/ConsoleTerminal.h>
 #include <exception>
 
@@ -64,9 +65,28 @@ bool ConsolePlugin::startup(QString* error)
         });
         _editorsRegistered.append("consoleShellSelector");
         PluginHost::TerminalType type;
-        type.id                    = "console";
-        type.title                 = "Local console";
-        type.plugin                = "ConsoleTerminal";
+        type.id       = "console";
+        type.title    = "Local console";
+        type.plugin   = "ConsoleTerminal";
+        type.tabTitle = [](const QVariantMap& settings) {
+            const auto program = settings.value("transport").toMap().value("program").toString();
+            if (program.isEmpty())
+            {
+                return QStringLiteral("Console");
+            }
+            const QFileInfo file(QString(program).replace('\\', '/'));
+            const auto      base = file.completeBaseName();
+            if (base.compare("powershell", Qt::CaseInsensitive) == 0 || base.compare("pwsh", Qt::CaseInsensitive) == 0
+                || file.suffix().compare("ps1", Qt::CaseInsensitive) == 0)
+            {
+                return QStringLiteral("PowerShell");
+            }
+            if (base.compare("cmd", Qt::CaseInsensitive) == 0 || file.suffix().compare("bat", Qt::CaseInsensitive) == 0)
+            {
+                return QStringLiteral("CMD");
+            }
+            return base;
+        };
         type.settingsSchema        = schema.readAll();
         type.defaultSettingsSchema = defaultSchema.readAll();
         type.createDevice          = createConsoleDevice;

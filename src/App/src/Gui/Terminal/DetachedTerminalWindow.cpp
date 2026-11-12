@@ -22,7 +22,7 @@ DetachedTerminalWindow::DetachedTerminalWindow(CommandRegistry& commands, QWidge
     QMainWindow(parent, Qt::Window), _mainMenu(menuBar())
 {
     setObjectName("detachedTerminalWindow");
-    setContextNames({}, {}, {});
+    _refreshTitle();
     resize(1000, 650);
 
     _terminalWorkspace = new TerminalWorkspace(this);
@@ -107,17 +107,27 @@ ActionContainer& DetachedTerminalWindow::viewMenu()
     return *_viewMenu;
 }
 
-void DetachedTerminalWindow::setContextNames(const QString& terminal, const QString& session, const QString& workspace)
+void DetachedTerminalWindow::setContextNames(const QString& workspace, const QString& session)
 {
-    QStringList parts;
-    for (const auto& name : {terminal, session, workspace, QCoreApplication::applicationName()})
+    _workspaceName = workspace;
+    _sessionName   = session;
+    _refreshTitle();
+}
+
+int DetachedTerminalWindow::number() const
+{
+    return _number;
+}
+
+void DetachedTerminalWindow::setNumber(int number)
+{
+    if (number < 2)
     {
-        if (!name.isEmpty())
-        {
-            parts.append(name);
-        }
+        return;
     }
-    setWindowTitle(parts.join(QString::fromUtf8(" — ")));
+
+    _number = number;
+    _refreshTitle();
 }
 
 void DetachedTerminalWindow::allowClose()
@@ -154,6 +164,24 @@ bool DetachedTerminalWindow::eventFilter(QObject* watched, QEvent* event)
         QTimer::singleShot(0, this, [this] { _refreshPanelActions(); });
     }
     return QMainWindow::eventFilter(watched, event);
+}
+
+void DetachedTerminalWindow::_refreshTitle()
+{
+    QStringList parts;
+    for (const auto& name : {_workspaceName, _sessionName})
+    {
+        if (!name.isEmpty())
+        {
+            parts.append(name);
+        }
+    }
+    if (parts.isEmpty())
+    {
+        parts.append(QCoreApplication::applicationName());
+    }
+    parts.append(QString::number(_number));
+    setWindowTitle(parts.join(" / "));
 }
 
 void DetachedTerminalWindow::_createMenus()

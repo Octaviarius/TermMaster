@@ -146,7 +146,7 @@ private:
     void                      _wireGroup(TerminalTabGroup* group);
     void                      _refreshGroupControls(TerminalTabGroup* group);
     void                      _refreshWindowActions(DetachedTerminalWindow* window);
-    DetachedTerminalWindow*   _createWindow(const QString& id = {});
+    DetachedTerminalWindow*   _createWindow(const QString& id = {}, int number = 0);
     void                      _restoreLayout();
     void                      _cleanupGroups();
     TerminalTabGroup*         _findGroup(const QString& id) const;

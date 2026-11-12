@@ -58,6 +58,7 @@ bool validTerminalLayout(const QVariant& value, QString* error)
         return fail(error, "Terminal layout windows must be a list of at most 64 windows");
     }
     QSet<QString> identities;
+    QSet<int>     windowNumbers;
     QSet<QString> groups;
     QSet<QString> terminals;
     const auto    tree = [&](const auto& self, const QVariant& nodeValue, int depth) -> bool {
@@ -169,6 +170,15 @@ bool validTerminalLayout(const QVariant& value, QString* error)
             return fail(error, "Terminal layout windows require unique UUID identities");
         }
         identities.insert(id.toString());
+        if (window.contains("number"))
+        {
+            const auto number = window.value("number");
+            if (!validSplitterSize(number) || number.toInt() < 2 || windowNumbers.contains(number.toInt()))
+            {
+                return fail(error, "Terminal window numbers must be unique integers from 2 to 2147483647");
+            }
+            windowNumbers.insert(number.toInt());
+        }
 
         constexpr qsizetype maxDecodedBytes = 16384;
         constexpr qsizetype maxEncodedBytes = ((maxDecodedBytes + 2) / 3) * 4;

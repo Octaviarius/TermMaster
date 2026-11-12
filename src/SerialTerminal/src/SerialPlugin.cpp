@@ -68,6 +68,7 @@ bool SerialPlugin::startup(QString* error)
         type.id                      = "serial";
         type.title                   = "Serial port";
         type.plugin                  = "SerialTerminal";
+        type.tabTitle                = [](const QVariantMap&) { return QStringLiteral("Serial"); };
         type.settingsSchema          = schema.readAll();
         type.defaultSettingsSchema   = defaultSchema.readAll();
         type.workspaceSettingsSchema = workspaceSchema.readAll();

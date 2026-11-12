@@ -86,6 +86,31 @@ private:
     }
 };
 
+/** Borrow the sibling bar's size hint so Qt lays out a full-height square corner. */
+class HiddenTabsButton final : public QToolButton
+{
+public:
+    explicit HiddenTabsButton(QTabWidget* tabs) : QToolButton(tabs), _tabBar(tabs->tabBar())
+    {
+        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+    }
+
+    QSize sizeHint() const override
+    {
+        const int side = std::max(QToolButton::sizeHint().height(), _tabBar->sizeHint().height());
+        return QSize(side, side);
+    }
+
+    QSize minimumSizeHint() const override
+    {
+        return sizeHint();
+    }
+
+private:
+    // The owning tab widget keeps its bar alive for the button's lifetime.
+    QTabBar* _tabBar;
+};
+
 class TerminalTabs final : public QTabWidget
 {
 public:
@@ -119,7 +144,7 @@ TerminalTabGroup::TerminalTabGroup(QString id, QWidget* parent) :
     _toolbar->setIconSize(QSize(16, 16));
     _toolbar->setToolButtonStyle(Qt::ToolButtonIconOnly);
     _toolbar->setStyleSheet("QToolBar#terminalGroupToolbar { spacing: 1px; padding: 0px; border: 0px; }");
-    _hiddenTabsButton = new QToolButton(_tabs);
+    _hiddenTabsButton = new HiddenTabsButton(_tabs);
     _hiddenTabsButton->setObjectName("terminalHiddenTabsButton");
     _hiddenTabsButton->setAutoRaise(true);
     _hiddenTabsButton->setIcon(Icons::icon("chevron-down"));
