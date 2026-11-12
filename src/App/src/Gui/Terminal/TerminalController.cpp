@@ -294,6 +294,7 @@ TerminalController::TerminalController(MainWindow&                 window,
     echo.iconName = "keyboard";
     echo.group    = "output";
     echo.role     = Action::Role::Clear;
+    echo.shortcut = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_E);
     echo.enabled  = [this] { return _current() != nullptr; };
     echo.trigger  = [this] {
         auto* current = _current();
@@ -350,8 +351,12 @@ TerminalController::TerminalController(MainWindow&                 window,
         action.iconName = icons[index];
         action.group    = index == 2 ? "settings" : "output";
         action.role     = Action::Role::Additional;
-        action.enabled  = [this] { return _current() && _current()->editor; };
-        action.trigger  = [this, index] {
+        if (index == 0)
+        {
+            action.shortcut = QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_B);
+        }
+        action.enabled = [this] { return _current() && _current()->editor; };
+        action.trigger = [this, index] {
             auto* current = _current();
             if (!current || !current->editor)
             {
