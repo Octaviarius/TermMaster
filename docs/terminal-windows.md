@@ -164,3 +164,12 @@ observations are being collected.
   Provide a drop-down listing tabs hidden by insufficient strip width, allowing
   selection without repeatedly using the left/right scroll arrows. Implementation
   remains deferred during feedback collection.
+
+- Clarification of toolbar ownership and placement: terminal controls belong to
+  their tab group and should be visually attached to that group's tab widget.
+  Multiple visible groups each need a local toolbar within their own scope.
+  Show only commands applicable to that group's active terminal; avoid redundant
+  terminal controls in a detached common toolbar. Keep genuinely window-wide
+  commands separate. This clarifies the earlier concern about unexpected toolbars;
+  removing all group-local controls is not the intended outcome. Record only;
+  implementation remains deferred during feedback collection.
