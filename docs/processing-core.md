@@ -11,6 +11,12 @@ state. Independent Rx/Tx selections instantiate separate 1x1 pipelines; a shared
 2x2 selection uses one instance for both directions. The [workspace Lineflow editor](lineflow-editor.md) edits reusable definitions
 through the catalog; it does not instantiate processing runtimes.
 
+Terminal execution instantiates an entire selected Lineflow on one processing
+worker. Its elementary and nested nodes share that worker; there is no automatic
+thread per child node. The Processor interface still permits synchronous,
+event-loop-driven or internally worker-backed implementations. See
+[terminal worker execution](terminal-worker-execution.md) for ownership and teardown.
+
 ```mermaid
 flowchart LR
     W[Workspace processor files] --> R[Host processor registry]

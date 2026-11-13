@@ -802,3 +802,46 @@ inspected. Qt-rendered drag pixmaps retained the translucent group-header copy;
 desktop grab captures unavailable in the host environment were not used as visual
 evidence. A final Debug application build is provided separately, without Debug
 test or performance runs.
+
+## PERF-21: Default worker execution
+
+The [worker execution contract](terminal-worker-execution.md) is implemented.
+Transport backends run on I/O workers. A selected Lineflow root runs its entire
+diagram, including nested nodes, on one processing worker. Processors remain free
+to implement internal asynchronous work. GUI routing, emulation and rendering
+retain their owners.
+
+The same Release runner was repeated against isolated copies of `G:\TMP\Tmaster`:
+three independent processes, five docking cycles each, with separate returning-user
+startup controls. The source hashes remained unchanged and every runtime, packet,
+identity and disconnected-state invariant passed. No hardware or external network
+connection was opened. Observed medians in milliseconds:
+
+| Operation | PERF-20 | PERF-21 |
+| --- | ---: | ---: |
+| Configured six tabs: join | 15.23 | 13.09 |
+| Configured six tabs: split | 17.79 | 14.93 |
+| Configured six tabs: secondary close | 27.35 | 21.06 |
+| 32 tabs: join | 21.01 | 19.56 |
+| 32 tabs: group move | 38.40 | 30.61 |
+| 32 tabs: detach group | 56.41 | 51.39 |
+| 32 tabs: secondary close | 39.73 | 37.14 |
+| First paint, new preferences | 554.31 | 462.50 |
+| First paint, existing preferences | 392.49 | 395.98 |
+| Loaded main-window close, existing preferences | 22.76 | 30.13 |
+
+Docking totals include Qt paint delivery rather than only command execution.
+The returning-user close median includes the new owned transport teardown; the
+absolute measurement remains approximately 30 ms (p95 40.31 ms). Host scheduling
+and filesystem caches are uncontrolled, so before/after differences do not
+establish a causal speedup. These measurements verify that the execution-boundary
+change preserves the corrected docking/startup responsiveness.
+
+[Docking records](benchmarks/worker-execution/release/Summary.json) and
+[returning-startup records](benchmarks/worker-execution/returning-startup/Summary.json)
+contain raw runs, executable hashes and percentile summaries. All 61 configured
+Release suites pass, with host/opt-in skips retained in the
+[acceptance record](benchmarks/worker-execution/Acceptance.json). Native Windows
+dragging and 100%/200% captures passed; the
+[100%](images/performance/TerminalWorkersNative100.png) and
+[200%](images/performance/TerminalWorkersNative200.png) captures were inspected.

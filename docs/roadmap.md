@@ -649,4 +649,13 @@ Later stages:
 - [x] Use the lowest available positive number for unnamed sessions, terminals and Lineflow blocks/nodes.
 - [x] Propose numbered workspace filenames and preserve explicit/saved names and UUID identities.
 - [x] Remove the obsolete random-name implementation, prototype and tests.
-- [x] Verify Release AppTests and LineflowEditorTests; final application builds follow worker integration.
+- [x] Verify Release AppTests and LineflowEditorTests; build final Release and Debug applications.
+
+## PERF-21: Default terminal worker execution
+
+- [x] Keep GUI orchestration and settings ownership while constructing transport backends on I/O workers.
+- [x] Instantiate prepared processors and nested Lineflow trees on independent processing workers.
+- [x] Preserve bounded whole-packet queues, duplex ports, cancellation and provider retirement.
+- [x] Verify all 61 Release suites, native Windows dragging and 100%/200% group captures.
+- [x] Repeat isolated Release docking/startup measurements; preserve source hashes and record acceptance.
+- [x] Build the final Debug application without Debug tests or benchmarks.
