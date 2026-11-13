@@ -40,6 +40,8 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMimeData>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QPointer>
@@ -64,6 +66,7 @@
 #include <QTest>
 #include <QTextBrowser>
 #include <QTextDocumentFragment>
+#include <QThread>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -91,6 +94,7 @@
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
 #include <Termaster/Core/Workspace.h>
+#include <atomic>
 #include <cstdlib>
 #include <stdexcept>
 
@@ -181,21 +185,71 @@ class ReconnectDevice final : public QObject, public SerialDevice
 public:
     struct Probe
     {
-        bool                  available = false;
-        int                   attempts  = 0;
-        int                   closes    = 0;
-        ReconnectDevice*      device    = nullptr;
-        QByteArray            output;
-        std::function<void()> resized;
-        QVariantMap           openConfiguration;
-        qint64                allowance = 2;
+        std::atomic<bool>     available {false};
+        std::atomic<int>      attempts {0};
+        std::atomic<int>      closes {0};
+        std::atomic<qint64>   allowance {2};
+        std::atomic<State>    backendState {State::Closed};
+        mutable QMutex        mutex;
+        ReconnectDevice*      device = nullptr;
+        QByteArray            recordedOutput;
+        QVariantMap           configuration;
+        std::function<void()> resizeNotification;
+
+        QByteArray output() const
+        {
+            QMutexLocker lock(&mutex);
+            return recordedOutput;
+        }
+        void clearOutput()
+        {
+            QMutexLocker lock(&mutex);
+            recordedOutput.clear();
+        }
+        QVariantMap openConfiguration() const
+        {
+            QMutexLocker lock(&mutex);
+            return configuration;
+        }
+        bool hasDevice() const
+        {
+            QMutexLocker lock(&mutex);
+            return device != nullptr;
+        }
+        void injectReceive(const QByteArray& bytes)
+        {
+            QMutexLocker lock(&mutex);
+            if (device)
+            {
+                QMetaObject::invokeMethod(
+                    device,
+                    [target = device, bytes] { target->injectReceive(bytes); },
+                    Qt::QueuedConnection);
+            }
+        }
+        void drop(const QString& error)
+        {
+            QMutexLocker lock(&mutex);
+            if (device)
+            {
+                QMetaObject::
+                    invokeMethod(device, [target = device, error] { target->drop(error); }, Qt::QueuedConnection);
+            }
+        }
+        void setResizeNotification(std::function<void()> callback)
+        {
+            QMutexLocker lock(&mutex);
+            resizeNotification = std::move(callback);
+        }
     };
     explicit ReconnectDevice(std::shared_ptr<Probe> probe) : _probe(std::move(probe))
     {
+        QMutexLocker lock(&_probe->mutex);
         _probe->device = this;
     }
     ~ReconnectDevice() override
     {
+        QMutexLocker lock(&_probe->mutex);
         _probe->device = nullptr;
     }
     QObject* object() override
@@ -213,7 +267,10 @@ public:
     bool open(const QVariantMap& configuration, QString* error) override
     {
         ++_probe->attempts;
-        _probe->openConfiguration = configuration;
+        {
+            QMutexLocker lock(&_probe->mutex);
+            _probe->configuration = configuration;
+        }
         _setState(State::Opening);
         if (!_probe->available)
         {
@@ -239,8 +296,16 @@ public:
         {
             return -1;
         }
-        const auto count = qMin<qint64>(bytes.size(), _probe->allowance);
-        _probe->output.append(bytes.first(count));
+        const auto count = qMin<qint64>(bytes.size(), _probe->allowance.load());
+        {
+            QMutexLocker lock(&_probe->mutex);
+            _probe->recordedOutput.append(bytes.first(count));
+        }
+        const auto callback = _callbacks.written;
+        if (callback && count > 0)
+        {
+            callback(count);
+        }
         return count;
     }
     qint64 pendingBytes() const override
@@ -249,7 +314,11 @@ public:
     }
     void resize(int, int) override
     {
-        const auto callback = _probe->resized;
+        std::function<void()> callback;
+        {
+            QMutexLocker lock(&_probe->mutex);
+            callback = _probe->resizeNotification;
+        }
         if (callback)
         {
             callback();
@@ -279,7 +348,8 @@ private:
     Callbacks              _callbacks;
     void                   _setState(State state)
     {
-        _state              = state;
+        _state = state;
+        _probe->backendState.store(state);
         const auto callback = _callbacks.stateChanged;
         if (callback)
         {
@@ -287,6 +357,14 @@ private:
         }
     }
 };
+
+/** Observe the selected GUI facade, after worker notifications have reached the GUI. */
+static SerialDevice::State selectedDeviceState(App& app)
+{
+    const auto type   = app.session()->objects().value(app.selectedTerminal()).toMap().value("type").toString();
+    auto*      device = app.pluginHost().selectedDevice(type);
+    return device ? device->state() : SerialDevice::State::Closed;
+}
 
 class ReentrantProcessor final : public Processor
 {
@@ -1112,10 +1190,10 @@ content:
                 openDevice = host.selectedDevice(type.id);
                 QVERIFY(openDevice);
                 host.connectSelectedTerminal();
-                QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+                QTRY_COMPARE(openDevice->state(), SerialDevice::State::Open);
             }
         }
-        const int closes = probe->closes;
+        const int closes = probe->closes.load();
         displays[0]->selectAll();
         QVERIFY(displays[0]->hasSelection());
         displays[0]->copy();
@@ -1257,16 +1335,16 @@ content:
         QCOMPARE(visibleOrder.size(), ids.size());
         QCOMPARE(_app.session()->presentation().value("tabOrder").toList(), visibleOrder);
         QCOMPARE(_app.session()->presentation().value("terminalLayout"), presentation.value("terminalLayout"));
-        QCOMPARE(probe->attempts, 1);
-        QCOMPARE(probe->closes, closes);
-        QCOMPARE(openDevice->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(probe->attempts.load(), 1);
+        QCOMPARE(probe->closes.load(), closes);
+        QTRY_COMPARE(openDevice->state(), SerialDevice::State::Open);
         QVERIFY(controller.detachTerminal(ids[0], &error));
         QVERIFY(controller.attachTerminal(ids[0], &error));
         QVERIFY(!controller.detachedWindow(ids[0]));
         QCOMPARE(controller.terminalGroup(ids[0])->tabs().currentWidget(), panels[0]);
-        QCOMPARE(openDevice->state(), SerialDevice::State::Open);
-        QCOMPARE(probe->attempts, 1);
-        QCOMPARE(probe->closes, closes);
+        QTRY_COMPARE(openDevice->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(probe->attempts.load(), 1);
+        QCOMPARE(probe->closes.load(), closes);
 
         const auto capture = qEnvironmentVariable("TERMASTER_DETACHED_CAPTURE");
         if (!capture.isEmpty())
@@ -1607,7 +1685,7 @@ content:
         QCOMPARE(controller.terminalGroup(ids[2]), complete);
         QCOMPARE(complete->id(), completeId);
         QCOMPARE(complete->tabs().count(), 2);
-        QCOMPARE(probe->attempts, 0);
+        QCOMPARE(probe->attempts.load(), 0);
         if (!capture.isEmpty())
         {
             QVERIFY(main.grab().save(QDir(capture).filePath("NativeGroupsMain.png")));
@@ -1735,8 +1813,8 @@ content:
         auto* device = host.selectedDevice(type.id);
         QVERIFY(device);
         host.connectSelectedTerminal();
-        QCOMPARE(device->state(), SerialDevice::State::Open);
-        const auto closes = probe->closes;
+        QTRY_COMPARE(device->state(), SerialDevice::State::Open);
+        const auto closes = probe->closes.load();
         QVERIFY(controller.moveGroup(group, other, Qt::BottomEdge, &error));
         QCOMPARE(controller.terminalGroup(ids[0]), group);
         QCOMPARE(controller.terminalGroup(ids[1]), group);
@@ -1754,9 +1832,9 @@ content:
         QCOMPARE(group->tabs().currentWidget(), selected);
         QCOMPARE(group->id(), groupId);
         QCOMPARE(draft->toPlainText(), QString("keep input"));
-        QCOMPARE(device->state(), SerialDevice::State::Open);
-        QCOMPARE(probe->closes, closes);
-        QCOMPARE(probe->attempts, 1);
+        QTRY_COMPARE(device->state(), SerialDevice::State::Open);
+        QCOMPARE(probe->closes.load(), closes);
+        QTRY_COMPARE(probe->attempts.load(), 1);
         QVERIFY(controller.detachGroup(other, &error));
         auto* second = controller.detachedWindow(ids[2]);
         QVERIFY(second && second != first);
@@ -1771,8 +1849,8 @@ content:
         QVERIFY(!controller.detachedWindow(ids[0]));
         QCOMPARE(group->tabs().currentWidget(), selected);
         QCOMPARE(draft->toPlainText(), QString("keep input"));
-        QCOMPARE(probe->attempts, 1);
-        QCOMPARE(probe->closes, closes);
+        QTRY_COMPARE(probe->attempts.load(), 1);
+        QCOMPARE(probe->closes.load(), closes);
         QVERIFY(_app.saveSession(&error));
         const auto saved = _app.session()->presentation().value("terminalLayout").toMap();
         QVERIFY(!saved.isEmpty());
@@ -1783,10 +1861,10 @@ content:
         QCOMPARE(controller.terminalGroup(ids[1]), controller.terminalGroup(ids[0]));
         QCOMPARE(controller.terminalGroup(ids[0])->tabs().widget(0)->property("terminalId").toString(), ids[0]);
         QCOMPARE(controller.terminalGroup(ids[0])->tabs().widget(1)->property("terminalId").toString(), ids[1]);
-        QCOMPARE(probe->attempts, 2);
+        QTRY_COMPARE(probe->attempts.load(), 2);
     }
 
-    Q_SLOT void groupedTransitionsTolerateSessionClosureFromBackendResize()
+    Q_SLOT void groupedTransitionsQueueGuiSessionClosureAfterWorkerResize()
     {
         QTemporaryDir temporary;
         QString       error;
@@ -1808,7 +1886,7 @@ content:
 )";
         type.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
         const auto cleanup  = qScopeGuard([&] {
-            probe->resized = {};
+            probe->setResizeNotification({});
             _closeTemporaryWorkspace();
             host.unregisterTerminalType(type.id);
         });
@@ -1820,23 +1898,40 @@ content:
                 QVERIFY(_app.createSession("Split reentry", &error));
             }
             QVERIFY(_app.createTerminal(type.id, {}, "Reentry", &error));
-            const auto id     = _app.selectedTerminal();
-            auto*      target = controller.terminalGroup(id);
-            bool       closed = false;
-            probe->resized    = [&] {
-                probe->resized = {};
-                closed         = _app.closeSession(&error);
-            };
+            const auto id           = _app.selectedTerminal();
+            auto*      target       = controller.terminalGroup(id);
+            auto       active       = std::make_shared<std::atomic<bool>>(true);
+            auto       workerResize = std::make_shared<std::atomic<bool>>(false);
+            auto*      guiThread    = QThread::currentThread();
+            bool       closed       = false;
+            const auto deactivate   = qScopeGuard([&] {
+                active->store(false);
+                probe->setResizeNotification({});
+            });
+            probe->setResizeNotification([&, active, workerResize, guiThread] {
+                workerResize->store(QThread::currentThread() != guiThread);
+                QMetaObject::invokeMethod(
+                    &_app,
+                    [&, active] {
+                        if (!active->exchange(false))
+                        {
+                            return;
+                        }
+                        closed = _app.closeSession(&error);
+                    },
+                    Qt::QueuedConnection);
+            });
             const bool moved = mode == 0 ? controller.detachTerminal(id, &error) :
                                mode == 1 ? controller.moveTerminal(id, target, Qt::RightEdge, -1, &error) :
                                            controller.detachGroup(target, &error);
-            QVERIFY(!moved);
-            QVERIFY(closed);
+            QVERIFY2(moved, qPrintable(error));
+            QTRY_VERIFY(closed);
+            QVERIFY(workerResize->load());
             QVERIFY(!_app.session());
             QVERIFY(controller.terminalIds().isEmpty());
             QVERIFY(!controller.detachedWindow(id));
             QVERIFY(!controller.terminalGroup(id));
-            QCOMPARE(probe->attempts, 0);
+            QCOMPARE(probe->attempts.load(), 0);
         }
     }
 
@@ -1981,7 +2076,7 @@ content:
         }
         QVERIFY(controller.detachedWindow(ids[2]));
         QCOMPARE(controller.detachedWindow(ids[2]), controller.detachedWindow(ids[3]));
-        QCOMPARE(probe->attempts, 0);
+        QCOMPARE(probe->attempts.load(), 0);
     }
 
     Q_SLOT void terminalTabOrderPersistsWithoutReorderWrites()
@@ -2122,7 +2217,7 @@ content:
         tabs = &static_cast<MainWindow&>(_app.mainWindow()).terminalTabs();
         QCOMPARE(visibleOrder(), QVariantList({fourth, ids[1], ids[2], ids[0], "a-unlisted", "z-unlisted"}));
         QCOMPARE(_app.session()->presentation().value("tabOrder").toList(), missingOrder);
-        QCOMPARE(probe->attempts, 0);
+        QCOMPARE(probe->attempts.load(), 0);
     }
 
     Q_SLOT void wrapLinesCommandTracksSelectedTerminalAndSession()
@@ -2216,7 +2311,7 @@ content:
         tabs->setCurrentIndex(1);
         QVERIFY(!action->isChecked());
         QCOMPARE(controller.selectedSettings().value("appearance/wrapLines").toBool(), false);
-        QCOMPARE(probe->attempts, 0);
+        QCOMPARE(probe->attempts.load(), 0);
     }
 
     Q_SLOT void bulkTerminalRestoreAndClosePublishFinalState()
@@ -2523,7 +2618,7 @@ content:
         QVERIFY(_app.createWorkspace(first, "First", &error));
         QVERIFY(_app.createSession("First session", &error));
         const auto firstId = _app.session()->id();
-        QCOMPARE(_app.workspace()->state().value("lastSession").toString(), firstId);
+        QTRY_COMPARE(_app.workspace()->state().value("lastSession").toString(), firstId);
         QVERIFY(_app.createWorkspace(second, "Second", &error));
         QVERIFY(!_app.session());
         QVERIFY(_app.createSession("Second session", &error));
@@ -2532,7 +2627,7 @@ content:
         QVERIFY(_app.session());
         QCOMPARE(_app.session()->id(), firstId);
         QVERIFY(!_app.openSession("missing", &error));
-        QCOMPARE(_app.workspace()->state().value("lastSession").toString(), firstId);
+        QTRY_COMPARE(_app.workspace()->state().value("lastSession").toString(), firstId);
         QVERIFY(_app.openWorkspace(second, &error));
         QVERIFY(_app.session());
         QCOMPARE(_app.session()->id(), secondId);
@@ -2563,7 +2658,7 @@ content:
         QVERIFY(_app.openWorkspace(file, &error));
         QVERIFY(_app.workspace());
         QVERIFY(!_app.session());
-        QCOMPARE(_app.workspace()->state().value("lastSession").toString(), id);
+        QTRY_COMPARE(_app.workspace()->state().value("lastSession").toString(), id);
         QVERIFY(_app.mainWindow().statusBar()->currentMessage().contains("Cannot restore last session"));
         QVERIFY(!QApplication::activeModalWidget());
         QVERIFY(_app.closeWorkspace(&error));
@@ -2624,10 +2719,10 @@ content:
         QVERIFY(QDir().mkdir(workspaceFile));
         QVERIFY(!_app.createSession("Cannot persist catalog", &error));
         QCOMPARE(_app.session(), original);
-        QCOMPARE(workspace->state().value("lastSession").toString(), original->id());
+        QTRY_COMPARE(workspace->state().value("lastSession").toString(), original->id());
         QVERIFY(!_app.closeSession(&error));
         QCOMPARE(_app.session(), original);
-        QCOMPARE(workspace->state().value("lastSession").toString(), original->id());
+        QTRY_COMPARE(workspace->state().value("lastSession").toString(), original->id());
         QCOMPARE(workspace->sessionIds(), catalogBefore);
         QCOMPARE(workspace->recentSessions(), history);
         QCOMPARE(QDir(workspace->sessionsDirectory().toString()).entryList(QDir::Dirs | QDir::NoDotAndDotDot),
@@ -3596,7 +3691,7 @@ content:
             QCOMPARE(_tabHeader(tabs, tab), snapshot.header);
             QCOMPARE(_tabCaption(tabs, tab), snapshot.caption);
         }
-        QCOMPARE(probe->attempts, 0);
+        QCOMPARE(probe->attempts.load(), 0);
     }
     Q_SLOT void socketPluginTerminalLifecycle()
     {
@@ -3659,7 +3754,7 @@ content:
         QTRY_COMPARE(device->state(), SerialDevice::State::Open);
         host.disconnectSelectedTerminal();
         QVERIFY(!host.connectionRequested("socket"));
-        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(device->state(), SerialDevice::State::Closed);
         QTest::qWait(1200);
         QVERIFY(!server.hasPendingConnections());
         host.showSelectedTerminalSettings();
@@ -3680,7 +3775,7 @@ content:
         QCOMPARE(_app.terminalIds().size(), 1);
         device = host.selectedDevice("socket");
         QVERIFY(device);
-        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(device->state(), SerialDevice::State::Closed);
         QVERIFY(!host.connectionRequested("socket"));
     }
     Q_SLOT void consistentTerminalControls()
@@ -3808,7 +3903,7 @@ content:
                                   "Wrap lines",
                                   "Settings..."}));
             QVERIFY(!visible.contains("Close"));
-            QCOMPARE(_app.pluginHost().selectedDevice(type)->state(), SerialDevice::State::Closed);
+            QTRY_COMPARE(_app.pluginHost().selectedDevice(type)->state(), SerialDevice::State::Closed);
             const auto capture = qEnvironmentVariable("TERMASTER_CONTROLS_CAPTURE");
             if (!capture.isEmpty())
             {
@@ -4053,7 +4148,7 @@ content:
         _app.pluginHost().connectSelectedTerminal();
         QTRY_VERIFY_WITH_TIMEOUT(display->text().contains("TERMASTER_CONSOLE_ACCEPTANCE"), 15000);
         QTRY_VERIFY_WITH_TIMEOUT(!_app.pluginHost().connectionRequested("console"), 15000);
-        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(device->state(), SerialDevice::State::Closed);
         auto* tabs = &static_cast<MainWindow&>(_app.mainWindow()).terminalTabs();
         QVERIFY(tabs);
         QVERIFY(QTextDocumentFragment::fromHtml(tabs->tabToolTip(tabs->currentIndex()))
@@ -4161,7 +4256,7 @@ content:
         QVERIFY(!id.isEmpty());
         auto* device = _app.pluginHost().selectedDevice("serial");
         QVERIFY(device);
-        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(device->state(), SerialDevice::State::Closed);
         QPointer<TerminalDisplay> display(_app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay"));
         QVERIFY(display);
         QCOMPARE(display->font().pointSizeF(), 17.0);
@@ -4203,7 +4298,7 @@ content:
         QCOMPARE(terminalOutput.size(), 1);
         QCOMPARE(terminalOutput.first().at(0).toByteArray(), QByteArray("synthetic paste"));
         QCOMPARE(terminalOutput.first().at(1).value<TerminalDisplay::OutputKind>(), TerminalDisplay::OutputKind::Paste);
-        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(device->state(), SerialDevice::State::Closed);
         clipboard->clear();
         QTRY_VERIFY(!editAction("Edit.Paste")->isEnabled());
         auto* workspaceFile = _app.mainWindow().findChild<QLineEdit*>("workspaceFile");
@@ -4374,7 +4469,7 @@ content:
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         device = _app.pluginHost().selectedDevice("serial");
         QVERIFY(device);
-        QCOMPARE(device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(device->state(), SerialDevice::State::Closed);
         display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
         QVERIFY(display);
         QCOMPARE(display->font().pointSizeF(), 17.0);
@@ -4430,13 +4525,13 @@ content:
         QVERIFY(editor && draft && display);
         QVERIFY(editor->buffered());
         host.connectSelectedTerminal();
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
         display->setFocus();
         QTest::keyClicks(QApplication::focusWidget(), "AT");
         QCOMPARE(draft->toPlainText(), "AT");
-        QCOMPARE(probe->output, QByteArray());
+        QCOMPARE(probe->output(), QByteArray());
         QTest::keyClick(draft, Qt::Key_Return);
-        QTRY_COMPARE(probe->output, QByteArray("AT\0", 3));
+        QTRY_COMPARE(probe->output(), QByteArray("AT\0", 3));
         QVERIFY(draft->toPlainText().isEmpty());
         auto* history = editor->findChild<QComboBox*>("commandHistory");
         QCOMPARE(history->count(), 1);
@@ -4448,21 +4543,21 @@ content:
         host.connectSelectedTerminal();
         probe->allowance = 2;
         QTest::qWait(40);
-        QCOMPARE(probe->output, QByteArray("AT\0", 3));
+        QCOMPARE(probe->output(), QByteArray("AT\0", 3));
         const auto beforeReply = display->text();
         display->receive("\x1b[6n");
-        QTRY_VERIFY(probe->output.mid(3).endsWith('R'));
-        QVERIFY(probe->output.mid(3).startsWith("\x1b["));
+        QTRY_VERIFY(probe->output().mid(3).endsWith('R'));
+        QVERIFY(probe->output().mid(3).startsWith("\x1b["));
         QCOMPARE(display->text(), beforeReply);
         QApplication::clipboard()->setText("PASTE");
         display->paste();
         QCOMPARE(draft->toPlainText(), "PASTE");
-        const auto sentBeforePaste = probe->output;
+        const auto sentBeforePaste = probe->output();
         auto*      pastePolicy     = editor->findChild<QComboBox*>("commandPastePolicy");
         pastePolicy->setCurrentIndex(pastePolicy->findData("immediate"));
         QVERIFY(QMetaObject::invokeMethod(pastePolicy, "activated", Q_ARG(int, pastePolicy->currentIndex())));
         display->paste();
-        QTRY_COMPARE(probe->output, sentBeforePaste + QByteArray("PASTE\0", 6));
+        QTRY_COMPARE(probe->output(), sentBeforePaste + QByteArray("PASTE\0", 6));
         QCOMPARE(draft->toPlainText(), "PASTE");
         const auto capture = qEnvironmentVariable("TERMASTER_COMMAND_CAPTURE");
         if (!capture.isEmpty())
@@ -4587,20 +4682,20 @@ content:
         QTest::keyClick(draft, Qt::Key_Return);
         QVERIFY(draft->toPlainText().isEmpty());
         QCOMPARE(editor->findChild<QComboBox*>("commandHistory")->count(), 1);
-        QCOMPARE(probe->output, QByteArray());
+        QCOMPARE(probe->output(), QByteArray());
         QVERIFY(editor->findChild<QToolButton*>("commandStop")->isHidden());
         auto& controller = static_cast<TerminalController&>(host);
         QVERIFY(controller.selectedSettings().setValue("transport/target", "new-target"));
         controller.applySettings();
         QTRY_VERIFY(editor->findChild<QToolButton*>("commandStop")->isHidden());
         host.connectSelectedTerminal();
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
-        QCOMPARE(probe->openConfiguration.value("target").toString(), QString("new-target"));
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
+        QCOMPARE(probe->openConfiguration().value("target").toString(), QString("new-target"));
         QTest::qWait(60);
-        QCOMPARE(probe->output, QByteArray());
+        QCOMPARE(probe->output(), QByteArray());
         draft->setPlainText("fresh command");
         QTest::keyClick(draft, Qt::Key_Return);
-        QTRY_COMPARE(probe->output, QByteArray("fresh command\r"));
+        QTRY_COMPARE(probe->output(), QByteArray("fresh command\r"));
     }
 
     Q_SLOT void workspaceScopedProcessorFavorites()
@@ -4825,12 +4920,13 @@ content:
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
         auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
         QVERIFY(display);
         const auto sendFaultLane = [&](const QByteArray& bytes) {
             if (receiveFault)
             {
-                probe->device->injectReceive(bytes);
+                probe->injectReceive(bytes);
             }
             else
             {
@@ -4840,7 +4936,7 @@ content:
         // An odd HEX packet fails by default rather than borrowing the next input.
         sendFaultLane("4");
         QTest::qWait(100);
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
         QVERIFY(host.connectionRequested("faultFixture"));
 
         // Valid bytes after failure must neither restart decoding nor bypass it.
@@ -4848,16 +4944,16 @@ content:
         if (receiveFault)
         {
             display->outputBytes("opposite", TerminalDisplay::OutputKind::Reply, {});
-            QTRY_COMPARE(probe->output, QByteArray("opposite"));
+            QTRY_COMPARE(probe->output(), QByteArray("opposite"));
         }
         else
         {
-            probe->device->injectReceive("opposite");
+            probe->injectReceive("opposite");
             QTRY_VERIFY(display->text().contains("opposite"));
         }
         QTest::qWait(1200);
-        QCOMPARE(probe->attempts, 1);
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(probe->attempts.load(), 1);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
         QVERIFY(host.connectionRequested("faultFixture"));
         if (receiveFault)
         {
@@ -4866,7 +4962,7 @@ content:
         }
         else
         {
-            QVERIFY(probe->output.isEmpty());
+            QVERIFY(probe->output().isEmpty());
         }
 
         auto* panel = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
@@ -4883,11 +4979,11 @@ content:
         }
         else
         {
-            QTRY_COMPARE(probe->output, QByteArray("recovered"));
+            QTRY_COMPARE(probe->output(), QByteArray("recovered"));
         }
         QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("bypass"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
-        QCOMPARE(probe->attempts, 1);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
+        QTRY_COMPARE(probe->attempts.load(), 1);
     }
 
     Q_SLOT void terminalVariantEffectiveConfiguration()
@@ -4930,13 +5026,13 @@ content:
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
-        QCOMPARE(probe->attempts, 1);
-        const auto packet = probe->openConfiguration.value("packet").toMap();
+        QTRY_COMPARE(probe->attempts.load(), 1);
+        const auto packet = probe->openConfiguration().value("packet").toMap();
         QCOMPARE(packet.value("encoding").toString(), QString("varint"));
         QCOMPARE(packet.value("maxBytes").toInt(), 8);
         QCOMPARE(packet.value("future").toInt(), 99);
         QVERIFY(!packet.contains("width"));
-        QVERIFY(!probe->openConfiguration.contains("options"));
+        QVERIFY(!probe->openConfiguration().contains("options"));
         QCOMPARE(controller.selectedSettings().value("transport/packet/width").toInt(), 7);
     }
 
@@ -5051,7 +5147,7 @@ content:
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
         auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
         QVERIFY(display);
         auto* interactionArea = _app.mainWindow().findChild<QWidget*>("terminalInteractionArea");
@@ -5060,22 +5156,22 @@ content:
         QVERIFY(
             interactionArea->isAncestorOf(_app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing")));
         // Split nibbles in opposite directions must not share decoder state.
-        probe->device->injectReceive("4");
+        probe->injectReceive("4");
         display->outputBytes("4", TerminalDisplay::OutputKind::Reply, {});
         QTest::qWait(30);
-        QVERIFY(probe->output.isEmpty());
+        QVERIFY(probe->output().isEmpty());
         QVERIFY(!display->text().contains('A'));
-        probe->device->injectReceive("1");
+        probe->injectReceive("1");
         display->outputBytes("2", TerminalDisplay::OutputKind::Reply, {});
         QTRY_VERIFY(display->text().contains('A'));
-        QTRY_COMPARE(probe->output, QByteArray("B"));
+        QTRY_COMPARE(probe->output(), QByteArray("B"));
 
         // Rx-only edits preserve the Tx decoder's buffered nibble and running transport.
         auto* processingPanel = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
         QVERIFY(processingPanel);
         auto* rxSelection = processingPanel->findChild<QComboBox*>("rxProcessor");
         QVERIFY(rxSelection);
-        probe->output.clear();
+        probe->clearOutput();
         display->outputBytes("4", TerminalDisplay::OutputKind::Reply, {});
         QTest::qWait(30);
         QVERIFY(processingPanel->applyDraft(&error));
@@ -5083,8 +5179,8 @@ content:
         emit rxSelection->activated(rxSelection->currentIndex());
         QVERIFY2(processingPanel->applyDraft(&error), qPrintable(error));
         display->outputBytes("2", TerminalDisplay::OutputKind::Reply, {});
-        QTRY_COMPARE(probe->output, QByteArray("B"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(probe->output(), QByteArray("B"));
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
         rxSelection->setCurrentIndex(rxSelection->findData("native.hex-decoder"));
         emit rxSelection->activated(rxSelection->currentIndex());
         QVERIFY2(processingPanel->applyDraft(&error), qPrintable(error));
@@ -5128,18 +5224,19 @@ content:
         }));
         controller.applySettings();
         QTest::qWait(30);
-        probe->output.clear();
+        probe->clearOutput();
         // Protocol replies bypass command terminators and display-only echo.
-        probe->device->injectReceive("\033[5n");
-        QTRY_COMPARE(probe->output, QByteArray("\033[0n"));
+        probe->injectReceive("\033[5n");
+        QTRY_COMPARE(probe->output(), QByteArray("\033[0n"));
         QVERIFY(!display->text().contains("[0n"));
-        probe->device->injectReceive("FINAL");
-        host.disconnectSelectedTerminal();
+        probe->injectReceive("FINAL");
         QTRY_VERIFY(display->text().contains("FINAL"));
+        host.disconnectSelectedTerminal();
         host.connectSelectedTerminal();
-        probe->device->injectReceive("REOPEN");
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
+        probe->injectReceive("REOPEN");
         QTRY_VERIFY(display->text().contains("REOPEN"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
 
         // A shared two-lane definition is selected once and drives both device directions.
         QVERIFY2(_app.workspace()
@@ -5175,12 +5272,12 @@ content:
         emit sharedSelection->activated(sharedSelection->currentIndex());
         QVERIFY2(processingPanel->applyDraft(&error), qPrintable(error));
         QTest::qWait(30);
-        probe->output.clear();
+        probe->clearOutput();
         display->clear();
-        probe->device->injectReceive("41");
+        probe->injectReceive("41");
         display->outputBytes("B", TerminalDisplay::OutputKind::Reply, {});
         QTRY_VERIFY(display->text().contains('A'));
-        QTRY_COMPARE(probe->output, QByteArray("42"));
+        QTRY_COMPARE(probe->output(), QByteArray("42"));
         QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("duplex.fixture"));
         QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("duplex"));
         QCOMPARE(controller.selectedSettings().value("processing/rx/type").toString(), QString("identity"));
@@ -5188,12 +5285,12 @@ content:
         host.disconnectSelectedTerminal();
         host.connectSelectedTerminal();
         QTest::qWait(30);
-        probe->output.clear();
+        probe->clearOutput();
         display->outputBytes("C", TerminalDisplay::OutputKind::Reply, {});
-        QTRY_COMPARE(probe->output, QByteArray("43"));
+        QTRY_COMPARE(probe->output(), QByteArray("43"));
 
         // Stop must discard both router output and the full downstream transport queue.
-        probe->output.clear();
+        probe->clearOutput();
         probe->allowance = 0;
         for (int index = 0; index < 8; ++index)
         {
@@ -5210,21 +5307,22 @@ content:
         emit sendingEditor->stopRequested();
         probe->allowance = 1024 * 1024;
         QTest::qWait(60);
-        QVERIFY(probe->output.isEmpty());
+        QVERIFY(probe->output().isEmpty());
 
         // With no processing selected, replies cannot be overtaken by editor sends.
         QVERIFY(controller.selectedSettings().setValue("processing", QVariantMap {}));
         controller.applySettings();
         QTest::qWait(30);
-        probe->output.clear();
+        probe->clearOutput();
         auto* editor = _app.mainWindow().findChild<CommandEditor*>("commandEditor");
         QVERIFY(editor);
         auto* draft = editor->findChild<QPlainTextEdit*>("commandDraft");
         QVERIFY(draft);
-        probe->device->injectReceive("\033[5n");
+        // Deliver input to the GUI emulator before immediately enqueueing an editor send.
+        display->receive("\033[5n");
         draft->setPlainText("command");
         QTest::keyClick(draft, Qt::Key_Return);
-        QTRY_COMPARE(probe->output, QByteArray("\033[0ncommand\r\n"));
+        QTRY_COMPARE(probe->output(), QByteArray("\033[0ncommand\r\n"));
         const QVariantMap framed {
             {         "type","native.pattern-framer"                },
             {"configuration",
@@ -5240,18 +5338,18 @@ content:
         controller.applySettings();
         QTest::qWait(30);
         display->clear();
-        probe->output.clear();
-        probe->device->injectReceive("noise<H:hello");
+        probe->clearOutput();
+        probe->injectReceive("noise<H:hello");
         QTest::qWait(30);
         QVERIFY(display->text().isEmpty());
-        probe->device->injectReceive(">tail");
+        probe->injectReceive(">tail");
         QTRY_COMPARE(display->text(), QString("helloabcdefHEND"));
         display->outputBytes("noise<S:go", TerminalDisplay::OutputKind::Reply, {});
         QTest::qWait(30);
-        QVERIFY(probe->output.isEmpty());
+        QVERIFY(probe->output().isEmpty());
         display->outputBytes(">", TerminalDisplay::OutputKind::Reply, {});
-        QTRY_COMPARE(probe->output, QByteArray("goabcdefSEND"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(probe->output(), QByteArray("goabcdefSEND"));
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
         QVERIFY(host.connectionRequested("processingFixture"));
         QVERIFY(_app.closeWorkspace(&error));
         QTRY_VERIFY(registry.canRemoveOwner("core.processing"));
@@ -5304,12 +5402,12 @@ content:
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
-        QVERIFY(probe->device);
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QVERIFY(probe->hasDevice());
+        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
         auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
         auto* panel   = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
         QVERIFY(display && panel);
-        probe->device->injectReceive("6");
+        probe->injectReceive("6");
         QTest::qWait(30);
         QVERIFY(display->text().isEmpty());
         QVERIFY(_app.workspace()->removeProcessorDefinition("dormant.codec", &error));
@@ -5324,9 +5422,9 @@ content:
         QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("duplex"));
         QCOMPARE(controller.selectedSettings().value("processing/rx/type").toString(), QString("@inplace"));
         QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("dormant.codec"));
-        probe->device->injectReceive("6");
+        probe->injectReceive("6");
         QTRY_COMPARE(display->text(), QString("f"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
 
         QVERIFY(_app.workspace()->setProcessorDefinition("dormant.codec", codec, &error));
         _app.mainWindow().activateWindow();
@@ -5334,7 +5432,7 @@ content:
         host.disconnectSelectedTerminal();
         host.connectSelectedTerminal();
         display->clear();
-        probe->device->injectReceive("6");
+        probe->injectReceive("6");
         QTest::qWait(30);
         QVERIFY(display->text().isEmpty());
         QVERIFY(controller.selectedSettings().setValue("processing/tx",
@@ -5342,27 +5440,31 @@ content:
                                                            {"type", "another.unavailable.dormant"}
         }));
         controller.applySettings();
-        probe->device->injectReceive("7");
+        probe->injectReceive("7");
         QTRY_COMPARE(display->text(), QString("g"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
         QVERIFY(_app.saveSession(&error));
     }
 
-    Q_SLOT void terminalProcessingReentrantFactories()
+    Q_SLOT void terminalProcessingWorkerFactoriesQueueGuiLifecycleChanges()
     {
         QTemporaryDir temporary;
         QString       error;
         QVERIFY(_app.createWorkspace(Path(temporary.filePath("Reentrant.termaster")), "Reentrant", &error));
         QVERIFY(_app.createSession("Reentrant", &error));
-        auto& host                                    = _app.pluginHost();
-        auto& controller                              = static_cast<TerminalController&>(host);
-        auto& registry                                = _app.plugins().processors();
-        auto  probe                                   = std::make_shared<ReconnectDevice::Probe>();
-        probe->available                              = true;
-        bool                     closeDuringFactory   = false;
-        bool                     replaceDuringFactory = false;
-        bool                     nestedSaved          = false;
-        const auto               cleanup              = qScopeGuard([&] {
+        auto& host       = _app.pluginHost();
+        auto& controller = static_cast<TerminalController&>(host);
+        auto& registry   = _app.plugins().processors();
+        auto  probe      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available = true;
+        std::atomic<bool>        closeDuringFactory {false};
+        std::atomic<bool>        replaceDuringFactory {false};
+        std::atomic<bool>        factoryOnWorker {false};
+        auto                     active      = std::make_shared<std::atomic<bool>>(true);
+        auto*                    guiThread   = QThread::currentThread();
+        bool                     nestedSaved = false;
+        const auto               cleanup     = qScopeGuard([&] {
+            active->store(false);
             _closeTemporaryWorkspace();
             host.unregisterTerminalType("reentrantFixture");
             registry.removeOwner("reentrant-owner");
@@ -5380,21 +5482,35 @@ content:
         processor.title = "Reentrant processor";
         processor.settingsSchema
             = "version: 1\ntype: termaster.settings-schema\ndescription: Reentrant processor\ncontent:\n  type: object\n  properties: {}\n";
-        processor.create = [&](const auto&, const auto&, QString*) {
-            if (closeDuringFactory)
+        processor.create = [&, active, guiThread](const auto&, const auto&, QString*) {
+            factoryOnWorker.store(QThread::currentThread() != guiThread);
+            const bool close   = closeDuringFactory.exchange(false);
+            const bool replace = replaceDuringFactory.exchange(false);
+            if (close || replace)
             {
-                closeDuringFactory = false;
-                host.closeSelectedTerminal();
-            }
-            if (replaceDuringFactory)
-            {
-                replaceDuringFactory = false;
-                nestedSaved          = controller.selectedSettings().setValue("processing",
-                                                                              QVariantMap {
-                                                                                  {  "mode", "bypass"},
-                                                                                  {"marker", "nested"}
-                })
-                                    && _app.saveSession(&error);
+                QMetaObject::invokeMethod(
+                    &_app,
+                    [&, active, close, replace] {
+                        if (!active->load())
+                        {
+                            return;
+                        }
+                        if (close)
+                        {
+                            host.closeSelectedTerminal();
+                        }
+                        if (replace)
+                        {
+                            nestedSaved = controller.selectedSettings().setValue("processing",
+                                                                                 QVariantMap {
+                                                                                     {  "mode", "bypass"},
+                                                                                     {"marker", "nested"}
+                            })
+                                       && _app.saveSession(&error);
+                            controller.applySettings();
+                        }
+                    },
+                    Qt::QueuedConnection);
             }
             return std::make_unique<ReentrantProcessor>();
         };
@@ -5410,13 +5526,14 @@ content:
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
-        QVERIFY(probe->device);
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QVERIFY(probe->hasDevice());
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
         host.disconnectSelectedTerminal();
         closeDuringFactory = true;
         host.connectSelectedTerminal();
-        QVERIFY(_app.terminalIds().isEmpty());
-        QVERIFY(!probe->device);
+        QTRY_VERIFY(_app.terminalIds().isEmpty());
+        QVERIFY(factoryOnWorker.load());
+        QVERIFY(!probe->hasDevice());
         QTRY_VERIFY(registry.canRemoveOwner("reentrant-owner"));
 
         QVERIFY(_app.createTerminal("reentrantFixture",
@@ -5432,14 +5549,15 @@ content:
         replaceDuringFactory = true;
         selection->setCurrentIndex(selection->findData("reentrant.processor"));
         emit selection->activated(selection->currentIndex());
-        QVERIFY2(nestedSaved, qPrintable(error));
+        QTRY_VERIFY2(nestedSaved, qPrintable(error));
+        QVERIFY(factoryOnWorker.load());
         QCOMPARE(controller.selectedSettings().value("processing/marker").toString(), QString("nested"));
         QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("bypass"));
         Settings persisted(_app.session()->filePath(), {"termaster.session", "Termaster session"});
         QVERIFY(persisted.load(&error));
         QCOMPARE(persisted.value("objects/" + _app.selectedTerminal() + "/settings/processing/marker").toString(),
                  QString("nested"));
-        QVERIFY(panel->propertiesWidget()->findChild<QLabel*>("processingError")->text().contains("concurrently"));
+        QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("bypass"));
     }
 
     Q_SLOT void liveInplaceNodeRemovalPreservesTransportAndRetriesAtomically()
@@ -5503,14 +5621,14 @@ content:
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
-        QVERIFY(probe->device);
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
-        const auto attempts = probe->attempts;
-        const auto closes   = probe->closes;
+        QVERIFY(probe->hasDevice());
+        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
+        const auto attempts = probe->attempts.load();
+        const auto closes   = probe->closes.load();
         auto*      display  = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
         auto*      panel    = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
         QVERIFY(display && panel);
-        probe->device->injectReceive("A");
+        probe->injectReceive("A");
         QTRY_COMPARE(display->text(), QString("41"));
         panel->findChild<QToolButton*>("rxInplace")->click();
         auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
@@ -5534,11 +5652,11 @@ content:
         QCOMPARE(disk.readAll(), externalBytes);
         disk.close();
         display->clear();
-        probe->device->injectReceive("B");
+        probe->injectReceive("B");
         QTRY_COMPARE(display->text(), QString("42"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
-        QCOMPARE(probe->attempts, attempts);
-        QCOMPARE(probe->closes, closes);
+        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
+        QCOMPARE(probe->attempts.load(), attempts);
+        QCOMPARE(probe->closes.load(), closes);
 
         QVERIFY(disk.open(QIODevice::WriteOnly));
         QCOMPARE(disk.write(originalBytes), qint64(originalBytes.size()));
@@ -5555,13 +5673,13 @@ content:
         QCOMPARE(committed.value("unknown"), initial.value("unknown"));
         QCOMPARE(committed.value("inplace").toMap().value("rx").toMap(), editor->model().definitions());
         display->clear();
-        probe->device->injectReceive("C");
+        probe->injectReceive("C");
         QTRY_COMPARE(display->text(), QString("C"));
         display->outputBytes("still open", TerminalDisplay::OutputKind::Reply, {});
-        QTRY_COMPARE(probe->output, QByteArray("still open"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
-        QCOMPARE(probe->attempts, attempts);
-        QCOMPARE(probe->closes, closes);
+        QTRY_COMPARE(probe->output(), QByteArray("still open"));
+        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
+        QCOMPARE(probe->attempts.load(), attempts);
+        QCOMPARE(probe->closes.load(), closes);
         Settings persisted(_app.session()->filePath(), {"termaster.session", "Termaster session"});
         QVERIFY(persisted.load(&error));
         QCOMPARE(persisted.value("objects/" + _app.selectedTerminal() + "/settings/processing").toMap(), committed);
@@ -5656,7 +5774,7 @@ content:
         auto* display = tabs->widget(0)->findChild<TerminalDisplay*>("terminalDisplay");
         auto* panel   = tabs->widget(0)->findChild<TerminalProcessingPanel*>("terminalProcessing");
         QVERIFY(display && panel);
-        probes.at(0)->device->injectReceive("41");
+        probes.at(0)->injectReceive("41");
         QTRY_VERIFY(display->text().contains('A'));
         auto* commandEditor = tabs->widget(0)->findChild<CommandEditor*>("commandEditor");
         QVERIFY(commandEditor && commandEditor->isHidden());
@@ -5713,10 +5831,10 @@ content:
         host.connectSelectedTerminal();
         auto* secondDisplay = tabs->widget(1)->findChild<TerminalDisplay*>("terminalDisplay");
         QVERIFY(secondDisplay);
-        probes.at(1)->device->injectReceive("RAW");
+        probes.at(1)->injectReceive("RAW");
         QTRY_VERIFY(secondDisplay->text().contains("RAW"));
         secondDisplay->outputBytes("raw", TerminalDisplay::OutputKind::Reply, {});
-        QTRY_COMPARE(probes.at(1)->output, QByteArray("raw"));
+        QTRY_COMPARE(probes.at(1)->output(), QByteArray("raw"));
         auto secondConfiguration = initial;
         auto secondDiagrams      = initial.value("inplace").toMap();
         secondDiagrams.insert("rx", secondRx);
@@ -5724,7 +5842,7 @@ content:
         QVERIFY(controller.selectedSettings().setValue("processing", secondConfiguration));
         controller.applySettings();
         secondDisplay->clear();
-        probes.at(1)->device->injectReceive("B");
+        probes.at(1)->injectReceive("B");
         QTRY_VERIFY(secondDisplay->text().contains("42"));
         QVERIFY(_app.saveSession(&error));
         tabs->setCurrentIndex(0);
@@ -5782,7 +5900,7 @@ content:
         QCOMPARE(disk.readAll(), externalBytes);
         disk.close();
         display->clear();
-        probes.at(0)->device->injectReceive("44");
+        probes.at(0)->injectReceive("44");
         QTRY_VERIFY(display->text().contains('D'));
         QVERIFY(disk.open(QIODevice::WriteOnly));
         QCOMPARE(disk.write(originalBytes), qint64(originalBytes.size()));
@@ -5804,9 +5922,9 @@ content:
         QCOMPARE(persisted.value("objects/" + secondId + "/settings/processing/inplace/rx").toMap(), secondRx);
         for (const auto& probe : probes)
         {
-            if (probe->device)
+            if (probe->hasDevice())
             {
-                QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+                QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
             }
         }
         QVERIFY(!registry.type("terminal.inplace.rx"));
@@ -5979,26 +6097,27 @@ content:
         };
         toggleInput();
         QTest::keyClick(display, Qt::Key_S, connectionModifiers);
-        QTRY_COMPARE(probes[0]->device->state(), SerialDevice::State::Open);
-        QCOMPARE(probes[1]->attempts, 0);
+        QTRY_COMPARE(probes[0]->backendState.load(), SerialDevice::State::Open);
+        QCOMPARE(probes[1]->attempts.load(), 0);
         display->receive("\x1b[=10u");
         QKeyEvent restartPress(QEvent::KeyPress, Qt::Key_R, connectionModifiers);
         QKeyEvent restartRelease(QEvent::KeyRelease, Qt::Key_R, connectionModifiers);
         QApplication::sendEvent(display, &restartPress);
         QApplication::sendEvent(display, &restartRelease);
         display->receive("\x1b[=0u");
-        QTRY_COMPARE(probes[0]->attempts, 2);
-        QCOMPARE(probes[1]->attempts, 0);
+        QTRY_COMPARE(probes[0]->attempts.load(), 2);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
+        QCOMPARE(probes[1]->attempts.load(), 0);
         QCOMPARE(output.count(), 0);
-        QVERIFY(probes[0]->output.isEmpty());
+        QVERIFY(probes[0]->output().isEmpty());
         for (const auto key : {Qt::Key_S, Qt::Key_C, Qt::Key_X, Qt::Key_R})
         {
             QTest::keyClick(display, key, Qt::ControlModifier);
         }
-        QTRY_COMPARE(probes[0]->output, QByteArray::fromHex("13031812"));
+        QTRY_COMPARE(probes[0]->output(), QByteArray::fromHex("13031812"));
         output.clear();
         QTest::keyClick(display, Qt::Key_X, connectionModifiers);
-        QTRY_COMPARE(probes[0]->device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(probes[0]->backendState.load(), SerialDevice::State::Closed);
         QCOMPARE(output.count(), 0);
 
         QVERIFY(controller.detachTerminal(ids[0], &error));
@@ -6010,21 +6129,21 @@ content:
         QTRY_VERIFY(display->hasFocus());
         toggleInput();
         QTest::keyClick(display, Qt::Key_S, connectionModifiers);
-        QTRY_COMPARE(probes[0]->attempts, 3);
+        QTRY_COMPARE(probes[0]->attempts.load(), 3);
         QTest::keyClick(display, Qt::Key_R, connectionModifiers);
-        QTRY_COMPARE(probes[0]->attempts, 4);
-        QCOMPARE(probes[1]->attempts, 0);
+        QTRY_COMPARE(probes[0]->attempts.load(), 4);
+        QCOMPARE(probes[1]->attempts.load(), 0);
         QTest::keyClick(display, Qt::Key_X, connectionModifiers);
-        QTRY_COMPARE(probes[0]->device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(probes[0]->backendState.load(), SerialDevice::State::Closed);
         QTest::keyClick(display, Qt::Key_S, connectionModifiers | Qt::AltModifier);
-        QTRY_COMPARE(probes[0]->device->state(), SerialDevice::State::Open);
-        QTRY_COMPARE(probes[1]->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(probes[0]->backendState.load(), SerialDevice::State::Open);
+        QTRY_COMPARE(probes[1]->backendState.load(), SerialDevice::State::Open);
         QTest::keyClick(display, Qt::Key_X, connectionModifiers | Qt::AltModifier);
-        QTRY_COMPARE(probes[0]->device->state(), SerialDevice::State::Closed);
-        QTRY_COMPARE(probes[1]->device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(probes[0]->backendState.load(), SerialDevice::State::Closed);
+        QTRY_COMPARE(probes[1]->backendState.load(), SerialDevice::State::Closed);
         QCOMPARE(output.count(), 0);
-        QCOMPARE(probes[0]->output, QByteArray::fromHex("13031812"));
-        QVERIFY(probes[1]->output.isEmpty());
+        QCOMPARE(probes[0]->output(), QByteArray::fromHex("13031812"));
+        QVERIFY(probes[1]->output().isEmpty());
 
         // Persist both a replacement and explicit removal through the real settings owner.
         _app.mainWindow().activateWindow();
@@ -6057,13 +6176,13 @@ content:
         display->setFocus();
         QTRY_COMPARE(QApplication::activeWindow(), secondary);
         QTRY_VERIFY(display->hasFocus());
-        const auto attempts = probes[0]->attempts;
+        const auto attempts = probes[0]->attempts.load();
         QTest::keyClick(display, Qt::Key_S, connectionModifiers);
-        QCOMPARE(probes[0]->attempts, attempts);
+        QCOMPARE(probes[0]->attempts.load(), attempts);
         QTest::keyClick(display, Qt::Key_F9, Qt::ControlModifier | Qt::AltModifier);
-        QTRY_COMPARE(probes[0]->attempts, attempts + 1);
+        QTRY_COMPARE(probes[0]->attempts.load(), attempts + 1);
         QTest::keyClick(display, Qt::Key_X, connectionModifiers);
-        QTRY_COMPARE(probes[0]->device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(probes[0]->backendState.load(), SerialDevice::State::Closed);
 
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
@@ -6087,8 +6206,8 @@ content:
         QTRY_VERIFY(display->hasFocus());
         QTest::keyClick(display, Qt::Key_F9, Qt::ControlModifier | Qt::AltModifier);
         QTest::keyClick(display, Qt::Key_S, connectionModifiers);
-        QCOMPARE(probes[0]->attempts, attempts + 1);
-        QCOMPARE(probes[0]->device->state(), SerialDevice::State::Closed);
+        QCOMPARE(probes[0]->attempts.load(), attempts + 1);
+        QTRY_COMPARE(probes[0]->backendState.load(), SerialDevice::State::Closed);
     }
 
     Q_SLOT void bulkTerminalConnections()
@@ -6143,30 +6262,30 @@ content:
         QVERIFY(start->isEnabled());
         QVERIFY(!stop->isEnabled());
         start->trigger();
-        QCOMPARE(available->device->state(), SerialDevice::State::Open);
-        QCOMPARE(unavailable->device->state(), SerialDevice::State::Failed);
-        QCOMPARE(available->attempts, 1);
-        QCOMPARE(unavailable->attempts, 1);
+        QTRY_COMPARE(available->backendState.load(), SerialDevice::State::Open);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Failed);
+        QCOMPARE(available->attempts.load(), 1);
+        QCOMPARE(unavailable->attempts.load(), 1);
         QCOMPARE(_app.selectedTerminal(), selected);
         QVERIFY(host.connectionRequested("bulkUnavailable"));
         QVERIFY(!start->isEnabled());
         QVERIFY(stop->isEnabled());
         start->trigger();
-        QCOMPARE(available->attempts, 1);
+        QCOMPARE(available->attempts.load(), 1);
         stop->trigger();
-        QCOMPARE(available->device->state(), SerialDevice::State::Closed);
-        QCOMPARE(unavailable->device->state(), SerialDevice::State::Closed);
+        QTRY_COMPARE(available->backendState.load(), SerialDevice::State::Closed);
+        QTRY_COMPARE(unavailable->backendState.load(), SerialDevice::State::Closed);
         QVERIFY(!host.connectionRequested("bulkUnavailable"));
         QCOMPARE(_app.selectedTerminal(), selected);
         QVERIFY(start->isEnabled());
         QVERIFY(!stop->isEnabled());
         QTest::qWait(1200);
-        QCOMPARE(unavailable->attempts, 1);
+        QCOMPARE(unavailable->attempts.load(), 1);
         unavailable->available = true;
         start->trigger();
-        QCOMPARE(available->attempts, 2);
-        QCOMPARE(unavailable->attempts, 2);
-        QCOMPARE(unavailable->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(available->attempts.load(), 2);
+        QTRY_COMPARE(unavailable->attempts.load(), 2);
+        QTRY_COMPARE(unavailable->backendState.load(), SerialDevice::State::Open);
         stop->trigger();
 
         // Close is still offered when a backend registers no presentation actions.
@@ -6225,11 +6344,12 @@ content:
             if (index != 1)
             {
                 host.connectSelectedTerminal();
-                QCOMPARE(probes[index]->device->state(), SerialDevice::State::Open);
+                QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
             }
             if (index == 2)
             {
-                probes[index]->device->drop("Synthetic failure");
+                probes[index]->drop("Synthetic failure");
+                QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Failed);
             }
         }
         QVERIFY(_app.saveSession(&error));
@@ -6247,13 +6367,16 @@ content:
         }
         QVERIFY(_app.openWorkspace(workspacePath, &error));
         QCOMPARE(probes.size(), 8);
+        // Saving reads the GUI facade; backend Open alone precedes GUI event delivery.
+        QTRY_VERIFY(_app.saveSession(&error) && _app.session()->objects().value(ids[0] + "/connected").toBool());
+        QTRY_COMPARE(probes[4]->backendState.load(), SerialDevice::State::Open);
         int openCount = 0;
         int attempts  = 0;
         for (int index = 4; index < probes.size(); ++index)
         {
-            attempts  += probes[index]->attempts;
-            openCount += probes[index]->device->state() == SerialDevice::State::Open ? 1 : 0;
-            QVERIFY(probes[index]->output.isEmpty());
+            attempts  += probes[index]->attempts.load();
+            openCount += probes[index]->backendState.load() == SerialDevice::State::Open ? 1 : 0;
+            QVERIFY(probes[index]->output().isEmpty());
         }
         QCOMPARE(attempts, 1);
         QCOMPARE(openCount, 1);
@@ -6263,10 +6386,12 @@ content:
         QVERIFY(_app.saveSession(&error));
         host.registerTerminalType(type);
         QCOMPARE(probes.size(), 12);
+        QTRY_VERIFY(_app.saveSession(&error) && _app.session()->objects().value(ids[0] + "/connected").toBool());
+        QTRY_COMPARE(probes[8]->backendState.load(), SerialDevice::State::Open);
         attempts = 0;
         for (int index = 8; index < probes.size(); ++index)
         {
-            attempts += probes[index]->attempts;
+            attempts += probes[index]->attempts.load();
         }
         QCOMPARE(attempts, 1);
     }
@@ -6313,7 +6438,7 @@ content:
         };
         host.connectSelectedTerminal();
         QVERIFY(host.connectionRequested("retryFixture"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Failed);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Failed);
         QVERIFY(tooltip().contains("Desired: Connected"));
         QVERIFY(tooltip().contains("Synthetic port unavailable"));
         const auto hoverPoint = tabs->tabBar()->tabRect(tabs->currentIndex()).center();
@@ -6345,8 +6470,8 @@ content:
         QToolTip::hideText();
         const auto failedIcon = _tabStatus(tabs, tabs->currentIndex())->icon().pixmap(16, 16).toImage();
         probe->available      = true;
-        QTRY_COMPARE_WITH_TIMEOUT(probe->device->state(), SerialDevice::State::Open, 3500);
-        QVERIFY(probe->attempts >= 2);
+        QTRY_COMPARE_WITH_TIMEOUT(selectedDeviceState(_app), SerialDevice::State::Open, 3500);
+        QVERIFY(probe->attempts.load() >= 2);
         QVERIFY(tooltip().contains("Actual: Connected"));
         QVERIFY(!tooltip().contains("Synthetic port unavailable"));
         QVERIFY(_tabStatus(tabs, tabs->currentIndex())->icon().pixmap(16, 16).toImage() != failedIcon);
@@ -6357,41 +6482,43 @@ content:
         QVERIFY(tooltip().contains("Remote title"));
 
         probe->available = false;
-        probe->device->drop("Removed <synthetic> port");
+        probe->drop("Removed <synthetic> port");
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Failed);
         QVERIFY(host.connectionRequested("retryFixture"));
         QVERIFY(tabs->tabToolTip(tabs->currentIndex()).contains("&lt;synthetic&gt;"));
-        const int beforeRetry = probe->attempts;
-        QTRY_VERIFY_WITH_TIMEOUT(probe->attempts > beforeRetry, 3500);
+        const int beforeRetry = probe->attempts.load();
+        QTRY_VERIFY_WITH_TIMEOUT(probe->attempts.load() > beforeRetry, 3500);
         host.disconnectSelectedTerminal();
         QVERIFY(!host.connectionRequested("retryFixture"));
-        QCOMPARE(probe->device->state(), SerialDevice::State::Closed);
-        const int stoppedAttempts = probe->attempts;
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Closed);
+        const int stoppedAttempts = probe->attempts.load();
         probe->available          = true;
         QTest::qWait(1200);
-        QCOMPARE(probe->attempts, stoppedAttempts);
+        QCOMPARE(probe->attempts.load(), stoppedAttempts);
         host.connectSelectedTerminal();
-        QCOMPARE(probe->device->state(), SerialDevice::State::Open);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
         host.connectSelectedTerminal();
-        QCOMPARE(probe->attempts, stoppedAttempts + 1);
+        QCOMPARE(probe->attempts.load(), stoppedAttempts + 1);
 
         probe->available = false;
-        probe->device->drop("Removed synthetic port again");
-        const int unloadAttempts = probe->attempts;
+        probe->drop("Removed synthetic port again");
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Failed);
+        const int unloadAttempts = probe->attempts.load();
         QVERIFY(host.unregisterTerminalType("retryFixture", &error));
-        QVERIFY(!probe->device);
+        QVERIFY(!probe->hasDevice());
         QTest::qWait(1200);
-        QCOMPARE(probe->attempts, unloadAttempts);
+        QCOMPARE(probe->attempts.load(), unloadAttempts);
         host.registerTerminalType(type);
-        QVERIFY(probe->device);
-        QCOMPARE(probe->device->state(), SerialDevice::State::Closed);
+        QVERIFY(probe->hasDevice());
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Closed);
         QVERIFY(!host.connectionRequested("retryFixture"));
         host.connectSelectedTerminal();
         QVERIFY(host.connectionRequested("retryFixture"));
-        const int closedAttempts = probe->attempts;
+        const int closedAttempts = probe->attempts.load();
         QVERIFY(_app.closeWorkspace(&error));
-        QVERIFY(!probe->device);
+        QVERIFY(!probe->hasDevice());
         QTest::qWait(1200);
-        QCOMPARE(probe->attempts, closedAttempts);
+        QCOMPARE(probe->attempts.load(), closedAttempts);
     }
 
     Q_SLOT void pluginWindowLifecycle()

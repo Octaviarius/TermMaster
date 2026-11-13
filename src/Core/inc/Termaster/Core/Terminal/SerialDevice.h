@@ -7,7 +7,8 @@
 
 class QObject;
 
-/** Header-only byte-device ABI. Device and callbacks share the GUI thread.
+/** Header-only byte-device ABI. Device and callbacks share its owning thread.
+ * A host facade may marshal operations and callbacks across a dedicated transport worker.
  * The unique device owner clears callbacks and closes it before unloading its module.
  */
 class SerialDevice
@@ -42,6 +43,12 @@ public:
      * Stream devices may accept a prefix; datagrams are accepted atomically (including empty ones). */
     virtual qint64 write(const QByteArray& data, QString* error = nullptr)        = 0;
     virtual qint64 pendingBytes() const                                           = 0;
+    /** Cancels output still held by an optional host admission queue without disconnecting.
+     * Bytes already accepted by a native backend or an executing write cannot be recalled.
+     */
+    virtual void discardPendingOutput()
+    {
+    }
     /** Datagram transports require one atomic write per submission. */
     virtual bool atomicWrites() const
     {

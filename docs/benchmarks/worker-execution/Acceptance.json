@@ -1,0 +1,63 @@
+{
+  "configuration": "Release",
+  "qt": "6.12.0",
+  "compiler": "MSVC 2022 x64",
+  "ctest": {
+    "suites": 61,
+    "failed": 0,
+    "seconds": 81.62
+  },
+  "native100": {
+    "cases": 5,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 19.561,
+    "coverage": [
+      "tab and group drag",
+      "cancel",
+      "split",
+      "detach",
+      "return",
+      "frame and overflow",
+      "runtime identity"
+    ]
+  },
+  "native200": {
+    "cases": 4,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 0.827,
+    "coverage": [
+      "frame and overflow",
+      "group transfers",
+      "runtime identity"
+    ]
+  },
+  "inspection": "Qt widget captures inspected at 100% and 200%; no screen-state or layout corruption observed.",
+  "defaultDevices": "Synthetic transports, local TCP/UDP loopback and local console fixtures; no serial hardware or external peer commands.",
+  "processing": "Whole binary and empty packets, port metadata, nested single-thread Lineflow, owner responsiveness under heavy work, async timers, bounded ingress/egress, cancellation, owner-thread factory retirement, complete native TLS teardown, immediate shutdown, owned configuration.",
+  "transport": "Worker construction/calls/destruction, async open/failure, partial and atomic writes, empty datagrams, cancellation epochs and native credits, queue limits, stale generations, borrowed payload/error ownership, affinity rejection, native TLS teardown.",
+  "profile": {
+    "runsPerMode": 3,
+    "cyclesPerDockProcess": 5,
+    "source": "G:/TMP/Tmaster",
+    "isolatedCopy": true,
+    "sourceUnchanged": true,
+    "failures": 0
+  },
+  "limitations": [
+    "Host symlink creation unavailable in confinement test cases.",
+    "Independent SDK consumer and additional opt-in capture cases are not enabled in the default suite.",
+    "Native pointer gestures are tested at 100%; 200% verification uses widget captures and programmatic transfers.",
+    "Timing includes Qt paint delivery, not compositor latency; host load is uncontrolled."
+  ],
+  "debug": {
+    "applicationBuilt": true,
+    "testsRun": false,
+    "benchmarksRun": false
+  },
+  "binaries": {
+    "Release": "ca16a1a7281a8b6e7ef7751c4e8bdda6682c164227c4b908e7fe766633ead428",
+    "Debug": "ec9b20bb7f1be60e6f27328dbfc34e62756c32f79d4bcbbb4321612660ed3605"
+  }
+}

@@ -4,9 +4,11 @@
 
 Core exposes the header-only `SerialDevice`, `PluginHost` and optional
 `HostedPlugin` interfaces. The existing Plugin lifecycle remains unchanged.
-PluginManager supplies its borrowed host before startup. All device and host
-operations execute on the GUI thread; transport callbacks carry bytes, never
-pre-decoded text. Factories return exclusively owned devices.
+PluginManager supplies its borrowed host before startup. Host and panel operations
+execute on the GUI thread. Device factories, backend operations and callbacks run
+on a dedicated transport thread behind a GUI-owned facade; callbacks carry bytes,
+never pre-decoded text. Factories return exclusively owned devices and must not
+access widgets or host methods. See [worker execution](terminal-worker-execution.md).
 
 App's TerminalController owns runtime devices, terminal tabs, selected-target
 routing and layered settings. Core's TerminalScreen owns decoded screen state;

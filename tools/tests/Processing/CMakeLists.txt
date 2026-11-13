@@ -2,6 +2,17 @@ find_package(Qt6 REQUIRED COMPONENTS
     Test
     Widgets
 )
+
+qt_add_executable(ThreadedProcessorTests
+    ThreadedProcessorTests.cpp
+)
+target_compile_features(ThreadedProcessorTests PRIVATE cxx_std_20)
+target_link_libraries(ThreadedProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME ThreadedProcessorTests COMMAND ThreadedProcessorTests -o -,txt)
+
 qt_add_executable(DuplexProcessorTests
     DuplexProcessorTests.cpp
 )

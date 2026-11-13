@@ -1,0 +1,1710 @@
+{
+  "measurements": [
+    {
+      "ok": true,
+      "stage": "app.construct",
+      "wallMs": 93.8824,
+      "error": ""
+    },
+    {
+      "ok": true,
+      "stage": "app.start.to.eventloop",
+      "wallMs": 413.2613,
+      "error": ""
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "fromProcessMainMs": 432.9035,
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 39.921875,
+      "stage": "app.restored.first.presentation",
+      "wallMs": 19.612
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 39.921875,
+      "stage": "workspace.open.restore",
+      "wallMs": 66.5027
+    },
+    {
+      "ok": true,
+      "stage": "fixture",
+      "terminalCount": 6,
+      "error": ""
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.57421875,
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 8.5718
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.578125,
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 9.8265
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.578125,
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 5.7754
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.578125,
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 7.775
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 20.7983
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 11.8032
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 11.2738
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 10.1547
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 7.3517
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 8.8851
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 6.1318
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 8.8424
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 21.1476
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 11.7861
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 11.4
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 10.225
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 7.3683
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 7.5616
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 5.4369
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 6.8921
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 18.7044
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 12.9062
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 10.8876
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 9.7124
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 6.2375
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 7.8892
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 5.656
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 7.4331
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 20.3149
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 11.1917
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 12.2924
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 13.0744
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 6.9137
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 7.2672
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 5.8935
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 6.9874
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 18.4174
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 10.952
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 42.86328125,
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 10.5833
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 10.4802
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 40.58203125,
+      "stage": "dock.configured6.fixture",
+      "wallMs": 0.1992
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 61.97265625,
+      "stage": "dock.tabs1.tab.join.sync",
+      "wallMs": 5.4674
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 62.0234375,
+      "stage": "dock.tabs1.tab.join.presentation",
+      "wallMs": 6.7715
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.0234375,
+      "stage": "dock.tabs1.tab.split.sync",
+      "wallMs": 5.0621
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 62.0234375,
+      "stage": "dock.tabs1.tab.split.presentation",
+      "wallMs": 6.4386
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.0234375,
+      "stage": "dock.tabs1.group.move.sync",
+      "wallMs": 4.4292
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 62.0234375,
+      "stage": "dock.tabs1.group.move.presentation",
+      "wallMs": 10.1723
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.0234375,
+      "stage": "dock.tabs1.group.detach.sync",
+      "wallMs": 16.4485
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 63.15625,
+      "stage": "dock.tabs1.group.detach.presentation",
+      "wallMs": 10.614
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.15625,
+      "stage": "dock.tabs1.secondary.close.sync",
+      "wallMs": 10.2036
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 62.0234375,
+      "stage": "dock.tabs1.secondary.close.presentation",
+      "wallMs": 10.6474
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.0234375,
+      "stage": "dock.tabs1.tab.join.sync",
+      "wallMs": 6.7494
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 62.02734375,
+      "stage": "dock.tabs1.tab.join.presentation",
+      "wallMs": 5.1677
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 62.02734375,
+      "stage": "dock.tabs1.tab.split.sync",
+      "wallMs": 5.296
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 62.02734375,
+      "stage": "dock.tabs1.tab.split.presentation",
+      "wallMs": 6.1858
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 67.47265625,
+      "stage": "dock.tabs1.group.move.sync",
+      "wallMs": 10.297
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 66.25,
+      "stage": "dock.tabs1.group.move.presentation",
+      "wallMs": 13.0536
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.4296875,
+      "stage": "dock.tabs1.group.detach.sync",
+      "wallMs": 17.9877
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 64.62890625,
+      "stage": "dock.tabs1.group.detach.presentation",
+      "wallMs": 11.9799
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 64.62890625,
+      "stage": "dock.tabs1.secondary.close.sync",
+      "wallMs": 9.5954
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 63.546875,
+      "stage": "dock.tabs1.secondary.close.presentation",
+      "wallMs": 10.441
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.546875,
+      "stage": "dock.tabs1.tab.join.sync",
+      "wallMs": 6.6593
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 63.546875,
+      "stage": "dock.tabs1.tab.join.presentation",
+      "wallMs": 6.4774
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.546875,
+      "stage": "dock.tabs1.tab.split.sync",
+      "wallMs": 5.5982
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 63.546875,
+      "stage": "dock.tabs1.tab.split.presentation",
+      "wallMs": 7.7072
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.546875,
+      "stage": "dock.tabs1.group.move.sync",
+      "wallMs": 4.6659
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 63.609375,
+      "stage": "dock.tabs1.group.move.presentation",
+      "wallMs": 7.8464
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.609375,
+      "stage": "dock.tabs1.group.detach.sync",
+      "wallMs": 16.9744
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 64.7421875,
+      "stage": "dock.tabs1.group.detach.presentation",
+      "wallMs": 11.8712
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 64.7421875,
+      "stage": "dock.tabs1.secondary.close.sync",
+      "wallMs": 9.6634
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 63.609375,
+      "stage": "dock.tabs1.secondary.close.presentation",
+      "wallMs": 10.4601
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.609375,
+      "stage": "dock.tabs1.tab.join.sync",
+      "wallMs": 6.4325
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 63.609375,
+      "stage": "dock.tabs1.tab.join.presentation",
+      "wallMs": 4.8077
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.609375,
+      "stage": "dock.tabs1.tab.split.sync",
+      "wallMs": 6.3685
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 63.609375,
+      "stage": "dock.tabs1.tab.split.presentation",
+      "wallMs": 6.6098
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 67.2890625,
+      "stage": "dock.tabs1.group.move.sync",
+      "wallMs": 9.3527
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 63.44921875,
+      "stage": "dock.tabs1.group.move.presentation",
+      "wallMs": 10.172
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.4765625,
+      "stage": "dock.tabs1.group.detach.sync",
+      "wallMs": 16.4789
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 64.62890625,
+      "stage": "dock.tabs1.group.detach.presentation",
+      "wallMs": 10.4669
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 64.62890625,
+      "stage": "dock.tabs1.secondary.close.sync",
+      "wallMs": 10.5645
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 63.5703125,
+      "stage": "dock.tabs1.secondary.close.presentation",
+      "wallMs": 11.998
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.5703125,
+      "stage": "dock.tabs1.tab.join.sync",
+      "wallMs": 5.7107
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 63.5703125,
+      "stage": "dock.tabs1.tab.join.presentation",
+      "wallMs": 5.7499
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.5703125,
+      "stage": "dock.tabs1.tab.split.sync",
+      "wallMs": 6.2898
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 63.5703125,
+      "stage": "dock.tabs1.tab.split.presentation",
+      "wallMs": 7.0091
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.5703125,
+      "stage": "dock.tabs1.group.move.sync",
+      "wallMs": 4.9122
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 63.5859375,
+      "stage": "dock.tabs1.group.move.presentation",
+      "wallMs": 7.9989
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.59765625,
+      "stage": "dock.tabs1.group.detach.sync",
+      "wallMs": 16.3991
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 64.7421875,
+      "stage": "dock.tabs1.group.detach.presentation",
+      "wallMs": 11.8157
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 64.7421875,
+      "stage": "dock.tabs1.secondary.close.sync",
+      "wallMs": 9.6811
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 63.609375,
+      "stage": "dock.tabs1.secondary.close.presentation",
+      "wallMs": 10.3721
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 63.609375,
+      "stage": "dock.tabs1.fixture",
+      "wallMs": 0.0023
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 190.01953125,
+      "stage": "dock.tabs8.tab.join.sync",
+      "wallMs": 6.5293
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.tab.join.presentation",
+      "wallMs": 7.8945
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.tab.split.sync",
+      "wallMs": 7.2264
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.tab.split.presentation",
+      "wallMs": 7.1695
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.group.move.sync",
+      "wallMs": 7.909
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.group.move.presentation",
+      "wallMs": 8.3716
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.group.detach.sync",
+      "wallMs": 20.3643
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 191.16015625,
+      "stage": "dock.tabs8.group.detach.presentation",
+      "wallMs": 13.0072
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 191.16015625,
+      "stage": "dock.tabs8.secondary.close.sync",
+      "wallMs": 13.0415
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.secondary.close.presentation",
+      "wallMs": 12.9696
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.tab.join.sync",
+      "wallMs": 5.9413
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.tab.join.presentation",
+      "wallMs": 8.1092
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.tab.split.sync",
+      "wallMs": 6.7524
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 190.02734375,
+      "stage": "dock.tabs8.tab.split.presentation",
+      "wallMs": 8.0304
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.546875,
+      "stage": "dock.tabs8.group.move.sync",
+      "wallMs": 12.9436
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 195.546875,
+      "stage": "dock.tabs8.group.move.presentation",
+      "wallMs": 10.9372
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.546875,
+      "stage": "dock.tabs8.group.detach.sync",
+      "wallMs": 20.2584
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 5,
+      "privateMiB": 196.6953125,
+      "stage": "dock.tabs8.group.detach.presentation",
+      "wallMs": 12.9099
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 196.6953125,
+      "stage": "dock.tabs8.secondary.close.sync",
+      "wallMs": 11.2893
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.secondary.close.presentation",
+      "wallMs": 12.8014
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.tab.join.sync",
+      "wallMs": 5.6311
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.tab.join.presentation",
+      "wallMs": 7.4451
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.tab.split.sync",
+      "wallMs": 6.679
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.tab.split.presentation",
+      "wallMs": 7.8088
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.group.move.sync",
+      "wallMs": 6.9131
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.group.move.presentation",
+      "wallMs": 12.5793
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.group.detach.sync",
+      "wallMs": 19.2417
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 196.69140625,
+      "stage": "dock.tabs8.group.detach.presentation",
+      "wallMs": 15.1193
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 196.69140625,
+      "stage": "dock.tabs8.secondary.close.sync",
+      "wallMs": 12.1226
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.secondary.close.presentation",
+      "wallMs": 9.8196
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.tab.join.sync",
+      "wallMs": 7.374
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.tab.join.presentation",
+      "wallMs": 6.5531
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.tab.split.sync",
+      "wallMs": 6.7503
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.55859375,
+      "stage": "dock.tabs8.tab.split.presentation",
+      "wallMs": 6.8645
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.group.move.sync",
+      "wallMs": 11.2072
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.group.move.presentation",
+      "wallMs": 11.0496
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.group.detach.sync",
+      "wallMs": 21.2034
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 196.76953125,
+      "stage": "dock.tabs8.group.detach.presentation",
+      "wallMs": 11.2183
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 196.76953125,
+      "stage": "dock.tabs8.secondary.close.sync",
+      "wallMs": 10.9551
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.secondary.close.presentation",
+      "wallMs": 10.628
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.tab.join.sync",
+      "wallMs": 7.3242
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.tab.join.presentation",
+      "wallMs": 8.0255
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.tab.split.sync",
+      "wallMs": 6.4894
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.tab.split.presentation",
+      "wallMs": 7.5148
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.group.move.sync",
+      "wallMs": 6.9479
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.group.move.presentation",
+      "wallMs": 10.3526
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.group.detach.sync",
+      "wallMs": 19.5447
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 196.765625,
+      "stage": "dock.tabs8.group.detach.presentation",
+      "wallMs": 12.2988
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 196.765625,
+      "stage": "dock.tabs8.secondary.close.sync",
+      "wallMs": 11.6839
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.secondary.close.presentation",
+      "wallMs": 10.049
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 195.6328125,
+      "stage": "dock.tabs8.fixture",
+      "wallMs": 0.004
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 635,
+      "stage": "dock.tabs32.tab.join.sync",
+      "wallMs": 10.2847
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 635,
+      "stage": "dock.tabs32.tab.join.presentation",
+      "wallMs": 9.5467
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 635,
+      "stage": "dock.tabs32.tab.split.sync",
+      "wallMs": 10.4573
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 635,
+      "stage": "dock.tabs32.tab.split.presentation",
+      "wallMs": 7.9771
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 635,
+      "stage": "dock.tabs32.group.move.sync",
+      "wallMs": 21.4873
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 635,
+      "stage": "dock.tabs32.group.move.presentation",
+      "wallMs": 10.106
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 635.06640625,
+      "stage": "dock.tabs32.group.detach.sync",
+      "wallMs": 53.3919
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 636.19921875,
+      "stage": "dock.tabs32.group.detach.presentation",
+      "wallMs": 14.3455
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 636.19921875,
+      "stage": "dock.tabs32.secondary.close.sync",
+      "wallMs": 32.1268
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 635.06640625,
+      "stage": "dock.tabs32.secondary.close.presentation",
+      "wallMs": 11.4157
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 635.06640625,
+      "stage": "dock.tabs32.tab.join.sync",
+      "wallMs": 10.478
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 635.06640625,
+      "stage": "dock.tabs32.tab.join.presentation",
+      "wallMs": 6.8865
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 635.06640625,
+      "stage": "dock.tabs32.tab.split.sync",
+      "wallMs": 9.6793
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 635.06640625,
+      "stage": "dock.tabs32.tab.split.presentation",
+      "wallMs": 7.0343
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.group.move.sync",
+      "wallMs": 29.2353
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.group.move.presentation",
+      "wallMs": 12.9938
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.group.detach.sync",
+      "wallMs": 38.1965
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 641.6484375,
+      "stage": "dock.tabs32.group.detach.presentation",
+      "wallMs": 12.5961
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 641.6484375,
+      "stage": "dock.tabs32.secondary.close.sync",
+      "wallMs": 24.9513
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.secondary.close.presentation",
+      "wallMs": 13.1708
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.tab.join.sync",
+      "wallMs": 11.4872
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.tab.join.presentation",
+      "wallMs": 7.6943
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.tab.split.sync",
+      "wallMs": 9.6454
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.tab.split.presentation",
+      "wallMs": 6.8709
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.group.move.sync",
+      "wallMs": 20.3633
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.group.move.presentation",
+      "wallMs": 8.0813
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.group.detach.sync",
+      "wallMs": 38.4158
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 5,
+      "privateMiB": 641.64453125,
+      "stage": "dock.tabs32.group.detach.presentation",
+      "wallMs": 15.0143
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 641.64453125,
+      "stage": "dock.tabs32.secondary.close.sync",
+      "wallMs": 24.7431
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.secondary.close.presentation",
+      "wallMs": 11.8988
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.tab.join.sync",
+      "wallMs": 11.1893
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.tab.join.presentation",
+      "wallMs": 7.6068
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.tab.split.sync",
+      "wallMs": 9.4911
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.51171875,
+      "stage": "dock.tabs32.tab.split.presentation",
+      "wallMs": 7.4461
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.group.move.sync",
+      "wallMs": 26.569
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.group.move.presentation",
+      "wallMs": 11.5444
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.group.detach.sync",
+      "wallMs": 38.6947
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 641.796875,
+      "stage": "dock.tabs32.group.detach.presentation",
+      "wallMs": 11.5934
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 641.796875,
+      "stage": "dock.tabs32.secondary.close.sync",
+      "wallMs": 24.0533
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.secondary.close.presentation",
+      "wallMs": 12.5635
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.tab.join.sync",
+      "wallMs": 11.2837
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.tab.join.presentation",
+      "wallMs": 7.7982
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.tab.split.sync",
+      "wallMs": 9.6027
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.tab.split.presentation",
+      "wallMs": 7.1261
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.group.move.sync",
+      "wallMs": 21.5797
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.group.move.presentation",
+      "wallMs": 8.7671
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.group.detach.sync",
+      "wallMs": 35.9848
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 641.79296875,
+      "stage": "dock.tabs32.group.detach.presentation",
+      "wallMs": 15.6705
+    },
+    {
+      "cpuMs": 31.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 641.79296875,
+      "stage": "dock.tabs32.secondary.close.sync",
+      "wallMs": 24.5456
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.secondary.close.presentation",
+      "wallMs": 12.476
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 640.66015625,
+      "stage": "dock.tabs32.fixture",
+      "wallMs": 0.0101
+    },
+    {
+      "cpuMs": 203.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.30078125,
+      "stage": "dock.cleanup",
+      "wallMs": 219.37
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 59.35546875,
+      "stage": "window.close.loaded",
+      "wallMs": 9.7041
+    },
+    {
+      "ok": true,
+      "stage": "app.destruct",
+      "wallMs": 91.5185,
+      "error": ""
+    }
+  ],
+  "platform": "Windows MSVC Qt6 Release"
+}

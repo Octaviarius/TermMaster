@@ -151,6 +151,27 @@ private slots:
         QCOMPARE(error, "Device removed");
         QVERIFY(!transport->isOpen());
     }
+    void readTurnsYieldAndCloseCancelsContinuation()
+    {
+        auto             fake      = std::make_unique<FakeTransport>();
+        auto*            transport = fake.get();
+        SerialByteDevice device(std::move(fake));
+        qint64           received = 0;
+        device.setCallbacks({[&](const QByteArray& bytes) { received += bytes.size(); }});
+        QVERIFY(device.open({
+            {"portName", "synthetic"}
+        }));
+        transport->receive(QByteArray(1024 * 1024, 'x'));
+        QCOMPARE(received, 256 * 1024);
+        QTRY_COMPARE(received, 1024 * 1024);
+
+        transport->receive(QByteArray(1024 * 1024, 'y'));
+        QCOMPARE(received, 1280 * 1024);
+        device.close();
+        QTest::qWait(20);
+        QCOMPARE(received, 1280 * 1024);
+    }
+
     void synchronousOpenErrorCannotReopen()
     {
         SerialByteDevice* pointer   = nullptr;

@@ -46,10 +46,12 @@
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 #include <Termaster/Core/NumberedName.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
+#include <Termaster/Core/Processing/ThreadedProcessor.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/SettingsSchema.h>
 #include <Termaster/Core/Terminal/CommandInput.h>
 #include <Termaster/Core/Terminal/TerminalSendQueue.h>
+#include <Termaster/Core/Terminal/ThreadedSerialDevice.h>
 #include <Termaster/Core/Workspace.h>
 #include <algorithm>
 #include <stdexcept>
@@ -1319,7 +1321,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
     terminal->name = definition.value("name", id).toString();
     try
     {
-        terminal->device = type.registration.createDevice();
+        terminal->device = std::make_unique<ThreadedSerialDevice>(type.registration.createDevice);
         if (!terminal->device)
         {
             return fail(error, "Terminal device factory returned null");
@@ -3977,7 +3979,7 @@ std::optional<std::array<std::shared_ptr<Processor>, 2>> TerminalController::_pr
                           "Independent Rx/Tx processing requires a 1x1 processor");
             return std::nullopt;
         }
-        instances[index] = prepared->instantiate(selection.value("overrides").toMap(), error);
+        instances[index] = ThreadedProcessor::create(prepared, selection.value("overrides").toMap(), error);
         if (!self || !processors || !instances[index])
         {
             return std::nullopt;

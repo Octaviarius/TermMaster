@@ -35,6 +35,7 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Version.cpp
     inc/Termaster/Core/NumberedName.h
     src/NumberedName.cpp
+    src/Threading/ThreadJoinGuard.h
     inc/Termaster/Core/PurePath.h
     src/PurePath.cpp
     inc/Termaster/Core/Path.h
@@ -73,6 +74,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/Processing/ProcessorCatalog.h
     inc/Termaster/Core/Processing/ProcessorRegistry.h
     src/Processing/ProcessorRegistry.cpp
+    inc/Termaster/Core/Processing/ThreadedProcessor.h
+    src/Processing/ThreadedProcessor.cpp
     inc/Termaster/Core/Processing/ProcessorRefactoring.h
     src/Processing/ProcessorRefactoring.cpp
     inc/Termaster/Core/Processing/ProcessorBlocks.h
@@ -160,6 +163,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/Plugin/HostedPlugin.h
     inc/Termaster/Core/Plugin/PluginHost.h
     inc/Termaster/Core/Terminal/SerialDevice.h
+    inc/Termaster/Core/Terminal/ThreadedSerialDevice.h
+    src/Terminal/ThreadedSerialDevice.cpp
     inc/Termaster/Core/Terminal/TerminalSendQueue.h
     src/Terminal/TerminalSendQueue.cpp
     inc/Termaster/Core/Terminal/CommandInput.h

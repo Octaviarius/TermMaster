@@ -305,7 +305,7 @@ QString LineflowEditorModel::defaultBlockName() const
     {
         occupied.insert(definition.value().toMap().value("name").toString());
     }
-    return numberedName("Block", occupied);
+    return numberedName("Lineflow", occupied);
 }
 
 QString LineflowEditorModel::createBlock(const QString& name, QString* error)

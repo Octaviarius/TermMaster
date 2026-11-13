@@ -453,7 +453,7 @@ Raw evidence: [baseline](benchmarks/catalog-filtering/Release.json),
 [environment/provenance](benchmarks/catalog-filtering/ColdValidationEnvironment.json).
 
 New unnamed Lineflow definitions and automatically duplicated definitions use the
-first free `Block N` name. The creation dialog proposes that name; an explicit name
+first free `Lineflow N` class-based name. The creation dialog proposes that name; an explicit name
 remains unchanged. Deleting or renaming a definition makes its number available.
 Existing saved definition and node names are preserved. Focused naming checks cover
 block creation, duplication, explicit names, released numbers, insertion/drop paths
