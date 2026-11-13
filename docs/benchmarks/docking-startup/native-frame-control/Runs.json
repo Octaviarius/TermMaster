@@ -1,0 +1,29 @@
+{
+  "runs": [
+    {
+      "run": 1,
+      "exitCode": 0,
+      "timedOut": false,
+      "processWallSeconds": 10.763036799995461,
+      "launchToFirstPaintMs": 1539.4609999784734
+    }
+  ],
+  "sourceUnchanged": true,
+  "sourceFileCount": 4,
+  "serialOptIn": false,
+  "modes": {
+    "TERMASTER_PROFILE_NATIVE_GROUP_FRAME": "1",
+    "TERMASTER_PROFILE_SCOPES": "1",
+    "TERMASTER_PROFILE_DOCK_ONLY": "1",
+    "TERMASTER_PROFILE_RESTORED_STARTUP": "1",
+    "TERMASTER_PROFILE_ONE_CYCLE": null,
+    "TERMASTER_PROFILE_RESIZE_QUICK": null,
+    "TERMASTER_PROFILE_SKIP_TERMINAL": null,
+    "TERMASTER_PROFILE_CLOSE_ONLY": null,
+    "TERMASTER_PROFILE_RESIZE_ONLY": null,
+    "TERMASTER_PROFILE_DISPLAY_COMPARE": null,
+    "TERMASTER_PROFILE_DISPLAY_CONTENT": null,
+    "TERMASTER_PROFILE_DISPLAY_WRAP": null
+  },
+  "exeSha256": "9f4d4ca8f5cc4ea1e39250bc14c7cb610064e2513d5dd3d9170eaa8f402ce65b"
+}

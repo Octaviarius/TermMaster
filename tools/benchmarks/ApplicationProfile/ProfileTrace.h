@@ -68,4 +68,11 @@ private:
     Clock::time_point                 _start;
     double                            _children = 0;
 };
+/** Time one framework call without changing its return type or lifetime. */
+template <typename Function>
+decltype(auto) call(const char* name, Function&& function)
+{
+    Scope scope(name);
+    return function();
+}
 } // namespace ApplicationProfileTrace

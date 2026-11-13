@@ -22,6 +22,9 @@ def main():
     parser.add_argument('--qt', type=Path, default=Path('C:/Qt/6.12.0/msvc2022_64'))
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--repetitions', type=int, default=3)
+    parser.add_argument('--dock', action='store_true', help='Synthetic disconnected docking and secondary-close profile')
+    parser.add_argument('--restored-startup', action='store_true', help='Seed isolated last-workspace restoration before timed startup')
+    parser.add_argument('--existing-preferences', action='store_true', help='Seed enabled bundled plugins for returning-user startup')
     parser.add_argument('--serial', action='store_true', help='Explicit opt-in: COM3 115200 loopback')
     parser.add_argument('--capture-stacks', action='store_true', help='Capture bounded local CDB stack on timeout')
     parser.add_argument('--timeout', type=int, default=75)
@@ -38,10 +41,25 @@ def main():
     env = os.environ.copy()
     env['PATH'] = str(args.qt / 'bin') + os.pathsep + env.get('PATH', '')
     env['QT_QPA_PLATFORM_PLUGIN_PATH'] = str(args.qt / 'plugins/platforms')
+    if args.serial and (args.dock or args.restored_startup):
+        raise ValueError('Dock/startup controls cannot be combined with serial hardware opt-in')
+    if args.dock:
+        env['TERMASTER_PROFILE_DOCK_ONLY'] = '1'
+    if args.restored_startup:
+        env['TERMASTER_PROFILE_RESTORED_STARTUP'] = '1'
     statuses = []
     for index in range(args.repetitions):
         run = args.scratch / f'Run{index + 1}'
         shutil.copytree(args.source, run)
+        (run / '.profile-copy').write_text('Isolated profiling copy\n', encoding='utf-8')
+        prepare = [str(args.build / 'ApplicationProfile.exe'), '--prepare-fixture',
+                   str(run / 'ws.termaster'), str(args.scratch / f'Data{index + 1}')]
+        if args.restored_startup:
+            prepare.append('--restored-startup')
+        if args.existing_preferences:
+            prepare.append('--existing-preferences')
+        with (args.scratch / f'Prepare{index + 1}.log').open('w', encoding='utf-8') as log:
+            subprocess.run(prepare, env=env, stdout=log, stderr=log, timeout=30, check=True)
         report = args.scratch / f'Run{index + 1}.json'
         command = [str(args.build / 'ApplicationProfile.exe'), str(run / 'ws.termaster'),
                    str(args.scratch / f'Data{index + 1}'), str(args.build / 'plugin'), str(report)]
@@ -50,10 +68,17 @@ def main():
         log_path = args.scratch / f'Run{index + 1}.log'
         start = time.perf_counter()
         timed_out = False
+        first_paint_ms = None
         with log_path.open('w', encoding='utf-8') as log:
             process = subprocess.Popen(command, env=env, stdout=log, stderr=log)
             try:
-                code = process.wait(timeout=args.timeout)
+                if args.restored_startup:
+                    marker = Path(str(report) + '.ready')
+                    while process.poll() is None and not marker.exists() and time.perf_counter() - start < args.timeout:
+                        time.sleep(0.005)
+                    if marker.exists():
+                        first_paint_ms = (time.perf_counter() - start) * 1000
+                code = process.wait(timeout=max(0.001, args.timeout - (time.perf_counter() - start)))
             except subprocess.TimeoutExpired:
                 timed_out = True
                 if args.capture_stacks:
@@ -67,7 +92,7 @@ def main():
                 process.kill()
                 code = process.wait()
         status = {'run': index + 1, 'exitCode': code, 'timedOut': timed_out,
-                  'processWallSeconds': time.perf_counter() - start}
+                  'processWallSeconds': time.perf_counter() - start, 'launchToFirstPaintMs': first_paint_ms}
         statuses.append(status)
         if report.exists():
             data = json.loads(report.read_text(encoding='utf-8'))
@@ -86,8 +111,8 @@ def main():
         print(json.dumps(status), flush=True)
     unchanged = original == hashes(args.source)
     (args.output / 'Runs.json').write_text(json.dumps({'runs': statuses, 'sourceUnchanged': unchanged,
-        'sourceFileCount': len(original), 'serialOptIn': args.serial,
-        'modes': {key: env.get(key) for key in ('TERMASTER_PROFILE_ONE_CYCLE', 'TERMASTER_PROFILE_RESIZE_QUICK', 'TERMASTER_PROFILE_SKIP_TERMINAL', 'TERMASTER_PROFILE_CLOSE_ONLY', 'TERMASTER_PROFILE_RESIZE_ONLY', 'TERMASTER_PROFILE_DISPLAY_COMPARE', 'TERMASTER_PROFILE_DISPLAY_CONTENT', 'TERMASTER_PROFILE_DISPLAY_WRAP')},
+        'sourceFileCount': len(original), 'serialOptIn': args.serial, 'existingPreferences': args.existing_preferences,
+        'modes': {key: env.get(key) for key in ('TERMASTER_PROFILE_CONFIGURED_ONLY', 'TERMASTER_PROFILE_NATIVE_GROUP_FRAME', 'TERMASTER_PROFILE_SCOPES', 'TERMASTER_PROFILE_DOCK_ONLY', 'TERMASTER_PROFILE_RESTORED_STARTUP', 'TERMASTER_PROFILE_ONE_CYCLE', 'TERMASTER_PROFILE_RESIZE_QUICK', 'TERMASTER_PROFILE_SKIP_TERMINAL', 'TERMASTER_PROFILE_CLOSE_ONLY', 'TERMASTER_PROFILE_RESIZE_ONLY', 'TERMASTER_PROFILE_DISPLAY_COMPARE', 'TERMASTER_PROFILE_DISPLAY_CONTENT', 'TERMASTER_PROFILE_DISPLAY_WRAP')},
         'exeSha256': hashlib.sha256((args.build/'ApplicationProfile.exe').read_bytes()).hexdigest()}, indent=2)+'\n',encoding='utf-8')
     if not unchanged:
         raise RuntimeError('Source workspace changed during profiling; inspect it before making a preservation claim')

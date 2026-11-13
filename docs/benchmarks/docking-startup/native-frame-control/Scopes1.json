@@ -1,0 +1,362 @@
+[
+  {
+    "stage": "App::_activateSession",
+    "calls": 4,
+    "inclusiveMs": 322.8062,
+    "exclusiveMs": 7.0369
+  },
+  {
+    "stage": "App::_activateWorkspace",
+    "calls": 3,
+    "inclusiveMs": 108.8359,
+    "exclusiveMs": 11.9183
+  },
+  {
+    "stage": "App::_applyConfiguration",
+    "calls": 14,
+    "inclusiveMs": 2.608,
+    "exclusiveMs": 2.0872
+  },
+  {
+    "stage": "App::_ensureApplicationSettings",
+    "calls": 6,
+    "inclusiveMs": 16.356,
+    "exclusiveMs": 13.4212
+  },
+  {
+    "stage": "App::_updateRecent",
+    "calls": 18,
+    "inclusiveMs": 11.7156,
+    "exclusiveMs": 5.7373
+  },
+  {
+    "stage": "App::_updateSession",
+    "calls": 13,
+    "inclusiveMs": 28.6213,
+    "exclusiveMs": 1.9104
+  },
+  {
+    "stage": "App::restoreLastWorkspace",
+    "calls": 1,
+    "inclusiveMs": 272.0837,
+    "exclusiveMs": 11.2782
+  },
+  {
+    "stage": "PluginManager::_reconcile",
+    "calls": 4,
+    "inclusiveMs": 37.9771,
+    "exclusiveMs": 8.165
+  },
+  {
+    "stage": "PluginManager::_scan",
+    "calls": 6,
+    "inclusiveMs": 92.853,
+    "exclusiveMs": 92.8095
+  },
+  {
+    "stage": "PluginManager::setEnabled",
+    "calls": 3,
+    "inclusiveMs": 253.0697,
+    "exclusiveMs": 0.3461
+  },
+  {
+    "stage": "PluginManager::start",
+    "calls": 1,
+    "inclusiveMs": 41.0985,
+    "exclusiveMs": 0.0441
+  },
+  {
+    "stage": "Qt.insertTab",
+    "calls": 43,
+    "inclusiveMs": 10.9925,
+    "exclusiveMs": 9.6405
+  },
+  {
+    "stage": "Session::_validate",
+    "calls": 50,
+    "inclusiveMs": 11.9751,
+    "exclusiveMs": 4.3589
+  },
+  {
+    "stage": "Session::load",
+    "calls": 2,
+    "inclusiveMs": 11.7516,
+    "exclusiveMs": 0.4866
+  },
+  {
+    "stage": "Session::sync",
+    "calls": 48,
+    "inclusiveMs": 428.5581,
+    "exclusiveMs": 43.9736
+  },
+  {
+    "stage": "Settings::applyValues",
+    "calls": 262,
+    "inclusiveMs": 313.9843,
+    "exclusiveMs": 313.9843
+  },
+  {
+    "stage": "Settings::load",
+    "calls": 8,
+    "inclusiveMs": 29.0459,
+    "exclusiveMs": 29.0459
+  },
+  {
+    "stage": "Settings::sync",
+    "calls": 61,
+    "inclusiveMs": 781.7151,
+    "exclusiveMs": 781.7151
+  },
+  {
+    "stage": "Settings::value",
+    "calls": 22486,
+    "inclusiveMs": 101.1244,
+    "exclusiveMs": 101.1244
+  },
+  {
+    "stage": "SettingsSchema::SettingsSchema",
+    "calls": 52,
+    "inclusiveMs": 144.3742,
+    "exclusiveMs": 144.3742
+  },
+  {
+    "stage": "SettingsSchema::validate",
+    "calls": 150,
+    "inclusiveMs": 2.6518,
+    "exclusiveMs": 2.6518
+  },
+  {
+    "stage": "SettingsSchema::withDefaults",
+    "calls": 1018,
+    "inclusiveMs": 1.0947,
+    "exclusiveMs": 1.0947
+  },
+  {
+    "stage": "TerminalController::_changed",
+    "calls": 847,
+    "inclusiveMs": 560.0123,
+    "exclusiveMs": 121.527
+  },
+  {
+    "stage": "TerminalController::_cleanupGroups",
+    "calls": 78,
+    "inclusiveMs": 62.9578,
+    "exclusiveMs": 1.204
+  },
+  {
+    "stage": "TerminalController::_close",
+    "calls": 50,
+    "inclusiveMs": 489.6509,
+    "exclusiveMs": 485.5362
+  },
+  {
+    "stage": "TerminalController::_effective",
+    "calls": 996,
+    "inclusiveMs": 63.9968,
+    "exclusiveMs": 47.9221
+  },
+  {
+    "stage": "TerminalController::_focusChanged",
+    "calls": 579,
+    "inclusiveMs": 266.476,
+    "exclusiveMs": 1.9322
+  },
+  {
+    "stage": "TerminalController::_materialize",
+    "calls": 56,
+    "inclusiveMs": 965.5083,
+    "exclusiveMs": 281.1454
+  },
+  {
+    "stage": "TerminalController::_refreshGroupControls",
+    "calls": 1009,
+    "inclusiveMs": 488.6059,
+    "exclusiveMs": 241.0089
+  },
+  {
+    "stage": "TerminalController::_rememberTabOrder",
+    "calls": 142,
+    "inclusiveMs": 264.136,
+    "exclusiveMs": 5.7593
+  },
+  {
+    "stage": "TerminalController::_surfaceCommands",
+    "calls": 2018,
+    "inclusiveMs": 232.6261,
+    "exclusiveMs": 228.3737
+  },
+  {
+    "stage": "TerminalController::_validate",
+    "calls": 50,
+    "inclusiveMs": 2.9569,
+    "exclusiveMs": 1.9606
+  },
+  {
+    "stage": "TerminalController::applySettings",
+    "calls": 13,
+    "inclusiveMs": 13.9598,
+    "exclusiveMs": 1.5879
+  },
+  {
+    "stage": "TerminalController::closeAll",
+    "calls": 11,
+    "inclusiveMs": 490.9143,
+    "exclusiveMs": 0.305
+  },
+  {
+    "stage": "TerminalController::moveGroup",
+    "calls": 35,
+    "inclusiveMs": 967.8657,
+    "exclusiveMs": 367.7344
+  },
+  {
+    "stage": "TerminalController::moveTerminal",
+    "calls": 43,
+    "inclusiveMs": 527.5332,
+    "exclusiveMs": 107.0022
+  },
+  {
+    "stage": "TerminalController::refreshTerminalActions",
+    "calls": 1426,
+    "inclusiveMs": 540.6569,
+    "exclusiveMs": 100.3615
+  },
+  {
+    "stage": "TerminalController::returnWindow",
+    "calls": 20,
+    "inclusiveMs": 427.5651,
+    "exclusiveMs": 89.8082
+  },
+  {
+    "stage": "TerminalDisplay::_layout",
+    "calls": 13722,
+    "inclusiveMs": 54.657,
+    "exclusiveMs": 54.657
+  },
+  {
+    "stage": "TerminalDisplay::_updateGeometry",
+    "calls": 517,
+    "inclusiveMs": 219.8724,
+    "exclusiveMs": 202.1607
+  },
+  {
+    "stage": "TerminalDisplay::paintEvent",
+    "calls": 271,
+    "inclusiveMs": 128.838,
+    "exclusiveMs": 74.181
+  },
+  {
+    "stage": "TerminalDisplay::setAppearance",
+    "calls": 106,
+    "inclusiveMs": 14.485,
+    "exclusiveMs": 1.5971
+  },
+  {
+    "stage": "TerminalProcessingPanel::TerminalProcessingPanel",
+    "calls": 50,
+    "inclusiveMs": 402.6346,
+    "exclusiveMs": 191.4515
+  },
+  {
+    "stage": "TerminalProcessingPanel::_catalog",
+    "calls": 50,
+    "inclusiveMs": 211.114,
+    "exclusiveMs": 210.9116
+  },
+  {
+    "stage": "TerminalProcessingPanel::_showProperties",
+    "calls": 50,
+    "inclusiveMs": 0.0691,
+    "exclusiveMs": 0.0691
+  },
+  {
+    "stage": "TerminalProcessingPanel::setConfiguration",
+    "calls": 6,
+    "inclusiveMs": 0.0981,
+    "exclusiveMs": 0.0981
+  },
+  {
+    "stage": "TerminalScreen::_recolor",
+    "calls": 51,
+    "inclusiveMs": 0.8982,
+    "exclusiveMs": 0.8982
+  },
+  {
+    "stage": "TerminalScreen::setLimits",
+    "calls": 517,
+    "inclusiveMs": 17.7117,
+    "exclusiveMs": 17.7117
+  },
+  {
+    "stage": "TerminalTabGroup::TerminalTabGroup",
+    "calls": 78,
+    "inclusiveMs": 86.6212,
+    "exclusiveMs": 85.9369
+  },
+  {
+    "stage": "TerminalTabGroup::_refreshFrame",
+    "calls": 78,
+    "inclusiveMs": 0.6843,
+    "exclusiveMs": 0.6843
+  },
+  {
+    "stage": "TerminalTabGroup::setTabPresentation",
+    "calls": 847,
+    "inclusiveMs": 325.0419,
+    "exclusiveMs": 325.0419
+  },
+  {
+    "stage": "TerminalWorkspace::_createGroup",
+    "calls": 78,
+    "inclusiveMs": 88.8984,
+    "exclusiveMs": 2.2772
+  },
+  {
+    "stage": "TerminalWorkspace::_prune",
+    "calls": 214,
+    "inclusiveMs": 74.2187,
+    "exclusiveMs": 47.6596
+  },
+  {
+    "stage": "TerminalWorkspace::_setRoot",
+    "calls": 183,
+    "inclusiveMs": 80.9591,
+    "exclusiveMs": 64.3235
+  },
+  {
+    "stage": "TerminalWorkspace::appendWorkspace",
+    "calls": 20,
+    "inclusiveMs": 123.8266,
+    "exclusiveMs": 58.0294
+  },
+  {
+    "stage": "TerminalWorkspace::splitGroup",
+    "calls": 23,
+    "inclusiveMs": 131.5954,
+    "exclusiveMs": 85.9159
+  },
+  {
+    "stage": "TerminalWorkspace::transferGroup",
+    "calls": 35,
+    "inclusiveMs": 216.4284,
+    "exclusiveMs": 121.4258
+  },
+  {
+    "stage": "Workspace::_validateProcessors",
+    "calls": 9,
+    "inclusiveMs": 6.3928,
+    "exclusiveMs": 0.9231
+  },
+  {
+    "stage": "Workspace::load",
+    "calls": 1,
+    "inclusiveMs": 23.8647,
+    "exclusiveMs": 11.9049
+  },
+  {
+    "stage": "Workspace::sync",
+    "calls": 8,
+    "inclusiveMs": 180.6159,
+    "exclusiveMs": 174.7215
+  }
+]

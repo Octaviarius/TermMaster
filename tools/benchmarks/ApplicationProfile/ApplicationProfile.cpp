@@ -1,9 +1,16 @@
+#include "Gui/Terminal/DetachedTerminalWindow.h"
+#include "Gui/Terminal/TerminalController.h"
+#include "Gui/Terminal/TerminalTabGroup.h"
 #include "ProfileTrace.h"
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDir>
+#include <QDirIterator>
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
+#include <QFileInfo>
 #include <QFontInfo>
 #include <QFontMetricsF>
 #include <QJsonArray>
@@ -11,9 +18,11 @@
 #include <QJsonObject>
 #include <QMainWindow>
 #include <QPaintEvent>
+#include <QPointer>
 #include <QScrollBar>
 #include <QSerialPort>
 #include <QTabWidget>
+#include <QTemporaryDir>
 #include <QThread>
 #include <QTimer>
 #include <QWheelEvent>
@@ -22,10 +31,12 @@
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
+#include <Termaster/Core/Terminal/SerialDevice.h>
 #include <Termaster/Core/Workspace.h>
 #include <algorithm>
 #include <cstdio>
 #include <functional>
+#include <vector>
 #define NOMINMAX
 // clang-format off
 #include <windows.h>
@@ -68,6 +79,9 @@ quint64 cpuTime()
 
 void measure(const QString& name, const std::function<bool(QString&)>& action)
 {
+    const bool    scopesEnabled = qEnvironmentVariableIsSet("TERMASTER_PROFILE_SCOPES");
+    const auto    scopeBaseline = scopesEnabled ? ApplicationProfileTrace::store().records :
+                                                  std::map<std::string, ApplicationProfileTrace::Record> {};
     QString       error;
     const auto    cpu = cpuTime();
     QElapsedTimer timer;
@@ -84,6 +98,29 @@ void measure(const QString& name, const std::function<bool(QString&)>& action)
         {        "ok",                              ok},
         {     "error",                           error}
     });
+    if (scopesEnabled)
+    {
+        QJsonArray scopes;
+        for (const auto& [key, current] : ApplicationProfileTrace::store().records)
+        {
+            const auto previous = scopeBaseline.contains(key) ? scopeBaseline.at(key) :
+                                                                ApplicationProfileTrace::Record {};
+            const auto calls    = current.calls - previous.calls;
+            if (calls)
+            {
+                scopes.append(QJsonObject {
+                    {      "stage",                QString::fromStdString(key)},
+                    {      "calls",                              double(calls)},
+                    {"inclusiveMs", current.inclusiveMs - previous.inclusiveMs},
+                    {"exclusiveMs", current.exclusiveMs - previous.exclusiveMs}
+                });
+            }
+        }
+        auto record = measurements.last().toObject();
+        record.insert("scopes", scopes);
+        measurements[measurements.size() - 1] = record;
+    }
+
     fprintf(stderr, "%s: %.3f ms %s\n", qPrintable(name), ms, ok ? "ok" : qPrintable(error));
     fflush(stderr);
     if (!qEnvironmentVariableIsSet("TERMASTER_PROFILE_DISPLAY_COMPARE") || measurements.size() % 10 == 0)
@@ -156,6 +193,482 @@ void finishPresentation()
         QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
         QApplication::sendPostedEvents(nullptr, QEvent::UpdateRequest);
     }
+}
+
+/** Preparation runs in a separate process before the timed QApplication exists. */
+int prepareFixture(int argc, char** argv)
+{
+    QCoreApplication application(argc, argv);
+    const QString    workspace = QFileInfo(QString::fromLocal8Bit(argv[2])).absoluteFilePath();
+    const QString    data      = QString::fromLocal8Bit(argv[3]);
+    const QDir       root      = QFileInfo(workspace).absoluteDir();
+    if (!QFileInfo::exists(root.filePath(".profile-copy")) || QFileInfo::exists(workspace + ".processing-journal.json"))
+    {
+        fprintf(stderr, "Preparation requires a marked copy without a pending transaction\n");
+        return 4;
+    }
+    QString      error;
+    int          count = 0;
+    QDirIterator files(root.absolutePath(), {"session.yaml"}, QDir::Files, QDirIterator::Subdirectories);
+    while (files.hasNext())
+    {
+        const QString file = files.next();
+        if (++count > 10000 || QFileInfo(file).isSymLink())
+        {
+            return 4;
+        }
+        Settings session(file, {"termaster.session", "Profile session"});
+        if (!session.load(&error))
+        {
+            fprintf(stderr, "Cannot prepare session: %s\n", qPrintable(error));
+            return 4;
+        }
+        auto objects = session.value("objects").toMap();
+        for (auto it = objects.begin(); it != objects.end(); ++it)
+        {
+            auto object = it.value().toMap();
+            object.insert("connected", false);
+            it.value() = object;
+        }
+        if (!session.setValue("objects", objects, &error) || !session.sync(&error))
+        {
+            fprintf(stderr, "Cannot persist disconnected fixture: %s\n", qPrintable(error));
+            return 4;
+        }
+    }
+    if (argc > 4 && QByteArray(argv[4]) == "--restored-startup")
+    {
+        if (!QDir().mkpath(data))
+        {
+            return 4;
+        }
+        Settings settings(QDir(data).filePath("application.yaml"),
+                          {"termaster.application", "Isolated restored-startup profile"});
+        if (!settings.setValue("state/lastWorkspace", workspace, &error) || !settings.sync(&error))
+        {
+            fprintf(stderr, "Cannot seed startup: %s\n", qPrintable(error));
+            return 4;
+        }
+    }
+    if (application.arguments().contains("--existing-preferences"))
+    {
+        Settings    plugins(QDir(data).filePath("plugins.yaml"), {"termaster.plugins", "Isolated plugin preferences"});
+        QVariantMap enabled;
+        for (const auto& id : {"SerialTerminal", "ConsoleTerminal", "SocketTerminal"})
+        {
+            enabled.insert(QString("enabled/") + id, true);
+        }
+        if (!plugins.applyValues(enabled, {}, &error) || !plugins.sync(&error))
+        {
+            fprintf(stderr, "Cannot seed plugin preferences: %s\n", qPrintable(error));
+            return 4;
+        }
+    }
+    return 0;
+}
+
+/** Exercise configured plugin panels and processing owners before the synthetic fixtures replace them. */
+void configuredDockProbe(App& app)
+{
+    auto&         controller  = static_cast<TerminalController&>(app.pluginHost());
+    const auto    ids         = app.terminalIds();
+    const QString prefix      = QString("dock.configured%1.").arg(ids.size());
+    const auto    setupFailed = [&](const QString& cause) {
+        measure(prefix + "setup", [&](QString& error) {
+            error = cause;
+            return false;
+        });
+    };
+    if (!app.session() || ids.size() < 2 || ids.size() > 64)
+    {
+        setupFailed("Configured docking requires a loaded session with 2 to 64 terminals");
+        return;
+    }
+    auto*      session     = app.session();
+    const auto objectCount = session->objects().values().size();
+    QString    error;
+    if (controller.detachedWindow(ids.first()) && !controller.attachTerminal(ids.first(), &error))
+    {
+        setupFailed(error);
+        return;
+    }
+    QPointer<TerminalTabGroup> group(controller.terminalGroup(ids.first()));
+    if (!group)
+    {
+        setupFailed("Configured terminal group is unavailable");
+        return;
+    }
+    for (const auto& id : ids)
+    {
+        if (controller.terminalGroup(id) != group && !controller.moveTerminal(id, group, Qt::Edge(0), -1, &error))
+        {
+            setupFailed(error);
+            return;
+        }
+    }
+    QApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    app.mainWindow().show();
+    app.mainWindow().raise();
+    app.mainWindow().activateWindow();
+    finishPresentation();
+
+    struct BorrowedDevice
+    {
+        QPointer<QObject> object;
+        SerialDevice*     device = nullptr;
+    };
+    QList<QPointer<QWidget>>                        pages;
+    QList<BorrowedDevice>                           devices;
+    std::vector<std::unique_ptr<PresentationProbe>> paintProbes;
+    for (const auto& id : ids)
+    {
+        QWidget* page = nullptr;
+        for (int index = 0; index < group->tabs().count(); ++index)
+        {
+            auto* candidate = group->tabs().widget(index);
+            if (candidate->property("terminalId").toString() == id)
+            {
+                page = candidate;
+                break;
+            }
+        }
+        auto* display = page ? page->findChild<TerminalDisplay*>() : nullptr;
+        if (!display)
+        {
+            setupFailed("Configured terminal display is unavailable");
+            return;
+        }
+        group->tabs().setCurrentWidget(page);
+        display->setFocus();
+        finishPresentation();
+        const auto type   = session->objects().value(id).toMap().value("type").toString();
+        auto*      device = controller.selectedDevice(type);
+        if (controller.selectedTerminal() != id || !device || !device->object()
+            || device->state() != SerialDevice::State::Closed || controller.connectionRequested(type))
+        {
+            setupFailed("Configured terminal is not the active disconnected target");
+            return;
+        }
+        pages.append(page);
+        devices.append({device->object(), device});
+        paintProbes.push_back(std::make_unique<PresentationProbe>(*display->viewport()));
+    }
+    const auto paints = [&] {
+        int total = 0;
+        for (const auto& probe : paintProbes)
+        {
+            total += probe->paints();
+        }
+        return total;
+    };
+    const auto intact = [&] {
+        if (app.session() != session || app.terminalIds() != ids || session->objects().values().size() != objectCount)
+        {
+            return false;
+        }
+        for (int index = 0; index < ids.size(); ++index)
+        {
+            auto* current = controller.terminalGroup(ids[index]);
+            if (!pages[index] || !current || current->tabs().indexOf(pages[index]) < 0 || !devices[index].object
+                || devices[index].device->state() != SerialDevice::State::Closed
+                || session->objects().value(ids[index]).toMap().value("connected").toBool())
+            {
+                return false;
+            }
+        }
+        return true;
+    };
+    const auto operation = [&](
+                               const QString&                       name,
+                               const std::function<bool(QString&)>& action,
+                               const std::function<bool()>&         complete = [] { return true; }) {
+        bool      accepted     = false;
+        bool      presented    = false;
+        const int beforePaints = paints();
+        measure(prefix + name + ".sync", [&](QString& e) {
+            accepted = action(e) && intact();
+            return accepted;
+        });
+        measure(prefix + name + ".presentation", [&](QString& e) {
+            finishPresentation();
+            QApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            finishPresentation();
+            presented = accepted && intact() && complete() && paints() > beforePaints;
+            if (!presented)
+            {
+                e = "Configured docking completion or identity/state/paint verification failed";
+            }
+            return presented;
+        });
+        auto record = measurements.last().toObject();
+        record.insert("paintEvents", paints() - beforePaints);
+        measurements[measurements.size() - 1] = record;
+        return presented;
+    };
+    finishPresentation();
+    for (int repeat = 0; repeat < 5; ++repeat)
+    {
+        if (!operation("tab.split",
+                       [&](QString& e) {
+                           return controller.moveTerminal(ids.last(),
+                                                          controller.terminalGroup(ids.first()),
+                                                          Qt::RightEdge,
+                                                          -1,
+                                                          &e);
+                       })
+            || !operation("tab.join",
+                          [&](QString& e) {
+                              return controller.moveTerminal(ids.last(),
+                                                             controller.terminalGroup(ids.first()),
+                                                             Qt::Edge(0),
+                                                             -1,
+                                                             &e);
+                          })
+            || !operation("group.detach", [&](QString& e) {
+                   return controller.detachGroup(controller.terminalGroup(ids.first()), &e);
+               }))
+        {
+            return;
+        }
+        QPointer<DetachedTerminalWindow> detached(controller.detachedWindow(ids.first()));
+        if (!operation(
+                "secondary.close",
+                [&](QString& e) {
+                    if (!detached)
+                    {
+                        e = "Configured secondary window is unavailable";
+                        return false;
+                    }
+                    detached->close();
+                    for (const auto& id : ids)
+                    {
+                        if (controller.detachedWindow(id))
+                        {
+                            return false;
+                        }
+                    }
+                    return true;
+                },
+                [&] { return detached.isNull(); }))
+        {
+            return;
+        }
+    }
+    measure(prefix + "fixture", [&](QString&) {
+        return intact() && app.mainWindow().isVisible() && QGuiApplication::platformName() == "windows";
+    });
+}
+
+/** No transport is owned; an accidental connection attempt is counted and rejected. */
+class DockDevice final : public QObject, public SerialDevice
+{
+public:
+    explicit DockDevice(std::shared_ptr<int> opens) : _opens(std::move(opens))
+    {
+    }
+    QObject* object() override
+    {
+        return this;
+    }
+    State state() const override
+    {
+        return State::Closed;
+    }
+    void setCallbacks(Callbacks) override
+    {
+    }
+    bool open(const QVariantMap&, QString* error) override
+    {
+        ++*_opens;
+        if (error)
+        {
+            *error = "Synthetic profile transport cannot open";
+        }
+        return false;
+    }
+    void close() override
+    {
+    }
+    qint64 write(const QByteArray&, QString*) override
+    {
+        return -1;
+    }
+    qint64 pendingBytes() const override
+    {
+        return 0;
+    }
+
+private:
+    std::shared_ptr<int> _opens;
+};
+
+void dockProbe(App& app)
+{
+    configuredDockProbe(app);
+    if (qEnvironmentVariableIsSet("TERMASTER_PROFILE_CONFIGURED_ONLY"))
+    {
+        return;
+    }
+    auto&                    controller = static_cast<TerminalController&>(app.pluginHost());
+    auto                     opens      = std::make_shared<int>(0);
+    PluginHost::TerminalType type;
+    type.id     = "profileDock";
+    type.title  = "Synthetic docking fixture";
+    type.plugin = "Profile";
+    type.settingsSchema
+        = "version: 1\ntype: termaster.settings-schema\ndescription: Profile\ncontent:\n  type: object\n  properties: {}\n";
+    type.createDevice = [opens] { return std::make_unique<DockDevice>(opens); };
+    app.pluginHost().registerTerminalType(type);
+    QTemporaryDir fixture;
+    if (!fixture.isValid())
+    {
+        measure("dock.setup.failed", [&](QString& error) {
+            error = "Cannot create isolated docking fixture";
+            return false;
+        });
+        app.pluginHost().unregisterTerminalType(type.id);
+        return;
+    }
+    for (int count : {1, 8, 32})
+    {
+        QString error;
+        if (!app.closeWorkspace(&error)
+            || !app.createWorkspace(Path(fixture.filePath(QString("Dock%1.termaster").arg(count))), "Profile", &error)
+            || !app.createSession("Dock profile", &error))
+        {
+            measure("dock.setup.failed", [&](QString& e) {
+                e = error;
+                return false;
+            });
+            break;
+        }
+        QStringList              ids;
+        QList<QPointer<QWidget>> pages;
+        for (int index = 0; index <= count; ++index)
+        {
+            if (!app.createTerminal(type.id, {}, QString("Synthetic %1").arg(index), &error))
+            {
+                break;
+            }
+            ids.append(app.selectedTerminal());
+            pages.append(controller.terminalGroup(ids.last())->tabs().currentWidget());
+        }
+        if (ids.size() != count + 1)
+        {
+            measure("dock.setup.failed", [&](QString& e) {
+                e = error;
+                return false;
+            });
+            break;
+        }
+        auto* group = controller.terminalGroup(ids.first());
+        if (!controller.moveTerminal(ids.last(), group, Qt::RightEdge, -1, &error))
+        {
+            measure("dock.setup.failed", [&](QString& e) {
+                e = error;
+                return false;
+            });
+            break;
+        }
+        std::vector<std::unique_ptr<PresentationProbe>> paintProbes;
+        for (const auto& page : pages)
+        {
+            auto* display = page->findChild<TerminalDisplay*>();
+            if (display)
+            {
+                display->receive((QByteArray(80, 'x') + "\r\n").repeated(1000));
+                paintProbes.push_back(std::make_unique<PresentationProbe>(*display->viewport()));
+            }
+        }
+        const auto paints = [&] {
+            int total = 0;
+            for (const auto& probe : paintProbes)
+            {
+                total += probe->paints();
+            }
+            return total;
+        };
+        app.mainWindow().show();
+        app.mainWindow().raise();
+        finishPresentation();
+        const auto intact = [&] {
+            if (*opens != 0 || app.terminalIds().size() != ids.size())
+            {
+                return false;
+            }
+            for (int index = 0; index < ids.size(); ++index)
+            {
+                auto* current = controller.terminalGroup(ids[index]);
+                if (!pages[index] || !current || current->tabs().indexOf(pages[index]) < 0)
+                {
+                    return false;
+                }
+            }
+            return true;
+        };
+        const auto operation = [&](
+                                   const QString&                       name,
+                                   const std::function<bool(QString&)>& action,
+                                   const std::function<bool()>&         complete = [] { return true; }) {
+            bool          accepted     = false;
+            const int     beforePaints = paints();
+            const QString prefix       = QString("dock.tabs%1.%2").arg(count).arg(name);
+            measure(prefix + ".sync", [&](QString& e) {
+                accepted = action(e);
+                return accepted && intact();
+            });
+            measure(prefix + ".presentation", [&](QString&) {
+                finishPresentation();
+                QApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+                finishPresentation();
+                return accepted && intact() && complete() && paints() > beforePaints;
+            });
+            auto record = measurements.last().toObject();
+            record.insert("paintEvents", paints() - beforePaints);
+            measurements[measurements.size() - 1] = record;
+        };
+        for (int repeat = 0; repeat < 5; ++repeat)
+        {
+            operation("tab.join", [&](QString& e) {
+                return controller.moveTerminal(ids.last(), controller.terminalGroup(ids.first()), Qt::Edge(0), -1, &e);
+            });
+            operation("tab.split", [&](QString& e) {
+                return controller.moveTerminal(ids.last(),
+                                               controller.terminalGroup(ids.first()),
+                                               Qt::RightEdge,
+                                               -1,
+                                               &e);
+            });
+            operation("group.move", [&](QString& e) {
+                return controller.moveGroup(controller.terminalGroup(ids.first()),
+                                            controller.terminalGroup(ids.last()),
+                                            repeat % 2 ? Qt::LeftEdge : Qt::BottomEdge,
+                                            &e);
+            });
+            operation("group.detach",
+                      [&](QString& e) { return controller.detachGroup(controller.terminalGroup(ids.first()), &e); });
+            QPointer<DetachedTerminalWindow> detached(controller.detachedWindow(ids.first()));
+            operation(
+                "secondary.close",
+                [&](QString& e) {
+                    if (!detached)
+                    {
+                        e = "Missing secondary window";
+                        return false;
+                    }
+                    // closeEvent deliberately ignores the event and returns its workspace synchronously.
+                    detached->close();
+                    return !controller.detachedWindow(ids.first());
+                },
+                [&] { return detached.isNull(); });
+        }
+        measure(QString("dock.tabs%1.fixture").arg(count), [&](QString&) {
+            return intact() && app.mainWindow().isVisible() && QGuiApplication::platformName() == "windows";
+        });
+    }
+    measure("dock.cleanup", [&](QString& e) {
+        return app.closeWorkspace(&e) && app.pluginHost().unregisterTerminalType(type.id, &e) && *opens == 0;
+    });
 }
 
 void compareDisplay(QMainWindow& window, TerminalDisplay& display)
@@ -592,6 +1105,10 @@ void terminalProbe()
 
 int main(int argc, char** argv)
 {
+    if (argc >= 4 && QByteArray(argv[1]) == "--prepare-fixture")
+    {
+        return prepareFixture(argc, argv);
+    }
     if (argc < 5)
     {
         fprintf(stderr, "Usage: ApplicationProfile workspace data plugins output [--serial]\n");
@@ -614,12 +1131,49 @@ int main(int argc, char** argv)
             {"wallMs", startup.nsecsElapsed() / 1e6},
             {    "ok",                         true}
         });
+        PresentationProbe startupPaints(app.mainWindow());
         QTimer::singleShot(0, &app, [&] {
             measurements.append(QJsonObject {
                 { "stage",     "app.start.to.eventloop"},
                 {"wallMs", startup.nsecsElapsed() / 1e6},
                 {    "ok",                         true}
             });
+            if (qEnvironmentVariableIsSet("TERMASTER_PROFILE_SCOPES"))
+            {
+                QJsonArray scopes;
+                for (const auto& [key, record] : ApplicationProfileTrace::store().records)
+                {
+                    scopes.append(QJsonObject {
+                        {      "stage", QString::fromStdString(key)},
+                        {      "calls",        double(record.calls)},
+                        {"inclusiveMs",          record.inclusiveMs},
+                        {"exclusiveMs",          record.exclusiveMs}
+                    });
+                }
+                auto record = measurements.last().toObject();
+                record.insert("scopes", scopes);
+                measurements[measurements.size() - 1] = record;
+            }
+            if (qEnvironmentVariableIsSet("TERMASTER_PROFILE_RESTORED_STARTUP"))
+            {
+                double presentedMs = 0;
+                measure("app.restored.first.presentation", [&](QString&) {
+                    finishPresentation();
+                    presentedMs = startup.nsecsElapsed() / 1e6;
+                    return app.workspace() && app.session() && app.mainWindow().isVisible()
+                        && startupPaints.paints() > 0;
+                });
+                auto record = measurements.last().toObject();
+                record.insert("fromProcessMainMs", presentedMs);
+                record.insert("paintEvents", startupPaints.paints());
+                measurements[measurements.size() - 1] = record;
+                QFile ready(reportPath + ".ready");
+                if (measurements.last().toObject().value("ok").toBool() && ready.open(QIODevice::WriteOnly))
+                {
+                    ready.write("painted\n");
+                    ready.close();
+                }
+            }
             QString sessionId;
             measure("workspace.open.restore", [&](QString& error) {
                 const bool ok = app.openWorkspace(Path(workspace), &error);
@@ -634,6 +1188,12 @@ int main(int argc, char** argv)
                 {"terminalCount", app.terminalIds().size()},
                 {           "ok",     !sessionId.isEmpty()}
             });
+            if (qEnvironmentVariableIsSet("TERMASTER_PROFILE_DOCK_ONLY"))
+            {
+                dockProbe(app);
+                measure("window.close.loaded", [&](QString&) { return app.mainWindow().close(); });
+                return;
+            }
             if (qEnvironmentVariableIsSet("TERMASTER_PROFILE_CLOSE_ONLY"))
             {
                 measure("window.close.loaded", [&](QString&) { return app.mainWindow().close(); });

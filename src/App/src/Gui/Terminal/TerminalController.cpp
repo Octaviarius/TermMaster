@@ -2992,14 +2992,20 @@ bool TerminalController::capturePresentation(QString* error)
         return true;
     }
     // Snapshot before shutdown closes devices. Keep unavailable objects untouched.
+    QVariantMap connections;
     for (const auto& [id, terminal] : _terminals)
     {
-        if (!_session->objects().setValue(id + "/connected",
-                                          terminal->device->state() == SerialDevice::State::Open,
-                                          error))
+        const auto key       = id + "/connected";
+        const bool connected = terminal->device->state() == SerialDevice::State::Open;
+        const auto saved     = _session->objects().value(key);
+        if (saved.typeId() != QMetaType::Bool || saved.toBool() != connected)
         {
-            return false;
+            connections.insert(key, connected);
         }
+    }
+    if (!_session->objects().applyValues(std::move(connections), {}, error))
+    {
+        return false;
     }
 
     const auto                  saved = _session->presentation().value("terminalLayout").toMap();

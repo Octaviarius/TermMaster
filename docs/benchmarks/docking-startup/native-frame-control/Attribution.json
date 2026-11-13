@@ -1,0 +1,1125 @@
+{
+  "app.start.to.eventloop": [
+    {
+      "wallMs": 1465.1485,
+      "topExclusive": [
+        {
+          "calls": 3,
+          "exclusiveMs": 205.6175,
+          "inclusiveMs": 205.6175,
+          "stage": "Settings::sync"
+        },
+        {
+          "calls": 48,
+          "exclusiveMs": 141.35040000000004,
+          "inclusiveMs": 141.35040000000004,
+          "stage": "SettingsSchema::SettingsSchema"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 77.491,
+          "inclusiveMs": 80.3312,
+          "stage": "Workspace::sync"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 40.939,
+          "inclusiveMs": 40.9825,
+          "stage": "PluginManager::_scan"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 39.8715,
+          "inclusiveMs": 111.7313,
+          "stage": "TerminalController::_materialize"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 30.534100000000002,
+          "inclusiveMs": 52.1844,
+          "stage": "TerminalProcessingPanel::TerminalProcessingPanel"
+        },
+        {
+          "calls": 8,
+          "exclusiveMs": 29.0459,
+          "inclusiveMs": 29.0459,
+          "stage": "Settings::load"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 21.435399999999998,
+          "inclusiveMs": 21.6378,
+          "stage": "TerminalProcessingPanel::_catalog"
+        }
+      ]
+    }
+  ],
+  "dock.configured6.tab.join.sync": [
+    {
+      "wallMs": 13.7645,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 3.735000000000001,
+          "inclusiveMs": 13.432600000000003,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.329200000000001,
+          "inclusiveMs": 3.329200000000001,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.7339999999999998,
+          "inclusiveMs": 2.3358,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.9623999999999997,
+          "inclusiveMs": 0.9623999999999997,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.9358000000000004,
+          "inclusiveMs": 1.8371999999999957,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.6733000000000011,
+          "inclusiveMs": 1.3802999999999983,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.6681000000000026,
+          "inclusiveMs": 0.6816999999999993,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 0.6166999999999945,
+          "inclusiveMs": 0.6166999999999945,
+          "stage": "Settings::value"
+        }
+      ]
+    },
+    {
+      "wallMs": 11.3803,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 3.215299999999999,
+          "inclusiveMs": 11.0644,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.7279000000000018,
+          "inclusiveMs": 2.7279000000000018,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.6060999999999999,
+          "inclusiveMs": 2.0708,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.9846000000000004,
+          "inclusiveMs": 0.9846000000000004,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 0.5165000000000006,
+          "inclusiveMs": 0.5165000000000006,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.438600000000001,
+          "inclusiveMs": 0.8740000000000023,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.409200000000002,
+          "inclusiveMs": 0.41629999999999967,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.3304000000000009,
+          "inclusiveMs": 1.5414999999999992,
+          "stage": "TerminalController::_changed"
+        }
+      ]
+    },
+    {
+      "wallMs": 14.2857,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 4.991800000000001,
+          "inclusiveMs": 13.918700000000001,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.1473000000000013,
+          "inclusiveMs": 3.1473000000000013,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.2850000000000001,
+          "inclusiveMs": 1.7858,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.027099999999999,
+          "inclusiveMs": 1.027099999999999,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 0.8782999999999923,
+          "inclusiveMs": 0.8782999999999923,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.6306999999999974,
+          "inclusiveMs": 0.6446000000000041,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.5080999999999998,
+          "inclusiveMs": 0.5517000000000003,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.44490000000000407,
+          "inclusiveMs": 1.2012,
+          "stage": "TerminalController::_refreshGroupControls"
+        }
+      ]
+    },
+    {
+      "wallMs": 12.5813,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 3.919699999999999,
+          "inclusiveMs": 12.358400000000003,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.555799999999998,
+          "inclusiveMs": 2.555799999999998,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.891,
+          "inclusiveMs": 2.5016999999999996,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.9138999999999999,
+          "inclusiveMs": 0.9138999999999999,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 0.7164000000000073,
+          "inclusiveMs": 0.7164000000000073,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.5893000000000086,
+          "inclusiveMs": 0.602800000000002,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.44819999999999993,
+          "inclusiveMs": 1.0756999999999977,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.33620000000000005,
+          "inclusiveMs": 0.33620000000000005,
+          "stage": "Qt.insertTab"
+        }
+      ]
+    },
+    {
+      "wallMs": 11.4181,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 2.8354,
+          "inclusiveMs": 2.8354,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.6800000000000033,
+          "inclusiveMs": 11.075500000000005,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.7334000000000005,
+          "inclusiveMs": 2.182500000000001,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.8023999999999987,
+          "inclusiveMs": 0.8023999999999987,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 0.6547999999999945,
+          "inclusiveMs": 0.6547999999999945,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.6357999999999961,
+          "inclusiveMs": 0.6488999999999976,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.4662000000000006,
+          "inclusiveMs": 1.1407000000000096,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4039999999999999,
+          "inclusiveMs": 0.4039999999999999,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ]
+    }
+  ],
+  "dock.configured6.secondary.close.sync": [
+    {
+      "wallMs": 18.2478,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 4.4289000000000005,
+          "inclusiveMs": 17.8201,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.4518000000000004,
+          "inclusiveMs": 3.4518000000000004,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.3524000000000003,
+          "inclusiveMs": 2.4276,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.8842999999999996,
+          "inclusiveMs": 2.2186999999999983,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.3347999999999995,
+          "inclusiveMs": 1.3455000000000004,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 1.2487999999999992,
+          "inclusiveMs": 3.239200000000004,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 1.1015000000000015,
+          "inclusiveMs": 1.1015000000000015,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.8114999999999979,
+          "inclusiveMs": 1.3026999999999989,
+          "stage": "TerminalController::_effective"
+        }
+      ]
+    },
+    {
+      "wallMs": 18.3995,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 4.813300000000002,
+          "inclusiveMs": 18.0102,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.447700000000001,
+          "inclusiveMs": 3.447700000000001,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.2138999999999998,
+          "inclusiveMs": 2.2947999999999995,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.7040999999999968,
+          "inclusiveMs": 2.042900000000003,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.3963,
+          "inclusiveMs": 1.4055,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 1.2508,
+          "inclusiveMs": 3.367599999999996,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 1.1342000000000105,
+          "inclusiveMs": 1.1342000000000105,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.7978999999999985,
+          "inclusiveMs": 1.386000000000001,
+          "stage": "TerminalController::_effective"
+        }
+      ]
+    },
+    {
+      "wallMs": 20.665,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 5.534700000000001,
+          "inclusiveMs": 20.185899999999997,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.9598999999999975,
+          "inclusiveMs": 4.9598999999999975,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.2108999999999988,
+          "inclusiveMs": 2.3506,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.6664999999999992,
+          "inclusiveMs": 2.004000000000005,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.5349000000000004,
+          "inclusiveMs": 1.5457999999999998,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 1.1567000000000078,
+          "inclusiveMs": 1.1567000000000078,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 1.1196999999999981,
+          "inclusiveMs": 3.0311000000000092,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.7258999999999975,
+          "inclusiveMs": 1.2558000000000007,
+          "stage": "TerminalController::_effective"
+        }
+      ]
+    },
+    {
+      "wallMs": 16.6474,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 4.294199999999998,
+          "inclusiveMs": 16.275800000000004,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.258200000000002,
+          "inclusiveMs": 3.258200000000002,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.9341000000000008,
+          "inclusiveMs": 2.0024000000000015,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.6193999999999988,
+          "inclusiveMs": 1.6280000000000001,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.3273999999999972,
+          "inclusiveMs": 1.658299999999997,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 1.0177999999999976,
+          "inclusiveMs": 2.91970000000002,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 0.9466000000000179,
+          "inclusiveMs": 0.9466000000000179,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.7085999999999988,
+          "inclusiveMs": 1.1986999999999952,
+          "stage": "TerminalController::_effective"
+        }
+      ]
+    },
+    {
+      "wallMs": 16.6476,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 4.3553,
+          "inclusiveMs": 16.2945,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.2390999999999934,
+          "inclusiveMs": 3.2390999999999934,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.8787999999999982,
+          "inclusiveMs": 2.211100000000002,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.5960999999999999,
+          "inclusiveMs": 1.6561999999999983,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 1.0485999999999969,
+          "inclusiveMs": 3.356899999999982,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 1.0021999999999736,
+          "inclusiveMs": 1.0021999999999736,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 0.999400000000005,
+          "inclusiveMs": 0.999400000000005,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.821200000000001,
+          "inclusiveMs": 1.3081999999999994,
+          "stage": "TerminalController::_effective"
+        }
+      ]
+    }
+  ],
+  "dock.tabs32.tab.join.sync": [
+    {
+      "wallMs": 14.2662,
+      "topExclusive": [
+        {
+          "calls": 3,
+          "exclusiveMs": 5.293699999999998,
+          "inclusiveMs": 7.334200000000003,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.117900000000006,
+          "inclusiveMs": 14.251199999999983,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.6709999999999923,
+          "inclusiveMs": 1.6709999999999923,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.3533000000000044,
+          "inclusiveMs": 1.3533000000000044,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.570999999999998,
+          "inclusiveMs": 0.6973000000000127,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4568000000000003,
+          "inclusiveMs": 0.4568000000000003,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.386099999999999,
+          "inclusiveMs": 0.3930000000000007,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.3322999999999965,
+          "inclusiveMs": 0.3322999999999965,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ]
+    },
+    {
+      "wallMs": 16.1457,
+      "topExclusive": [
+        {
+          "calls": 3,
+          "exclusiveMs": 5.638999999999999,
+          "inclusiveMs": 7.208400000000005,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.8492999999999995,
+          "inclusiveMs": 16.12470000000002,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.018100000000004,
+          "inclusiveMs": 2.018100000000004,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.3567999999999927,
+          "inclusiveMs": 1.3567999999999927,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.5259,
+          "inclusiveMs": 0.5259,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.4983000000000004,
+          "inclusiveMs": 0.5257000000000005,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.48509999999998854,
+          "inclusiveMs": 0.494199999999978,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4667999999999992,
+          "inclusiveMs": 0.4667999999999992,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ]
+    },
+    {
+      "wallMs": 17.3072,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 4.535499999999999,
+          "inclusiveMs": 17.266700000000014,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 3.9014000000000024,
+          "inclusiveMs": 5.763000000000005,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.0597000000000207,
+          "inclusiveMs": 3.0597000000000207,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.9588999999999999,
+          "inclusiveMs": 1.9588999999999999,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.7706999999999997,
+          "inclusiveMs": 0.7706999999999997,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.6253999999999849,
+          "inclusiveMs": 0.6394999999999698,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.6034999999999968,
+          "inclusiveMs": 0.6339999999999861,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.39569999999999794,
+          "inclusiveMs": 0.39569999999999794,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ]
+    },
+    {
+      "wallMs": 22.4918,
+      "topExclusive": [
+        {
+          "calls": 3,
+          "exclusiveMs": 7.485799999999998,
+          "inclusiveMs": 9.813100000000006,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 5.390100000000004,
+          "inclusiveMs": 22.460199999999986,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.0138000000000034,
+          "inclusiveMs": 3.0138000000000034,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.2846999999999866,
+          "inclusiveMs": 2.2846999999999866,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.8342999999999998,
+          "inclusiveMs": 0.8343000000000007,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.6727999999999952,
+          "inclusiveMs": 0.708200000000005,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.6584000000000287,
+          "inclusiveMs": 0.6717000000000439,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.5382000000000033,
+          "inclusiveMs": 0.5382000000000033,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ]
+    },
+    {
+      "wallMs": 21.5449,
+      "topExclusive": [
+        {
+          "calls": 3,
+          "exclusiveMs": 7.086799999999997,
+          "inclusiveMs": 9.458699999999993,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.6825000000000045,
+          "inclusiveMs": 21.49509999999998,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.395500000000027,
+          "inclusiveMs": 3.395500000000027,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.0353999999999814,
+          "inclusiveMs": 2.0353999999999814,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.7618000000000009,
+          "inclusiveMs": 0.7617999999999991,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.7434999999999832,
+          "inclusiveMs": 0.7809000000000026,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.5883000000000038,
+          "inclusiveMs": 0.6023999999999887,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4637000000000029,
+          "inclusiveMs": 0.4637000000000029,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ]
+    }
+  ],
+  "dock.tabs32.group.move.sync": [
+    {
+      "wallMs": 29.1487,
+      "topExclusive": [
+        {
+          "calls": 32,
+          "exclusiveMs": 8.816199999999995,
+          "inclusiveMs": 8.816199999999995,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 7.416900000000002,
+          "inclusiveMs": 8.689499999999995,
+          "stage": "TerminalWorkspace::transferGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.0411,
+          "inclusiveMs": 3.0411,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 2.9347000000000065,
+          "inclusiveMs": 13.169200000000046,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.7295000000000016,
+          "inclusiveMs": 29.107500000000016,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 1.1949000000000112,
+          "inclusiveMs": 1.4166999999999845,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.123599999999982,
+          "inclusiveMs": 1.147299999999973,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 0.6126999999999896,
+          "inclusiveMs": 0.623299999999972,
+          "stage": "TerminalController::_surfaceCommands"
+        }
+      ]
+    },
+    {
+      "wallMs": 52.9865,
+      "topExclusive": [
+        {
+          "calls": 32,
+          "exclusiveMs": 20.059600000000046,
+          "inclusiveMs": 20.059600000000046,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 9.925000000000011,
+          "inclusiveMs": 10.009800000000013,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 8.3784,
+          "inclusiveMs": 18.528800000000004,
+          "stage": "TerminalWorkspace::transferGroup"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 4.507600000000011,
+          "inclusiveMs": 26.638900000000035,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.934500000000014,
+          "inclusiveMs": 52.96090000000004,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.891200000000026,
+          "inclusiveMs": 2.891200000000026,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 1.719699999999996,
+          "inclusiveMs": 2.0679000000000087,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 174,
+          "exclusiveMs": 0.6503999999999905,
+          "inclusiveMs": 0.6503999999999905,
+          "stage": "Settings::value"
+        }
+      ]
+    },
+    {
+      "wallMs": 37.4935,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 12.467600000000004,
+          "inclusiveMs": 14.0805,
+          "stage": "TerminalWorkspace::transferGroup"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 11.020799999999895,
+          "inclusiveMs": 11.020799999999895,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 3.787600000000026,
+          "inclusiveMs": 16.592299999999852,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.0749999999999886,
+          "inclusiveMs": 3.0749999999999886,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.9855000000000018,
+          "inclusiveMs": 37.453899999999976,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 1.3978000000000321,
+          "inclusiveMs": 1.7813000000000088,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.3503000000000043,
+          "inclusiveMs": 1.4195999999999742,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 174,
+          "exclusiveMs": 0.6459999999999582,
+          "inclusiveMs": 0.6459999999999582,
+          "stage": "Settings::value"
+        }
+      ]
+    },
+    {
+      "wallMs": 52.7744,
+      "topExclusive": [
+        {
+          "calls": 32,
+          "exclusiveMs": 18.855699999999928,
+          "inclusiveMs": 18.855699999999928,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 12.5231,
+          "inclusiveMs": 20.681299999999993,
+          "stage": "TerminalWorkspace::transferGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.883399999999995,
+          "inclusiveMs": 7.966199999999986,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 4.129900000000035,
+          "inclusiveMs": 24.866199999999992,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.8304999999999723,
+          "inclusiveMs": 2.8304999999999723,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.4732999999999947,
+          "inclusiveMs": 52.725400000000036,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 1.5581999999999923,
+          "inclusiveMs": 1.8777999999999793,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 0.6696000000000026,
+          "inclusiveMs": 0.6825000000000045,
+          "stage": "TerminalController::_surfaceCommands"
+        }
+      ]
+    },
+    {
+      "wallMs": 39.5577,
+      "topExclusive": [
+        {
+          "calls": 1,
+          "exclusiveMs": 13.055999999999997,
+          "inclusiveMs": 15.179200000000009,
+          "stage": "TerminalWorkspace::transferGroup"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 11.563699999999983,
+          "inclusiveMs": 11.563699999999983,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 3.418399999999977,
+          "inclusiveMs": 16.54479999999984,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.150800000000004,
+          "inclusiveMs": 3.150800000000004,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.425200000000018,
+          "inclusiveMs": 39.529300000000035,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.854299999999995,
+          "inclusiveMs": 1.9351000000000056,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 32,
+          "exclusiveMs": 1.2628999999999877,
+          "inclusiveMs": 1.560299999999998,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 0.8532000000000153,
+          "inclusiveMs": 0.8717000000000326,
+          "stage": "TerminalController::_surfaceCommands"
+        }
+      ]
+    }
+  ]
+}
