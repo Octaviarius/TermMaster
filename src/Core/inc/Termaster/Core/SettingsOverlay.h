@@ -21,11 +21,22 @@ public:
     SettingsOverlay node(const QString& path) const;
 
 private:
+    struct Lookup
+    {
+        QVariant  value;
+        bool      found        = false;
+        bool      blocked      = false;
+        bool      mapping      = false;
+        qsizetype mappingDepth = 0;
+        qsizetype blockedDepth = 0;
+    };
+
     Settings::Node                   _base;
     std::shared_ptr<SettingsOverlay> _inherited;
     Settings::Node                   _overrides;
     QString                          _prefix;
     bool                             _validPath = true;
+    Lookup                           _lookup(const QString& key, bool materialize) const;
     QVariantMap                      _baseValues() const;
     QString                          _key(const QString& key) const;
 };

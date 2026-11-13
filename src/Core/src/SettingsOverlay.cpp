@@ -72,21 +72,8 @@ bool SettingsOverlay::isValid() const
     {
         return true;
     }
-    QVariant current = merge(_baseValues(), _overrides.values());
-    for (const auto& part : _prefix.split('/'))
-    {
-        if (current.typeId() != QMetaType::QVariantMap)
-        {
-            return false;
-        }
-        const auto map = current.toMap();
-        if (!map.contains(part))
-        {
-            return true;
-        }
-        current = map.value(part);
-    }
-    return current.typeId() == QMetaType::QVariantMap;
+    const auto result = _lookup(_prefix, false);
+    return !result.blocked && (!result.found || result.mapping);
 }
 
 bool SettingsOverlay::contains(const QString& key) const
@@ -95,9 +82,7 @@ bool SettingsOverlay::contains(const QString& key) const
     {
         return false;
     }
-    bool found = false;
-    lookup(merge(_baseValues(), _overrides.values()), _key(key), &found);
-    return found;
+    return _lookup(_key(key), false).found;
 }
 
 QVariant SettingsOverlay::value(const QString& key, const QVariant& fallback) const
@@ -106,9 +91,8 @@ QVariant SettingsOverlay::value(const QString& key, const QVariant& fallback) co
     {
         return fallback;
     }
-    bool       found  = false;
-    const auto result = lookup(merge(_baseValues(), _overrides.values()), _key(key), &found);
-    return found ? result : fallback;
+    const auto result = _lookup(_key(key), true);
+    return result.found ? result.value : fallback;
 }
 
 bool SettingsOverlay::containsOverride(const QString& key) const
@@ -239,6 +223,68 @@ SettingsOverlay SettingsOverlay::node(const QString& path) const
         scoped._validPath = _validPath && validKey(path) && validKey(scoped._prefix);
     }
     return scoped;
+}
+
+SettingsOverlay::Lookup SettingsOverlay::_lookup(const QString& key, bool materialize) const
+{
+    const auto read = [&key, materialize](const Settings::Node& node) {
+        Lookup     result;
+        QString    prefix;
+        const auto parts = key.split('/');
+        for (qsizetype index = 0; index < parts.size(); ++index)
+        {
+            prefix = prefix.isEmpty() ? parts[index] : prefix + '/' + parts[index];
+            if (!node.contains(prefix))
+            {
+                return result;
+            }
+            const bool mapping = node.node(prefix).isValid();
+            if (index + 1 < parts.size())
+            {
+                if (!mapping)
+                {
+                    result.blocked      = true;
+                    result.blockedDepth = index + 1;
+                    return result;
+                }
+                result.mappingDepth = index + 1;
+                continue;
+            }
+            result.found   = true;
+            result.mapping = mapping;
+            if (materialize)
+            {
+                result.value = node.value(key);
+            }
+        }
+        return result;
+    };
+
+    auto result = read(_overrides);
+    if (result.blocked || (result.found && (!result.mapping || !materialize)))
+    {
+        return result;
+    }
+
+    auto base = _inherited ? _inherited->_lookup(_inherited->_key(key), materialize) : read(_base);
+    if (_inherited && base.blocked && !_inherited->_prefix.isEmpty())
+    {
+        base.blockedDepth -= _inherited->_prefix.count('/') + 1;
+    }
+    if (!result.found)
+    {
+        // A higher mapping replaces a lower scalar at the same ancestor.
+        if (base.blocked && base.blockedDepth <= result.mappingDepth)
+        {
+            return result;
+        }
+        return base;
+    }
+    if (base.found && base.mapping)
+    {
+        result.value = merge(base.value.toMap(), result.value.toMap());
+    }
+    return result;
 }
 
 QVariantMap SettingsOverlay::_baseValues() const
