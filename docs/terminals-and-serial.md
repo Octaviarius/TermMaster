@@ -31,13 +31,14 @@ PluginManager remains responsible for dependencies and reverse-order shutdown.
 ## Sessions and terminal settings
 
 Each session object has a stable UUID, mutable human-readable name, terminal type,
-plugin ID and settings map. Empty creation names use the existing adjective/noun
-generator. Unknown or unavailable object types remain persisted and inactive.
-Saving a session snapshots each live terminal's actual connection as a boolean
+plugin ID and settings map. Empty creation names use the first available `Terminal N`
+name. Unknown or unavailable object types remain persisted and inactive.
+Saving a session snapshots each live terminal's requested connection as a boolean
 `objects/<id>/connected` before devices are closed. Loading the session or enabling
-its plugin reconstructs recognized terminals, then reconnects those saved open.
-New terminals and absent flags remain disconnected. Opening, closing, failed and
-closed devices are saved disconnected; retry intent is not a persisted connection. Closing a tab
+its plugin reconstructs recognized terminals, then resumes saved connection requests.
+New terminals and absent flags remain disconnected. Opening, failed and temporarily
+unavailable devices retain an active request and resume the backend's retry policy.
+Explicit Stop, a naturally exited console process or closing a tab clears the request. Closing a tab
 releases runtime resources and retains its saved definition for session reopening.
 Session/workspace replacement releases runtime objects before their settings owners.
 
@@ -344,3 +345,18 @@ AppTests passed 14 cases including normal process exit; SessionTests passed 13
 cases with two host-dependent symlink skips. The connection restoration fixture
 also passed on the native Windows platform (3 cases including setup/cleanup).
 No hardware or external network was used.
+
+## APP-35: Persist requested connection state
+
+Connection snapshots now persist the existing runtime request rather than testing
+whether the backend is physically Open. A requested but unavailable port therefore
+resumes connection attempts after session/workspace restoration. The `connected`
+boolean remains the single persisted flag; no parallel actual-state field or
+compatibility reader is introduced. Physical state remains transient diagnostics.
+
+Release acceptance covers first-open failure, retries after workspace reopening,
+successful recovery when the synthetic device becomes available, explicit Stop
+remaining disabled across another reopen, mixed open/failed/closed views and
+provider unload/reload. No payload is replayed during recovery. A previously saved
+false flag does not contain enough information to reconstruct discarded intent;
+starting that terminal again establishes the request for future saves.
