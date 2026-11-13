@@ -6308,7 +6308,65 @@ content:
         QVERIFY(!stop->isEnabled());
     }
 
-    Q_SLOT void terminalConnectionSnapshotRestoresOnlyOpenDevices()
+    Q_SLOT void unavailableConnectionRestoresRetriesUntilExplicitStop()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        const Path    workspacePath(temporary.filePath("RetryRestore.termaster"));
+        QVERIFY(_app.createWorkspace(workspacePath, "Retry restore", &error));
+        QVERIFY(_app.createSession("Retry restore", &error));
+        auto&                                          host = _app.pluginHost();
+        QList<std::shared_ptr<ReconnectDevice::Probe>> probes;
+        PluginHost::TerminalType                       type;
+        type.id     = "retryRestoreFixture";
+        type.title  = "Retry restore fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Retry restore fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [&probes] {
+            auto probe = std::make_shared<ReconnectDevice::Probe>();
+            probes.append(probe);
+            return std::make_unique<ReconnectDevice>(probe);
+        };
+        host.registerTerminalType(type);
+        const auto cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType(type.id);
+        });
+        QVERIFY(_app.createTerminal(type.id, {}, "Unavailable", &error));
+        const auto id = _app.selectedTerminal();
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Failed);
+        QVERIFY(host.connectionRequested(type.id));
+        QVERIFY(_app.closeWorkspace(&error));
+
+        QVERIFY(_app.openWorkspace(workspacePath, &error));
+        QCOMPARE(probes.size(), 2);
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        QVERIFY(host.connectionRequested(type.id));
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Failed);
+        QVERIFY(_app.session()->objects().value(id + "/connected").toBool());
+        const int attempts = probes[1]->attempts.load();
+        QTRY_VERIFY_WITH_TIMEOUT(probes[1]->attempts.load() > attempts, 3500);
+        probes[1]->available = true;
+        QTRY_COMPARE_WITH_TIMEOUT(selectedDeviceState(_app), SerialDevice::State::Open, 3500);
+        QVERIFY(probes[1]->output().isEmpty());
+
+        host.disconnectSelectedTerminal();
+        QVERIFY(!host.connectionRequested(type.id));
+        QVERIFY(_app.closeWorkspace(&error));
+        QVERIFY(_app.openWorkspace(workspacePath, &error));
+        QCOMPARE(probes.size(), 3);
+        QVERIFY(!_app.session()->objects().value(id + "/connected").toBool());
+        QVERIFY(!host.connectionRequested(type.id));
+        QTest::qWait(1200);
+        QCOMPARE(probes[2]->attempts.load(), 0);
+    }
+
+    Q_SLOT void terminalConnectionSnapshotRestoresRequestedConnections()
     {
         QTemporaryDir temporary;
         QString       error;
@@ -6363,13 +6421,14 @@ content:
         {
             const auto value = persisted.value("objects/" + ids[index] + "/connected");
             QCOMPARE(value.typeId(), QMetaType::Bool);
-            QCOMPARE(value.toBool(), index == 0);
+            QCOMPARE(value.toBool(), index == 0 || index == 2);
         }
         QVERIFY(_app.openWorkspace(workspacePath, &error));
         QCOMPARE(probes.size(), 8);
-        // Saving reads the GUI facade; backend Open alone precedes GUI event delivery.
+        // Both the open terminal and the terminal awaiting retry retain connection intent.
         QTRY_VERIFY(_app.saveSession(&error) && _app.session()->objects().value(ids[0] + "/connected").toBool());
         QTRY_COMPARE(probes[4]->backendState.load(), SerialDevice::State::Open);
+        QTRY_COMPARE(probes[6]->backendState.load(), SerialDevice::State::Open);
         int openCount = 0;
         int attempts  = 0;
         for (int index = 4; index < probes.size(); ++index)
@@ -6378,8 +6437,8 @@ content:
             openCount += probes[index]->backendState.load() == SerialDevice::State::Open ? 1 : 0;
             QVERIFY(probes[index]->output().isEmpty());
         }
-        QCOMPARE(attempts, 1);
-        QCOMPARE(openCount, 1);
+        QCOMPARE(attempts, 2);
+        QCOMPARE(openCount, 2);
 
         // Missing providers retain snapshots; enabling the provider applies them once.
         QVERIFY(host.unregisterTerminalType(type.id, &error));
@@ -6388,12 +6447,13 @@ content:
         QCOMPARE(probes.size(), 12);
         QTRY_VERIFY(_app.saveSession(&error) && _app.session()->objects().value(ids[0] + "/connected").toBool());
         QTRY_COMPARE(probes[8]->backendState.load(), SerialDevice::State::Open);
+        QTRY_COMPARE(probes[10]->backendState.load(), SerialDevice::State::Open);
         attempts = 0;
         for (int index = 8; index < probes.size(); ++index)
         {
             attempts += probes[index]->attempts.load();
         }
-        QCOMPARE(attempts, 1);
+        QCOMPARE(attempts, 2);
     }
 
     Q_SLOT void desiredConnectionSurvivesDeviceLoss()
@@ -6510,8 +6570,9 @@ content:
         QCOMPARE(probe->attempts.load(), unloadAttempts);
         host.registerTerminalType(type);
         QVERIFY(probe->hasDevice());
-        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Closed);
-        QVERIFY(!host.connectionRequested("retryFixture"));
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Failed);
+        QTRY_VERIFY(probe->attempts.load() > unloadAttempts);
+        QVERIFY(host.connectionRequested("retryFixture"));
         host.connectSelectedTerminal();
         QVERIFY(host.connectionRequested("retryFixture"));
         const int closedAttempts = probe->attempts.load();

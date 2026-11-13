@@ -665,3 +665,9 @@ Later stages:
 - [x] Diagnose the Debug startup access violation caused by stale transport plugin DLLs.
 - [x] Make the application target depend on all three bundled terminal plugins and compiled help.
 - [x] Verify the generated build graph, rebuild the Debug application target and confirm responsive startup.
+
+## APP-35: Restore unavailable connection requests
+
+- [x] Persist requested connection state through opening, failures and retry waits.
+- [x] Verify Release recovery, explicit Stop, mixed snapshots and provider reload; AppTests and SessionTests pass.
+- [x] Build the updated Debug application with bundled plugins.

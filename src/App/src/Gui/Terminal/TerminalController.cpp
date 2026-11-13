@@ -3003,12 +3003,13 @@ bool TerminalController::capturePresentation(QString* error)
     {
         return true;
     }
-    // Snapshot before shutdown closes devices. Keep unavailable objects untouched.
+    // Preserve connection intent through opening, failures and retries, not just an open device.
+    // Keep unavailable provider objects untouched.
     QVariantMap connections;
     for (const auto& [id, terminal] : _terminals)
     {
         const auto key       = id + "/connected";
-        const bool connected = terminal->device->state() == SerialDevice::State::Open;
+        const bool connected = terminal->connectionRequested;
         const auto saved     = _session->objects().value(key);
         if (saved.typeId() != QMetaType::Bool || saved.toBool() != connected)
         {
