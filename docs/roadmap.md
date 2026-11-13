@@ -659,3 +659,9 @@ Later stages:
 - [x] Verify all 61 Release suites, native Windows dragging and 100%/200% group captures.
 - [x] Repeat isolated Release docking/startup measurements; preserve source hashes and record acceptance.
 - [x] Build the final Debug application without Debug tests or benchmarks.
+
+## APP-34: Complete targeted application builds
+
+- [x] Diagnose the Debug startup access violation caused by stale transport plugin DLLs.
+- [x] Make the application target depend on all three bundled terminal plugins and compiled help.
+- [x] Verify the generated build graph, rebuild the Debug application target and confirm responsive startup.
