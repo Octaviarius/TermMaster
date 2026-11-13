@@ -77,8 +77,9 @@ changing behavior. These rules apply repository-wide.
   stable UUID identity separately from mutable human-readable names. Session selection
   belongs to the workspace menu/catalog. Catalog removal does not delete files.
   Keep session paths separate from application-wide configuration/log/plugin paths.
-  Session loading reconstructs recognized terminal objects disconnected through registered
-  plugin factories; explicit connection remains separate. Link/resource graph execution
+  Session loading reconstructs recognized terminal objects through registered plugin
+  factories, then reconnects terminals whose saved actual connected snapshot is true.
+  New terminals and missing snapshots remain disconnected. Link/resource graph execution
   is planned. See docs/terminals-and-serial.md for delivered scope and limits.
 - Preserve meaningful boundaries between:
   - terminal connection backends and byte transport;
@@ -220,7 +221,8 @@ changing behavior. These rules apply repository-wide.
 - Configuration overlays are live borrowed application/workspace/session layers.
   Write only to the highest active scope and preserve inherited values. Save active
   sessions before workspace replacement, closure and normal exit. Opening a workspace
-  restores its last session after terminal factories are ready, with terminals disconnected.
+  restores its last session after terminal factories are ready, including saved terminal
+  connection snapshots captured before devices are closed.
   Explicit session closure clears that workspace's restoration reference.
 - Terminal processing persists explicit Bypass/Simplex/Duplex mode with retained
   inactive selections and separate Rx/Tx/Duplex Inplace definition maps inside the

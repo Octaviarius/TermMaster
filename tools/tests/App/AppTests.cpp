@@ -1783,7 +1783,7 @@ content:
         QCOMPARE(controller.terminalGroup(ids[1]), controller.terminalGroup(ids[0]));
         QCOMPARE(controller.terminalGroup(ids[0])->tabs().widget(0)->property("terminalId").toString(), ids[0]);
         QCOMPARE(controller.terminalGroup(ids[0])->tabs().widget(1)->property("terminalId").toString(), ids[1]);
-        QCOMPARE(probe->attempts, 1);
+        QCOMPARE(probe->attempts, 2);
     }
 
     Q_SLOT void groupedTransitionsTolerateSessionClosureFromBackendResize()
@@ -5816,7 +5816,7 @@ content:
         {
             if (probe->device)
             {
-                QCOMPARE(probe->device->state(), SerialDevice::State::Closed);
+                QCOMPARE(probe->device->state(), SerialDevice::State::Open);
             }
         }
         QVERIFY(!registry.type("terminal.inplace.rx"));
