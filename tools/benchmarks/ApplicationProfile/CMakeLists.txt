@@ -21,3 +21,7 @@ if(MSVC)
         /MAP
     )
 endif()
+
+target_include_directories(ApplicationProfile PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/App/src"
+)
