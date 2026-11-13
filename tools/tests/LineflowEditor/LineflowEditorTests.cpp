@@ -613,20 +613,20 @@ private slots:
         LineflowEditorModel model({}, registry);
         const auto          first = model.createBlock({});
         QVERIFY(!first.isEmpty());
-        QCOMPARE(model.blockName(first), QString("Block 1"));
-        const auto explicitBlock = model.createBlock("Block 3");
+        QCOMPARE(model.blockName(first), QString("Lineflow 1"));
+        const auto explicitBlock = model.createBlock("Lineflow 3");
         QVERIFY(!explicitBlock.isEmpty());
         const auto second = model.duplicateBlock(first, {});
         QVERIFY(!second.isEmpty());
-        QCOMPARE(model.blockName(second), QString("Block 2"));
-        QCOMPARE(model.defaultBlockName(), QString("Block 4"));
+        QCOMPARE(model.blockName(second), QString("Lineflow 2"));
+        QCOMPARE(model.defaultBlockName(), QString("Lineflow 4"));
         QVERIFY(model.renameBlock(first, "Custom block"));
-        QCOMPARE(model.defaultBlockName(), QString("Block 1"));
+        QCOMPARE(model.defaultBlockName(), QString("Lineflow 1"));
         const auto reused = model.createBlock({});
-        QCOMPARE(model.blockName(reused), QString("Block 1"));
-        QCOMPARE(model.blockName(explicitBlock), QString("Block 3"));
+        QCOMPARE(model.blockName(reused), QString("Lineflow 1"));
+        QCOMPARE(model.blockName(explicitBlock), QString("Lineflow 3"));
         QVERIFY(model.removeBlock(second));
-        QCOMPARE(model.defaultBlockName(), QString("Block 2"));
+        QCOMPARE(model.defaultBlockName(), QString("Lineflow 2"));
     }
 
     void insertedNodeNamesUseNumberedCatalogTitlesAcrossInsertionPaths()
