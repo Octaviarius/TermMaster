@@ -671,3 +671,11 @@ Later stages:
 - [x] Persist requested connection state through opening, failures and retry waits.
 - [x] Verify Release recovery, explicit Stop, mixed snapshots and provider reload; AppTests and SessionTests pass.
 - [x] Build the updated Debug application with bundled plugins.
+
+## APP-36: Group-owned status surfaces
+
+- [x] Remove the duplicate window status bar and its application-wide visibility setting.
+- [x] Route diagnostics to the active terminal group or workspace page without discarding context.
+- [x] Keep View / Status bar scoped to the selected group, including secondary windows.
+- [x] Verify Release application/schema/form suites and native 100%/200% captures.
+- [x] Build the final Debug application and bundled plugins.

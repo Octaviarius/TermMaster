@@ -1,5 +1,23 @@
 # Terminal groups and windows
 
+## Group-only status surfaces
+
+Window hosts have no separate status bar. Each terminal group owns its status text
+and control buttons. View / Status bar controls the selected group; visibility is
+retained in the existing group presentation configuration. The obsolete application
+visibility option is no longer exposed or applied.
+
+Application diagnostics are displayed in the active main-window group. With no
+visible terminal group they use the workspace page's message label, preserving the
+workspace/session context and controls. Menu status-tip events do not create another
+window-wide bar or overwrite a terminal diagnostic.
+
+Release AppTests, SettingsSchemaTests and SettingsFormTests pass. Native Windows
+captures at [100%](images/performance/TerminalGroupsStatusOnly100.png) and
+[200%](images/performance/TerminalGroupsStatusOnly200.png) were inspected; the group
+frame reaches the bottom of the window without an additional status strip.
+The Debug application and bundled plugins were rebuilt separately.
+
 ## Ownership and interaction
 
 APP-20 replaces single-terminal dock panels with a uniform group-of-tabs layout.

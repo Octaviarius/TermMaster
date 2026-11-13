@@ -342,6 +342,22 @@ TerminalController::TerminalController(MainWindow&                 window,
     _registerAction(std::move(wrap), _window.mainMenu().findMenu("/view"));
     _actions.at("View.WrapLines").action->setCheckable(true);
 
+    Action status;
+    status.id       = "View.StatusBar";
+    status.title    = tr("Status bar");
+    status.iconName = "panel-bottom";
+    status.group    = "terminal";
+    status.enabled  = [this] { return _current() && _current()->group; };
+    status.trigger  = [this] {
+        if (auto* current = _current(); current && current->group)
+        {
+            auto& bar = current->group->statusBar();
+            bar.setVisible(bar.isHidden());
+        }
+    };
+    _registerAction(std::move(status), _window.mainMenu().findMenu("/view"));
+    _actions.at("View.StatusBar").action->setCheckable(true);
+
     const QStringList ids {"Terminal.BufferedInput", "Terminal.SendFile", "Terminal.Processing"};
     const QStringList titles {tr("Buffered input"), tr("Send file..."), tr("Processing")};
     const QStringList icons {"panel-bottom", "file-plus", "Processing"};
@@ -552,7 +568,7 @@ void TerminalController::showMessage(const QString& message)
     }
     else
     {
-        _window.statusBar()->showMessage(owned(message));
+        _window.showMessage(owned(message));
     }
 }
 QObject* TerminalController::context()
@@ -1116,6 +1132,10 @@ bool TerminalController::_actionChecked(const QString& id, const Runtime* termin
     if (id == "View.WrapLines")
     {
         return terminal->settings.value("appearance/wrapLines", true).toBool();
+    }
+    if (id == "View.StatusBar")
+    {
+        return terminal->group && !terminal->group->statusBar().isHidden();
     }
     if (id == "Terminal.BufferedInput")
     {
@@ -1899,7 +1919,7 @@ void TerminalController::_restore()
         }
         if (!restored)
         {
-            _window.statusBar()->showMessage(owned(error));
+            _window.showMessage(owned(error));
             continue;
         }
         const auto connected = objects.value(id).toMap().value("connected");
@@ -3429,7 +3449,8 @@ void TerminalController::_refreshWindowActions(DetachedTerminalWindow* window)
             continue;
         }
         const auto item = current->second;
-        if (item.registration.role == Action::Role::Create)
+        // Secondary hosts already own their active-group status visibility action.
+        if (item.registration.role == Action::Role::Create || id == "View.StatusBar")
         {
             continue;
         }

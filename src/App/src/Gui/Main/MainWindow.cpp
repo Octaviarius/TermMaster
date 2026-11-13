@@ -6,6 +6,7 @@
 
 #include <QAction>
 #include <QCoreApplication>
+#include <QEvent>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QTabWidget>
@@ -22,7 +23,10 @@ MainWindow::MainWindow(QWidget* parent) :
 
     _workspacePage     = new WorkspacePage(this);
     _terminalWorkspace = new TerminalWorkspace(this);
-    _central           = new QStackedWidget(this);
+    connect(_terminalWorkspace, &TerminalWorkspace::activated, this, [this](TerminalTabGroup* group) {
+        _activeGroup = group;
+    });
+    _central = new QStackedWidget(this);
     _central->addWidget(_workspacePage);
     _central->addWidget(_terminalWorkspace);
     setCentralWidget(_central);
@@ -39,7 +43,11 @@ MainWindow::MainWindow(QWidget* parent) :
     _toolbar.toolbar()->setVisible(MainToolbarEnabled);
     _toolbar.toolbar()->toggleViewAction()->setVisible(MainToolbarEnabled);
     _toolbar.toolbar()->toggleViewAction()->setEnabled(MainToolbarEnabled);
-    statusBar()->showMessage(tr("Ready"));
+}
+
+MainWindow::~MainWindow()
+{
+    disconnect(_terminalWorkspace, nullptr, this, nullptr);
 }
 
 MenubarActionContainer& MainWindow::mainMenu()
@@ -108,6 +116,53 @@ void MainWindow::setTerminalTab(int            index,
 void MainWindow::showTerminals(bool visible)
 {
     _central->setCurrentWidget(visible ? static_cast<QWidget*>(_terminalWorkspace) : _workspacePage);
+}
+
+void MainWindow::showMessage(const QString& message)
+{
+    if (auto* group = _messageGroup())
+    {
+        group->statusBar().showMessage(message);
+    }
+    else
+    {
+        _workspacePage->showMessage(message);
+    }
+}
+
+QString MainWindow::message() const
+{
+    if (auto* group = _messageGroup())
+    {
+        return group->statusBar().currentMessage();
+    }
+    return _workspacePage->message();
+}
+
+bool MainWindow::event(QEvent* event)
+{
+    // QMainWindow status tips must not recreate a window-wide status surface.
+    return event->type() == QEvent::StatusTip || QMainWindow::event(event);
+}
+
+TerminalTabGroup* MainWindow::_messageGroup() const
+{
+    if (_central->currentWidget() != _terminalWorkspace)
+    {
+        return nullptr;
+    }
+    if (_activeGroup && _activeGroup->window() == this && _activeGroup->tabs().count() > 0)
+    {
+        return _activeGroup;
+    }
+    for (auto* group : _terminalWorkspace->groups())
+    {
+        if (group->tabs().count() > 0)
+        {
+            return group;
+        }
+    }
+    return nullptr;
 }
 
 void MainWindow::_createMenus()

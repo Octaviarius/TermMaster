@@ -114,13 +114,15 @@ input and terminal selection route through TerminalDisplay's own encoder and
 clipboard operations. Terminal-focused Copy/Paste/Select All use the same menu,
 while terminal ShortcutOverride preserves program input such as Ctrl+C and Tab.
 
-View provides Toolbar, Status bar and Full screen. Tools/Settings opens the
+View provides active terminal-group panel controls and Full screen. Tools/Settings opens the
 application settings dialog. Workspace, session and terminal settings use their
 own entry points and windows.
 Its schema and form behavior are described in [settings forms](settings-forms.md).
-Toolbar/status preferences use
-`ui/toolbarVisible` and `ui/statusBarVisible` through the active configuration
-scope. Tools/Plugins opens the modeless plugin window; application management stays
+Status bars belong to terminal groups; View / Status bar toggles the active
+group only. The main window has no separate global status bar. Application
+messages appear in the active embedded group or on the workspace page when no
+group is available. The disabled global toolbar retains its application setting
+`ui/toolbarVisible`; the obsolete global status visibility preference is ignored. Tools/Plugins opens the modeless plugin window; application management stays
 in the menus. The toolbar is reserved for terminal creation and terminal operations. Closing the dialog deletes it; another invocation creates a new
 one. Help provides About Termaster and About Qt. MainWindow constructs views and
 native containers; App sequences application operations.
@@ -268,8 +270,9 @@ must not imply that the item is disabled.
 ## Contextual navigation acceptance
 
 Application windows retain independent drafts when opening session/terminal
-settings. Only the target owner's settings are written; global toolbar/status
-visibility is stored at application scope. Borrowed session/workspace views close
+settings. Only the target owner's settings are written; terminal-group panel
+visibility is local to each group. The disabled global toolbar retains its
+application-scoped visibility setting. Borrowed session/workspace views close
 before owner release. The Session menu retains existing command IDs and owns its recent-session
 submenu. Session operations do not occupy the terminal toolbar. Duplicate session display names
 remain distinguishable by stable UUID item data. Native application checks passed

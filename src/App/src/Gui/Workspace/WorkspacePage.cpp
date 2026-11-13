@@ -107,3 +107,13 @@ void WorkspacePage::setSession(const QString& name, const QString& file, int obj
     _sessionFile->setCursorPosition(0);
     _sessionFile->setVisible(open);
 }
+
+void WorkspacePage::showMessage(const QString& message)
+{
+    _message->setText(message);
+}
+
+QString WorkspacePage::message() const
+{
+    return _message->text();
+}

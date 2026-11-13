@@ -15,6 +15,8 @@ public:
     void          setWorkspace(const QString& name, const QString& file);
     void          showChoice(const QString& error = {});
     void          setSession(const QString& name, const QString& file, int objects, int links);
+    void          showMessage(const QString& message);
+    QString       message() const;
     Q_SIGNAL void openSessionRequested();
     Q_SIGNAL void createSessionRequested();
     Q_SIGNAL void openRequested();

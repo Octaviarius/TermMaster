@@ -30,7 +30,6 @@
 #include <QScopedValueRollback>
 #include <QSet>
 #include <QSignalBlocker>
-#include <QStatusBar>
 #include <QStyle>
 #include <QTimer>
 #include <QUuid>
@@ -129,7 +128,6 @@ struct App::Data
     QPointer<QAction>                               saveAction;
     QPointer<QAction>                               closeAction;
     QPointer<QAction>                               toolbarAction;
-    QPointer<QAction>                               statusAction;
     QPointer<QAction>                               fullScreenAction;
     std::array<QPointer<QAction>, 10>               recentWorkspaces;
     std::array<QPointer<QAction>, 10>               recentSessions;
@@ -154,8 +152,7 @@ struct App::Data
                 {"appearance/scrollbackLines",                                                        10000},
                 {      "appearance/wrapLines",                                                         true},
                 {           "input/localEcho",                                                        false},
-                {         "ui/toolbarVisible",                                                         true},
-                {       "ui/statusBarVisible",                                                         true}
+                {         "ui/toolbarVisible",                                                         true}
         },
             {});
     }
@@ -210,7 +207,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
         return new LoggingTagsEditor(parent);
     });
     connect(&_data->shortcuts, &CommandShortcuts::diagnostic, _data->window.get(), [this](const QString& error) {
-        _data->window->statusBar()->showMessage(error);
+        _data->window->showMessage(error);
     });
     _setupActions();
     _data->terminals = std::make_unique<TerminalController>(
@@ -248,13 +245,12 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
         }
     });
     _data->window->installEventFilter(this);
-    _data->window->statusBar()->installEventFilter(this);
     connect(_data->window.get(), &MainWindow::openWorkspaceRequested, this, &App::_chooseWorkspace);
     connect(_data->window.get(), &MainWindow::createWorkspaceRequested, this, &App::_chooseNewWorkspace);
     connect(&_data->plugins,
             &PluginManager::errorOccurred,
             _data->window.get(),
-            [window = _data->window.get()](const QString& error) { window->statusBar()->showMessage(error); });
+            [window = _data->window.get()](const QString& error) { window->showMessage(error); });
     connect(_data->window.get(), &MainWindow::openSessionRequested, this, &App::_chooseSession);
     connect(_data->window.get(), &MainWindow::createSessionRequested, this, &App::_chooseNewSession);
     _updateWorkspace();
@@ -266,7 +262,6 @@ App::~App()
     delete _data->lineflowWindow.data();
     QObject::disconnect(_data->terminals.get(), nullptr, this, nullptr);
     _data->window->removeEventFilter(this);
-    _data->window->statusBar()->removeEventFilter(this);
     // Stop callbacks into Data before its members begin destruction.
     for (auto* sender : _data->window->findChildren<QObject*>())
     {
@@ -284,7 +279,7 @@ App::~App()
     qCInfo(appLifecycleLog) << "Application shutdown completed";
     if (!_data->logging.flush(&error))
     {
-        _data->window->statusBar()->showMessage(error);
+        _data->window->showMessage(error);
     }
 }
 
@@ -294,11 +289,11 @@ int App::run()
     if (!_ensureApplicationSettings(&error))
     {
         _configureLogging(true);
-        _data->window->statusBar()->showMessage(error);
+        _data->window->showMessage(error);
     }
     if (!_data->plugins.start(&error))
     {
-        _data->window->statusBar()->showMessage(error);
+        _data->window->showMessage(error);
     }
     QHash<QString, bool> defaults;
     for (const auto& plugin : _data->plugins.plugins())
@@ -312,12 +307,12 @@ int App::run()
     }
     if (!defaults.isEmpty() && !_data->plugins.setEnabled(defaults, &error))
     {
-        _data->window->statusBar()->showMessage(error);
+        _data->window->showMessage(error);
     }
     if (!restoreLastWorkspace(&error))
     {
         _data->window->showWorkspaceChoice(error);
-        _data->window->statusBar()->showMessage(error);
+        _data->window->showMessage(error);
     }
     _applyConfiguration();
     _updateRecent();
@@ -582,18 +577,6 @@ bool App::eventFilter(QObject* watched, QEvent* event)
             }
         });
     }
-    if (watched == _data->window->statusBar() && (event->type() == QEvent::Show || event->type() == QEvent::Hide)
-        && _data->statusAction)
-    {
-        const bool           visible = !_data->window->statusBar()->isHidden();
-        const bool           changed = _data->statusAction->isChecked() != visible;
-        const QSignalBlocker blocker(_data->statusAction);
-        _data->statusAction->setChecked(visible);
-        if (changed)
-        {
-            _storeViewSetting("ui/statusBarVisible", visible);
-        }
-    }
     if (watched == _data->window.get() && event->type() == QEvent::WindowStateChange && _data->fullScreenAction)
     {
         const QSignalBlocker blocker(_data->fullScreenAction);
@@ -789,17 +772,7 @@ void App::_setupActions()
 
     _data->editing       = std::make_unique<EditActions>(*_data->window, commands(), *mainMenu().findMenu("/edit"));
     _data->toolbarAction = _addAction("View.Toolbar", tr("&Toolbar"), Icons::icon("panel-top"), {}, "view", "panels");
-    _data->statusAction  = _addAction("View.StatusBar",
-                                      tr("&Status bar"),
-                                      Icons::icon("panel-bottom"),
-                                      {},
-                                      "view",
-                                      "panels");
-    for (auto* action : {_data->toolbarAction.data(), _data->statusAction.data()})
-    {
-        action->setCheckable(true);
-        action->setChecked(true);
-    }
+    _data->toolbarAction->setCheckable(true);
     _data->toolbarAction->setChecked(MainWindow::MainToolbarEnabled);
     _data->toolbarAction->setVisible(MainWindow::MainToolbarEnabled);
     _data->toolbarAction->setEnabled(MainWindow::MainToolbarEnabled);
@@ -824,10 +797,6 @@ void App::_setupActions()
         {
             _storeViewSetting("ui/toolbarVisible", visible);
         }
-    });
-    connect(_data->statusAction, &QAction::toggled, this, [this](bool visible) {
-        _data->window->statusBar()->setVisible(visible);
-        _storeViewSetting("ui/statusBarVisible", visible);
     });
     _data->fullScreenAction = _addAction("View.FullScreen",
                                          tr("&Full screen"),
@@ -956,7 +925,7 @@ void App::_showLineflowEditor()
             QString error;
             if (!_data->settings.setValue("settings/ui/lineflow/docks", QString::fromLatin1(state.toBase64()), &error))
             {
-                _data->window->statusBar()->showMessage(error);
+                _data->window->showMessage(error);
             }
         });
         _data->lineflowWindow->setAttribute(Qt::WA_DeleteOnClose);
@@ -1176,7 +1145,7 @@ void App::_bindWorkspaceProcessors()
                                                                      &error);
         if (!definitions || !_data->plugins.processors().publishDefinitions("workspace", *definitions, &error))
         {
-            _data->window->statusBar()->showMessage(tr("Cannot publish workspace processors: %1").arg(error));
+            _data->window->showMessage(tr("Cannot publish workspace processors: %1").arg(error));
         }
     };
     connect(_data->workspace.get(), &Workspace::processorsChanged, this, publish);
@@ -1272,7 +1241,7 @@ void App::_configureLogging(bool allowUnloadedSettings)
     }
     if (!error.isEmpty())
     {
-        _data->window->statusBar()->showMessage(tr("Logging: %1").arg(error));
+        _data->window->showMessage(tr("Logging: %1").arg(error));
         qCWarning(appLifecycleLog).noquote() << "Logging configuration failed:" << error;
     }
 }
@@ -1284,17 +1253,11 @@ void App::_applyConfiguration()
     const QScopedValueRollback guard(_data->applyingConfiguration, true);
     const bool                 toolbarVisible = MainWindow::MainToolbarEnabled
                                              && _data->applicationSettings().value("ui/toolbarVisible", true).toBool();
-    const bool                 statusVisible = _data->applicationSettings().value("ui/statusBarVisible", true).toBool();
     if (_data->toolbarAction)
     {
         _data->toolbarAction->setChecked(toolbarVisible);
     }
-    if (_data->statusAction)
-    {
-        _data->statusAction->setChecked(statusVisible);
-    }
     toolbar().toolbar()->setVisible(toolbarVisible);
-    _data->window->statusBar()->setVisible(statusVisible);
 }
 
 void App::_updateRecent()
@@ -1408,7 +1371,7 @@ void App::_chooseNewWorkspace()
 
 void App::_showError(const QString& error)
 {
-    _data->window->statusBar()->showMessage(error);
+    _data->window->showMessage(error);
     QMessageBox::warning(_data->window.get(), tr("Termaster"), error);
 }
 
@@ -1421,7 +1384,7 @@ void App::_storeViewSetting(const QString& key, bool value)
     QString error;
     if (!_data->applicationSettings().setValue(key, value, &error))
     {
-        _data->window->statusBar()->showMessage(error);
+        _data->window->showMessage(error);
     }
 }
 
@@ -1645,7 +1608,7 @@ void App::_restoreLastSession()
     {
         return;
     }
-    _data->window->statusBar()->showMessage(tr("Cannot restore last session: %1").arg(error));
+    _data->window->showMessage(tr("Cannot restore last session: %1").arg(error));
 }
 
 bool App::_activateSession(std::unique_ptr<Session> candidate, QString* error)
@@ -1774,7 +1737,7 @@ void App::_chooseSession()
     const auto ids = _data->workspace->sessionIds();
     if (ids.isEmpty())
     {
-        _data->window->statusBar()->showMessage(tr("This workspace has no saved sessions."));
+        _data->window->showMessage(tr("This workspace has no saved sessions."));
         return;
     }
     QList<SessionPicker::Entry> entries;
