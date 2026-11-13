@@ -1,0 +1,54 @@
+{
+  "sourceUnchanged": true,
+  "failures": [],
+  "milliseconds": {
+    "app.construct": {
+      "n": 3,
+      "median": 143.0101,
+      "p95": 208.4162,
+      "max": 208.4162
+    },
+    "app.destruct": {
+      "n": 3,
+      "median": 165.1327,
+      "p95": 191.7962,
+      "max": 191.7962
+    },
+    "app.launch.to.firstpaint": {
+      "n": 3,
+      "median": 904.6282000199426,
+      "p95": 1011.4763000165112,
+      "max": 1011.4763000165112
+    },
+    "app.main.to.firstpaint": {
+      "n": 3,
+      "median": 771.6217,
+      "p95": 955.1183,
+      "max": 955.1183
+    },
+    "app.restored.first.presentation": {
+      "n": 3,
+      "median": 45.8858,
+      "p95": 49.0657,
+      "max": 49.0657
+    },
+    "app.start.to.eventloop": {
+      "n": 3,
+      "median": 722.5166,
+      "p95": 909.1795,
+      "max": 909.1795
+    },
+    "window.close.loaded": {
+      "n": 3,
+      "median": 52.7076,
+      "p95": 55.2755,
+      "max": 55.2755
+    },
+    "workspace.open.restore": {
+      "n": 3,
+      "median": 41.2326,
+      "p95": 43.6622,
+      "max": 43.6622
+    }
+  }
+}

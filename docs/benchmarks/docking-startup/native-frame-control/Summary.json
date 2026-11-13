@@ -1,0 +1,426 @@
+{
+  "sourceUnchanged": true,
+  "failures": [],
+  "milliseconds": {
+    "app.construct": {
+      "n": 1,
+      "median": 281.9955,
+      "p95": 281.9955,
+      "max": 281.9955
+    },
+    "app.destruct": {
+      "n": 1,
+      "median": 112.5902,
+      "p95": 112.5902,
+      "max": 112.5902
+    },
+    "app.launch.to.firstpaint": {
+      "n": 1,
+      "median": 1539.4609999784734,
+      "p95": 1539.4609999784734,
+      "max": 1539.4609999784734
+    },
+    "app.main.to.firstpaint": {
+      "n": 1,
+      "median": 1497.2976,
+      "p95": 1497.2976,
+      "max": 1497.2976
+    },
+    "app.restored.first.presentation": {
+      "n": 1,
+      "median": 31.9266,
+      "p95": 31.9266,
+      "max": 31.9266
+    },
+    "app.start.to.eventloop": {
+      "n": 1,
+      "median": 1465.1485,
+      "p95": 1465.1485,
+      "max": 1465.1485
+    },
+    "dock.cleanup": {
+      "n": 1,
+      "median": 440.2396,
+      "p95": 440.2396,
+      "max": 440.2396
+    },
+    "dock.configured6.fixture": {
+      "n": 1,
+      "median": 0.2392,
+      "p95": 0.2392,
+      "max": 0.2392
+    },
+    "dock.configured6.group.detach.presentation": {
+      "n": 5,
+      "median": 17.0436,
+      "p95": 19.7337,
+      "max": 19.7337
+    },
+    "dock.configured6.group.detach.sync": {
+      "n": 5,
+      "median": 36.1103,
+      "p95": 62.8632,
+      "max": 62.8632
+    },
+    "dock.configured6.group.detach.total": {
+      "n": 5,
+      "median": 55.477,
+      "p95": 81.918,
+      "max": 81.918
+    },
+    "dock.configured6.secondary.close.presentation": {
+      "n": 5,
+      "median": 18.4547,
+      "p95": 29.0692,
+      "max": 29.0692
+    },
+    "dock.configured6.secondary.close.sync": {
+      "n": 5,
+      "median": 18.2478,
+      "p95": 20.665,
+      "max": 20.665
+    },
+    "dock.configured6.secondary.close.total": {
+      "n": 5,
+      "median": 39.119699999999995,
+      "p95": 45.7166,
+      "max": 45.7166
+    },
+    "dock.configured6.tab.join.presentation": {
+      "n": 5,
+      "median": 12.8991,
+      "p95": 18.0659,
+      "max": 18.0659
+    },
+    "dock.configured6.tab.join.sync": {
+      "n": 5,
+      "median": 12.5813,
+      "p95": 14.2857,
+      "max": 14.2857
+    },
+    "dock.configured6.tab.join.total": {
+      "n": 5,
+      "median": 25.480400000000003,
+      "p95": 31.830399999999997,
+      "max": 31.830399999999997
+    },
+    "dock.configured6.tab.split.presentation": {
+      "n": 5,
+      "median": 13.3598,
+      "p95": 15.0903,
+      "max": 15.0903
+    },
+    "dock.configured6.tab.split.sync": {
+      "n": 5,
+      "median": 17.4075,
+      "p95": 20.6891,
+      "max": 20.6891
+    },
+    "dock.configured6.tab.split.total": {
+      "n": 5,
+      "median": 30.382599999999996,
+      "p95": 35.779399999999995,
+      "max": 35.779399999999995
+    },
+    "dock.tabs1.fixture": {
+      "n": 1,
+      "median": 0.0025,
+      "p95": 0.0025,
+      "max": 0.0025
+    },
+    "dock.tabs1.group.detach.presentation": {
+      "n": 5,
+      "median": 13.4775,
+      "p95": 15.5107,
+      "max": 15.5107
+    },
+    "dock.tabs1.group.detach.sync": {
+      "n": 5,
+      "median": 14.7493,
+      "p95": 16.672,
+      "max": 16.672
+    },
+    "dock.tabs1.group.detach.total": {
+      "n": 5,
+      "median": 28.782,
+      "p95": 30.3073,
+      "max": 30.3073
+    },
+    "dock.tabs1.group.move.presentation": {
+      "n": 5,
+      "median": 7.5837,
+      "p95": 10.8536,
+      "max": 10.8536
+    },
+    "dock.tabs1.group.move.sync": {
+      "n": 5,
+      "median": 5.2282,
+      "p95": 13.4797,
+      "max": 13.4797
+    },
+    "dock.tabs1.group.move.total": {
+      "n": 5,
+      "median": 12.811900000000001,
+      "p95": 24.3333,
+      "max": 24.3333
+    },
+    "dock.tabs1.secondary.close.presentation": {
+      "n": 5,
+      "median": 12.1203,
+      "p95": 14.9506,
+      "max": 14.9506
+    },
+    "dock.tabs1.secondary.close.sync": {
+      "n": 5,
+      "median": 8.1122,
+      "p95": 9.7973,
+      "max": 9.7973
+    },
+    "dock.tabs1.secondary.close.total": {
+      "n": 5,
+      "median": 20.290399999999998,
+      "p95": 24.7479,
+      "max": 24.7479
+    },
+    "dock.tabs1.tab.join.presentation": {
+      "n": 5,
+      "median": 5.9566,
+      "p95": 8.3474,
+      "max": 8.3474
+    },
+    "dock.tabs1.tab.join.sync": {
+      "n": 5,
+      "median": 3.9785,
+      "p95": 4.44,
+      "max": 4.44
+    },
+    "dock.tabs1.tab.join.total": {
+      "n": 5,
+      "median": 10.3966,
+      "p95": 12.3421,
+      "max": 12.3421
+    },
+    "dock.tabs1.tab.split.presentation": {
+      "n": 5,
+      "median": 5.7798,
+      "p95": 6.4681,
+      "max": 6.4681
+    },
+    "dock.tabs1.tab.split.sync": {
+      "n": 5,
+      "median": 5.9105,
+      "p95": 6.2466,
+      "max": 6.2466
+    },
+    "dock.tabs1.tab.split.total": {
+      "n": 5,
+      "median": 11.796299999999999,
+      "p95": 12.378599999999999,
+      "max": 12.378599999999999
+    },
+    "dock.tabs32.fixture": {
+      "n": 1,
+      "median": 0.0534,
+      "p95": 0.0534,
+      "max": 0.0534
+    },
+    "dock.tabs32.group.detach.presentation": {
+      "n": 5,
+      "median": 23.2485,
+      "p95": 27.4851,
+      "max": 27.4851
+    },
+    "dock.tabs32.group.detach.sync": {
+      "n": 5,
+      "median": 62.406,
+      "p95": 66.993,
+      "max": 66.993
+    },
+    "dock.tabs32.group.detach.total": {
+      "n": 5,
+      "median": 88.2139,
+      "p95": 89.0048,
+      "max": 89.0048
+    },
+    "dock.tabs32.group.move.presentation": {
+      "n": 5,
+      "median": 14.5474,
+      "p95": 20.2517,
+      "max": 20.2517
+    },
+    "dock.tabs32.group.move.sync": {
+      "n": 5,
+      "median": 39.5577,
+      "p95": 52.9865,
+      "max": 52.9865
+    },
+    "dock.tabs32.group.move.total": {
+      "n": 5,
+      "median": 53.742799999999995,
+      "p95": 73.0261,
+      "max": 73.0261
+    },
+    "dock.tabs32.secondary.close.presentation": {
+      "n": 5,
+      "median": 22.2325,
+      "p95": 22.9231,
+      "max": 22.9231
+    },
+    "dock.tabs32.secondary.close.sync": {
+      "n": 5,
+      "median": 48.3583,
+      "p95": 50.5969,
+      "max": 50.5969
+    },
+    "dock.tabs32.secondary.close.total": {
+      "n": 5,
+      "median": 71.2814,
+      "p95": 72.82939999999999,
+      "max": 72.82939999999999
+    },
+    "dock.tabs32.tab.join.presentation": {
+      "n": 5,
+      "median": 13.4897,
+      "p95": 17.3401,
+      "max": 17.3401
+    },
+    "dock.tabs32.tab.join.sync": {
+      "n": 5,
+      "median": 17.3072,
+      "p95": 22.4918,
+      "max": 22.4918
+    },
+    "dock.tabs32.tab.join.total": {
+      "n": 5,
+      "median": 34.4761,
+      "p95": 35.0346,
+      "max": 35.0346
+    },
+    "dock.tabs32.tab.split.presentation": {
+      "n": 5,
+      "median": 13.1348,
+      "p95": 20.2017,
+      "max": 20.2017
+    },
+    "dock.tabs32.tab.split.sync": {
+      "n": 5,
+      "median": 24.5159,
+      "p95": 25.5894,
+      "max": 25.5894
+    },
+    "dock.tabs32.tab.split.total": {
+      "n": 5,
+      "median": 38.4096,
+      "p95": 38.8142,
+      "max": 38.8142
+    },
+    "dock.tabs8.fixture": {
+      "n": 1,
+      "median": 0.008,
+      "p95": 0.008,
+      "max": 0.008
+    },
+    "dock.tabs8.group.detach.presentation": {
+      "n": 5,
+      "median": 14.8985,
+      "p95": 14.9135,
+      "max": 14.9135
+    },
+    "dock.tabs8.group.detach.sync": {
+      "n": 5,
+      "median": 18.2902,
+      "p95": 25.7692,
+      "max": 25.7692
+    },
+    "dock.tabs8.group.detach.total": {
+      "n": 5,
+      "median": 32.8541,
+      "p95": 40.6826,
+      "max": 40.6826
+    },
+    "dock.tabs8.group.move.presentation": {
+      "n": 5,
+      "median": 9.5923,
+      "p95": 16.524,
+      "max": 16.524
+    },
+    "dock.tabs8.group.move.sync": {
+      "n": 5,
+      "median": 9.4815,
+      "p95": 15.4087,
+      "max": 15.4087
+    },
+    "dock.tabs8.group.move.total": {
+      "n": 5,
+      "median": 23.2837,
+      "p95": 30.781,
+      "max": 30.781
+    },
+    "dock.tabs8.secondary.close.presentation": {
+      "n": 5,
+      "median": 13.6591,
+      "p95": 14.4239,
+      "max": 14.4239
+    },
+    "dock.tabs8.secondary.close.sync": {
+      "n": 5,
+      "median": 11.2067,
+      "p95": 13.3481,
+      "max": 13.3481
+    },
+    "dock.tabs8.secondary.close.total": {
+      "n": 5,
+      "median": 25.2922,
+      "p95": 27.1417,
+      "max": 27.1417
+    },
+    "dock.tabs8.tab.join.presentation": {
+      "n": 5,
+      "median": 7.7993,
+      "p95": 8.851,
+      "max": 8.851
+    },
+    "dock.tabs8.tab.join.sync": {
+      "n": 5,
+      "median": 7.3219,
+      "p95": 8.1583,
+      "max": 8.1583
+    },
+    "dock.tabs8.tab.join.total": {
+      "n": 5,
+      "median": 14.8253,
+      "p95": 17.009300000000003,
+      "max": 17.009300000000003
+    },
+    "dock.tabs8.tab.split.presentation": {
+      "n": 5,
+      "median": 7.4778,
+      "p95": 9.057,
+      "max": 9.057
+    },
+    "dock.tabs8.tab.split.sync": {
+      "n": 5,
+      "median": 8.0225,
+      "p95": 9.6708,
+      "max": 9.6708
+    },
+    "dock.tabs8.tab.split.total": {
+      "n": 5,
+      "median": 15.500300000000001,
+      "p95": 18.7001,
+      "max": 18.7001
+    },
+    "window.close.loaded": {
+      "n": 1,
+      "median": 7.4496,
+      "p95": 7.4496,
+      "max": 7.4496
+    },
+    "workspace.open.restore": {
+      "n": 1,
+      "median": 37.5531,
+      "p95": 37.5531,
+      "max": 37.5531
+    }
+  }
+}

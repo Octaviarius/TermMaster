@@ -543,3 +543,188 @@ Raw [summary](benchmarks/resize/Summary.json),
 [Debug after](benchmarks/resize/after-debug/Run1.json) retain distributions,
 process status and source-preservation checks. Regenerate aggregates with
 `python tools/benchmarks/ApplicationProfile/SummarizeResize.py docs/benchmarks/resize`.
+
+
+## PERF-19: Docking, secondary close and restored startup
+
+Investigation date: 2026-11-13. The probe and runner add a native Windows docking
+mode and restored-startup control. Each marked scratch copy is sanitized through
+Settings before QApplication construction: every copied session object is saved
+with `connected: false`. Pending recovery journals are rejected. Originals under
+`G:/TMP/Tmaster` are hash checked; no original document or transport is modified.
+
+Configured fixtures preserve the six real plugin panels, private processing
+configuration, page/device identity and terminal population. Five cycles measure
+split/join, group detach and actual secondary-window close/return. Synthetic
+controls contain 1, 8 or 32 tabs plus another group, each with 1,000 ASCII rows.
+No synthetic device can open. Every operation separates synchronous execution
+from subsequent Qt event/paint delivery and deferred host destruction. Identity
+and disconnected-state checks are included; their empty-control cost is recorded.
+Pointer drag motion, compositor latency and active transport throughput are not
+part of these measurements.
+
+Fresh-process startup includes plugin startup and restoration of the last session,
+ending at observed main-window paint. The runner's 5 ms marker polling includes
+OS loader/process creation and scheduler uncertainty; the in-process clock starts
+at probe main. File caches are warm, process affinity and system-wide scheduling
+are uncontrolled. Release and Debug are compared independently; Debug is not
+accepted as an explanation for redundant GUI work.
+
+### Thread affinity audit
+
+The present plugin/device API deliberately executes on the GUI thread. Serial and
+Socket use asynchronous Qt I/O, but their read callbacks synchronously enter App's
+routing and TerminalDisplay. Console already has native reader/writer/waiter
+workers and a bounded GUI-side pump. ProcessingRouter and Lineflow execute nodes
+on their owning GUI thread; `singleShot(0, owner, ...)` yields to that event loop
+without moving work to another thread. SyncProcessorNode calls native processing
+inline. A packet/event budget cannot preempt one expensive node invocation.
+
+Heavy processing can therefore block input, layout and painting. It does not
+explain the measured disconnected docking stalls: the synthetic fixtures use no
+transport or processor traffic. UI operation costs and pipeline isolation are
+separate remediation tracks.
+
+The recommended execution boundary is one serialized context per terminal
+pipeline, shared by Rx/Tx of a Duplex instance. Avoid a thread per node. Keep
+QWidgets, input, action routing and App orchestration on GUI. Move CPU-heavy
+processing first; move Serial/Socket ownership to an I/O event-loop worker if
+transport progress must continue during any GUI stall. Existing objects cannot
+simply be moved: their child ownership, timers, factory creation, registry leases
+and destruction must follow their execution context. The registry itself is not
+a concurrently shared catalog.
+
+```mermaid
+flowchart LR
+    UI[GUI: widgets, actions, display] <-->|bounded owned packets and status| Pipeline[Serialized terminal execution context]
+    Pipeline <--> Nodes[Rx and Tx processors / Duplex instance]
+    Pipeline <-->|bounded byte I/O and completion| IO[Transport owner: I/O event loop or native console workers]
+```
+
+Cross-thread queues require admission credits before posting, per-direction packet
+order and connection generations, preserved NUL/empty/UDP boundaries, partial-write
+accounting and cancellation. An unbounded Qt queued-signal backlog is not
+backpressure. Workers must never read live Settings overlays, controller maps or
+widgets. Prepare immutable configurations/factories while retaining plugin leases;
+construct processors on their execution thread. Shutdown stops admission,
+invalidates generations, cancels, waits for quiescence, destroys on the owner
+thread, releases leases, then joins. Test slow-node GUI heartbeat, bounded flood,
+duplex ordering, close/reopen and plugin unload before making this the default.
+Terminal emulation currently lives inside TerminalDisplay; moving it additionally
+requires an explicit screen-model snapshot boundary.
+
+### Baseline results
+
+Headline measurements are uninstrumented. Release has three fresh processes and
+15 samples per operation; Debug has one process and five samples. Values below
+are medians in milliseconds, with descriptive nearest-rank p95 in parentheses.
+Startup in this table uses fresh plugin preferences, including first activation.
+The earlier `release/` exploratory run is retained but excluded from this table;
+use `release-configured/` and `debug/` records.
+
+| Operation | Release | Debug |
+| --- | ---: | ---: |
+| Launch through first main-window paint | 720 (844), n=3 | 3546, n=1 |
+| Configured six terminals: split tab | 83.9 (103.8) | 975.3 (1001.8) |
+| Configured six terminals: join tab | 78.0 (107.4) | 888.7 (899.1) |
+| Configured six terminals: detach group | 93.3 (106.9) | 955.0 (962.8) |
+| Configured six terminals: close secondary window | 87.2 (149.7) | 852.0 (858.9) |
+| Synthetic one-tab group: join | 40.4 (51.6) | 411.4 (443.7) |
+| Synthetic eight-tab group: join | 112.0 (120.2) | 1292.7 (1347.6) |
+| Synthetic 32-tab group: join | 332.6 (369.8) | 4054.0 (4509.5) |
+| Synthetic 32-tab group: move group | 654.1 (744.5) | 8018.1 (8512.8) |
+
+All baseline recorded invariants, normal exits and original-source hashes passed.
+The large synchronous stalls occur with disconnected synthetic devices and no
+processing traffic. They are not transport waits or evidence for moving QWidget
+operations to a worker.
+
+### Attribution and controlled frame experiment
+
+The first aggregate hypothesis was whole-session YAML patching. The fine scopes
+show that it is secondary, not the dominant dock cost. A configured join example
+spends 113.8 ms exclusive in `_prune` and 12.7 ms in `insertTab`, versus 3.3 ms in
+Settings patching. Secondary close spends 112.5 ms in `_setRoot` in one sample.
+These paths reparent complete groups and their hidden descendants. Per-tab action
+and effective-settings work is measurable but does not explain most of this run.
+
+A matching-EXE A/B Release experiment changes only the group-wide QSS border to
+native `QFrame::Box` with line width 2. Tab-bar/toolbar styles and terminal pages
+remain. The dominant stylesheet-inheritance/reparenting interaction is established
+by this control; Qt private functions were not symbol-sampled, so individual
+internal repolish functions are not claimed as measured call sites.
+
+| Instrumented Release total, median ms (5 samples) | QSS group frame | Native group frame |
+| --- | ---: | ---: |
+| Configured six terminals: join | 152.3 | 25.5 |
+| Configured six terminals: close secondary | 142.4 | 39.1 |
+| Synthetic 32 tabs: join | 772.3 | 34.5 |
+| Synthetic 32 tabs: group move | 1508.6 | 53.7 |
+| Synthetic 32 tabs: close secondary | 843.9 | 71.3 |
+
+These are diagnostic comparisons with matching binary hashes, not promised
+production speedups. A complete bounded Debug configured-workspace control also
+passed: join 194.1 ms, split 256.3 ms, detach 426.4 ms, secondary close 266.4 ms.
+It uses finer instrumentation and therefore is not an exact ratio against the
+uninstrumented Debug baseline. Remaining Debug costs include Settings patching,
+repeated overlay reads/action refresh, layout/show and paint delivery.
+An exploratory full 32-tab Debug control hit its 180-second total fixture budget;
+it is retained under `debug-native-frame-control/` and excluded from acceptance.
+The complete bounded repeat is `debug-native-configured/`.
+
+Startup attribution in one diagnostic Release run includes three
+`PluginManager::setEnabled` calls totaling 261.4 ms, with three Settings syncs
+216.8 ms; six materializations 160.7 ms; 48 schema constructions 81.3 ms; and six
+processing-panel constructions 60.9 ms (including catalog work). These are nested
+inclusive scopes and must not be added. First default activation is not the same
+as a returning-user startup with existing plugin preferences.
+
+### Prioritized remediation
+
+1. **P0 — group frame and parent changes:** replace ancestor QSS border styling
+   with a native frame preserving the approved neutral outline. Avoid temporary
+   detach/reparent steps when destination layout insertion can perform one move;
+   batch structural mutations and defer redundant layout/show work. Verify normal
+   drag, split, return, hidden tabs, DPI and unchanged runtime identity.
+2. **P1 — hidden GUI and repeated state reads:** lazily create processing/property
+   controls; share immutable catalog/schema presentation data. Refresh only changed
+   tab captions and visible group actions. Reuse an effective-settings snapshot
+   within a refresh rather than merging it for each command.
+3. **P1 — persistence on interaction/startup:** skip identical tab-order patches;
+   avoid cloning/emitting a whole session for an unchanged presentation value.
+   Batch default plugin activation preferences and avoid unchanged restoration
+   history writes. Keep validation, atomic persistence and unknown-field retention.
+4. **P1 — worker execution contract:** isolate costly node computation using the
+   bounded, ordered and cancellable terminal execution boundary above. Add worker
+   transport ownership when independent I/O progress is required. This is a
+   separate processing-throughput improvement, not a substitute for fixing Qt
+   subtree/style work. No thread migration is delivered by this investigation.
+
+The newly added connection snapshots were also changed to one atomic patch of
+changed flags, instead of one whole-document patch per terminal. This avoids
+introducing repeated serialization into session save. Existing restoration tests
+cover unchanged, mixed, unavailable and explicitly closed terminal states.
+
+Raw records and machine summaries are under
+[the docking/startup evidence directory](benchmarks/docking-startup/release-configured/Summary.json).
+Diagnostic attribution is captured in each control's `Attribution.json`.
+All temporary production instrumentation is restored byte-for-byte. The QSS/native
+control is not a shipped setting; docking behavior remains unchanged here.
+
+Returning-user startup with enabled bundled-plugin preferences was measured in a
+separate uninstrumented control: Release median launch-to-first-paint 904.6 ms
+(max/p95 1011.5 ms, three fresh processes), Debug 4453.3 ms (one process). All
+restored six-terminal counts, source hashes and normal exits passed. These runs
+occurred later under uncontrolled host scheduling and are not a controlled
+speedup comparison against fresh preferences. They confirm that startup remains
+slow even without first-activation writes. Records are in
+`returning-startup-release/` and `returning-startup-debug/`.
+
+Final verification: the ordinary Qt 6.12.0 MSVC Debug and Release applications,
+profiling tool and affected tests built after restoring all diagnostic hooks.
+Release AppTests: 64 passed, one normal opt-in skip. Release SessionTests: 13
+passed, two host-dependent symlink skips. Debug focused AppTests: 16 passed,
+including process exit, mixed saved connection states, provider recovery, group
+moves and Inplace restoration. Python compilation, local documentation links and
+`git diff --check` passed. No source workspace changes, hardware sends, external
+network tests, dependency downloads or distribution changes were made.

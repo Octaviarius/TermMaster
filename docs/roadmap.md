@@ -624,3 +624,11 @@ Later stages:
 - [x] Restore open connections after rebuilding terminal layout and processing.
 - [x] Preserve unavailable providers and clear explicitly closed views.
 - [x] Verify mixed states, provider recovery and process-exit persistence.
+
+## PERF-19: Docking, secondary close and startup investigation
+
+- [x] Add isolated, disconnected configured-workspace and synthetic docking probes.
+- [x] Compare native Windows Debug and Release through actual paint delivery.
+- [x] Attribute slow framework calls with diagnostic scopes and controlled experiments.
+- [x] Audit transport/processing thread affinity and define execution-boundary requirements.
+- [x] Record evidence and prioritized remediation without changing docking behavior.

@@ -1,0 +1,4663 @@
+{
+  "measurements": [
+    {
+      "ok": true,
+      "stage": "app.construct",
+      "wallMs": 1557.5862,
+      "error": ""
+    },
+    {
+      "ok": true,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 9.28229999999985,
+          "inclusiveMs": 1414.9304,
+          "stage": "App::_activateSession"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 6.2864,
+          "inclusiveMs": 7.8328,
+          "stage": "App::_applyConfiguration"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 8.400199999999998,
+          "inclusiveMs": 49.4063,
+          "stage": "App::_ensureApplicationSettings"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 9.942200000000007,
+          "inclusiveMs": 56.4233,
+          "stage": "App::_updateRecent"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.4659000000000217,
+          "inclusiveMs": 299.3422,
+          "stage": "App::_updateSession"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 25.92820000000006,
+          "inclusiveMs": 1718.2769,
+          "stage": "App::restoreLastWorkspace"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 27.786100000000022,
+          "inclusiveMs": 637.8468,
+          "stage": "PluginManager::_reconcile"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 118.0634,
+          "inclusiveMs": 118.4216,
+          "stage": "PluginManager::_scan"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.9226999999999919,
+          "inclusiveMs": 824.5117,
+          "stage": "PluginManager::setEnabled"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.1880000000000024,
+          "inclusiveMs": 118.9806,
+          "stage": "PluginManager::start"
+        },
+        {
+          "calls": 39,
+          "exclusiveMs": 3.7706999999999997,
+          "inclusiveMs": 3.7706999999999997,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.6402,
+          "inclusiveMs": 3.6402,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 0.0023,
+          "inclusiveMs": 0.0023,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 41.5917,
+          "inclusiveMs": 41.5917,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.588700000000001,
+          "inclusiveMs": 19.2333,
+          "stage": "Session::_validate"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.3370999999999995,
+          "inclusiveMs": 87.2789,
+          "stage": "Session::load"
+        },
+        {
+          "calls": 9,
+          "exclusiveMs": 16.069800000000004,
+          "inclusiveMs": 16.069800000000004,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 8,
+          "exclusiveMs": 92.3527,
+          "inclusiveMs": 92.3527,
+          "stage": "Settings::load"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 175.2212,
+          "inclusiveMs": 175.2212,
+          "stage": "Settings::sync"
+        },
+        {
+          "calls": 527,
+          "exclusiveMs": 107.07910000000003,
+          "inclusiveMs": 107.07910000000003,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 48,
+          "exclusiveMs": 1638.1711999999998,
+          "inclusiveMs": 1638.1711999999998,
+          "stage": "SettingsSchema::SettingsSchema"
+        },
+        {
+          "calls": 84,
+          "exclusiveMs": 25.775299999999998,
+          "inclusiveMs": 25.775299999999998,
+          "stage": "SettingsSchema::validate"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 1.878,
+          "inclusiveMs": 1.878,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 24.545300000000008,
+          "inclusiveMs": 222.35850000000002,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 36,
+          "exclusiveMs": 43.00200000000002,
+          "inclusiveMs": 82.93659999999998,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 169.72459999999998,
+          "inclusiveMs": 922.1071,
+          "stage": "TerminalController::_materialize"
+        },
+        {
+          "calls": 49,
+          "exclusiveMs": 180.17790000000002,
+          "inclusiveMs": 426.3435,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 98,
+          "exclusiveMs": 241.536,
+          "inclusiveMs": 242.4317,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 5.3781,
+          "inclusiveMs": 12.7334,
+          "stage": "TerminalController::_validate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 15.70819999999996,
+          "inclusiveMs": 234.48739999999998,
+          "stage": "TerminalController::applySettings"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0053,
+          "inclusiveMs": 0.0053,
+          "stage": "TerminalController::closeAll"
+        },
+        {
+          "calls": 55,
+          "exclusiveMs": 25.590899999999987,
+          "inclusiveMs": 455.44949999999994,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 22,
+          "exclusiveMs": 26.0112,
+          "inclusiveMs": 40.475899999999996,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 18,
+          "exclusiveMs": 2.7286,
+          "inclusiveMs": 39.2694,
+          "stage": "TerminalDisplay::setAppearance"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 277.4453,
+          "inclusiveMs": 583.7656,
+          "stage": "TerminalProcessingPanel::TerminalProcessingPanel"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 304.2154,
+          "inclusiveMs": 306.2761,
+          "stage": "TerminalProcessingPanel::_catalog"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 0.044199999999999996,
+          "inclusiveMs": 0.044199999999999996,
+          "stage": "TerminalProcessingPanel::_showProperties"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 0.19019999999999998,
+          "inclusiveMs": 0.19019999999999998,
+          "stage": "TerminalProcessingPanel::setConfiguration"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 1.1023,
+          "inclusiveMs": 1.1023,
+          "stage": "TerminalScreen::_recolor"
+        },
+        {
+          "calls": 22,
+          "exclusiveMs": 14.464699999999997,
+          "inclusiveMs": 14.464699999999997,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 44.195499999999996,
+          "inclusiveMs": 44.3499,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.15439999999999998,
+          "inclusiveMs": 0.15439999999999998,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 38.39269999999999,
+          "inclusiveMs": 38.39269999999999,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.6749999999999989,
+          "inclusiveMs": 45.0249,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.05079999999999951,
+          "inclusiveMs": 41.657900000000005,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 5.456099999999992,
+          "inclusiveMs": 80.8189,
+          "stage": "Workspace::_validateProcessors"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 26.422400000000003,
+          "inclusiveMs": 86.0261,
+          "stage": "Workspace::load"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 65.82499999999999,
+          "inclusiveMs": 127.604,
+          "stage": "Workspace::sync"
+        }
+      ],
+      "stage": "app.start.to.eventloop",
+      "wallMs": 4633.2387,
+      "error": ""
+    },
+    {
+      "cpuMs": 312.5,
+      "error": "",
+      "fromProcessMainMs": 4951.9473,
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 46.46875,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 72.28469999999999,
+          "inclusiveMs": 72.2847,
+          "stage": "PluginManager::_scan"
+        },
+        {
+          "calls": 60,
+          "exclusiveMs": 3.9309999999999974,
+          "inclusiveMs": 3.9309999999999974,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.1194000000000024,
+          "inclusiveMs": 47.5308,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 12.703199999999981,
+          "inclusiveMs": 36.46879999999999,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 21.625499999999988,
+          "inclusiveMs": 22.0291,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 9.151700000000002,
+          "inclusiveMs": 47.411400000000015,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 104,
+          "exclusiveMs": 0.18799999999999992,
+          "inclusiveMs": 0.18799999999999992,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.11540000000000106,
+          "inclusiveMs": 0.11580000000000013,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.8844,
+          "inclusiveMs": 1.0724,
+          "stage": "TerminalDisplay::paintEvent"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0004000000000008441,
+          "inclusiveMs": 0.0004000000000008441,
+          "stage": "TerminalScreen::setLimits"
+        }
+      ],
+      "stage": "app.restored.first.presentation",
+      "wallMs": 315.7785
+    },
+    {
+      "cpuMs": 15.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 46.4765625,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0005000000000006111,
+          "inclusiveMs": 0.0005000000000023874,
+          "stage": "App::_ensureApplicationSettings"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.330400000000001,
+          "inclusiveMs": 2.784700000000001,
+          "stage": "App::_updateRecent"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.376100000000001,
+          "inclusiveMs": 2.376100000000001,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 37.78800000000001,
+          "inclusiveMs": 37.78800000000001,
+          "stage": "Settings::sync"
+        },
+        {
+          "calls": 10,
+          "exclusiveMs": 0.6424000000000092,
+          "inclusiveMs": 0.6424000000000092,
+          "stage": "Settings::value"
+        }
+      ],
+      "stage": "workspace.open.restore",
+      "wallMs": 43.829
+    },
+    {
+      "ok": true,
+      "stage": "fixture",
+      "terminalCount": 6,
+      "error": ""
+    },
+    {
+      "cpuMs": 156.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 47.3359375,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.2378,
+          "inclusiveMs": 0.2378,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 13.3177,
+          "inclusiveMs": 15.257,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.9929000000000001,
+          "inclusiveMs": 3.919,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.416,
+          "inclusiveMs": 6.6117,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0009000000000001229,
+          "inclusiveMs": 0.0009000000000001229,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0002999999999999999,
+          "inclusiveMs": 0.0002999999999999999,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 0.32439999999999714,
+          "inclusiveMs": 0.32439999999999714,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 29.3535,
+          "inclusiveMs": 29.3535,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 69,
+          "exclusiveMs": 19.099699999999928,
+          "inclusiveMs": 19.099699999999928,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.17589999999999995,
+          "inclusiveMs": 0.17589999999999995,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.872399999999999,
+          "inclusiveMs": 17.6567,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.1367,
+          "inclusiveMs": 0.1593,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 3.972699999999996,
+          "inclusiveMs": 6.864000000000004,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0008999999999999009,
+          "inclusiveMs": 0.0009000000000014552,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 26.28770000000003,
+          "inclusiveMs": 49.214500000000044,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.5910000000000011,
+          "inclusiveMs": 33.834,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 17.51550000000003,
+          "inclusiveMs": 17.858799999999974,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.873199999999997,
+          "inclusiveMs": 153.1645,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 3.1637000000000057,
+          "inclusiveMs": 37.947799999999916,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 3.904599999999995,
+          "inclusiveMs": 7.673700000000004,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 3.769099999999998,
+          "inclusiveMs": 3.769099999999998,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 12.725300000000004,
+          "inclusiveMs": 12.766600000000004,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0413,
+          "inclusiveMs": 0.0413,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.919999999999995,
+          "inclusiveMs": 7.919999999999995,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.13959999999999972,
+          "inclusiveMs": 12.906199999999998,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.0197,
+          "inclusiveMs": 0.020499999999999997,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.00919999999999993,
+          "inclusiveMs": 0.3323999999999998,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.731600000000004,
+          "inclusiveMs": 34.8273,
+          "stage": "TerminalWorkspace::splitGroup"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 160.52
+    },
+    {
+      "cpuMs": 78.125,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 47.3359375,
+      "scopes": [
+        {
+          "calls": 7,
+          "exclusiveMs": 7.434199999999976,
+          "inclusiveMs": 7.434199999999976,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 168,
+          "exclusiveMs": 0.16579999999999961,
+          "inclusiveMs": 0.16579999999999961,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.125,
+          "inclusiveMs": 0.5919999999999987,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.9571000000000005,
+          "inclusiveMs": 1.1229000000000005,
+          "stage": "TerminalDisplay::paintEvent"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.46699999999999875,
+          "inclusiveMs": 0.46699999999999875,
+          "stage": "TerminalScreen::setLimits"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 77.4846
+    },
+    {
+      "cpuMs": 109.375,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.1484375,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0383,
+          "inclusiveMs": 0.0383,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.01899999999999835,
+          "inclusiveMs": 0.01899999999999835,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.5612,
+          "inclusiveMs": 3.5612,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.936,
+          "inclusiveMs": 1.9363000000000001,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.3208,
+          "inclusiveMs": 5.4902,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 8.2257,
+          "inclusiveMs": 9.7384,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.6060000000000016,
+          "inclusiveMs": 1.6060000000000016,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 33.11829999999999,
+          "inclusiveMs": 33.11829999999999,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 12.904700000000133,
+          "inclusiveMs": 12.904700000000133,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.10139999999999993,
+          "inclusiveMs": 0.10139999999999993,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.5260000000000034,
+          "inclusiveMs": 16.4135,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.10670000000000002,
+          "inclusiveMs": 11.8551,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.3218999999999994,
+          "inclusiveMs": 3.0137,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.0006999999999999229,
+          "inclusiveMs": 0.0006999999999379725,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.3063999999999965,
+          "inclusiveMs": 22.212800000000016,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4971999999999994,
+          "inclusiveMs": 37.34309999999999,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 14.215000000000032,
+          "inclusiveMs": 14.453199999999924,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.1785999999999888,
+          "inclusiveMs": 104.45199999999997,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.8290000000000077,
+          "inclusiveMs": 15.296299999999974,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.8593000000000046,
+          "inclusiveMs": 2.681900000000006,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.8226000000000013,
+          "inclusiveMs": 0.8226000000000013,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 11.873599999999996,
+          "inclusiveMs": 11.873599999999996,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.3807000000000001,
+          "inclusiveMs": 15.521700000000001,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0123000000000002,
+          "inclusiveMs": 1.6289000000000016,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 112.8534
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 48.1484375,
+      "scopes": [
+        {
+          "calls": 7,
+          "exclusiveMs": 8.294999999999959,
+          "inclusiveMs": 8.294999999999959,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 156,
+          "exclusiveMs": 0.18069999999998831,
+          "inclusiveMs": 0.18069999999998831,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.0835,
+          "inclusiveMs": 1.2641999999999998,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 73.9931
+    },
+    {
+      "cpuMs": 234.375,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.41796875,
+      "scopes": [
+        {
+          "calls": 10,
+          "exclusiveMs": 0.47750000000000026,
+          "inclusiveMs": 0.47750000000000026,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.02960000000000207,
+          "inclusiveMs": 0.02960000000000207,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.9336999999999982,
+          "inclusiveMs": 1.9336999999999982,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 41.038000000000004,
+          "inclusiveMs": 44.0383,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 32.71549999999999,
+          "inclusiveMs": 32.71549999999999,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 101,
+          "exclusiveMs": 20.51769999999999,
+          "inclusiveMs": 20.51769999999999,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.4835999999999996,
+          "inclusiveMs": 0.4835999999999996,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 9.081699999999998,
+          "inclusiveMs": 37.842600000000004,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.1129,
+          "inclusiveMs": 0.11580000000000013,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 11.595599999999997,
+          "inclusiveMs": 20.296400000000006,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.00019999999999997797,
+          "inclusiveMs": 0.0001999999999497959,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 37.063800000000015,
+          "inclusiveMs": 68.09580000000017,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.6009000000000029,
+          "inclusiveMs": 37.07640000000001,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 8,
+          "exclusiveMs": 28.998199999999883,
+          "inclusiveMs": 29.562299999999823,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.0762,
+          "inclusiveMs": 213.3191,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 9.646700000000038,
+          "inclusiveMs": 54.56049999999982,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 2.4209999999999994,
+          "inclusiveMs": 3.0002999999999886,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 0.5792999999999964,
+          "inclusiveMs": 0.5792999999999964,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 27.955200000000005,
+          "inclusiveMs": 28.052099999999996,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.09689999999999999,
+          "inclusiveMs": 0.09689999999999999,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 8.380499999999998,
+          "inclusiveMs": 8.380499999999998,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.2193000000000005,
+          "inclusiveMs": 28.2714,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0007999999999999674,
+          "inclusiveMs": 0.0007999999999999119,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.029000000000000803,
+          "inclusiveMs": 8.646299999999997,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.8870000000000005,
+          "inclusiveMs": 21.6067,
+          "stage": "TerminalWorkspace::transferGroup"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 244.8607
+    },
+    {
+      "cpuMs": 78.125,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 50.70703125,
+      "scopes": [
+        {
+          "calls": 35,
+          "exclusiveMs": 7.6141000000000645,
+          "inclusiveMs": 7.6141000000000645,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.07030000000000314,
+          "inclusiveMs": 35.35429999999997,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 10.286399999999958,
+          "inclusiveMs": 33.760899999999765,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 21.918499999999995,
+          "inclusiveMs": 22.399599999999964,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.5230999999999995,
+          "inclusiveMs": 35.284000000000106,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 46,
+          "exclusiveMs": 0.08769999999999922,
+          "inclusiveMs": 0.08769999999999922,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.38039999999999985,
+          "inclusiveMs": 0.46809999999999974,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 113.1434
+    },
+    {
+      "cpuMs": 109.375,
+      "error": "",
+      "ok": true,
+      "privateMiB": 50.98046875,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0010000000000000009,
+          "inclusiveMs": 0.0010000000000000009,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0397000000000034,
+          "inclusiveMs": 0.0397000000000034,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 4.904200000000001,
+          "inclusiveMs": 4.904399999999999,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 5.29910000000001,
+          "inclusiveMs": 6.5478999999999985,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 31.51400000000001,
+          "inclusiveMs": 31.51400000000001,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 20.614899999999693,
+          "inclusiveMs": 20.614899999999693,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.4760000000000004,
+          "inclusiveMs": 0.4760000000000004,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 8.655999999999992,
+          "inclusiveMs": 39.51220000000001,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 12.3403,
+          "inclusiveMs": 21.676600000000008,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.0006999999999999229,
+          "inclusiveMs": 0.0006999999999379725,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 15.958899999999971,
+          "inclusiveMs": 22.678900000000112,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.6195000000000022,
+          "inclusiveMs": 35.69200000000001,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 6.099299999999971,
+          "inclusiveMs": 6.196199999999976,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 2.67470000000003,
+          "inclusiveMs": 25.87229999999977,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 10.180099999999982,
+          "inclusiveMs": 137.4296,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.26189999999999714,
+          "inclusiveMs": 1.2488000000000028,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.9868999999999986,
+          "inclusiveMs": 0.9868999999999986,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 14.112799999999993,
+          "inclusiveMs": 14.1584,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.045599999999999974,
+          "inclusiveMs": 0.045599999999999974,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 9.178500000000014,
+          "inclusiveMs": 9.178500000000014,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.14550000000000018,
+          "inclusiveMs": 14.303899999999999,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.022799999999999265,
+          "inclusiveMs": 11.514800000000001,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.35389999999999944,
+          "inclusiveMs": 26.1726,
+          "stage": "TerminalWorkspace::appendWorkspace"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 145.7243
+    },
+    {
+      "cpuMs": 78.125,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 48.69921875,
+      "scopes": [
+        {
+          "calls": 27,
+          "exclusiveMs": 8.451399999999921,
+          "inclusiveMs": 8.451399999999921,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.06879999999999953,
+          "inclusiveMs": 16.33209999999997,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.090599999999995,
+          "inclusiveMs": 12.172399999999925,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.372200000000021,
+          "inclusiveMs": 7.508600000000001,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.4972999999999956,
+          "inclusiveMs": 16.263300000000072,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 104,
+          "exclusiveMs": 0.10949999999999371,
+          "inclusiveMs": 0.10949999999999371,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.7690999999999999,
+          "inclusiveMs": 0.8786000000000005,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 85.205
+    },
+    {
+      "cpuMs": 156.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.69921875,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.21799999999999997,
+          "inclusiveMs": 0.21799999999999997,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 12.948700000000002,
+          "inclusiveMs": 15.079600000000003,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.7432999999999996,
+          "inclusiveMs": 3.4421,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.0738,
+          "inclusiveMs": 4.0738,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0004999999999997229,
+          "inclusiveMs": 0.0005000000000006111,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0002999999999993008,
+          "inclusiveMs": 0.0002999999999993008,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 0.3340999999999923,
+          "inclusiveMs": 0.3340999999999923,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 32.157899999999984,
+          "inclusiveMs": 32.157899999999984,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 69,
+          "exclusiveMs": 19.580300000000022,
+          "inclusiveMs": 19.580300000000022,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.14760000000000018,
+          "inclusiveMs": 0.14760000000000018,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 3.0545000000000044,
+          "inclusiveMs": 17.674199999999985,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.08339999999999997,
+          "inclusiveMs": 0.09880000000000067,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 4.064899999999994,
+          "inclusiveMs": 6.835800000000006,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0004999999999999449,
+          "inclusiveMs": 0.0004999999999881766,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 27.55759999999998,
+          "inclusiveMs": 53.99590000000012,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4883000000000024,
+          "inclusiveMs": 36.145700000000005,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 20.785300000000007,
+          "inclusiveMs": 21.207300000000146,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.8515000000000157,
+          "inclusiveMs": 155.9404,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 2.9813000000000045,
+          "inclusiveMs": 43.49929999999995,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 2.8489000000000004,
+          "inclusiveMs": 5.1847000000000065,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 2.335799999999999,
+          "inclusiveMs": 2.335799999999999,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 13.731399999999994,
+          "inclusiveMs": 13.776799999999994,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.045399999999999996,
+          "inclusiveMs": 0.045399999999999996,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.783699999999996,
+          "inclusiveMs": 7.783699999999996,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.1678999999999995,
+          "inclusiveMs": 13.944699999999997,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.013699999999999934,
+          "inclusiveMs": 0.014099999999999113,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.009099999999999997,
+          "inclusiveMs": 0.347600000000007,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.153400000000001,
+          "inclusiveMs": 34.86730000000001,
+          "stage": "TerminalWorkspace::splitGroup"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 164.2104
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "paintEvents": 4,
+      "privateMiB": 48.69921875,
+      "scopes": [
+        {
+          "calls": 7,
+          "exclusiveMs": 7.314399999999978,
+          "inclusiveMs": 7.314399999999978,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 220,
+          "exclusiveMs": 0.25349999999998407,
+          "inclusiveMs": 0.25349999999998407,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.12049999999999983,
+          "inclusiveMs": 0.5785999999999945,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 1.3836000000000004,
+          "inclusiveMs": 1.6370999999999984,
+          "stage": "TerminalDisplay::paintEvent"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.45810000000000173,
+          "inclusiveMs": 0.45810000000000173,
+          "stage": "TerminalScreen::setLimits"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 75.9279
+    },
+    {
+      "cpuMs": 125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.69921875,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.04149999999999998,
+          "inclusiveMs": 0.04149999999999998,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.020199999999999108,
+          "inclusiveMs": 0.02020000000000266,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.5504999999999995,
+          "inclusiveMs": 3.5504999999999995,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.3559,
+          "inclusiveMs": 2.3561999999999994,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.3381,
+          "inclusiveMs": 5.684900000000001,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 9.018699999999995,
+          "inclusiveMs": 10.966999999999999,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.620900000000006,
+          "inclusiveMs": 1.620900000000006,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 44.467299999999994,
+          "inclusiveMs": 44.467299999999994,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 12.671500000000094,
+          "inclusiveMs": 12.671500000000094,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.12539999999999996,
+          "inclusiveMs": 0.12539999999999996,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.7545000000000002,
+          "inclusiveMs": 16.062099999999987,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.10440000000000005,
+          "inclusiveMs": 13.0647,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.343100000000007,
+          "inclusiveMs": 3.1407000000000096,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.0006999999999999229,
+          "inclusiveMs": 0.0006999999999379725,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.5301000000000045,
+          "inclusiveMs": 21.729699999999866,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.606100000000005,
+          "inclusiveMs": 48.72570000000002,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 13.354799999999955,
+          "inclusiveMs": 13.628399999999942,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.9453000000000031,
+          "inclusiveMs": 116.87600000000003,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 3.104900000000015,
+          "inclusiveMs": 16.707299999999805,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.232999999999997,
+          "inclusiveMs": 3.2948999999999984,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.0619000000000014,
+          "inclusiveMs": 1.0619000000000014,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 11.1665,
+          "inclusiveMs": 11.1665,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.34509999999999913,
+          "inclusiveMs": 17.3071,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0129999999999999,
+          "inclusiveMs": 1.6477000000000004,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 124.8627
+    },
+    {
+      "cpuMs": 62.5,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 48.69921875,
+      "scopes": [
+        {
+          "calls": 7,
+          "exclusiveMs": 6.7391999999999825,
+          "inclusiveMs": 6.7391999999999825,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 104,
+          "exclusiveMs": 0.13709999999999245,
+          "inclusiveMs": 0.13709999999999245,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.753499999999999,
+          "inclusiveMs": 0.890600000000001,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 68.0272
+    },
+    {
+      "cpuMs": 218.75,
+      "error": "",
+      "ok": true,
+      "privateMiB": 48.8359375,
+      "scopes": [
+        {
+          "calls": 10,
+          "exclusiveMs": 0.4643999999999995,
+          "inclusiveMs": 0.4643999999999995,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.02919999999999945,
+          "inclusiveMs": 0.029199999999995896,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 2.3094,
+          "inclusiveMs": 2.3094,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 42.853300000000004,
+          "inclusiveMs": 46.03989999999999,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 32.56100000000001,
+          "inclusiveMs": 32.56100000000001,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 101,
+          "exclusiveMs": 21.970400000000325,
+          "inclusiveMs": 21.970400000000325,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.5101999999999998,
+          "inclusiveMs": 0.5101999999999998,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 8.993399999999987,
+          "inclusiveMs": 39.037199999999984,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.12280000000000002,
+          "inclusiveMs": 0.12509999999999977,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 12.533000000000001,
+          "inclusiveMs": 21.67059999999998,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.00019999999999997797,
+          "inclusiveMs": 0.0001999999999497959,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 39.225900000000024,
+          "inclusiveMs": 70.74999999999977,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.6066000000000003,
+          "inclusiveMs": 36.90999999999997,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 8,
+          "exclusiveMs": 29.315300000000207,
+          "inclusiveMs": 29.873500000000035,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.1143999999999608,
+          "inclusiveMs": 219.4255,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 10.633500000000026,
+          "inclusiveMs": 57.239199999999755,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 2.3379000000000048,
+          "inclusiveMs": 3.1866000000000128,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 0.8486999999999973,
+          "inclusiveMs": 0.8486999999999973,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 26.2641,
+          "inclusiveMs": 26.355400000000017,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.09130000000000005,
+          "inclusiveMs": 0.09130000000000005,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 8.306399999999996,
+          "inclusiveMs": 8.306399999999996,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.2129000000000012,
+          "inclusiveMs": 26.568299999999994,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.00039999999999995595,
+          "inclusiveMs": 0.00039999999999906777,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.02980000000000027,
+          "inclusiveMs": 9.101400000000012,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.9716999999999985,
+          "inclusiveMs": 21.086699999999997,
+          "stage": "TerminalWorkspace::transferGroup"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 250.4381
+    },
+    {
+      "cpuMs": 171.875,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 51.31640625,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 68.86470000000003,
+          "inclusiveMs": 68.86470000000003,
+          "stage": "PluginManager::_scan"
+        },
+        {
+          "calls": 35,
+          "exclusiveMs": 8.182400000000086,
+          "inclusiveMs": 8.182400000000086,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.07259999999999422,
+          "inclusiveMs": 36.13070000000005,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 10.578700000000083,
+          "inclusiveMs": 34.36870000000022,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 22.107900000000086,
+          "inclusiveMs": 22.572700000000054,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.6894000000000062,
+          "inclusiveMs": 36.05809999999997,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 92,
+          "exclusiveMs": 0.15229999999999566,
+          "inclusiveMs": 0.15229999999999566,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.7532999999999994,
+          "inclusiveMs": 0.9055999999999997,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 175.9785
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.31640625,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0009999999999998899,
+          "inclusiveMs": 0.0009999999999998899,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.03500000000000014,
+          "inclusiveMs": 0.035000000000003695,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 4.947099999999999,
+          "inclusiveMs": 4.9472999999999985,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 5.190599999999989,
+          "inclusiveMs": 6.021899999999988,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 33.50959999999998,
+          "inclusiveMs": 33.50959999999998,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 19.475099999999713,
+          "inclusiveMs": 19.475099999999713,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.46030000000000015,
+          "inclusiveMs": 0.46030000000000015,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 8.5441,
+          "inclusiveMs": 36.51769999999988,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 10.793499999999995,
+          "inclusiveMs": 19.491500000000002,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.0005999999999999339,
+          "inclusiveMs": 0.0005999999998493877,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 16.025600000000054,
+          "inclusiveMs": 24.121399999999994,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.5006000000000057,
+          "inclusiveMs": 37.48720000000003,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.433599999999956,
+          "inclusiveMs": 7.5733000000000175,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 2.8336000000000467,
+          "inclusiveMs": 27.52769999999964,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 8.765299999999996,
+          "inclusiveMs": 135.69030000000004,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.24110000000000298,
+          "inclusiveMs": 0.8312999999999988,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.5901999999999994,
+          "inclusiveMs": 0.5901999999999994,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 13.88069999999999,
+          "inclusiveMs": 13.9195,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.03880000000000006,
+          "inclusiveMs": 0.03880000000000006,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 8.481099999999998,
+          "inclusiveMs": 8.481099999999998,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.13840000000000074,
+          "inclusiveMs": 14.05789999999999,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.02049999999999974,
+          "inclusiveMs": 11.024699999999996,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.30939999999999657,
+          "inclusiveMs": 25.392,
+          "stage": "TerminalWorkspace::appendWorkspace"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 143.3556
+    },
+    {
+      "cpuMs": 93.75,
+      "error": "",
+      "ok": true,
+      "paintEvents": 1,
+      "privateMiB": 49.03515625,
+      "scopes": [
+        {
+          "calls": 27,
+          "exclusiveMs": 8.487499999999898,
+          "inclusiveMs": 8.487499999999898,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.10550000000000104,
+          "inclusiveMs": 15.727800000000002,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.3028000000000475,
+          "inclusiveMs": 11.119799999999941,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 6.274900000000002,
+          "inclusiveMs": 6.383799999999951,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.907100000000014,
+          "inclusiveMs": 15.622299999999996,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 52,
+          "exclusiveMs": 0.07769999999999766,
+          "inclusiveMs": 0.07769999999999766,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4582999999999995,
+          "inclusiveMs": 0.5359999999999996,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 86.5287
+    },
+    {
+      "cpuMs": 171.875,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.03515625,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.2469999999999999,
+          "inclusiveMs": 0.2469999999999999,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 13.8646,
+          "inclusiveMs": 16.041999999999994,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.048,
+          "inclusiveMs": 3.9643000000000015,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.2303,
+          "inclusiveMs": 4.2303000000000015,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.000700000000000145,
+          "inclusiveMs": 0.000700000000000145,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.00019999999999953388,
+          "inclusiveMs": 0.00019999999999953388,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 0.3060000000000116,
+          "inclusiveMs": 0.3060000000000116,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 38.99759999999998,
+          "inclusiveMs": 38.99759999999998,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 69,
+          "exclusiveMs": 20.083400000000097,
+          "inclusiveMs": 20.083400000000097,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.15050000000000008,
+          "inclusiveMs": 0.15050000000000008,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 3.3083000000000027,
+          "inclusiveMs": 17.82249999999999,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.08379999999999999,
+          "inclusiveMs": 0.09949999999999903,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 4.099699999999999,
+          "inclusiveMs": 6.822100000000006,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0004999999999999449,
+          "inclusiveMs": 0.0004999999999881766,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 39.16500000000008,
+          "inclusiveMs": 68.66419999999994,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.9827000000000012,
+          "inclusiveMs": 44.6318,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 23.637199999999893,
+          "inclusiveMs": 24.066299999999842,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.9752999999999474,
+          "inclusiveMs": 181.99530000000004,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 2.8729000000000156,
+          "inclusiveMs": 57.668499999999995,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 3.1083,
+          "inclusiveMs": 5.756299999999996,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 2.6480000000000032,
+          "inclusiveMs": 2.6480000000000032,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 13.920299999999997,
+          "inclusiveMs": 13.97720000000001,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.05689999999999995,
+          "inclusiveMs": 0.05689999999999995,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.691799999999986,
+          "inclusiveMs": 7.691799999999986,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.27200000000000024,
+          "inclusiveMs": 14.249200000000002,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.01409999999999989,
+          "inclusiveMs": 0.01470000000000482,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.008699999999999986,
+          "inclusiveMs": 0.31560000000000343,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.66599999999999,
+          "inclusiveMs": 36.926500000000004,
+          "stage": "TerminalWorkspace::splitGroup"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 189.607
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 5,
+      "privateMiB": 49.03515625,
+      "scopes": [
+        {
+          "calls": 71,
+          "exclusiveMs": 18.979700000000207,
+          "inclusiveMs": 18.979700000000207,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0823999999999927,
+          "inclusiveMs": 71.57819999999992,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 19.678699999999935,
+          "inclusiveMs": 64.67660000000001,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 8,
+          "exclusiveMs": 33.82749999999987,
+          "inclusiveMs": 34.399699999999825,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 5.659600000000012,
+          "inclusiveMs": 71.49579999999992,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 272,
+          "exclusiveMs": 0.33770000000000877,
+          "inclusiveMs": 0.33770000000000877,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.13810000000000144,
+          "inclusiveMs": 0.6129999999999995,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 2.016099999999998,
+          "inclusiveMs": 2.3537999999999997,
+          "stage": "TerminalDisplay::paintEvent"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4748999999999981,
+          "inclusiveMs": 0.4748999999999981,
+          "stage": "TerminalScreen::setLimits"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 165.0104
+    },
+    {
+      "cpuMs": 78.125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.03515625,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.2872999999999999,
+          "inclusiveMs": 0.2872999999999999,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.02230000000000132,
+          "inclusiveMs": 0.02230000000000132,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.5083,
+          "inclusiveMs": 3.5082999999999984,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.8894999999999982,
+          "inclusiveMs": 0.8894999999999982,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.459200000000001,
+          "inclusiveMs": 5.7737,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 7.537099999999999,
+          "inclusiveMs": 9.648499999999999,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.6265999999999678,
+          "inclusiveMs": 1.6265999999999678,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 36.99970000000002,
+          "inclusiveMs": 36.99970000000002,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 13.814200000000028,
+          "inclusiveMs": 13.814200000000028,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.10489999999999977,
+          "inclusiveMs": 0.10489999999999977,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.7323999999999984,
+          "inclusiveMs": 15.386300000000006,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.1039999999999992,
+          "inclusiveMs": 11.776599999999998,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.417900000000003,
+          "inclusiveMs": 3.1410000000000196,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 9.458299999999895,
+          "inclusiveMs": 25.74700000000007,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.5876000000000019,
+          "inclusiveMs": 42.06330000000003,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 15.532500000000027,
+          "inclusiveMs": 15.775700000000029,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.8188999999999993,
+          "inclusiveMs": 111.25310000000002,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.4424000000000206,
+          "inclusiveMs": 15.537800000000061,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.3370999999999995,
+          "inclusiveMs": 3.4258999999999986,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.088799999999999,
+          "inclusiveMs": 1.088799999999999,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 10.512699999999995,
+          "inclusiveMs": 10.512699999999995,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.3690000000000001,
+          "inclusiveMs": 16.224599999999995,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.013500000000000068,
+          "inclusiveMs": 1.6547000000000054,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 119.829
+    },
+    {
+      "cpuMs": 125,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 49.03515625,
+      "scopes": [
+        {
+          "calls": 67,
+          "exclusiveMs": 11.593500000000006,
+          "inclusiveMs": 11.593500000000006,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.11340000000000039,
+          "inclusiveMs": 47.59269999999992,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 13.710399999999936,
+          "inclusiveMs": 36.699100000000044,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 20.979299999999967,
+          "inclusiveMs": 21.37679999999989,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 9.07589999999999,
+          "inclusiveMs": 47.479300000000194,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 156,
+          "exclusiveMs": 0.2147000000000019,
+          "inclusiveMs": 0.2147000000000019,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.3582999999999998,
+          "inclusiveMs": 1.5730000000000004,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 147.0804
+    },
+    {
+      "cpuMs": 250,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.03515625,
+      "scopes": [
+        {
+          "calls": 10,
+          "exclusiveMs": 0.4656999999999991,
+          "inclusiveMs": 0.4656999999999991,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.029900000000004923,
+          "inclusiveMs": 0.029900000000004923,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 2.2523000000000053,
+          "inclusiveMs": 2.252500000000005,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 38.73920000000001,
+          "inclusiveMs": 42.06920000000002,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 34.940200000000004,
+          "inclusiveMs": 34.940200000000004,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 101,
+          "exclusiveMs": 21.62229999999994,
+          "inclusiveMs": 21.62229999999994,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.5325999999999986,
+          "inclusiveMs": 0.5325999999999986,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 9.416500000000013,
+          "inclusiveMs": 41.33949999999993,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.11409999999999998,
+          "inclusiveMs": 0.11639999999999873,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 14.031499999999994,
+          "inclusiveMs": 23.21180000000001,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.00019999999999997797,
+          "inclusiveMs": 0.0001999999999497959,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 39.431100000000015,
+          "inclusiveMs": 70.46589999999992,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.6077000000000012,
+          "inclusiveMs": 39.56920000000002,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 8,
+          "exclusiveMs": 28.9371000000001,
+          "inclusiveMs": 29.497500000000173,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.8019999999999925,
+          "inclusiveMs": 219.91329999999994,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 8.86930000000001,
+          "inclusiveMs": 58.2833999999998,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 2.5141999999999953,
+          "inclusiveMs": 3.329999999999984,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 0.8158000000000101,
+          "inclusiveMs": 0.8158000000000101,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 26.87530000000001,
+          "inclusiveMs": 26.97,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0947,
+          "inclusiveMs": 0.0947,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 8.62190000000004,
+          "inclusiveMs": 8.62190000000004,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.21609999999999907,
+          "inclusiveMs": 27.18610000000001,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.00039999999999995595,
+          "inclusiveMs": 0.00039999999999906777,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.029799999999999383,
+          "inclusiveMs": 9,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.2134,
+          "inclusiveMs": 21.9067,
+          "stage": "TerminalWorkspace::transferGroup"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 250.1106
+    },
+    {
+      "cpuMs": 156.25,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 51.4453125,
+      "scopes": [
+        {
+          "calls": 91,
+          "exclusiveMs": 10.583500000000186,
+          "inclusiveMs": 10.583500000000186,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.16669999999999163,
+          "inclusiveMs": 103.32889999999998,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 9,
+          "exclusiveMs": 31.48709999999994,
+          "inclusiveMs": 99.41999999999985,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 18,
+          "exclusiveMs": 62.71849999999995,
+          "inclusiveMs": 64.01340000000016,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 3.7422000000000253,
+          "inclusiveMs": 103.16219999999998,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 92,
+          "exclusiveMs": 0.18570000000000064,
+          "inclusiveMs": 0.18570000000000064,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.7402999999999995,
+          "inclusiveMs": 0.9259999999999984,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 168.9576
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.4453125,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0007999999999999119,
+          "inclusiveMs": 0.0007999999999999119,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.030500000000003524,
+          "inclusiveMs": 0.030500000000003524,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 4.592999999999996,
+          "inclusiveMs": 4.593200000000003,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 3.998199999999997,
+          "inclusiveMs": 5.106999999999999,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 39.49169999999998,
+          "inclusiveMs": 39.49169999999998,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 22.08030000000008,
+          "inclusiveMs": 22.08030000000008,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.4944000000000006,
+          "inclusiveMs": 0.4944000000000006,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 10.302099999999996,
+          "inclusiveMs": 40.25380000000007,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 12.001299999999958,
+          "inclusiveMs": 20.86480000000006,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.00039999999999995595,
+          "inclusiveMs": 0.0003999999998995918,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 18.61620000000005,
+          "inclusiveMs": 28.533100000000104,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.7241,
+          "inclusiveMs": 44.09019999999998,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 9.268200000000093,
+          "inclusiveMs": 9.384999999999991,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 3.0864000000000544,
+          "inclusiveMs": 32.17519999999968,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 5.608299999999986,
+          "inclusiveMs": 144.906,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.2633999999999972,
+          "inclusiveMs": 1.1088000000000022,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.8453999999999979,
+          "inclusiveMs": 0.8453999999999979,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 12.467199999999991,
+          "inclusiveMs": 12.516999999999996,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.049799999999999955,
+          "inclusiveMs": 0.049799999999999955,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 9.085300000000018,
+          "inclusiveMs": 9.085300000000018,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.17400000000000126,
+          "inclusiveMs": 12.691000000000003,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.018400000000000194,
+          "inclusiveMs": 9.749100000000013,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.33899999999999864,
+          "inclusiveMs": 22.7791,
+          "stage": "TerminalWorkspace::appendWorkspace"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 154.8262
+    },
+    {
+      "cpuMs": 203.125,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 49.1640625,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 74.23360000000002,
+          "inclusiveMs": 74.23360000000002,
+          "stage": "PluginManager::_scan"
+        },
+        {
+          "calls": 67,
+          "exclusiveMs": 11.467799999999897,
+          "inclusiveMs": 11.467799999999897,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.1305000000000014,
+          "inclusiveMs": 49.08929999999998,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 13.699400000000082,
+          "inclusiveMs": 37.78620000000001,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 21.859899999999925,
+          "inclusiveMs": 22.25299999999993,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 9.359499999999997,
+          "inclusiveMs": 48.95880000000011,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 104,
+          "exclusiveMs": 0.13430000000000408,
+          "inclusiveMs": 0.13430000000000408,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.8670000000000009,
+          "inclusiveMs": 1.0013000000000005,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 198.3052
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.1640625,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.23070000000000013,
+          "inclusiveMs": 0.23070000000000013,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 13.575299999999999,
+          "inclusiveMs": 16.6488,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.621500000000001,
+          "inclusiveMs": 3.0863000000000014,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.5825999999999993,
+          "inclusiveMs": 2.5825999999999993,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0004999999999988347,
+          "inclusiveMs": 0.0004999999999988347,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.00039999999999906777,
+          "inclusiveMs": 0.00039999999999906777,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 0.35760000000001924,
+          "inclusiveMs": 0.35760000000001924,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 38.057500000000005,
+          "inclusiveMs": 38.057500000000005,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 69,
+          "exclusiveMs": 19.822200000000407,
+          "inclusiveMs": 19.822200000000407,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.16529999999999934,
+          "inclusiveMs": 0.16529999999999934,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 3.592500000000001,
+          "inclusiveMs": 19.230000000000018,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.08420000000000005,
+          "inclusiveMs": 0.10029999999999717,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 4.51249999999996,
+          "inclusiveMs": 7.946100000000001,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.000500000000000167,
+          "inclusiveMs": 0.0004999999999881766,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 28.30589999999995,
+          "inclusiveMs": 56.15390000000002,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.5745999999999967,
+          "inclusiveMs": 42.049999999999955,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 22.458600000000047,
+          "inclusiveMs": 22.87999999999988,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.4072999999999922,
+          "inclusiveMs": 173.51660000000004,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 2.9317000000000064,
+          "inclusiveMs": 45.2672,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 3.4428999999999945,
+          "inclusiveMs": 6.2239,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 2.780999999999999,
+          "inclusiveMs": 2.780999999999999,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 16.388299999999987,
+          "inclusiveMs": 16.431999999999988,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.04369999999999996,
+          "inclusiveMs": 0.04369999999999996,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.6910000000000025,
+          "inclusiveMs": 7.6910000000000025,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.2834000000000003,
+          "inclusiveMs": 16.71539999999999,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.014599999999999946,
+          "inclusiveMs": 0.015100000000003888,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.009700000000000042,
+          "inclusiveMs": 0.37479999999999336,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 8.756100000000004,
+          "inclusiveMs": 44.1652,
+          "stage": "TerminalWorkspace::splitGroup"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 181.7952
+    },
+    {
+      "cpuMs": 46.875,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 49.1640625,
+      "scopes": [
+        {
+          "calls": 7,
+          "exclusiveMs": 7.020800000000008,
+          "inclusiveMs": 7.020800000000008,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 110,
+          "exclusiveMs": 0.15330000000000066,
+          "inclusiveMs": 0.15330000000000066,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.13210000000000122,
+          "inclusiveMs": 0.6251000000000033,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.7590000000000003,
+          "inclusiveMs": 0.9122999999999983,
+          "stage": "TerminalDisplay::paintEvent"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4930000000000021,
+          "inclusiveMs": 0.4930000000000021,
+          "stage": "TerminalScreen::setLimits"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 74.4934
+    },
+    {
+      "cpuMs": 125,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.1640625,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.04430000000000023,
+          "inclusiveMs": 0.04430000000000023,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.01899999999999835,
+          "inclusiveMs": 0.019000000000005457,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.879100000000001,
+          "inclusiveMs": 3.879100000000001,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.7365999999999993,
+          "inclusiveMs": 1.7368999999999986,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.5244,
+          "inclusiveMs": 5.935500000000001,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 7.185000000000002,
+          "inclusiveMs": 8.988600000000005,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.9576000000000136,
+          "inclusiveMs": 1.9576000000000136,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 36.230399999999975,
+          "inclusiveMs": 36.230399999999975,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 12.45570000000032,
+          "inclusiveMs": 12.45570000000032,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.10020000000000007,
+          "inclusiveMs": 0.10020000000000007,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.7776999999999958,
+          "inclusiveMs": 17.437400000000025,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.1012000000000004,
+          "inclusiveMs": 11.433799999999998,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.3863000000000056,
+          "inclusiveMs": 3.1988000000000056,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.000800000000000356,
+          "inclusiveMs": 0.0008000000000265572,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 8.417700000000082,
+          "inclusiveMs": 24.222800000000007,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.5974999999999966,
+          "inclusiveMs": 40.54390000000001,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 14.829700000000003,
+          "inclusiveMs": 15.158500000000004,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.4228999999999843,
+          "inclusiveMs": 111.06369999999993,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.9133999999999958,
+          "inclusiveMs": 16.519000000000005,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.145299999999999,
+          "inclusiveMs": 3.214500000000001,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.0692000000000021,
+          "inclusiveMs": 1.0692000000000021,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 12.460700000000003,
+          "inclusiveMs": 12.460700000000003,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.36159999999999903,
+          "inclusiveMs": 14.699800000000003,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.012800000000000145,
+          "inclusiveMs": 1.9816000000000003,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 118.6653
+    },
+    {
+      "cpuMs": 78.125,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 49.1640625,
+      "scopes": [
+        {
+          "calls": 7,
+          "exclusiveMs": 7.411600000000021,
+          "inclusiveMs": 7.411600000000021,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 156,
+          "exclusiveMs": 0.20370000000000577,
+          "inclusiveMs": 0.20370000000000577,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.1485999999999983,
+          "inclusiveMs": 1.3523000000000032,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 75.3882
+    },
+    {
+      "cpuMs": 250,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.1640625,
+      "scopes": [
+        {
+          "calls": 10,
+          "exclusiveMs": 0.3927000000000005,
+          "inclusiveMs": 0.3927000000000005,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.027599999999999625,
+          "inclusiveMs": 0.02759999999999252,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 2.063200000000002,
+          "inclusiveMs": 2.063200000000002,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 40.7295,
+          "inclusiveMs": 44.105500000000006,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 35.110900000000015,
+          "inclusiveMs": 35.110900000000015,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 101,
+          "exclusiveMs": 22.817399999999566,
+          "inclusiveMs": 22.817399999999566,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.5318000000000005,
+          "inclusiveMs": 0.5318000000000005,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 9.589400000000012,
+          "inclusiveMs": 40.61209999999994,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.10050000000000003,
+          "inclusiveMs": 0.10229999999999961,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 12.892100000000028,
+          "inclusiveMs": 21.707900000000052,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 41.92309999999998,
+          "inclusiveMs": 74.03849999999989,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.557699999999997,
+          "inclusiveMs": 39.08489999999995,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 8,
+          "exclusiveMs": 29.752800000000093,
+          "inclusiveMs": 30.297899999999913,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.823500000000024,
+          "inclusiveMs": 227.55600000000004,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 10.66870000000003,
+          "inclusiveMs": 59.65329999999972,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 2.5049999999999955,
+          "inclusiveMs": 3.3759999999999906,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 0.8710000000000022,
+          "inclusiveMs": 0.8710000000000022,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 29.314699999999988,
+          "inclusiveMs": 29.41719999999998,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.10249999999999992,
+          "inclusiveMs": 0.10249999999999992,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 9.231500000000011,
+          "inclusiveMs": 9.231500000000011,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.2837999999999994,
+          "inclusiveMs": 29.700999999999993,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.00039999999999995595,
+          "inclusiveMs": 0.00039999999999906777,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.029000000000000803,
+          "inclusiveMs": 8.754199999999997,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.328199999999999,
+          "inclusiveMs": 23.364599999999996,
+          "stage": "TerminalWorkspace::transferGroup"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 261.6205
+    },
+    {
+      "cpuMs": 187.5,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 51.703125,
+      "scopes": [
+        {
+          "calls": 91,
+          "exclusiveMs": 15.026000000000295,
+          "inclusiveMs": 15.026000000000295,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.15259999999999962,
+          "inclusiveMs": 112.60310000000004,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 9,
+          "exclusiveMs": 33.31639999999993,
+          "inclusiveMs": 107.73500000000035,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 18,
+          "exclusiveMs": 69.81100000000026,
+          "inclusiveMs": 71.09569999999997,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 4.715499999999992,
+          "inclusiveMs": 112.45050000000015,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 92,
+          "exclusiveMs": 0.13850000000000184,
+          "inclusiveMs": 0.13850000000000184,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.7004999999999981,
+          "inclusiveMs": 0.8390000000000022,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 190.9591
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.703125,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 0.000500000000000167,
+          "inclusiveMs": 0.000500000000000167,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.03979999999999961,
+          "inclusiveMs": 0.03979999999999961,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 5.404499999999999,
+          "inclusiveMs": 5.404699999999998,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 6.13730000000001,
+          "inclusiveMs": 7.3817000000000235,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 38.90110000000004,
+          "inclusiveMs": 38.90110000000004,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 23.834799999999518,
+          "inclusiveMs": 23.834799999999518,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.5110999999999999,
+          "inclusiveMs": 0.5110999999999999,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 10.54509999999999,
+          "inclusiveMs": 43.04220000000009,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 12.057299999999998,
+          "inclusiveMs": 21.29480000000001,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.00039999999999995595,
+          "inclusiveMs": 0.0003999999998995918,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 17.9298,
+          "inclusiveMs": 25.51559999999995,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.7339999999999947,
+          "inclusiveMs": 43.63239999999996,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 6.822599999999966,
+          "inclusiveMs": 6.951199999999972,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 8.881500000000045,
+          "inclusiveMs": 36.81510000000071,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.891500000000008,
+          "inclusiveMs": 157.14709999999997,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.2780999999999949,
+          "inclusiveMs": 1.2443999999999988,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.9662999999999968,
+          "inclusiveMs": 0.9662999999999968,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 15.226200000000006,
+          "inclusiveMs": 15.27249999999998,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.04630000000000001,
+          "inclusiveMs": 0.04630000000000001,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 11.201300000000032,
+          "inclusiveMs": 11.201300000000032,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.21319999999999872,
+          "inclusiveMs": 15.48569999999998,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.02420000000000133,
+          "inclusiveMs": 12.850399999999993,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.4300999999999995,
+          "inclusiveMs": 28.766199999999998,
+          "stage": "TerminalWorkspace::appendWorkspace"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 166.4487
+    },
+    {
+      "cpuMs": 109.375,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 49.421875,
+      "scopes": [
+        {
+          "calls": 67,
+          "exclusiveMs": 12.286799999999971,
+          "inclusiveMs": 12.286799999999971,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.13979999999999748,
+          "inclusiveMs": 51.788699999999835,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 15.025499999999965,
+          "inclusiveMs": 40.05010000000016,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 22.472600000000057,
+          "inclusiveMs": 22.90469999999982,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 9.826699999999988,
+          "inclusiveMs": 51.64890000000014,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 104,
+          "exclusiveMs": 0.12240000000000295,
+          "inclusiveMs": 0.12240000000000295,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.8961000000000006,
+          "inclusiveMs": 1.0184999999999995,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 125.6836
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.421875,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.3241999999999998,
+          "inclusiveMs": 0.3241999999999998,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 15.806999999999988,
+          "inclusiveMs": 18.3583,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.3290000000000006,
+          "inclusiveMs": 4.242899999999999,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 5.3763000000000005,
+          "inclusiveMs": 5.3763000000000005,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0004999999999988347,
+          "inclusiveMs": 0.0004999999999988347,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.00030000000000285354,
+          "inclusiveMs": 0.0002999999999957481,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 0.30500000000003524,
+          "inclusiveMs": 0.30500000000003524,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 35.75540000000001,
+          "inclusiveMs": 35.75540000000001,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 69,
+          "exclusiveMs": 23.324199999999905,
+          "inclusiveMs": 23.324199999999905,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 0.16310000000000002,
+          "inclusiveMs": 0.16310000000000002,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 3.523300000000006,
+          "inclusiveMs": 19.588499999999954,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.08129999999999993,
+          "inclusiveMs": 0.09599999999999653,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 4.425600000000003,
+          "inclusiveMs": 7.837199999999996,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0009000000000001229,
+          "inclusiveMs": 0.0009000000000014552,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 31.476699999999937,
+          "inclusiveMs": 62.28740000000016,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.5692000000000021,
+          "inclusiveMs": 39.65740000000005,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 22.498800000000074,
+          "inclusiveMs": 22.981199999999944,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.4150999999999954,
+          "inclusiveMs": 180.3979999999999,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 2.9565000000000055,
+          "inclusiveMs": 51.69010000000026,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 3.2705000000000126,
+          "inclusiveMs": 6.051600000000008,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 2.781099999999995,
+          "inclusiveMs": 2.781099999999995,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 16.25720000000001,
+          "inclusiveMs": 16.31080000000003,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.05359999999999998,
+          "inclusiveMs": 0.05359999999999998,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 8.227499999999992,
+          "inclusiveMs": 8.227499999999992,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.27560000000000073,
+          "inclusiveMs": 16.586400000000026,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.012799999999999923,
+          "inclusiveMs": 0.013199999999997658,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.008299999999999974,
+          "inclusiveMs": 0.3141999999999996,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 6.0471000000000075,
+          "inclusiveMs": 42.88130000000001,
+          "stage": "TerminalWorkspace::splitGroup"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.sync",
+      "wallMs": 189.9352
+    },
+    {
+      "cpuMs": 93.75,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 49.421875,
+      "scopes": [
+        {
+          "calls": 7,
+          "exclusiveMs": 7.239900000000148,
+          "inclusiveMs": 7.239900000000148,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 162,
+          "exclusiveMs": 0.22930000000000073,
+          "inclusiveMs": 0.22930000000000073,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.1268000000000029,
+          "inclusiveMs": 0.589100000000002,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.1959000000000017,
+          "inclusiveMs": 1.4251999999999967,
+          "stage": "TerminalDisplay::paintEvent"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.46229999999999905,
+          "inclusiveMs": 0.46229999999999905,
+          "stage": "TerminalScreen::setLimits"
+        }
+      ],
+      "stage": "dock.configured6.tab.split.presentation",
+      "wallMs": 84.2253
+    },
+    {
+      "cpuMs": 109.375,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.421875,
+      "scopes": [
+        {
+          "calls": 2,
+          "exclusiveMs": 0.11999999999999966,
+          "inclusiveMs": 0.11999999999999966,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.01860000000000639,
+          "inclusiveMs": 0.01860000000000639,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.786100000000001,
+          "inclusiveMs": 3.7860999999999976,
+          "stage": "Qt.insertTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.7337999999999987,
+          "inclusiveMs": 1.7341000000000015,
+          "stage": "Qt.removeTab"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.427699999999998,
+          "inclusiveMs": 5.419499999999999,
+          "stage": "Qt.setCurrentIndex"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 7.910000000000004,
+          "inclusiveMs": 9.935700000000011,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.491199999999992,
+          "inclusiveMs": 1.491199999999992,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 32.17439999999999,
+          "inclusiveMs": 32.17439999999999,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 41,
+          "exclusiveMs": 13.202499999999759,
+          "inclusiveMs": 13.202499999999759,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.08800000000000008,
+          "inclusiveMs": 0.08800000000000008,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.6735999999999933,
+          "inclusiveMs": 16.2817,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.09809999999999874,
+          "inclusiveMs": 11.915199999999999,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.357399999999984,
+          "inclusiveMs": 2.9470000000000027,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.000700000000000145,
+          "inclusiveMs": 0.0006999999998242856,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 9.155700000000024,
+          "inclusiveMs": 25.962999999999738,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.6218999999999966,
+          "inclusiveMs": 36.66300000000001,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 15.919599999999946,
+          "inclusiveMs": 16.238900000000285,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.1226000000000056,
+          "inclusiveMs": 107.58899999999994,
+          "stage": "TerminalController::moveTerminal"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 2.9861000000000217,
+          "inclusiveMs": 18.246099999999842,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.9620999999999924,
+          "inclusiveMs": 3.0172999999999917,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 1.0551999999999992,
+          "inclusiveMs": 1.0551999999999992,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 11.660899999999998,
+          "inclusiveMs": 11.660899999999998,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.36760000000000015,
+          "inclusiveMs": 16.488400000000006,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.011800000000000255,
+          "inclusiveMs": 1.51339999999999,
+          "stage": "TerminalWorkspace::_setRoot"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.sync",
+      "wallMs": 116.3756
+    },
+    {
+      "cpuMs": 140.625,
+      "error": "",
+      "ok": true,
+      "paintEvents": 3,
+      "privateMiB": 49.421875,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 78.62810000000002,
+          "inclusiveMs": 78.62810000000002,
+          "stage": "PluginManager::_scan"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 7.138699999999858,
+          "inclusiveMs": 7.138699999999858,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 156,
+          "exclusiveMs": 0.16970000000000507,
+          "inclusiveMs": 0.16970000000000507,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 1.1249999999999964,
+          "inclusiveMs": 1.2946999999999989,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.tab.join.presentation",
+      "wallMs": 149.5313
+    },
+    {
+      "cpuMs": 234.375,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.421875,
+      "scopes": [
+        {
+          "calls": 10,
+          "exclusiveMs": 0.33080000000000087,
+          "inclusiveMs": 0.33080000000000087,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.028599999999997294,
+          "inclusiveMs": 0.028599999999997294,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 2.259600000000006,
+          "inclusiveMs": 2.259600000000006,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 36.0539,
+          "inclusiveMs": 39.0463,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 31.758299999999963,
+          "inclusiveMs": 31.758299999999963,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 101,
+          "exclusiveMs": 21.495999999999867,
+          "inclusiveMs": 21.495999999999867,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.4917000000000016,
+          "inclusiveMs": 0.4917000000000016,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 8.391099999999994,
+          "inclusiveMs": 37.68719999999996,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.11099999999999999,
+          "inclusiveMs": 0.11339999999999861,
+          "stage": "TerminalController::_cleanupGroups"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 12.08060000000006,
+          "inclusiveMs": 20.77039999999994,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 4,
+          "exclusiveMs": 40.170299999999884,
+          "inclusiveMs": 68.57450000000017,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.6724999999999994,
+          "inclusiveMs": 36.93139999999994,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 8,
+          "exclusiveMs": 26.3104000000003,
+          "inclusiveMs": 26.784000000000333,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.0245000000000175,
+          "inclusiveMs": 213.1482000000001,
+          "stage": "TerminalController::moveGroup"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 11.363999999999919,
+          "inclusiveMs": 55.98250000000053,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 2.285000000000011,
+          "inclusiveMs": 2.992399999999975,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 0.7074000000000069,
+          "inclusiveMs": 0.7074000000000069,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 27.812000000000012,
+          "inclusiveMs": 27.942799999999977,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.13080000000000003,
+          "inclusiveMs": 0.13080000000000003,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 8.445999999999998,
+          "inclusiveMs": 8.445999999999998,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.23150000000000048,
+          "inclusiveMs": 28.174300000000017,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.0004999999999999449,
+          "inclusiveMs": 0.0005000000000023874,
+          "stage": "TerminalWorkspace::_prune"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.028500000000000636,
+          "inclusiveMs": 8.600599999999986,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 2.373899999999999,
+          "inclusiveMs": 23.363100000000003,
+          "stage": "TerminalWorkspace::transferGroup"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.sync",
+      "wallMs": 243.6143
+    },
+    {
+      "cpuMs": 171.875,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 51.95703125,
+      "scopes": [
+        {
+          "calls": 91,
+          "exclusiveMs": 12.738600000000474,
+          "inclusiveMs": 12.738600000000474,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.15340000000000487,
+          "inclusiveMs": 112.41789999999992,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 9,
+          "exclusiveMs": 31.17719999999997,
+          "inclusiveMs": 108.49239999999963,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 18,
+          "exclusiveMs": 72.66189999999983,
+          "inclusiveMs": 74.02939999999944,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 3.772100000000023,
+          "inclusiveMs": 112.26450000000023,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 92,
+          "exclusiveMs": 0.12790000000000568,
+          "inclusiveMs": 0.12790000000000568,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.659200000000002,
+          "inclusiveMs": 0.7870999999999988,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.group.detach.presentation",
+      "wallMs": 183.9694
+    },
+    {
+      "cpuMs": 156.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 51.95703125,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 0.0007999999999999119,
+          "inclusiveMs": 0.0007999999999999119,
+          "stage": "Qt.activate"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.033900000000002706,
+          "inclusiveMs": 0.033900000000002706,
+          "stage": "Qt.addWidget"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 3.8678000000000026,
+          "inclusiveMs": 3.868000000000009,
+          "stage": "Qt.setParent"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 5.359399999999994,
+          "inclusiveMs": 6.4436000000000035,
+          "stage": "Qt.show"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 35.200500000000034,
+          "inclusiveMs": 35.200500000000034,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 77,
+          "exclusiveMs": 21.41610000000003,
+          "inclusiveMs": 21.41610000000003,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 0.5301999999999989,
+          "inclusiveMs": 0.5301999999999989,
+          "stage": "SettingsSchema::withDefaults"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 9.633999999999986,
+          "inclusiveMs": 41.414400000000114,
+          "stage": "TerminalController::_changed"
+        },
+        {
+          "calls": 12,
+          "exclusiveMs": 12.425200000000046,
+          "inclusiveMs": 21.367700000000013,
+          "stage": "TerminalController::_effective"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.00039999999999995595,
+          "inclusiveMs": 0.0003999999998995918,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 15.522500000000036,
+          "inclusiveMs": 23.798699999999826,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.6167000000000016,
+          "inclusiveMs": 39.88189999999997,
+          "stage": "TerminalController::_rememberTabOrder"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.4039000000000215,
+          "inclusiveMs": 7.541699999999992,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 7,
+          "exclusiveMs": 3.130399999999952,
+          "inclusiveMs": 27.50530000000026,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.474400000000003,
+          "inclusiveMs": 138.15790000000004,
+          "stage": "TerminalController::returnWindow"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.277000000000001,
+          "inclusiveMs": 1.0841999999999956,
+          "stage": "TerminalDisplay::_updateGeometry"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.8072000000000017,
+          "inclusiveMs": 0.8072000000000017,
+          "stage": "TerminalScreen::setLimits"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 13.938400000000001,
+          "inclusiveMs": 13.988,
+          "stage": "TerminalTabGroup::TerminalTabGroup"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.04960000000000009,
+          "inclusiveMs": 0.04960000000000009,
+          "stage": "TerminalTabGroup::_refreshFrame"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 10.411400000000015,
+          "inclusiveMs": 10.411400000000015,
+          "stage": "TerminalTabGroup::setTabPresentation"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.18079999999999963,
+          "inclusiveMs": 14.168799999999976,
+          "stage": "TerminalWorkspace::_createGroup"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.020399999999999974,
+          "inclusiveMs": 10.36590000000001,
+          "stage": "TerminalWorkspace::_setRoot"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.34750000000000014,
+          "inclusiveMs": 24.882199999999997,
+          "stage": "TerminalWorkspace::appendWorkspace"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.sync",
+      "wallMs": 146.9612
+    },
+    {
+      "cpuMs": 93.75,
+      "error": "",
+      "ok": true,
+      "paintEvents": 2,
+      "privateMiB": 49.67578125,
+      "scopes": [
+        {
+          "calls": 67,
+          "exclusiveMs": 10.526200000000017,
+          "inclusiveMs": 10.526200000000017,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 0.12769999999999904,
+          "inclusiveMs": 47.003799999999956,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 13.024299999999926,
+          "inclusiveMs": 36.73960000000034,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 6,
+          "exclusiveMs": 21.43419999999992,
+          "inclusiveMs": 21.90059999999994,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 8.555800000000033,
+          "inclusiveMs": 46.87609999999995,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 104,
+          "exclusiveMs": 0.10989999999999966,
+          "inclusiveMs": 0.10989999999999966,
+          "stage": "TerminalDisplay::_layout"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 0.791999999999998,
+          "inclusiveMs": 0.9019000000000013,
+          "stage": "TerminalDisplay::paintEvent"
+        }
+      ],
+      "stage": "dock.configured6.secondary.close.presentation",
+      "wallMs": 119.4819
+    },
+    {
+      "cpuMs": 0,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.67578125,
+      "scopes": [
+        {
+          "calls": 7,
+          "exclusiveMs": 7.580299999999966,
+          "inclusiveMs": 7.580299999999966,
+          "stage": "Settings::value"
+        }
+      ],
+      "stage": "dock.configured6.fixture",
+      "wallMs": 8.7127
+    },
+    {
+      "cpuMs": 156.25,
+      "error": "",
+      "ok": true,
+      "privateMiB": 49.703125,
+      "scopes": [
+        {
+          "calls": 1,
+          "exclusiveMs": 1.2727999999999984,
+          "inclusiveMs": 9.045200000000001,
+          "stage": "Session::_validate"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 1.0598000000000098,
+          "inclusiveMs": 81.6969,
+          "stage": "Session::sync"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 36.8986000000001,
+          "inclusiveMs": 36.8986000000001,
+          "stage": "Settings::applyValues"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 71.59190000000001,
+          "inclusiveMs": 71.59190000000001,
+          "stage": "Settings::sync"
+        },
+        {
+          "calls": 52,
+          "exclusiveMs": 14.081000000000245,
+          "inclusiveMs": 14.081000000000245,
+          "stage": "Settings::value"
+        },
+        {
+          "calls": 3,
+          "exclusiveMs": 48.419099999999844,
+          "inclusiveMs": 48.419099999999844,
+          "stage": "SettingsSchema::SettingsSchema"
+        },
+        {
+          "calls": 5,
+          "exclusiveMs": 0.38410000000000366,
+          "inclusiveMs": 0.38410000000000366,
+          "stage": "SettingsSchema::validate"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 0.047399999999999665,
+          "inclusiveMs": 16.874000000000024,
+          "stage": "TerminalController::_focusChanged"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.6568999999999505,
+          "inclusiveMs": 12.779799999999796,
+          "stage": "TerminalController::_refreshGroupControls"
+        },
+        {
+          "calls": 2,
+          "exclusiveMs": 7.37909999999988,
+          "inclusiveMs": 7.514499999999998,
+          "stage": "TerminalController::_surfaceCommands"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 3.4366999999999734,
+          "inclusiveMs": 16.82659999999987,
+          "stage": "TerminalController::refreshTerminalActions"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 4.310700000000004,
+          "inclusiveMs": 53.11389999999999,
+          "stage": "Workspace::_validateProcessors"
+        },
+        {
+          "calls": 1,
+          "exclusiveMs": 6.70259999999999,
+          "inclusiveMs": 60.626400000000004,
+          "stage": "Workspace::sync"
+        }
+      ],
+      "stage": "window.close.loaded",
+      "wallMs": 210.5763
+    },
+    {
+      "ok": true,
+      "stage": "app.destruct",
+      "wallMs": 368.6453,
+      "error": ""
+    }
+  ],
+  "platform": "Windows MSVC Qt6 Debug"
+}
