@@ -135,6 +135,11 @@ void DetachedTerminalWindow::allowClose()
     _allowClose = true;
 }
 
+bool DetachedTerminalWindow::event(QEvent* event)
+{
+    return event->type() == QEvent::StatusTip || QMainWindow::event(event);
+}
+
 void DetachedTerminalWindow::closeEvent(QCloseEvent* event)
 {
     if (_allowClose)

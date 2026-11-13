@@ -55,6 +55,7 @@
 #include <QSignalSpy>
 #include <QSortFilterProxyModel>
 #include <QStatusBar>
+#include <QStatusTipEvent>
 #include <QStyle>
 #include <QStyleHints>
 #include <QTabBar>
@@ -636,6 +637,36 @@ private:
         QVERIFY(!QFileInfo::exists(_app.paths().configFile("plugins").toString()));
     }
 
+    Q_SLOT void windowMessagesUseGroupStatusWithoutOuterBar()
+    {
+        MainWindow window;
+        window.showMessage("Workspace diagnostic");
+        QCOMPARE(window.findChild<QLabel*>("workspaceMessage")->text(), QString("Workspace diagnostic"));
+        auto* first = window.terminalWorkspace().initialGroup();
+        first->tabs().addTab(new QWidget, "First");
+        window.showTerminals(true);
+        window.showMessage("First diagnostic");
+        QCOMPARE(first->statusBar().currentMessage(), QString("First diagnostic"));
+        auto* second = window.terminalWorkspace().splitGroup(first, Qt::RightEdge);
+        QVERIFY(second);
+        second->tabs().addTab(new QWidget, "Second");
+        emit window.terminalWorkspace().activated(second);
+        window.showMessage("Second diagnostic");
+        QCOMPARE(second->statusBar().currentMessage(), QString("Second diagnostic"));
+        QCOMPARE(first->statusBar().currentMessage(), QString("First diagnostic"));
+        QStatusTipEvent tip("Menu hover");
+        QCoreApplication::sendEvent(&window, &tip);
+        QCOMPARE(second->statusBar().currentMessage(), QString("Second diagnostic"));
+        QVERIFY(window.findChildren<QStatusBar*>(QString(), Qt::FindDirectChildrenOnly).isEmpty());
+
+        DetachedTerminalWindow secondary(_app.commands(), &window);
+        QCoreApplication::sendEvent(&secondary, &tip);
+        QVERIFY(secondary.findChildren<QStatusBar*>(QString(), Qt::FindDirectChildrenOnly).isEmpty());
+        window.showTerminals(false);
+        window.showMessage("Workspace recovery");
+        QCOMPARE(window.message(), QString("Workspace recovery"));
+    }
+
     Q_SLOT void terminalGroupFrameAndOverflowNavigation()
     {
         TerminalWorkspace workspace;
@@ -1038,20 +1069,16 @@ private:
         QVERIFY(_app.toolbar().toolbar()->isHidden());
         QVERIFY(!_app.workspace()->settings().containsOverride("ui/toolbarVisible"));
         QCOMPARE(_app.settings().value("settings/ui/toolbarVisible").toBool(), true);
-        action("View.StatusBar")->trigger();
-        QVERIFY(_app.mainWindow().statusBar()->isHidden());
-        QVERIFY(!_app.workspace()->settings().containsOverride("ui/statusBarVisible"));
-        QCOMPARE(_app.settings().value("settings/ui/statusBarVisible").toBool(), false);
+        QVERIFY(!action("View.StatusBar")->isEnabled());
+        QVERIFY(_app.mainWindow().findChildren<QStatusBar*>(QString(), Qt::FindDirectChildrenOnly).isEmpty());
         QVERIFY(_app.closeWorkspace(&error));
         QVERIFY(_app.toolbar().toolbar()->isHidden());
         action("View.Toolbar")->trigger();
-        action("View.StatusBar")->trigger();
         QVERIFY(_app.toolbar().toolbar()->isHidden());
-        QVERIFY(!_app.mainWindow().statusBar()->isHidden());
         QVERIFY(!action("View.Toolbar")->isChecked());
         QVERIFY(!action("View.Toolbar")->isVisible());
         QVERIFY(!action("View.Toolbar")->isEnabled());
-        QVERIFY(action("View.StatusBar")->isChecked());
+        QVERIFY(!action("View.StatusBar")->isEnabled());
     }
 
     Q_SLOT void recentWorkspaceHistory()
@@ -1209,6 +1236,18 @@ content:
         QCOMPARE(panels[0]->window(), static_cast<QWidget*>(&_app.mainWindow()));
         QTRY_VERIFY(initial->statusBar().currentMessage().contains("Terminal 2"));
         QTRY_VERIFY(splitGroup->statusBar().currentMessage().contains("Terminal 0"));
+
+        _app.mainWindow().activateWindow();
+        displays[0]->setFocus();
+        QTRY_COMPARE(_app.selectedTerminal(), ids[0]);
+        auto* groupStatus = _app.commands().find("View.StatusBar")->actions().first();
+        QTRY_VERIFY(groupStatus->isEnabled());
+        groupStatus->trigger();
+        QVERIFY(splitGroup->statusBar().isHidden());
+        QVERIFY(!initial->statusBar().isHidden());
+        groupStatus->trigger();
+        QVERIFY(!splitGroup->statusBar().isHidden());
+        QVERIFY(_app.mainWindow().findChildren<QStatusBar*>(QString(), Qt::FindDirectChildrenOnly).isEmpty());
 
         QVERIFY2(controller.detachTerminal(ids[0], &error), qPrintable(error));
         QVERIFY2(controller.detachTerminal(ids[1], &error), qPrintable(error));
@@ -2659,7 +2698,7 @@ content:
         QVERIFY(_app.workspace());
         QVERIFY(!_app.session());
         QTRY_COMPARE(_app.workspace()->state().value("lastSession").toString(), id);
-        QVERIFY(_app.mainWindow().statusBar()->currentMessage().contains("Cannot restore last session"));
+        QVERIFY(static_cast<MainWindow&>(_app.mainWindow()).message().contains("Cannot restore last session"));
         QVERIFY(!QApplication::activeModalWidget());
         QVERIFY(_app.closeWorkspace(&error));
         QFile invalid(sessionFile);
@@ -2669,7 +2708,7 @@ content:
         QVERIFY(_app.restoreLastWorkspace(&error));
         QVERIFY(_app.workspace());
         QVERIFY(!_app.session());
-        QVERIFY(_app.mainWindow().statusBar()->currentMessage().contains("Cannot restore last session"));
+        QVERIFY(static_cast<MainWindow&>(_app.mainWindow()).message().contains("Cannot restore last session"));
         QVERIFY(!QApplication::activeModalWidget());
         QVERIFY(_app.closeSession(&error));
         QVERIFY(!_app.workspace()->state().contains("lastSession"));
@@ -2856,7 +2895,7 @@ content:
             QVERIFY(image.save(QDir(capture).filePath("FontPopup.png")));
             family->hidePopup();
             dialog->selectPage("application.appearance");
-            dialog->pageModel("application.appearance")->setValue("statusBar", false);
+            dialog->pageModel("application.terminal")->setValue("wrapLines", false);
             QApplication::processEvents();
             QVERIFY(dialog->grab().save(QDir(capture).filePath("Reset.png")));
         }
@@ -3059,14 +3098,14 @@ content:
         _app.commands().find("Application.Settings")->actions().first()->trigger();
         settings = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
         QVERIFY(settings);
-        QVERIFY(settings->selectPage("application.appearance"));
-        auto* model = settings->pageModel("application.appearance");
+        QVERIFY(settings->selectPage("application.terminal"));
+        auto* model = settings->pageModel("application.terminal");
         QVERIFY(model);
-        const bool draftValue = !model->value("statusBar").toBool();
-        model->setValue("statusBar", draftValue);
+        const bool draftValue = !model->value("wrapLines").toBool();
+        model->setValue("wrapLines", draftValue);
         QVERIFY(model->isDirty());
         QSignalSpy applied(settings, &SettingsDialog::applied);
-        auto*      reset = settings->findChild<QToolButton*>("reset_statusBar");
+        auto*      reset = settings->findChild<QToolButton*>("reset_wrapLines");
         QVERIFY(reset);
         auto* checkbox = reset->parentWidget()->findChild<QCheckBox*>();
         QVERIFY(checkbox);
@@ -3077,14 +3116,14 @@ content:
         QTRY_VERIFY(helpDialog() && helpDialog()->isVisible());
         browser = helpDialog()->findChild<HelpBrowser*>("helpBrowser");
         QVERIFY(browser);
-        QVERIFY(browser->currentTopic().startsWith("settings.application.appearance"));
+        QVERIFY(browser->currentTopic().startsWith("settings.application.terminal"));
         text = browser->findChild<QTextBrowser*>("helpText");
         QVERIFY(text);
         QVERIFY(text->toPlainText().contains("Parameters"));
-        QVERIFY(text->toPlainText().contains("Show status bar"));
+        QVERIFY(text->toPlainText().contains("Wrap lines"));
         QVERIFY(capture("SettingsHelp"));
         QVERIFY(model->isDirty());
-        QCOMPARE(model->value("statusBar").toBool(), draftValue);
+        QCOMPARE(model->value("wrapLines").toBool(), draftValue);
         QCOMPARE(applied.count(), 0);
         QCOMPARE(_app.settings().values(), savedSettings);
         helpDialog()->close();
@@ -3095,7 +3134,7 @@ content:
         QTRY_VERIFY(helpDialog() && helpDialog()->isVisible());
         browser = helpDialog()->findChild<HelpBrowser*>("helpBrowser");
         QVERIFY(browser);
-        QVERIFY(browser->currentTopic().startsWith("settings.application.appearance"));
+        QVERIFY(browser->currentTopic().startsWith("settings.application.terminal"));
         QCOMPARE(applied.count(), 0);
         QVERIFY(model->isDirty());
         helpDialog()->close();
@@ -3180,8 +3219,8 @@ content:
     {
         QTemporaryDir temporary;
         QString       error;
-        QVERIFY(_app.settings().setValue("settings/ui/statusBarVisible", true));
-        QVERIFY(_app.settings().setValue("settings/ui/statusBarVisible", true));
+        const auto    previousFont = _app.settings().value("settings/appearance/fontSize");
+        const bool    hadFont      = _app.settings().contains("settings/appearance/fontSize");
         QVERIFY(_app.createWorkspace(Path(temporary.filePath("Settings.termaster")), "Settings", &error));
         const auto cleanup = qScopeGuard([&] {
             for (auto* dialog : _app.mainWindow().findChildren<SettingsDialog*>())
@@ -3189,10 +3228,13 @@ content:
                 delete dialog;
             }
             _app.closeWorkspace();
-            auto* action = _app.commands().find("View.StatusBar")->actions().first();
-            if (!action->isChecked())
+            if (hadFont)
             {
-                action->trigger();
+                _app.settings().setValue("settings/appearance/fontSize", previousFont);
+            }
+            else
+            {
+                _app.settings().remove("settings/appearance/fontSize");
             }
         });
         _app.commands().find("Application.Settings")->actions().first()->trigger();
@@ -3201,36 +3243,22 @@ content:
         QVERIFY(dialog->pageModel("application.appearance"));
         QVERIFY(!dialog->pageModel("workspace.terminal"));
         QVERIFY(!dialog->pageModel("terminal.connection"));
-        auto* model = dialog->pageModel("application.appearance");
-        model->setValue("statusBar", false);
-        QVERIFY(_app.toolbar().toolbar()->isHidden());
-        auto* reset = dialog->findChild<QToolButton*>("reset_statusBar");
-        QVERIFY(reset && !reset->isHidden());
-        auto* booleanEditor = reset->parentWidget()->findChild<QCheckBox*>();
-        QVERIFY(booleanEditor);
-        QApplication::processEvents();
-        const int gap = reset->mapTo(dialog, QPoint()).x()
-                      - booleanEditor->mapTo(dialog, QPoint(booleanEditor->width(), 0)).x();
-        QVERIFY2(gap >= 0 && gap <= 24, qPrintable(QString::number(gap)));
-        const auto interfaceCapture = qEnvironmentVariable("TERMASTER_APP_GUI_CAPTURE");
-        if (!interfaceCapture.isEmpty())
+        for (const auto& field : dialog->pageModel("application.appearance")->schema().fields())
         {
-            QVERIFY(QDir().mkpath(interfaceCapture));
-            dialog->setFixedSize(1280, 800);
-            QApplication::processEvents();
-            QVERIFY(dialog->grab().save(QDir(interfaceCapture).filePath("InterfaceReset.png")));
+            QVERIFY(field.key != "statusBar");
         }
+        auto* model = dialog->pageModel("application.terminal");
+        model->setValue("fontSize", 23.0);
+        QCOMPARE(_app.settings().value("settings/appearance/fontSize"), previousFont);
         dialog->reject();
         QTRY_VERIFY(dialog.isNull());
-        QVERIFY(_app.toolbar().toolbar()->isHidden());
         _app.commands().find("Application.Settings")->actions().first()->trigger();
         dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
-        model  = dialog->pageModel("application.appearance");
-        model->setValue("statusBar", false);
+        model  = dialog->pageModel("application.terminal");
+        model->setValue("fontSize", 23.0);
         dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
-        QVERIFY(_app.toolbar().toolbar()->isHidden());
-        QVERIFY(!_app.settings().value("settings/ui/statusBarVisible").toBool());
-        QVERIFY(!_app.workspace()->settings().containsOverride("ui/statusBarVisible"));
+        QCOMPARE(_app.settings().value("settings/appearance/fontSize").toDouble(), 23.0);
+        QVERIFY(!_app.workspace()->settings().containsOverride("appearance/fontSize"));
         QVERIFY(_app.createSession("Settings session", &error));
         QVERIFY(dialog);
         auto* applicationDraft = dialog->pageModel("application.terminal");
@@ -5078,7 +5106,7 @@ content:
         action->trigger();
         QVERIFY(action->isChecked());
         QVERIFY(controller.selectedSettings().value("input/localEcho").toBool());
-        _app.mainWindow().statusBar()->clearMessage();
+        static_cast<MainWindow&>(_app.mainWindow()).showMessage({});
         const auto capture = qEnvironmentVariable("TERMASTER_ECHO_CAPTURE");
         if (!capture.isEmpty())
         {
@@ -6986,7 +7014,7 @@ int main(int argc, char* argv[])
                 }
                 blocker.close();
                 if (!app.createWorkspace(Path(loggingRoot + "/blocked/example.termaster"), "Blocked logs", &error)
-                    || !app.mainWindow().statusBar()->currentMessage().contains("Logging:"))
+                    || !static_cast<MainWindow&>(app.mainWindow()).message().contains("Logging:"))
                 {
                     result = 107;
                     app.quit();

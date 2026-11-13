@@ -33,6 +33,7 @@ public:
     Q_SIGNAL void      mainWindowRequested();
 
 protected:
+    bool event(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
     void changeEvent(QEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
