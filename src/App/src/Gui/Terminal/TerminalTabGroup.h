@@ -46,7 +46,7 @@ public:
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
-    void changeEvent(QEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
 
 private:
     QString                           _id;
@@ -72,7 +72,6 @@ private:
     Qt::Edge                          _dropEdge  = Qt::Edge(0);
     int                               _dropIndex = -1;
 
-    void              _refreshFrame();
     void              _refreshHiddenTabs();
     QString           _terminalId(int index) const;
     QString           _mimeId(const QMimeData* mime, QObject* source) const;

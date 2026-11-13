@@ -76,7 +76,9 @@ public:
     bool               stop(QString* error = nullptr);
     bool               rescan(QString* error = nullptr);
     bool               setEnabled(const QString& id, bool enabled, QString* error = nullptr);
-    bool               reload(const QString& id, QString* error = nullptr);
+    /** Persists all requested preferences together, then reconciles dependencies once. */
+    bool setEnabled(const QHash<QString, bool>& states, QString* error = nullptr);
+    bool reload(const QString& id, QString* error = nullptr);
 
     Q_SIGNAL void pluginStarted(const QString& id);
     Q_SIGNAL void pluginStopped(const QString& id);
@@ -110,7 +112,7 @@ private:
     bool                                       _pendingScan = false;
 
     bool          _loadEnabledStates(QHash<QString, bool>& states, QString* error);
-    bool          _saveEnabledState(const QString& id, bool enabled, QString* error);
+    bool          _saveEnabledStates(const QHash<QString, bool>& states, QString* error);
     bool          _checkCall(QString* error) const;
     void          _scheduleScan();
     bool          _scan(QString* error, bool force = false);

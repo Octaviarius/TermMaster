@@ -728,3 +728,77 @@ including process exit, mixed saved connection states, provider recovery, group
 moves and Inplace restoration. Python compilation, local documentation links and
 `git diff --check` passed. No source workspace changes, hardware sends, external
 network tests, dependency downloads or distribution changes were made.
+
+
+## PERF-20: Delivered docking and startup corrections
+
+Implemented 2026-11-13. Production changes retain the same terminal runtime,
+connection state, session identity and action ownership during transfers.
+
+- The group border uses Qt's native frame control with a paint-local Mid palette.
+  It has a 2px neutral outline without an ancestor stylesheet or inherited text
+  palette overrides. Palette changes are consumed on paint.
+- Nested splitter survivors go directly to the destination parent; redundant
+  survivor/root reparent calls are removed. Unchanged captions skip forced header
+  layout/size adjustment, and a caption refresh shares its effective settings map.
+- Identical tab order and recent-session/last-session references do not dirty the
+  session/workspace. Existing validation, external-change checks, unknown fields
+  and transactional persistence remain in force.
+- SettingsOverlay key reads traverse only the requested path/subtree. Scalar and
+  null barriers, inherited scoped prefixes, live changes and expired owners retain
+  the same behavior as complete merged values. No stale layer cache was added.
+- Processor selectors retain their combo metadata and popup widget skeleton, but
+  build popup tree items on demand. Hidden metadata/favorite/topology changes are
+  applied on next opening; visible changes rebuild while retaining the filter.
+- Default bundled-plugin activation is persisted in one settings patch and one
+  dependency reconciliation. The single-plugin API keeps explicit retry behavior.
+
+This delivers the confirmed GUI and startup corrections. The separate worker
+execution contract from PERF-19 remains planned; transport/processor thread
+ownership has not been changed by these UI fixes.
+
+### Release measurements after corrections
+
+Native Windows, same copied `G:/TMP/Tmaster` source and synthetic retained-row
+workload as PERF-19. Three fresh processes, five cycles per operation (n=15).
+Values are medians, with descriptive p95 in parentheses, in milliseconds. Startup
+has n=3. Both baseline and corrected results are uninstrumented; host scheduling
+and warm file caches are uncontrolled, so ratios are local observations.
+
+| Operation | PERF-19 Release | Corrected Release |
+| --- | ---: | ---: |
+| Six configured terminals: join tab | 78.0 (107.4) | 15.2 (18.4) |
+| Six configured terminals: split tab | 83.9 (103.8) | 17.8 (21.3) |
+| Six configured terminals: close secondary | 87.2 (149.7) | 27.4 (31.4) |
+| Synthetic 32-tab group: join tab | 332.6 (369.8) | 21.0 (35.1) |
+| Synthetic 32-tab group: move group | 654.1 (744.5) | 38.4 (49.8) |
+| Synthetic 32-tab group: detach group | 656.5 (747.2) | 56.4 (97.9) |
+| Synthetic 32-tab group: close secondary | 356.2 (379.7) | 39.7 (70.5) |
+| Restored startup, fresh plugin preferences | 720.3 (844.1) | 554.3 (556.1) |
+| Restored startup, existing plugin preferences | 904.6 (1011.5) | 392.5 (403.9) |
+
+Operation totals include synchronous mutation plus subsequent Qt paint/deferred
+completion. They exclude compositor latency. Every phase preserved runtime/page
+identity, population and disconnected state, completed normally and retained
+original source hashes. No hardware or network connection was opened.
+[Corrected records](benchmarks/docking-remediation/release/Summary.json) and
+[returning-startup control](benchmarks/docking-remediation/returning-startup/Summary.json)
+contain raw measurements, modes, executable hashes and summaries.
+
+### Acceptance
+
+Validation runs use Release only. Ten affected suites passed: AppTests,
+SettingsTests, WorkspaceTests, PluginIntegrationTests, TerminalProcessingTests,
+LineflowEditorTests, SessionTests, SettingsSchemaTests, SettingsFormTests and
+LineflowPersistenceTests. Existing host symlink and opt-in visual/hardware skips
+remain explicit in individual results. Native Windows input acceptance passed
+actual tab/group drag, cancellation, split, external detach and return. Frame,
+overflow, font resizing and grouped transfer captures passed at 100% and 200%;
+native pointer drag was exercised at 100%.
+
+The [100% group capture](images/performance/TerminalGroupsNative100.png) and
+[200% group capture](images/performance/TerminalGroupsNative200.png) were visually
+inspected. Qt-rendered drag pixmaps retained the translucent group-header copy;
+desktop grab captures unavailable in the host environment were not used as visual
+evidence. A final Debug application build is provided separately, without Debug
+test or performance runs.

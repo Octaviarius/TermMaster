@@ -232,6 +232,15 @@ bool PluginManager::rescan(QString* error)
 
 bool PluginManager::setEnabled(const QString& id, bool enabled, QString* error)
 {
+    return setEnabled(
+        QHash<QString, bool> {
+            {id, enabled}
+    },
+        error);
+}
+
+bool PluginManager::setEnabled(const QHash<QString, bool>& states, QString* error)
+{
     if (!_checkCall(error))
     {
         return false;
@@ -245,9 +254,14 @@ bool PluginManager::setEnabled(const QString& id, bool enabled, QString* error)
         return false;
     }
 
+    if (states.isEmpty())
+    {
+        return true;
+    }
+
     QScopedValueRollback guard(_busy, true);
     QString              cause;
-    if (!_saveEnabledState(id, enabled, &cause))
+    if (!_saveEnabledStates(states, &cause))
     {
         if (error)
         {
@@ -257,15 +271,25 @@ bool PluginManager::setEnabled(const QString& id, bool enabled, QString* error)
         return false;
     }
 
-    _enabled[id] = enabled;
+    for (auto it = states.cbegin(); it != states.cend(); ++it)
+    {
+        _enabled.insert(it.key(), it.value());
+    }
+
     beginResetModel();
     QSet<QString> affected;
+    QSet<QString> disabled;
     for (auto& [path, record] : _records)
     {
         record->entry.enabled = _enabled.value(record->entry.info.id, false);
-        if (record->entry.info.id == id)
+        const auto requested  = states.constFind(record->entry.info.id);
+        if (requested != states.cend())
         {
             affected.insert(path);
+            if (!requested.value())
+            {
+                disabled.insert(path);
+            }
         }
     }
     const auto retryPaths = _dependentClosure(affected);
@@ -277,12 +301,8 @@ bool PluginManager::setEnabled(const QString& id, bool enabled, QString* error)
             record.failed = false;
         }
     }
-    bool success = true;
-    if (!enabled)
-    {
-        success = _stopAffected(_dependentClosure(affected));
-    }
-    success = _reconcile(error) && success;
+    bool success = _stopAffected(_dependentClosure(disabled));
+    success      = _reconcile(error) && success;
     endResetModel();
     if (!success && error && error->isEmpty())
     {
@@ -388,26 +408,33 @@ bool PluginManager::_loadEnabledStates(QHash<QString, bool>& states, QString* er
     return true;
 }
 
-bool PluginManager::_saveEnabledState(const QString& id, bool enabled, QString* error)
+bool PluginManager::_saveEnabledStates(const QHash<QString, bool>& states, QString* error)
 {
     if (error)
     {
         error->clear();
     }
-    if (!QRegularExpression("^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$").match(id).hasMatch())
+    const QRegularExpression validId("^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$");
+    QVariantMap              patch;
+    for (auto it = states.cbegin(); it != states.cend(); ++it)
     {
-        if (error)
+        if (!validId.match(it.key()).hasMatch())
         {
-            *error = "Invalid plugin ID";
+            if (error)
+            {
+                *error = "Invalid plugin ID";
+            }
+            return false;
         }
-        return false;
+        patch.insert("enabled/" + it.key(), it.value());
     }
-    QHash<QString, bool> states;
-    if (!_loadEnabledStates(states, error))
+
+    QHash<QString, bool> current;
+    if (!_loadEnabledStates(current, error))
     {
         return false;
     }
-    return _settings.setValue("enabled/" + id, enabled, error) && _settings.sync(error);
+    return _settings.applyValues(std::move(patch), {}, error) && _settings.sync(error);
 }
 
 bool PluginManager::_checkCall(QString* error) const

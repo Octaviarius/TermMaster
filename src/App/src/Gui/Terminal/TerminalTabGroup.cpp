@@ -20,6 +20,8 @@
 #include <QRegion>
 #include <QRubberBand>
 #include <QStatusBar>
+#include <QStyleOptionFrame>
+#include <QStylePainter>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QToolBar>
@@ -126,7 +128,8 @@ TerminalTabGroup::TerminalTabGroup(QString id, QWidget* parent) :
 {
     setObjectName("terminalTabGroup");
     setAcceptDrops(true);
-    _refreshFrame();
+    setFrameStyle(QFrame::Box | QFrame::Plain);
+    setLineWidth(2);
     _tabs = new TerminalTabs(this);
     _tabs->setObjectName("terminalTabs");
     _tabs->setDocumentMode(true);
@@ -315,12 +318,17 @@ void TerminalTabGroup::setTabPresentation(int            index,
 
     header->findChild<QToolButton*>("terminalStatusIndicator")->setIcon(statusIcon);
     header->findChild<QToolButton*>("terminalTypeIcon")->setIcon(typeIcon);
-    header->findChild<QLabel*>("terminalTabTitle")->setText(title);
-    auto* detailLabel = header->findChild<QLabel*>("terminalTabDetail");
+    auto*      titleLabel     = header->findChild<QLabel*>("terminalTabTitle");
+    auto*      detailLabel    = header->findChild<QLabel*>("terminalTabDetail");
+    const bool captionChanged = titleLabel->text() != title || detailLabel->text() != detail;
+    titleLabel->setText(title);
     detailLabel->setText(detail);
     detailLabel->setVisible(!detail.isEmpty());
-    header->layout()->activate();
-    header->adjustSize();
+    if (created || captionChanged)
+    {
+        header->layout()->activate();
+        header->adjustSize();
+    }
 
     // A single standard tab button owns all visible content. Qt moves and sizes
     // it as one unit during dragging, scrolling and animation.
@@ -514,23 +522,16 @@ bool TerminalTabGroup::eventFilter(QObject* watched, QEvent* event)
     return QFrame::eventFilter(watched, event);
 }
 
-void TerminalTabGroup::changeEvent(QEvent* event)
+void TerminalTabGroup::paintEvent(QPaintEvent*)
 {
-    QFrame::changeEvent(event);
-    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange)
-    {
-        _refreshFrame();
-    }
-}
+    // Use Qt's frame primitive with a local palette: an ancestor stylesheet
+    // would repolish every hidden terminal descendant during reparenting.
+    QStyleOptionFrame frame;
+    initStyleOption(&frame);
+    frame.palette.setBrush(QPalette::WindowText, palette().brush(QPalette::Mid));
 
-void TerminalTabGroup::_refreshFrame()
-{
-    const QString sheet = QString("QFrame#terminalTabGroup { border: 2px solid %1; }")
-                              .arg(palette().color(QPalette::Mid).name());
-    if (styleSheet() != sheet)
-    {
-        setStyleSheet(sheet);
-    }
+    QStylePainter painter(this);
+    painter.drawControl(QStyle::CE_ShapedFrame, frame);
 }
 
 void TerminalTabGroup::_refreshHiddenTabs()

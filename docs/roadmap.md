@@ -632,3 +632,13 @@ Later stages:
 - [x] Attribute slow framework calls with diagnostic scopes and controlled experiments.
 - [x] Audit transport/processing thread affinity and define execution-boundary requirements.
 - [x] Record evidence and prioritized remediation without changing docking behavior.
+
+## PERF-20: Docking and startup remediation
+
+- [x] Replace ancestor frame styles with native Qt drawing and preserve neutral pane boundaries.
+- [x] Remove redundant reparent/layout work and unchanged tab/history writes.
+- [x] Optimize live overlay path reads with mixed-layer equivalence coverage.
+- [x] Defer hidden selector trees and batch initial plugin activation.
+- [x] Verify Release suites, native dragging and 100%/200% group rendering.
+- [x] Repeat isolated Release docking/startup benchmarks and retain source hashes.
+- [x] Build the final Debug application without Debug verification runs.

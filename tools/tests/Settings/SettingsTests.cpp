@@ -47,6 +47,114 @@ class SettingsTests : public QObject
     Q_OBJECT
 
 private:
+    Q_SLOT void overlayPathReadsMatchMergedValues()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        Settings                 base(directory.filePath("base.yaml"));
+        Settings                 middle(directory.filePath("middle.yaml"));
+        Settings                 upper(directory.filePath("upper.yaml"));
+        const QList<QVariantMap> layers {{},
+                                         {{"a", 7}},
+                                         {{"a", QVariantMap {{"b", 11}, {"c", QVariantMap {{"d", 13}}}}}},
+                                         {{"a", QVariantMap {{"b", QVariantMap {{"d", 17}}}, {"c", QVariant {}}}}}};
+        const QStringList        keys {"a", "a/b", "a/b/d", "a/c", "a/c/d", "a/missing", "missing/child"};
+        const QVariant           fallback  = QString("absent");
+        const auto               reference = [](QVariant current, const QString& key, bool* found) {
+            for (const auto& part : key.split('/'))
+            {
+                if (current.typeId() != QMetaType::QVariantMap)
+                {
+                    *found = false;
+                    return QVariant {};
+                }
+                const auto map   = current.toMap();
+                const auto entry = map.constFind(part);
+                if (entry == map.cend())
+                {
+                    *found = false;
+                    return QVariant {};
+                }
+                current = entry.value();
+            }
+            *found = true;
+            return current;
+        };
+        const auto check = [&](const SettingsOverlay& overlay) {
+            const auto merged = overlay.values();
+            for (const auto& key : keys)
+            {
+                bool       found    = false;
+                const auto expected = reference(merged, key, &found);
+                QCOMPARE(overlay.contains(key), found);
+                QCOMPARE(overlay.value(key, fallback), found ? expected : fallback);
+
+                auto     scope         = overlay.node(key);
+                bool     expectedValid = true;
+                QVariant current       = merged;
+                for (const auto& part : key.split('/'))
+                {
+                    if (current.typeId() != QMetaType::QVariantMap)
+                    {
+                        expectedValid = false;
+                        break;
+                    }
+                    const auto map = current.toMap();
+                    if (!map.contains(part))
+                    {
+                        current = QVariantMap {};
+                        break;
+                    }
+                    current = map.value(part);
+                }
+                expectedValid = expectedValid && current.typeId() == QMetaType::QVariantMap;
+                QCOMPARE(scope.isValid(), expectedValid);
+                if (expectedValid)
+                {
+                    bool       childFound = false;
+                    const auto child      = reference(current, "d", &childFound);
+                    QCOMPARE(scope.contains("d"), childFound);
+                    QCOMPARE(scope.value("d", fallback), childFound ? child : fallback);
+                }
+            }
+        };
+
+        // Reuse live views through every mixed map/scalar replacement: no cached layer snapshots.
+        SettingsOverlay first(base.node("root"), middle.node("root"));
+        SettingsOverlay overlay(first.node("nested"), upper.node("root"));
+        for (const auto& bottom : layers)
+        {
+            QVERIFY(base.setValue("root/nested", bottom));
+            for (const auto& center : layers)
+            {
+                QVERIFY(middle.setValue("root/nested", center));
+                for (const auto& top : layers)
+                {
+                    QVERIFY(upper.setValue("root", top));
+                    check(overlay);
+                }
+            }
+        }
+        QVERIFY(middle.setValue("root/nested/a", 1));
+        QVERIFY(upper.setValue("root/a",
+                               QVariantMap {
+                                   {"child", 2}
+        }));
+        QVERIFY(overlay.node("a/missing/deeper").isValid());
+        QVERIFY(!overlay.contains("a/b"));
+        QVERIFY(upper.setValue("root/a", QVariant {}));
+        QVERIFY(overlay.contains("a"));
+        QVERIFY(!overlay.value("a", fallback).isValid());
+        QVERIFY(!overlay.node("a").isValid());
+
+        auto            owner = std::make_unique<Settings>(directory.filePath("borrowed.yaml"));
+        SettingsOverlay borrowed(overlay, owner->node(""));
+        owner.reset();
+        QVERIFY(!borrowed.isValid());
+        QVERIFY(!borrowed.contains("a"));
+        QCOMPARE(borrowed.value("a", fallback), fallback);
+    }
+
     Q_SLOT void roundTrip()
     {
         QTemporaryDir directory;

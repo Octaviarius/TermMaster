@@ -545,15 +545,13 @@ bool TerminalWorkspace::transferGroup(TerminalTabGroup*  group,
             {
                 const auto parentSizes = grandparent->sizes();
                 const int  index       = grandparent->indexOf(sourceParent);
-                survivor->setParent(&source);
+                grandparent->insertWidget(index, survivor);
                 sourceParent->hide();
                 sourceParent->setParent(&source);
-                grandparent->insertWidget(index, survivor);
                 grandparent->setSizes(parentSizes);
             }
             else
             {
-                survivor->setParent(&source);
                 source._setRoot(survivor);
                 sourceParent->hide();
             }
@@ -732,7 +730,9 @@ QWidget* TerminalWorkspace::_prune(QWidget* node, TerminalTabGroup* retained)
     QWidget* result = remaining.isEmpty() ? nullptr : remaining.first();
     if (result)
     {
-        result->setParent(this);
+        // A nested survivor moves directly to its final splitter parent.
+        // The caller restores its index; no intermediate workspace reparent.
+        result->setParent(splitter->parentWidget());
     }
     splitter->hide();
     splitter->setParent(this);
@@ -794,7 +794,10 @@ void TerminalWorkspace::_setRoot(QWidget* root)
         _layout->removeWidget(_root);
     }
     _root = root;
-    root->setParent(this);
+    if (root->parentWidget() != this)
+    {
+        root->setParent(this);
+    }
     _layout->addWidget(root);
     root->show();
 }
