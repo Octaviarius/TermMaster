@@ -575,7 +575,7 @@ Later stages:
 
 ## APP-25: Generated word names
 
-- [x] Port the WordGenerator prototype's default syllable mapping into Core.
+- [x] Port the former syllable-based default naming implementation (superseded by APP-33).
 - [x] Replace adjective/noun defaults for new sessions and unnamed terminals.
 - [x] Remove the obsolete generator/dictionaries and verify prototype parity and name persistence.
 
@@ -642,3 +642,11 @@ Later stages:
 - [x] Verify Release suites, native dragging and 100%/200% group rendering.
 - [x] Repeat isolated Release docking/startup benchmarks and retain source hashes.
 - [x] Build the final Debug application without Debug verification runs.
+
+
+## APP-33: Sequential default names
+
+- [x] Use the lowest available positive number for unnamed sessions, terminals and Lineflow blocks/nodes.
+- [x] Propose numbered workspace filenames and preserve explicit/saved names and UUID identities.
+- [x] Remove the obsolete random-name implementation, prototype and tests.
+- [x] Verify Release AppTests and LineflowEditorTests; final application builds follow worker integration.

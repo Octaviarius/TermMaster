@@ -94,8 +94,7 @@ configuration. Unknown fields survive writes.
 
 App assigns a UUID to a new session and uses it as the folder name and stable
 catalog/document ID. The human-readable name is independent and mutable. Empty
-creation names use `WordGenerator::generate()` to create one capitalized,
-pronounceable pseudo-word. Explicit names and existing saved names are preserved.
+creation names use the first available `Session N` label, starting at one. Explicit names and existing saved names are preserved.
 Renaming changes the name without moving the folder or changing the ID.
 Session creation refuses to replace existing data. App validates that a loaded
 document ID matches its selected catalog key before activating it.
@@ -349,21 +348,21 @@ synthetic terminals and zero transport connection attempts.
 
 ## Generated default names
 
-Core `WordGenerator` implements the fixed shuffled two/three-syllable configuration
-from `tools/previews/WordGenerator.py` directly in C++20. It has 6,220,800 lowercase
-spellings with reversible integer mapping; `generate()` uniformly selects a
-spelling and capitalizes its initial letter. Examples are Cenum, Fradil and Bagenum.
-The mapping uses immutable lexicons and bounded arithmetic, without Python startup,
-dictionary loading or an indexed permutation allocation.
+New unnamed sessions use `Session N`, and terminals use `Terminal N`, with a space
+before the smallest unused positive decimal number. Sessions check every catalog
+entry, including closed sessions, and fail with the concrete cause when an entry
+cannot be read or its document identity disagrees with the catalog. Terminal names
+check all saved objects, including unavailable terminal types. Removed or renamed
+labels release their numbers; explicit and already saved names remain unchanged.
+UUID identities and session directories remain independent of display names.
 
-New unnamed sessions and terminals use this helper. Existing saved names, explicit
-creation names and UUID identities are preserved. Generated names may repeat and
-are never used as unique application identities. The previous adjective/noun
-generator and its build-time dictionary generation have been removed.
+The workspace creation dialog proposes `Workspace N.termaster` using the first
+unused numbered filename in its initial directory, including hidden/system entries
+and case-insensitive Windows filename collisions. A chosen filename supplies the
+workspace name when no explicit name is provided. Existing files are not renamed.
 
-Verification checks prototype reference values, every two-syllable mapping, 10,000
-three-syllable samples, both block boundaries, invalid input and generated labels.
-Application checks cover automatic session/terminal names, explicit names and
-save/reopen behavior. Debug and Release application builds complete. The complete
-Release AppTests suite passes; focused Debug generator/session/terminal tests pass,
-and a native generated-session capture was visually inspected.
+Core `numberedName` shares exact name matching and suffix selection. The obsolete
+syllable generator and its Python prototype are removed. Focused checks cover gaps,
+explicit names, catalog persistence, renamed names, unreadable catalog entries and
+session/terminal defaults. Runtime verification is recorded after the affected tests
+and builds complete.

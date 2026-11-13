@@ -5,6 +5,7 @@
 #include <QMimeData>
 #include <QUuid>
 #include <Termaster/Core/Gui/Icons.h>
+#include <Termaster/Core/NumberedName.h>
 #include <algorithm>
 
 namespace
@@ -236,7 +237,7 @@ QString LineflowEditorModel::_defaultNodeName(const QString& block, const QStrin
 
     for (int number = 1;; ++number)
     {
-        const auto suffix = number == 1 ? QString {} : QString(" %1").arg(number);
+        const auto suffix = QString(" %1").arg(number);
         auto       prefix = title.left(256 - suffix.size()).trimmed();
         if (!prefix.isEmpty() && prefix.at(prefix.size() - 1).isHighSurrogate())
         {
@@ -297,6 +298,16 @@ void LineflowEditorModel::markApplied(QVariantMap definitions)
     _rebuild();
     emit draftChanged();
 }
+QString LineflowEditorModel::defaultBlockName() const
+{
+    QSet<QString> occupied;
+    for (auto definition = _draft.cbegin(); definition != _draft.cend(); ++definition)
+    {
+        occupied.insert(definition.value().toMap().value("name").toString());
+    }
+    return numberedName("Block", occupied);
+}
+
 QString LineflowEditorModel::createBlock(const QString& name, QString* error)
 {
     return createBlock(name, 1, error);
@@ -309,7 +320,7 @@ QString LineflowEditorModel::createBlock(const QString& name, int channels, QStr
     draft.insert(id,
                  QVariantMap {
                      {    "id",                                                               id},
-                     {  "name",                                                             name},
+                     {  "name",                       name.isEmpty() ? defaultBlockName() : name},
                      {  "kind",                                                       "lineflow"},
                      {"source", QVariantMap {{"channels", channels}, {"nodes", QVariantList {}}}}
     });
@@ -330,7 +341,7 @@ QString LineflowEditorModel::duplicateBlock(const QString& id, const QString& na
     const auto copy       = QUuid::createUuid().toString(QUuid::WithoutBraces);
     auto       definition = _draft.value(id).toMap();
     definition.insert("id", copy);
-    definition.insert("name", name);
+    definition.insert("name", name.isEmpty() ? defaultBlockName() : name);
     auto draft = _draft;
     draft.insert(copy, definition);
     if (!_commit(draft, error))

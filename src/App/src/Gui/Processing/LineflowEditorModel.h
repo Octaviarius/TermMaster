@@ -31,6 +31,7 @@ public:
     QList<Rename>   renames() const;
     QStringList     blockIds() const;
     QString         blockName(const QString& id) const;
+    QString         defaultBlockName() const;
     int             blockChannels(const QString& id) const;
     bool            setBlockChannels(const QString& id, int channels, QString* error = nullptr);
     QPair<int, int> processorShape(const QString& id) const;

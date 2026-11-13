@@ -33,8 +33,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     inc/Termaster/Core/BuildTime.h
     inc/Termaster/Core/CompileTime.h
     src/Version.cpp
-    inc/Termaster/Core/WordGenerator.h
-    src/WordGenerator.cpp
+    inc/Termaster/Core/NumberedName.h
+    src/NumberedName.cpp
     inc/Termaster/Core/PurePath.h
     src/PurePath.cpp
     inc/Termaster/Core/Path.h

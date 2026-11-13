@@ -495,7 +495,7 @@ private slots:
         registerDuplex(registry);
         QVERIFY(model.canDropAt(&palette, 0, "duplex"));
         QVERIFY(model.dropAt(&palette, 0, "duplex"));
-        QCOMPARE(model.node("root", "Shared protocol").value("lane").toString(), QString("duplex"));
+        QCOMPARE(model.node("root", "Shared protocol 1").value("lane").toString(), QString("duplex"));
         palette.setData("application/x-termaster-processor", "root");
         QVERIFY(!model.canDropMimeData(&palette, Qt::CopyAction, 0, 0, {}));
         QVERIFY(!model.canDropMimeData(&palette, Qt::CopyAction, 0, 0, {}));
@@ -606,6 +606,28 @@ private slots:
             selector.hidePopup();
         }
     }
+    void automaticBlockNamesReuseAvailableNumbersAndPreserveExplicitNames()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        LineflowEditorModel model({}, registry);
+        const auto          first = model.createBlock({});
+        QVERIFY(!first.isEmpty());
+        QCOMPARE(model.blockName(first), QString("Block 1"));
+        const auto explicitBlock = model.createBlock("Block 3");
+        QVERIFY(!explicitBlock.isEmpty());
+        const auto second = model.duplicateBlock(first, {});
+        QVERIFY(!second.isEmpty());
+        QCOMPARE(model.blockName(second), QString("Block 2"));
+        QCOMPARE(model.defaultBlockName(), QString("Block 4"));
+        QVERIFY(model.renameBlock(first, "Custom block"));
+        QCOMPARE(model.defaultBlockName(), QString("Block 1"));
+        const auto reused = model.createBlock({});
+        QCOMPARE(model.blockName(reused), QString("Block 1"));
+        QCOMPARE(model.blockName(explicitBlock), QString("Block 3"));
+        QVERIFY(model.removeBlock(second));
+        QCOMPARE(model.defaultBlockName(), QString("Block 2"));
+    }
 
     void insertedNodeNamesUseNumberedCatalogTitlesAcrossInsertionPaths()
     {
@@ -613,12 +635,12 @@ private slots:
         registerNativeProcessors(registry, "native");
         LineflowEditorModel model({}, registry);
         const auto          block = model.createBlock("Root");
-        QCOMPARE(model.insertNodeAt(block, 0, "native.gate", "rx"), QString("Gate"));
+        QCOMPARE(model.insertNodeAt(block, 0, "native.gate", "rx"), QString("Gate 1"));
         QCOMPARE(model.insertNode(block, 1, "native.gate"), QString("Gate 2"));
         QVERIFY(model.renameNode(block, "Gate 2", "Gate 3"));
         QCOMPARE(model.insertNode(block, 2, "native.gate"), QString("Gate 2"));
         QCOMPARE(model.insertNode(block, 3, "native.gate"), QString("Gate 4"));
-        QCOMPARE(model.insertNode(block, 4, "native.hex-encoder"), QString("HEX Encoder"));
+        QCOMPARE(model.insertNode(block, 4, "native.hex-encoder"), QString("HEX Encoder 1"));
         QMimeData palette;
         palette.setData("application/x-termaster-processor", "native.gate");
         QVERIFY(model.canDropAt(&palette, 5, "rx"));
@@ -629,24 +651,24 @@ private slots:
         QCOMPARE(model.index(6, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate 6"));
         std::unique_ptr<QMimeData> move(model.mimeData({model.index(0, 0)}));
         QVERIFY(model.dropAt(move.get(), 7, "rx"));
-        QCOMPARE(model.index(6, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate"));
+        QCOMPARE(model.index(6, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate 1"));
         std::unique_ptr<QMimeData> oldMove(model.mimeData({model.index(6, 0)}));
         QVERIFY(model.dropMimeData(oldMove.get(), Qt::MoveAction, 0, 0, {}));
-        QCOMPARE(model.index(0, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate"));
+        QCOMPARE(model.index(0, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate 1"));
 
         const auto nested = model.createBlock("My block");
         model.setSelectedBlock(block);
-        QCOMPARE(model.insertNode(block, 7, nested), QString("My block"));
+        QCOMPARE(model.insertNode(block, 7, nested), QString("My block 1"));
         palette.setData("application/x-termaster-processor", nested.toUtf8());
         QVERIFY(model.dropAt(&palette, 8, "rx"));
         QCOMPARE(model.index(8, 0).data(LineflowEditorModel::NodeRole).toString(), QString("My block 2"));
         const auto longBlock = model.createBlock(QString(256, 'X'));
         const auto longName  = model.insertNode(block, 9, longBlock);
         QCOMPARE(longName.size(), 256);
-        QCOMPARE(longName, QString(256, 'X'));
+        QCOMPARE(longName, QString(254, 'X') + " 1");
         QCOMPARE(model.insertNode(block, 10, longBlock), QString(254, 'X') + " 2");
         const auto slashBlock = model.createBlock("Wire / protocol");
-        QCOMPARE(model.insertNode(block, 11, slashBlock), QString("Wire   protocol"));
+        QCOMPARE(model.insertNode(block, 11, slashBlock), QString("Wire   protocol 1"));
         QString error;
         QVERIFY2(model.validate(&error), qPrintable(error));
     }
@@ -1309,7 +1331,7 @@ private slots:
         std::unique_ptr<QMimeData> move(dialog.model().mimeData({dialog.model().index(0, 0)}));
         QVERIFY(drop(move.get(), canvas->viewport()->width() * 3 / 4, 3, Qt::MoveAction));
         QCOMPARE(dialog.model().index(2, 0).data(LineflowEditorModel::LaneRole).toString(), QString("tx"));
-        QCOMPARE(dialog.model().index(2, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate"));
+        QCOMPARE(dialog.model().index(2, 0).data(LineflowEditorModel::NodeRole).toString(), QString("Gate 1"));
         std::unique_ptr<QMimeData> moveDuplex(dialog.model().mimeData({dialog.model().index(1, 0)}));
         QVERIFY(drop(moveDuplex.get(), canvas->viewport()->width() / 4, 3, Qt::MoveAction));
         QCOMPARE(dialog.model().index(2, 0).data(LineflowEditorModel::LaneRole).toString(), QString("duplex"));

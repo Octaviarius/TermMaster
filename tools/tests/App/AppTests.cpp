@@ -82,6 +82,7 @@
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
+#include <Termaster/Core/NumberedName.h>
 #include <Termaster/Core/Plugin/PluginHost.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
@@ -89,7 +90,6 @@
 #include <Termaster/Core/Session.h>
 #include <Termaster/Core/Settings.h>
 #include <Termaster/Core/SettingsOverlay.h>
-#include <Termaster/Core/WordGenerator.h>
 #include <Termaster/Core/Workspace.h>
 #include <cstdlib>
 #include <stdexcept>
@@ -1642,13 +1642,13 @@ content:
         QStringList ids;
         for (int index = 0; index < 3; ++index)
         {
-            const auto requestedName = index == 0 ? QString() : QString("Readable name %1").arg(index);
+            const auto requestedName = index < 2 ? QString() : QString("Readable name %1").arg(index);
             QVERIFY(_app.createTerminal(type.id, {}, requestedName, &error));
             ids.append(_app.selectedTerminal());
             const auto storedName = _app.session()->objects().value(ids.last()).toMap().value("name").toString();
             if (requestedName.isEmpty())
             {
-                QVERIFY(WordGenerator::number(storedName.toLower()).has_value());
+                QCOMPARE(storedName, QString("Terminal %1").arg(index + 1));
             }
             else
             {
@@ -2367,57 +2367,40 @@ content:
         QVERIFY(editor->buffered());
     }
 
-    Q_SLOT void generatedWordsMatchPrototypeAndRoundTrip()
+    Q_SLOT void numberedNamesUseFirstAvailablePositiveSuffix()
     {
-        QCOMPARE(WordGenerator::capacity(), quint32(6220800));
-        const QList<QPair<quint32, QString>> reference {
-            {      0,     "cenum"},
-            {      1,    "fradil"},
-            {      2,    "kotath"},
-            {      3,     "rikos"},
-            {      4,    "thawer"},
-            {      5,    "clunun"},
-            {      6,     "godem"},
-            {      7,     "mesul"},
-            {     42,     "tirom"},
-            {    999,    "stavas"},
-            {  76798,    "plukur"},
-            {  76799,    "stiwin"},
-            {  76800,   "bagenum"},
-            {  76801,   "basadil"},
-            { 123456,   "hupawem"},
-            {1000000,   "fafofor"},
-            {6220799, "truthiwin"}
-        };
-        for (const auto& pair : reference)
-        {
-            QCOMPARE(WordGenerator::word(pair.first), pair.second);
-            QCOMPARE(WordGenerator::number(pair.second), std::optional<quint32>(pair.first));
-        }
-        for (quint32 id = 0; id < 76800; ++id)
-        {
-            const auto word = WordGenerator::word(id);
-            QCOMPARE(WordGenerator::number(word), std::optional<quint32>(id));
-        }
-        for (quint32 sample = 0; sample < 10000; ++sample)
-        {
-            const quint32 id = 76800 + quint32((quint64(sample) * 104729) % 6144000);
-            QCOMPARE(WordGenerator::number(WordGenerator::word(id)), std::optional<quint32>(id));
-        }
-        for (const auto& invalid :
-             QStringList {"", "Cenum", "cenum ", "bagenum!", "aeiou", "c", "cénum", "cenum cenum"})
-        {
-            QVERIFY(!WordGenerator::number(invalid).has_value());
-        }
-        QVERIFY_THROWS_EXCEPTION(std::out_of_range, WordGenerator::word(WordGenerator::capacity()));
-        for (int count = 0; count < 100; ++count)
-        {
-            const auto generated = WordGenerator::generate();
-            QVERIFY(!generated.isEmpty());
-            QVERIFY(generated.front().isUpper());
-            QVERIFY(!generated.contains(' '));
-            QVERIFY(WordGenerator::number(generated.toLower()).has_value());
-        }
+        QCOMPARE(numberedName("Session", {}), QString("Session 1"));
+        QCOMPARE(numberedName("Session", {"Session 1", "Session 3", "Session 01", "Session 0", "Other 2"}),
+                 QString("Session 2"));
+        QCOMPARE(numberedName("Terminal", {"Terminal 1", "Terminal 2", "Terminal 4"}), QString("Terminal 3"));
+    }
+
+    Q_SLOT void automaticSessionNamesFollowCatalogAndPreserveNames()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        const auto    cleanup = qScopeGuard([&] { _closeTemporaryWorkspace(); });
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Workspace 1.termaster")), {}, &error));
+        QCOMPARE(_app.workspace()->name(), QString("Workspace 1"));
+        QVERIFY(_app.createSession("Session 2", &error));
+        const auto secondId = _app.session()->id();
+        QVERIFY(_app.createSession({}, &error));
+        QCOMPARE(_app.session()->name(), QString("Session 1"));
+        const auto firstId = _app.session()->id();
+        QVERIFY(_app.createSession({}, &error));
+        QCOMPARE(_app.session()->name(), QString("Session 3"));
+        QVERIFY(_app.openSession(firstId, &error));
+        QVERIFY(_app.renameSession("Custom name", &error));
+        QVERIFY(_app.createSession({}, &error));
+        QCOMPARE(_app.session()->name(), QString("Session 1"));
+        QVERIFY(_app.openSession(secondId, &error));
+        QCOMPARE(_app.session()->name(), QString("Session 2"));
+        const auto directory = _app.session()->directory();
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(QFile::remove(directory.join("session.yaml").toString()));
+        QVERIFY(!_app.createSession({}, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!_app.session());
     }
 
     Q_SLOT void sessionLifecycleAndPersistence()
@@ -2431,9 +2414,7 @@ content:
         QVERIFY2(_app.createSession({}, &error), qPrintable(error));
         QVERIFY(_app.session());
         const auto generated = _app.session()->name();
-        QVERIFY(!generated.contains(' '));
-        QVERIFY(generated.front().isUpper());
-        QVERIFY(WordGenerator::number(generated.toLower()).has_value());
+        QCOMPARE(generated, QString("Session 1"));
         const auto generatedNamesCapture = qEnvironmentVariable("TERMASTER_GENERATED_NAMES_CAPTURE");
         if (!generatedNamesCapture.isEmpty())
         {
