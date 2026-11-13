@@ -45,23 +45,34 @@ public:
     class Prepared
     {
     public:
-        QVariantMap                configuration() const;
-        int                        inputCount() const;
-        int                        outputCount() const;
-        QStringList                inputNames() const;
-        QStringList                outputNames() const;
+        QVariantMap       configuration() const;
+        int               inputCount() const;
+        int               outputCount() const;
+        QStringList       inputNames() const;
+        QStringList       outputNames() const;
+        Processor::Limits limits() const;
+        /** Live native objects from this registry lifetime on the calling thread, including retirements. */
+        int activeInstancesOnCurrentThread() const;
+        /** Pins executor startup through publication of all final catalog retirements. */
+        std::shared_ptr<const void> retainExecution(QString* error = nullptr) const;
+        /** Immutable snapshot: instantiate on its intended QObject owner thread.
+         * Factory calls may use any thread; each call builds independent state without catalog access.
+         */
         std::shared_ptr<Processor> instantiate(const QVariantMap& overrides = {}, QString* error = nullptr) const;
 
     private:
         friend class ProcessorRegistry;
-        std::function<std::shared_ptr<Processor>(const QVariantMap&, QString*)> _instantiate;
-        QVariantMap                                                             _configuration;
-        QStringList                                                             _paths;
-        bool                                                                    _composite   = false;
-        int                                                                     _inputCount  = 1;
-        int                                                                     _outputCount = 1;
-        QStringList                                                             _inputNames;
-        QStringList                                                             _outputNames;
+        std::shared_ptr<const std::function<std::shared_ptr<Processor>(const QVariantMap&, QString*)>> _instantiate;
+        QVariantMap                                                                                    _configuration;
+        QStringList                                                                                    _paths;
+        Processor::Limits                                                                              _limits;
+        std::function<int()>                                 _activeInstancesOnCurrentThread;
+        std::function<std::shared_ptr<const void>(QString*)> _retainExecution;
+        bool                                                 _composite   = false;
+        int                                                  _inputCount  = 1;
+        int                                                  _outputCount = 1;
+        QStringList                                          _inputNames;
+        QStringList                                          _outputNames;
     };
 
     explicit ProcessorRegistry(QObject* parent = nullptr);

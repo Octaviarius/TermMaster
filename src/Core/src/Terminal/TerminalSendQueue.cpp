@@ -166,5 +166,10 @@ void TerminalSendQueue::reset()
     _retry.stop();
     _pending.clear();
     _pendingBytes = 0;
-    emit changed();
+    const QPointer<TerminalSendQueue> self(this);
+    _device.discardPendingOutput();
+    if (self)
+    {
+        emit changed();
+    }
 }

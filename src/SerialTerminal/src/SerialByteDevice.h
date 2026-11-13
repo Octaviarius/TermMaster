@@ -5,7 +5,7 @@
 #include <Termaster/Core/Terminal/SerialDevice.h>
 #include <memory>
 
-/** GUI-thread device; the injectable transport is used only by synthetic tests. */
+/** Owner-thread device; the injectable transport is used only by synthetic tests. */
 class SerialByteDevice final : public QObject, public SerialDevice
 {
 public:
@@ -30,7 +30,10 @@ private:
     QByteArray                 _pending;
     QString                    _lastError;
     QTimer                     _retry;
-    bool                       _pumping = false;
+    bool                       _pumping       = false;
+    bool                       _readScheduled = false;
+    quint64                    _generation    = 0;
     void                       _setState(State state);
     void                       _pump();
+    void                       _read(quint64 generation);
 };

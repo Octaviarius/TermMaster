@@ -92,6 +92,7 @@ if(TERMASTER_BUILD_TERMINAL_TESTS)
     enable_testing()
     add_subdirectory(tools/tests/TerminalDisplay)
     add_subdirectory(tools/tests/Serial)
+    add_subdirectory(tools/tests/ThreadedSerialDevice)
 endif()
 
 option(TERMASTER_BUILD_CONSOLE_TESTS "Build local console tests" OFF)

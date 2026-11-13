@@ -280,7 +280,12 @@ private slots:
             }
         }
         QCOMPARE(unary, 20);
-        QCOMPARE(duplex, 6);
+        // Six paired families plus the native four-port Bypass.
+        QCOMPARE(duplex, 7);
+        const auto bypass = registry.type("native.duplex-bypass");
+        QVERIFY(bypass);
+        QCOMPARE(bypass->inputCount, 2);
+        QCOMPARE(bypass->outputCount, 2);
         QByteArray payload;
         for (int byte = 0; byte < 256; ++byte)
         {

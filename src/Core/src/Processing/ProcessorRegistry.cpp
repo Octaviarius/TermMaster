@@ -15,7 +15,9 @@
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/SettingsSchema.h>
 #include <algorithm>
+#include <atomic>
 #include <exception>
+#include <mutex>
 #include <stdexcept>
 
 namespace
@@ -211,6 +213,59 @@ QStringList portNames(const QStringList& supplied, int count, const QString& pre
     return result;
 }
 
+/** Stable GUI retirement context, independent of a registry or temporary catalog scope. */
+struct CatalogOwner
+{
+    std::shared_ptr<QObject> context {new QObject, [](QObject* object) { object->deleteLater(); }};
+    std::atomic<int>         pending = 0;
+};
+
+void retireOnOwner(std::shared_ptr<CatalogOwner> owner, std::function<void()> operation)
+{
+    if (owner->context->thread() == QThread::currentThread())
+    {
+        operation();
+        return;
+    }
+    struct Payload
+    {
+        std::function<void()> operation;
+    };
+    auto payload = std::make_shared<Payload>();
+    // Posting temporaries can survive until after the owner runs the event. They
+    // retain only this core shell; its executable/entry captures are emptied on GUI.
+    payload->operation.swap(operation);
+    ++owner->pending;
+    auto* context = owner->context.get();
+    QMetaObject::invokeMethod(
+        context,
+        [owner = std::move(owner), payload = std::move(payload)] {
+            payload->operation();
+            payload->operation = {};
+            --owner->pending;
+        },
+        Qt::QueuedConnection);
+}
+
+template <class Entry>
+std::function<void()> releaseCatalogLease(std::shared_ptr<CatalogOwner> owner, std::shared_ptr<Entry> entry)
+{
+    return [owner = std::move(owner), entry = std::move(entry)]() mutable {
+        // Empty the releasing worker's functor before its owner can observe zero.
+        retireOnOwner(std::move(owner), [entry = std::move(entry)] { --entry->instances; });
+    };
+}
+
+using PreparedFactory = std::function<std::shared_ptr<Processor>(const QVariantMap&, QString*)>;
+
+std::shared_ptr<const PreparedFactory> ownerFactory(std::shared_ptr<CatalogOwner> owner, PreparedFactory callback)
+{
+    return std::shared_ptr<const PreparedFactory>(new PreparedFactory(std::move(callback)),
+                                                  [owner = std::move(owner)](const PreparedFactory* factory) {
+                                                      retireOnOwner(owner, [factory] { delete factory; });
+                                                  });
+}
+
 struct Lease
 {
     std::function<void()> release;
@@ -290,7 +345,7 @@ public:
     }
     QVariantMap configuration() const override
     {
-        return _instance->configuration();
+        return copyValue(_instance->configuration()).toMap();
     }
     int inputCount() const override
     {
@@ -460,10 +515,14 @@ private:
 
 struct ProcessorRegistry::Lifetime
 {
-    int  instances = 0;
-    bool accepting = true;
-    bool draining  = false;
-    bool finished  = false;
+    std::shared_ptr<CatalogOwner> owner = std::make_shared<CatalogOwner>();
+    std::mutex                    admission;
+    QMap<QThread*, int>           threadInstances;
+    std::atomic<int>              instances  = 0;
+    std::atomic<int>              executions = 0;
+    std::atomic<bool>             accepting  = true;
+    bool                          draining   = false;
+    bool                          finished   = false;
 };
 
 struct ProcessorRegistry::Entry
@@ -472,15 +531,15 @@ struct ProcessorRegistry::Entry
     Type                                  type;
     std::shared_ptr<const SettingsSchema> schema;
     QVariantMap                           defaults;
-    int                                   instances = 0;
+    std::atomic<int>                      instances = 0;
     bool                                  saved     = false;
 };
 
 struct ProcessorRegistry::ProviderEntry
 {
-    QString  owner;
-    Provider provider;
-    int      instances = 0;
+    QString          owner;
+    Provider         provider;
+    std::atomic<int> instances = 0;
 };
 
 ProcessorRegistry::ProcessorRegistry(QObject* parent) : QObject(parent), _lifetime(std::make_shared<Lifetime>())
@@ -505,14 +564,19 @@ bool ProcessorRegistry::shutdown(int timeoutMs, QString* error)
     }
     if (_lifetime->finished)
     {
-        return _lifetime->instances == 0 || fail(error, "Processors remain pinned after shutdown");
+        return (_lifetime->instances == 0 && _lifetime->executions == 0 && _lifetime->owner->pending == 0)
+            || fail(error, "Processors or catalog retirements remain pinned after shutdown");
     }
 
-    _lifetime->accepting = false;
-    _lifetime->draining  = true;
+    {
+        const std::lock_guard lock(_lifetime->admission);
+        _lifetime->accepting = false;
+    }
+    _lifetime->draining = true;
     QElapsedTimer elapsed;
     elapsed.start();
-    while (_lifetime->instances > 0 && elapsed.elapsed() < std::clamp(timeoutMs, 0, 60000))
+    while ((_lifetime->instances > 0 || _lifetime->executions > 0 || _lifetime->owner->pending > 0)
+           && elapsed.elapsed() < std::clamp(timeoutMs, 0, 60000))
     {
         const int previous = _lifetime->instances;
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
@@ -525,11 +589,12 @@ bool ProcessorRegistry::shutdown(int timeoutMs, QString* error)
     _lifetime->draining = false;
     _lifetime->finished = true;
 
-    if (_lifetime->instances > 0)
+    if (_lifetime->instances > 0 || _lifetime->executions > 0 || _lifetime->owner->pending > 0)
     {
         return fail(error,
-                    "Processor shutdown timed out; " + QString::number(_lifetime->instances)
-                        + " instances remain pinned");
+                    "Processor shutdown timed out; " + QString::number(_lifetime->instances.load()) + " instances and "
+                        + QString::number(_lifetime->executions.load()) + " executions and "
+                        + QString::number(_lifetime->owner->pending.load()) + " catalog retirements remain pinned");
     }
     return true;
 }
@@ -1139,7 +1204,7 @@ std::unique_ptr<ProcessorRegistry> ProcessorRegistry::scoped(const QVariantMap& 
         for (const auto& entry : entries)
         {
             auto lease     = std::make_shared<Lease>();
-            lease->release = [entry] { --entry->instances; };
+            lease->release = releaseCatalogLease(result->_lifetime->owner, entry);
             ++entry->instances;
             result->_scopeLeases.append(std::move(lease));
         }
@@ -1716,6 +1781,21 @@ int ProcessorRegistry::Prepared::outputCount() const
     return _outputCount;
 }
 
+Processor::Limits ProcessorRegistry::Prepared::limits() const
+{
+    return _limits;
+}
+
+int ProcessorRegistry::Prepared::activeInstancesOnCurrentThread() const
+{
+    return _activeInstancesOnCurrentThread();
+}
+
+std::shared_ptr<const void> ProcessorRegistry::Prepared::retainExecution(QString* error) const
+{
+    return _retainExecution(error);
+}
+
 QVariantMap ProcessorRegistry::Prepared::configuration() const
 {
     return _configuration;
@@ -1728,7 +1808,7 @@ std::shared_ptr<Processor> ProcessorRegistry::Prepared::instantiate(const QVaria
     }
     try
     {
-        return _instantiate(overrides, error);
+        return (*_instantiate)(overrides, error);
     }
     catch (const std::exception& exception)
     {
@@ -1754,11 +1834,22 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
                                                       QString*                    error)
 {
     qCDebug(registryLogTrace) << "Processor instantiation requested";
-    if (!lifetime->accepting)
     {
-        fail(error, "Processor registry is shutting down");
-        return {};
+        const std::lock_guard lock(lifetime->admission);
+        if (!lifetime->accepting)
+        {
+            fail(error, "Processor registry is shutting down");
+            return {};
+        }
+        ++lifetime->instances;
     }
+    bool       transferred = false;
+    const auto reservation = qScopeGuard([&] {
+        if (!transferred)
+        {
+            --lifetime->instances;
+        }
+    });
     struct Hold
     {
         std::shared_ptr<const void> lease;
@@ -1797,42 +1888,50 @@ std::shared_ptr<Processor> ProcessorRegistry::_create(const Type::Factory&      
         fail(error, "Processor factory must return an unparented instance on the calling thread");
         return {};
     }
-    ++lifetime->instances;
-    auto leased = std::shared_ptr<Processor>(instance.release(), [hold, lifetime](Processor* processor) {
-        // An explicit sentinel pins code even if a broken implementation discards
-        // the acknowledgement callback or throws before retaining it.
-        auto pin = new std::shared_ptr<Hold>(hold);
-        if (lifetime->finished)
-        {
-            qCCritical(registryLog) << "Processor released after shutdown; instance remains pinned";
-            return;
-        }
-        auto acknowledged = std::make_shared<bool>(false);
-        try
-        {
-            processor->cancel([pin, processor, acknowledged, lifetime] {
-                if (*acknowledged)
-                {
-                    return;
-                }
-                *acknowledged = true;
-                if (lifetime->finished)
-                {
-                    qCCritical(registryLog) << "Processor acknowledged after shutdown; instance remains pinned";
-                    return;
-                }
-                QTimer::singleShot(0, processor, [pin, processor, lifetime] {
-                    delete processor;
-                    delete pin;
-                    --lifetime->instances;
+    {
+        const std::lock_guard lock(lifetime->admission);
+        ++lifetime->threadInstances[QThread::currentThread()];
+    }
+    auto leased = std::shared_ptr<Processor>(instance.release(), [hold, lifetime](Processor* processor) mutable {
+        // Keep executable code pinned even if a broken provider discards its acknowledgement.
+        auto pin     = new std::shared_ptr<Hold>(std::move(hold));
+        auto release = [pin, processor, lifetime] {
+            auto acknowledged = std::make_shared<std::atomic<bool>>(false);
+            try
+            {
+                processor->cancel([pin, processor, acknowledged, lifetime] {
+                    if (acknowledged->exchange(true))
+                    {
+                        return;
+                    }
+                    QTimer::singleShot(0, processor, [pin, processor, lifetime] {
+                        delete processor;
+                        delete pin;
+                        const std::lock_guard lock(lifetime->admission);
+                        auto                  it = lifetime->threadInstances.find(QThread::currentThread());
+                        if (it != lifetime->threadInstances.end() && --it.value() == 0)
+                        {
+                            lifetime->threadInstances.erase(it);
+                        }
+                        --lifetime->instances;
+                    });
                 });
-            });
-        }
-        catch (...)
+            }
+            catch (...)
+            {
+                qCCritical(registryLog) << "Processor cancellation threw; instance remains pinned";
+            }
+        };
+        if (processor->thread() == QThread::currentThread())
         {
-            qCCritical(registryLog) << "Processor cancellation threw; instance remains pinned";
+            release();
+        }
+        else
+        {
+            QMetaObject::invokeMethod(processor, std::move(release), Qt::QueuedConnection);
         }
     });
+    transferred = true;
     if (leased->inputCount() != inputCount || leased->outputCount() != outputCount)
     {
         fail(error, "Processor factory port counts do not match catalog metadata");
@@ -1910,14 +2009,44 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
         return {};
     }
     ++entry->instances;
-    auto lease             = std::make_shared<Lease>();
-    lease->release         = [entry] { --entry->instances; };
-    auto result            = std::make_shared<Prepared>();
-    result->_configuration = *effective;
-    result->_inputCount    = entry->type.inputCount;
-    result->_outputCount   = entry->type.outputCount;
-    result->_inputNames    = entry->type.inputNames;
-    result->_outputNames   = entry->type.outputNames;
+    auto lease               = std::make_shared<Lease>();
+    lease->release           = releaseCatalogLease(_lifetime->owner, entry);
+    auto result              = std::make_shared<Prepared>();
+    result->_retainExecution = [lifetime = _lifetime](QString* error) -> std::shared_ptr<const void> {
+        const std::lock_guard lock(lifetime->admission);
+        if (!lifetime->accepting)
+        {
+            fail(error, "Processor registry is shutting down");
+            return {};
+        }
+        struct Execution
+        {
+            std::shared_ptr<Lifetime> lifetime;
+            bool                      reserved = false;
+            ~Execution()
+            {
+                if (reserved)
+                {
+                    --lifetime->executions;
+                }
+            }
+        };
+        auto execution      = std::make_shared<Execution>();
+        execution->lifetime = lifetime;
+        ++lifetime->executions;
+        execution->reserved = true;
+        return execution;
+    };
+    result->_configuration                  = *effective;
+    result->_limits                         = limits;
+    result->_activeInstancesOnCurrentThread = [lifetime = _lifetime] {
+        const std::lock_guard lock(lifetime->admission);
+        return lifetime->threadInstances.value(QThread::currentThread());
+    };
+    result->_inputCount  = entry->type.inputCount;
+    result->_outputCount = entry->type.outputCount;
+    result->_inputNames  = entry->type.inputNames;
+    result->_outputNames = entry->type.outputNames;
     visiting.insert(id);
     const auto leave = qScopeGuard([&] { visiting.remove(id); });
     if (entry->saved && entry->type.kind == "lineflow")
@@ -1974,98 +2103,108 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
         const auto paths     = result->_paths;
         const auto defaults  = effective->value("overrides").toMap();
         const auto snapshot  = result->_configuration;
-        result->_instantiate = [lifetime = _lifetime,
-                                lease,
-                                entry,
-                                children = std::move(children),
-                                paths,
-                                defaults,
-                                snapshot,
-                                limits](const QVariantMap& overrides, QString* error) -> std::shared_ptr<Processor> {
-            auto values = merged(defaults, overrides);
-            for (auto it = values.cbegin(); it != values.cend(); ++it)
-            {
-                if (!paths.contains(it.key()) || it.value().typeId() != QMetaType::QVariantMap)
-                {
-                    fail(error, "Unknown processor occurrence or invalid override map: " + it.key());
-                    return {};
-                }
-            }
-            auto finalConfiguration = snapshot;
-            finalConfiguration.insert("overrides", values);
-            const auto errors = entry->schema->validate(finalConfiguration);
-            if (!errors.isEmpty())
-            {
-                fail(error, "Invalid composite processor configuration: " + errors.first().message);
-                return {};
-            }
-            std::vector<std::shared_ptr<Processor>> nodes;
-            for (const auto& child : children)
-            {
-                QVariantMap childOverrides;
-                if (child.prepared->_composite)
-                {
-                    for (auto it = values.cbegin(); it != values.cend(); ++it)
-                    {
-                        if (it.key().startsWith(child.name + '/'))
-                        {
-                            childOverrides.insert(it.key().mid(child.name.size() + 1), it.value());
-                        }
-                    }
-                }
-                else
-                {
-                    childOverrides = values.value(child.name).toMap();
-                }
-                auto instance = child.prepared->instantiate(childOverrides, error);
-                if (!instance)
-                {
-                    return {};
-                }
-                nodes.push_back(std::move(instance));
-            }
-            auto configuration = snapshot;
-            configuration.insert("overrides", values);
-            QStringList       nodeNames;
-            std::vector<int>  lanes;
-            std::vector<bool> flipped;
-            for (const auto& child : children)
-            {
-                nodeNames.append(child.name);
-                lanes.push_back(child.lane);
-                flipped.push_back(child.flipped);
-            }
-            Type::Factory factory =
-                [nodes       = std::move(nodes),
-                 nodeNames   = std::move(nodeNames),
-                 lanes       = std::move(lanes),
-                 flipped     = std::move(flipped),
-                 inputNames  = entry->type.inputNames,
-                 outputNames = entry->type.outputNames,
-                 channels    = entry->type.inputCount](const QVariantMap&       config,
-                                                    const Processor::Limits& limits,
-                                                    QString*) mutable -> std::unique_ptr<Processor> {
-                return Lineflow::compose(std::move(nodes),
-                                         config,
-                                         limits,
-                                         std::move(nodeNames),
-                                         channels,
-                                         std::move(lanes),
-                                         std::move(flipped),
-                                         inputNames,
-                                         outputNames);
-            };
-            return _create(factory,
-                           configuration,
-                           limits,
-                           lease,
-                           lifetime,
-                           entry->type.inputCount,
-                           entry->type.outputCount,
-                           entry->type.inputNames,
-                           entry->type.outputNames,
-                           error);
-        };
+        result->_instantiate = ownerFactory(_lifetime->owner,
+                                            [lifetime = _lifetime,
+                                             lease,
+                                             entry,
+                                             children = std::move(children),
+                                             paths,
+                                             defaults,
+                                             snapshot,
+                                             limits](const QVariantMap& overrides,
+                                                     QString*           error) -> std::shared_ptr<Processor> {
+                                                auto values = merged(defaults, overrides);
+                                                for (auto it = values.cbegin(); it != values.cend(); ++it)
+                                                {
+                                                    if (!paths.contains(it.key())
+                                                        || it.value().typeId() != QMetaType::QVariantMap)
+                                                    {
+                                                        fail(error,
+                                                             "Unknown processor occurrence or invalid override map: "
+                                                                 + it.key());
+                                                        return {};
+                                                    }
+                                                }
+                                                auto finalConfiguration = snapshot;
+                                                finalConfiguration.insert("overrides", values);
+                                                const auto errors = entry->schema->validate(finalConfiguration);
+                                                if (!errors.isEmpty())
+                                                {
+                                                    fail(error,
+                                                         "Invalid composite processor configuration: "
+                                                             + errors.first().message);
+                                                    return {};
+                                                }
+                                                std::vector<std::shared_ptr<Processor>> nodes;
+                                                for (const auto& child : children)
+                                                {
+                                                    QVariantMap childOverrides;
+                                                    if (child.prepared->_composite)
+                                                    {
+                                                        for (auto it = values.cbegin(); it != values.cend(); ++it)
+                                                        {
+                                                            if (it.key().startsWith(child.name + '/'))
+                                                            {
+                                                                childOverrides.insert(it.key().mid(child.name.size()
+                                                                                                   + 1),
+                                                                                      it.value());
+                                                            }
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        childOverrides = values.value(child.name).toMap();
+                                                    }
+                                                    auto instance = child.prepared->instantiate(childOverrides, error);
+                                                    if (!instance)
+                                                    {
+                                                        return {};
+                                                    }
+                                                    nodes.push_back(std::move(instance));
+                                                }
+                                                auto configuration = snapshot;
+                                                configuration.insert("overrides", values);
+                                                QStringList       nodeNames;
+                                                std::vector<int>  lanes;
+                                                std::vector<bool> flipped;
+                                                for (const auto& child : children)
+                                                {
+                                                    nodeNames.append(child.name);
+                                                    lanes.push_back(child.lane);
+                                                    flipped.push_back(child.flipped);
+                                                }
+                                                Type::Factory factory =
+                                                    [nodes       = std::move(nodes),
+                                                     nodeNames   = std::move(nodeNames),
+                                                     lanes       = std::move(lanes),
+                                                     flipped     = std::move(flipped),
+                                                     inputNames  = entry->type.inputNames,
+                                                     outputNames = entry->type.outputNames,
+                                                     channels = entry->type.inputCount](const QVariantMap&       config,
+                                                                                        const Processor::Limits& limits,
+                                                                                        QString*) mutable
+                                                    -> std::unique_ptr<Processor> {
+                                                    return Lineflow::compose(std::move(nodes),
+                                                                             config,
+                                                                             limits,
+                                                                             std::move(nodeNames),
+                                                                             channels,
+                                                                             std::move(lanes),
+                                                                             std::move(flipped),
+                                                                             inputNames,
+                                                                             outputNames);
+                                                };
+                                                return _create(factory,
+                                                               configuration,
+                                                               limits,
+                                                               lease,
+                                                               lifetime,
+                                                               entry->type.inputCount,
+                                                               entry->type.outputCount,
+                                                               entry->type.inputNames,
+                                                               entry->type.outputNames,
+                                                               error);
+                                            });
         return result;
     }
     Type::Factory                                factory = entry->type.create;
@@ -2082,7 +2221,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
         }
         ++provider->instances;
         providerLease          = std::make_shared<Lease>();
-        providerLease->release = [provider] { --provider->instances; };
+        providerLease->release = releaseCatalogLease(_lifetime->owner, provider);
         Provider::References references;
         for (const auto& reference : entry->type.references)
         {
@@ -2145,39 +2284,45 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
             referencePins.push_back(std::move(child));
         }
     }
-    result->_instantiate = [lifetime = _lifetime,
-                            lease,
-                            providerLease,
-                            entry,
-                            referencePins,
-                            factory   = std::move(factory),
-                            effective = *effective,
-                            limits](const QVariantMap& overrides, QString* error) -> std::shared_ptr<Processor> {
-        auto       configuration = entry->schema->activeValues(merged(merged(entry->defaults, effective), overrides));
-        const auto errors        = entry->schema->validate(configuration);
-        if (!errors.isEmpty())
-        {
-            fail(error, "Invalid processor configuration at " + errors.first().path + ": " + errors.first().message);
-            return {};
-        }
-        struct Pins
-        {
-            std::shared_ptr<Lease>                       entry;
-            std::shared_ptr<Lease>                       provider;
-            std::vector<std::shared_ptr<const Prepared>> references;
-        };
-        auto pins = std::make_shared<Pins>(Pins {lease, providerLease, referencePins});
-        return _create(factory,
-                       configuration,
-                       limits,
-                       pins,
-                       lifetime,
-                       entry->type.inputCount,
-                       entry->type.outputCount,
-                       entry->type.inputNames,
-                       entry->type.outputNames,
-                       error);
-    };
+    result->_instantiate = ownerFactory(_lifetime->owner,
+                                        [lifetime = _lifetime,
+                                         lease,
+                                         providerLease,
+                                         entry,
+                                         referencePins,
+                                         factory   = std::move(factory),
+                                         effective = *effective,
+                                         limits](const QVariantMap& overrides,
+                                                 QString*           error) -> std::shared_ptr<Processor> {
+                                            auto configuration = entry->schema->activeValues(
+                                                merged(merged(entry->defaults, effective), overrides));
+                                            const auto errors = entry->schema->validate(configuration);
+                                            if (!errors.isEmpty())
+                                            {
+                                                fail(error,
+                                                     "Invalid processor configuration at " + errors.first().path + ": "
+                                                         + errors.first().message);
+                                                return {};
+                                            }
+                                            struct Pins
+                                            {
+                                                std::shared_ptr<Lease>                       entry;
+                                                std::shared_ptr<Lease>                       provider;
+                                                std::vector<std::shared_ptr<const Prepared>> references;
+                                            };
+                                            auto pins = std::make_shared<Pins>(
+                                                Pins {lease, providerLease, referencePins});
+                                            return _create(factory,
+                                                           configuration,
+                                                           limits,
+                                                           pins,
+                                                           lifetime,
+                                                           entry->type.inputCount,
+                                                           entry->type.outputCount,
+                                                           entry->type.inputNames,
+                                                           entry->type.outputNames,
+                                                           error);
+                                        });
     return result;
 }
 

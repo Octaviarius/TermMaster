@@ -75,21 +75,7 @@ SerialByteDevice::SerialByteDevice(std::unique_ptr<QIODevice> transport, Configu
     }
     _retry.setInterval(10);
     connect(&_retry, &QTimer::timeout, this, [this] { _pump(); });
-    connect(_transport.get(), &QIODevice::readyRead, this, [this] {
-        while (_state == State::Open && _transport->bytesAvailable() > 0)
-        {
-            const auto bytes = _transport->read(64 * 1024);
-            if (bytes.isEmpty())
-            {
-                break;
-            }
-            const auto callback = _callbacks.received;
-            if (callback)
-            {
-                callback(bytes);
-            }
-        }
-    });
+    connect(_transport.get(), &QIODevice::readyRead, this, [this] { _read(_generation); });
     connect(_transport.get(), &QIODevice::bytesWritten, this, [this](qint64 count) {
         const auto callback = _callbacks.written;
         if (callback)
@@ -223,6 +209,8 @@ bool SerialByteDevice::open(const QVariantMap& configuration, QString* error)
 }
 void SerialByteDevice::close()
 {
+    ++_generation;
+    _readScheduled = false;
     if (_state == State::Closed)
     {
         return;
@@ -326,4 +314,38 @@ void SerialByteDevice::_pump()
         _pending.remove(0, count);
     }
     _retry.stop();
+}
+
+void SerialByteDevice::_read(quint64 generation)
+{
+    if (_readScheduled || generation != _generation || _state != State::Open)
+    {
+        return;
+    }
+    qint64 total = 0;
+    while (generation == _generation && _state == State::Open && _transport->bytesAvailable() > 0 && total < 256 * 1024)
+    {
+        const auto bytes = _transport->read(64 * 1024);
+        if (bytes.isEmpty())
+        {
+            break;
+        }
+        total               += bytes.size();
+        const auto callback  = _callbacks.received;
+        if (callback)
+        {
+            callback(bytes);
+        }
+    }
+    if (generation == _generation && _state == State::Open && _transport->bytesAvailable() > 0)
+    {
+        _readScheduled = true;
+        QTimer::singleShot(0, this, [this, generation] {
+            if (generation == _generation)
+            {
+                _readScheduled = false;
+                _read(generation);
+            }
+        });
+    }
 }

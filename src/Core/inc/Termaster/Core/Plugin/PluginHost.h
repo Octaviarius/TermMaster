@@ -40,10 +40,13 @@ public:
         QString title;
         QString plugin;
         /** Optional pure presentation callback over effective settings; no I/O or event processing. */
-        std::function<QString(const QVariantMap&)>     tabTitle;
-        QByteArray                                     settingsSchema;
-        QByteArray                                     defaultSettingsSchema;
-        QByteArray                                     workspaceSettingsSchema;
+        std::function<QString(const QVariantMap&)> tabTitle;
+        QByteArray                                 settingsSchema;
+        QByteArray                                 defaultSettingsSchema;
+        QByteArray                                 workspaceSettingsSchema;
+        /** Runs on the terminal transport worker. The returned device and all of its resources
+         * must belong to that thread; the host joins it before releasing the factory/provider.
+         */
         std::function<std::unique_ptr<SerialDevice>()> createDevice;
         /** Optional plugin-owned panel; reparents and owns the supplied common display. */
         std::function<QWidget*(QWidget*, const QVariantMap&, QWidget*)> createPanel;
