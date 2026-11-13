@@ -30,6 +30,18 @@ paths are controlled by the preset, not by scripts moving generated files. The
 older probe/acceptance build directories remain disposable and are not used by
 these presets. Their existing executables may remain open during development.
 
+Building only `--target Termaster` also builds SerialTerminal, ConsoleTerminal and
+SocketTerminal, together with compiled help. These bundled runtime dependencies
+must use the same SDK headers as the executable. Otherwise an incremental host-only
+build can retain incompatible transport DLLs after a virtual interface changes.
+
+Verified on 2026-11-13: a targeted Debug build rebuilt all three previously stale
+transport DLLs; the resulting application restored its workspace and displayed a
+responsive main window. The prior startup access violation was a call through an
+outdated SerialDevice vtable. The Ninja application graph now includes all three
+plugin DLLs as build dependencies. This was a startup diagnostic, not a Debug
+performance or unit-test run.
+
 The export script defaults to `C:\Qt\6.12.0\msvc2022_64`. It exports
 TERMASTER_QT_ROOT and TERMASTER_QT_TOOLS, consumed by the presets. For another
 installation of the same kit, override paths explicitly:
