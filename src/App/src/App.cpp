@@ -43,6 +43,7 @@
 #include <Termaster/Core/Gui/Plugin/PluginManagerGui.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Logging/Logging.h>
+#include <Termaster/Core/NumberedName.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
@@ -51,13 +52,41 @@
 #include <Termaster/Core/SettingsOverlay.h>
 #include <Termaster/Core/SettingsSchema.h>
 #include <Termaster/Core/Version.h>
-#include <Termaster/Core/WordGenerator.h>
 #include <Termaster/Core/Workspace.h>
 #include <array>
 #include <exception>
 
 namespace
 {
+std::optional<QString> nextSessionName(Workspace& workspace, QString* error)
+{
+    QSet<QString> occupied;
+    const auto    entries = workspace.sessions().values();
+    for (auto entry = entries.cbegin(); entry != entries.cend(); ++entry)
+    {
+        const auto directory = workspace.sessionDirectory(entry.key(), error);
+        if (!directory)
+        {
+            return std::nullopt;
+        }
+        Session session(*directory, workspace.settings());
+        if (!session.load(error))
+        {
+            return std::nullopt;
+        }
+        if (session.id() != entry.key())
+        {
+            if (error)
+            {
+                *error = QObject::tr("Session document ID does not match its catalog entry: %1").arg(entry.key());
+            }
+            return std::nullopt;
+        }
+        occupied.insert(session.name());
+    }
+    return numberedName("Session", occupied);
+}
+
 Q_LOGGING_CATEGORY(appLifecycleLog, "termaster.app")
 Q_LOGGING_CATEGORY(appWorkspaceLog, "termaster.app.workspace")
 Q_LOGGING_CATEGORY(appSessionLog, "termaster.app.session")
@@ -466,7 +495,8 @@ bool App::createWorkspace(const Path& file, const QString& name, QString* error)
         return false;
     }
     auto candidate = std::make_unique<Workspace>(file, _data->applicationSettings());
-    return candidate->create(name, error) && _activateWorkspace(std::move(candidate), error);
+    return candidate->create(name.isEmpty() ? file.stem() : name, error)
+        && _activateWorkspace(std::move(candidate), error);
 }
 
 bool App::saveWorkspace(QString* error)
@@ -1348,6 +1378,17 @@ void App::_chooseNewWorkspace()
     dialog.setDefaultSuffix("termaster");
     dialog.setOption(QFileDialog::DontConfirmOverwrite);
     dialog.setDirectory(_data->workspace ? _data->workspace->filePath().parent().toString() : Path::home().toString());
+    QSet<QString> occupied;
+    for (const auto& file :
+         dialog.directory().entryInfoList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot))
+    {
+        if (file.suffix().compare("termaster", Qt::CaseInsensitive) == 0)
+        {
+            const auto stem = file.completeBaseName();
+            occupied.insert(stem.startsWith("Workspace ", Qt::CaseInsensitive) ? "Workspace " + stem.mid(10) : stem);
+        }
+    }
+    dialog.selectFile(numberedName("Workspace", occupied) + ".termaster");
     if (dialog.exec() != QDialog::Accepted)
     {
         return;
@@ -1425,9 +1466,15 @@ bool App::createSession(const QString& requestedName, QString* error)
     {
         return false;
     }
+    const auto generated = requestedName.isEmpty() ? nextSessionName(*_data->workspace, error) :
+                                                     std::optional<QString>(requestedName);
+    if (!generated)
+    {
+        return false;
+    }
     const auto id        = QUuid::createUuid().toString(QUuid::WithoutBraces);
     const auto directory = root.join(id);
-    const auto name      = requestedName.isEmpty() ? WordGenerator::generate() : requestedName;
+    const auto name      = *generated;
     auto       candidate = std::make_unique<Session>(directory, _data->workspace->settings());
     if (!candidate->create(id, name, error))
     {
@@ -1694,18 +1741,24 @@ void App::_chooseNewSession()
     {
         return;
     }
+    QString    error;
+    const auto defaultName = nextSessionName(*_data->workspace, &error);
+    if (!defaultName)
+    {
+        _showError(error);
+        return;
+    }
     bool       accepted = false;
     const auto name     = QInputDialog::getText(_data->window.get(),
                                                 tr("Create session"),
                                                 tr("Name:"),
                                                 QLineEdit::Normal,
-                                                WordGenerator::generate(),
+                                                *defaultName,
                                                 &accepted);
     if (!accepted)
     {
         return;
     }
-    QString error;
     if (!createSession(name, &error))
     {
         _showError(error);

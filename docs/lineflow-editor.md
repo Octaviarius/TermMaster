@@ -251,8 +251,8 @@ barriers. Drop indicators appear only during a valid drag. Keyboard selection,
 Delete, nested-definition opening and movable palette/property docks remain active.
 
 New occurrences use the registered processor title or referenced block name.
-The first available name is unnumbered, then a space and suffix starting at 2 is
-added: `Gate`, `Gate 2`, `Gate 3`. Names are unique within the containing block;
+Every automatic name includes a space and positive suffix starting at 1:
+`Gate 1`, `Gate 2`, `Gate 3`. Names are unique within the containing block;
 existing and moved occurrences are not renamed. Slash/NUL removal and bounded
 truncation keep generated names valid for the current definition format.
 
@@ -451,3 +451,10 @@ Raw evidence: [baseline](benchmarks/catalog-filtering/Release.json),
 [final Release](benchmarks/catalog-filtering/SinglePassFinal.json),
 [final Debug](benchmarks/catalog-filtering/SinglePassDebug.json) and
 [environment/provenance](benchmarks/catalog-filtering/ColdValidationEnvironment.json).
+
+New unnamed Lineflow definitions and automatically duplicated definitions use the
+first free `Block N` name. The creation dialog proposes that name; an explicit name
+remains unchanged. Deleting or renaming a definition makes its number available.
+Existing saved definition and node names are preserved. Focused naming checks cover
+block creation, duplication, explicit names, released numbers, insertion/drop paths
+and bounded long node names.

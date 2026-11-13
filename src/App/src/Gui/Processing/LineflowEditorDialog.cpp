@@ -305,7 +305,7 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
                                                 tr("Create block"),
                                                 tr("Name:"),
                                                 QLineEdit::Normal,
-                                                tr("New block"),
+                                                _model->defaultBlockName(),
                                                 &ok);
         if (!ok)
         {
@@ -318,7 +318,7 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     connect(duplicate, &QAction::triggered, this, [this] {
         const auto id = _blocks->currentData().toString();
         QString    error;
-        _model->duplicateBlock(id, tr("%1 copy").arg(_model->blockName(id)), &error);
+        _model->duplicateBlock(id, {}, &error);
         _message(error);
     });
     connect(rename, &QAction::triggered, this, [this] {
