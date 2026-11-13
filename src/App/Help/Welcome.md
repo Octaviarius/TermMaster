@@ -1,6 +1,6 @@
 # Termaster help
 
-Termaster opens a **workspace** containing named **sessions**. A session stores terminals, settings and layout. Restored terminals start disconnected; connection is explicit.
+Termaster opens a **workspace** containing named **sessions**. A session stores terminals, settings and layout. Restored terminals reconnect if they were connected when saved. New terminals start disconnected.
 
 - [Workspaces and sessions](help:workspace)
 - [Terminal windows and input](help:terminal)

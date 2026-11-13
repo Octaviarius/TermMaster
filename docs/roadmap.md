@@ -617,3 +617,10 @@ Later stages:
 
 - [x] Assign Ctrl+Shift+B to buffered input and Ctrl+Shift+E to local echo.
 - [x] Verify focused main/secondary toggling and build Debug.
+
+## APP-32: Terminal connection snapshots
+
+- [x] Save actual per-terminal connected state before normal shutdown.
+- [x] Restore open connections after rebuilding terminal layout and processing.
+- [x] Preserve unavailable providers and clear explicitly closed views.
+- [x] Verify mixed states, provider recovery and process-exit persistence.

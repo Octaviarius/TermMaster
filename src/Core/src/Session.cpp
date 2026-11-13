@@ -477,6 +477,11 @@ bool Session::_validate(const Settings& settings, QString* error) const
         {
             return fail(error, "Invalid session object: " + it.key());
         }
+        if (object.contains("connected") && object.value("connected").typeId() != QMetaType::Bool)
+        {
+            return fail(error, "Object connected state must be a boolean: " + it.key());
+        }
+
         for (const auto& key : {"type", "module"})
         {
             if (object.value(key).typeId() != QMetaType::QString || object.value(key).toString().trimmed().isEmpty()

@@ -50,6 +50,31 @@ class SessionTests : public QObject
 {
     Q_OBJECT
 private slots:
+    void connectionSnapshotRequiresBoolean()
+    {
+        QTemporaryDir temporary;
+        Settings      base(temporary.filePath("base.yaml"));
+        Session       session(Path(temporary.filePath("session")), SettingsOverlay(base.node(""), base.node("")));
+        QString       error;
+        QVERIFY(session.create("snapshot", "Snapshot", &error));
+        const QVariantMap object {
+            {     "type",      "fixture"},
+            {   "module",    "Synthetic"},
+            { "settings", QVariantMap {}},
+            {"connected",           true}
+        };
+        QVERIFY(session.objects().setValue("terminal", object));
+        QVERIFY(session.sync(&error));
+        QVERIFY(session.load(&error));
+        QCOMPARE(session.objects().value("terminal/connected").typeId(), QMetaType::Bool);
+        for (const auto& invalid : QVariantList {QString("true"), 1, QVariantMap {}, QVariantList {}})
+        {
+            QVERIFY(session.objects().setValue("terminal/connected", invalid));
+            QVERIFY(!session.sync(&error));
+            QVERIFY(error.contains("boolean"));
+        }
+    }
+
     void terminalProcessingOverridesRemainPrivate()
     {
         QTemporaryDir temporary;

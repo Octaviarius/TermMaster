@@ -1250,10 +1250,11 @@ bool TerminalController::createTerminal(const QString&     type,
     const auto  id    = QUuid::createUuid().toString(QUuid::WithoutBraces);
     const auto  label = name.isEmpty() ? WordGenerator::generate() : name;
     QVariantMap definition {
-        {    "type",                                type},
-        {  "module", _types.at(type).registration.plugin},
-        {    "name",                               label},
-        {"settings",                           overrides}
+        {     "type",                                type},
+        {   "module", _types.at(type).registration.plugin},
+        {     "name",                               label},
+        { "settings",                           overrides},
+        {"connected",                               false}
     };
     if (!_session->objects().setValue(id, definition, error))
     {
@@ -1873,13 +1874,15 @@ void TerminalController::_restore()
         }
     }
 
-    int target = 0;
+    QStringList connections;
+    int         target = 0;
     for (const auto& id : order)
     {
         if (!_types.contains(objects.value(id).toMap().value("type").toString()))
         {
             continue;
         }
+        const bool existed = _terminals.contains(id);
         QString    error;
         const bool restored = _materialize(id, &error);
         if (!self)
@@ -1891,6 +1894,12 @@ void TerminalController::_restore()
             _window.statusBar()->showMessage(owned(error));
             continue;
         }
+        const auto connected = objects.value(id).toMap().value("connected");
+        if (!existed && connected.typeId() == QMetaType::Bool && connected.toBool())
+        {
+            connections.append(id);
+        }
+
         auto&     tabs  = _window.terminalTabs();
         const int index = tabs.indexOf(_terminals.at(id)->panel);
         if (index < 0)
@@ -1932,6 +1941,18 @@ void TerminalController::_restore()
     if (!_session->presentation().value("terminalLayout").toMap().isEmpty())
     {
         _batchSelected.clear();
+    }
+
+    // Open only after all panels, processing and layout have been reconstructed.
+    // Repeated provider registration must not restart existing terminals.
+    const auto session = _session;
+    for (const auto& id : connections)
+    {
+        _setConnectionRequested(id, true);
+        if (!self || _session != session)
+        {
+            return;
+        }
     }
 }
 
@@ -2970,6 +2991,17 @@ bool TerminalController::capturePresentation(QString* error)
     {
         return true;
     }
+    // Snapshot before shutdown closes devices. Keep unavailable objects untouched.
+    for (const auto& [id, terminal] : _terminals)
+    {
+        if (!_session->objects().setValue(id + "/connected",
+                                          terminal->device->state() == SerialDevice::State::Open,
+                                          error))
+        {
+            return false;
+        }
+    }
+
     const auto                  saved = _session->presentation().value("terminalLayout").toMap();
     QHash<QString, QVariantMap> previousGroups;
     const auto                  collect = [&previousGroups](auto&& recurse, const QVariantMap& node) -> void {
@@ -3802,6 +3834,13 @@ void TerminalController::closeSelectedTerminal()
     if (auto* terminal = _current(); terminal && _activeWindow())
     {
         const auto id = terminal->id;
+        QString    error;
+        if (_session && !_session->objects().setValue(id + "/connected", false, &error))
+        {
+            showMessage(error);
+            return;
+        }
+
         _close(id);
     }
 }

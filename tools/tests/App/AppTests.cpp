@@ -473,6 +473,24 @@ private:
         if (scenario == "detached")
         {
             QVERIFY2(observed.contains("detachedReady\n"), diagnostic.constData());
+            Settings  base(temporary.filePath("verification.yaml"));
+            Workspace workspace(Path(temporary.filePath("Close.termaster")), base.node(""));
+            QString   error;
+            QVERIFY2(workspace.load(&error), qPrintable(error));
+            const auto directory = workspace.sessionDirectory(workspace.state().value("lastSession").toString(),
+                                                              &error);
+            QVERIFY2(directory.has_value(), qPrintable(error));
+            Session session(*directory, workspace.settings());
+            QVERIFY2(session.load(&error), qPrintable(error));
+            int connected = 0;
+            for (const auto& value : session.objects().values())
+            {
+                const auto state = value.toMap().value("connected");
+                QCOMPARE(state.typeId(), QMetaType::Bool);
+                connected += state.toBool() ? 1 : 0;
+            }
+            QCOMPARE(session.objects().values().size(), 2);
+            QCOMPARE(connected, 1);
         }
         if (scenario == "splitGroups")
         {
@@ -6181,6 +6199,88 @@ content:
         QVERIFY(!stop->isEnabled());
     }
 
+    Q_SLOT void terminalConnectionSnapshotRestoresOnlyOpenDevices()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        const Path    workspacePath(temporary.filePath("Connections.termaster"));
+        QVERIFY(_app.createWorkspace(workspacePath, "Connections", &error));
+        QVERIFY(_app.createSession("Connections", &error));
+        auto&                                          host = _app.pluginHost();
+        QList<std::shared_ptr<ReconnectDevice::Probe>> probes;
+        PluginHost::TerminalType                       type;
+        type.id     = "connectionSnapshotFixture";
+        type.title  = "Snapshot fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Snapshot fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [&probes] {
+            auto probe       = std::make_shared<ReconnectDevice::Probe>();
+            probe->available = true;
+            probes.append(probe);
+            return std::make_unique<ReconnectDevice>(probe);
+        };
+        host.registerTerminalType(type);
+        const auto  cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType(type.id);
+        });
+        QStringList ids;
+        for (int index = 0; index < 4; ++index)
+        {
+            QVERIFY(_app.createTerminal(type.id, {}, QString::number(index), &error));
+            ids.append(_app.selectedTerminal());
+            _app.mainWindow().activateWindow();
+            QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+            if (index != 1)
+            {
+                host.connectSelectedTerminal();
+                QCOMPARE(probes[index]->device->state(), SerialDevice::State::Open);
+            }
+            if (index == 2)
+            {
+                probes[index]->device->drop("Synthetic failure");
+            }
+        }
+        QVERIFY(_app.saveSession(&error));
+        // A deliberately closed view must not retain an earlier connected snapshot.
+        host.closeSelectedTerminal();
+        const auto file = _app.session()->filePath();
+        QVERIFY(_app.closeWorkspace(&error));
+        Settings persisted(file, {"termaster.session", "Termaster session"});
+        QVERIFY2(persisted.load(&error), qPrintable(error));
+        for (int index = 0; index < ids.size(); ++index)
+        {
+            const auto value = persisted.value("objects/" + ids[index] + "/connected");
+            QCOMPARE(value.typeId(), QMetaType::Bool);
+            QCOMPARE(value.toBool(), index == 0);
+        }
+        QVERIFY(_app.openWorkspace(workspacePath, &error));
+        QCOMPARE(probes.size(), 8);
+        int openCount = 0;
+        int attempts  = 0;
+        for (int index = 4; index < probes.size(); ++index)
+        {
+            attempts  += probes[index]->attempts;
+            openCount += probes[index]->device->state() == SerialDevice::State::Open ? 1 : 0;
+            QVERIFY(probes[index]->output.isEmpty());
+        }
+        QCOMPARE(attempts, 1);
+        QCOMPARE(openCount, 1);
+
+        // Missing providers retain snapshots; enabling the provider applies them once.
+        QVERIFY(host.unregisterTerminalType(type.id, &error));
+        QVERIFY(_app.saveSession(&error));
+        host.registerTerminalType(type);
+        QCOMPARE(probes.size(), 12);
+        attempts = 0;
+        for (int index = 8; index < probes.size(); ++index)
+        {
+            attempts += probes[index]->attempts;
+        }
+        QCOMPARE(attempts, 1);
+    }
+
     Q_SLOT void desiredConnectionSurvivesDeviceLoss()
     {
         QTemporaryDir temporary;
@@ -6467,6 +6567,7 @@ int main(int argc, char* argv[])
                         std::_Exit(87);
                     }
                     app.mainWindow().activateWindow();
+                    QApplication::processEvents();
                     app.pluginHost().connectSelectedTerminal();
                 }
                 if (scenario == "detached")
