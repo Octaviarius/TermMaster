@@ -31,8 +31,11 @@ PluginManager remains responsible for dependencies and reverse-order shutdown.
 Each session object has a stable UUID, mutable human-readable name, terminal type,
 plugin ID and settings map. Empty creation names use the existing adjective/noun
 generator. Unknown or unavailable object types remain persisted and inactive.
-Loading a session or enabling its plugin reconstructs recognized terminals in a
-**disconnected** state. Connecting requires an explicit action. Closing a tab
+Saving a session snapshots each live terminal's actual connection as a boolean
+`objects/<id>/connected` before devices are closed. Loading the session or enabling
+its plugin reconstructs recognized terminals, then reconnects those saved open.
+New terminals and absent flags remain disconnected. Opening, closing, failed and
+closed devices are saved disconnected; retry intent is not a persisted connection. Closing a tab
 releases runtime resources and retains its saved definition for session reopening.
 Session/workspace replacement releases runtime objects before their settings owners.
 
@@ -244,8 +247,8 @@ I/O, resource release and pending-byte handling remain backend responsibilities.
 
 Stop clears intent before closing the backend and cancels the timer. Runtime
 removal, session/workspace closure and module unload destroy the timer before
-releasing the device. Intent is runtime state: reconstructed session terminals
-remain disconnected until an explicit Start. Automatic recovery never replays
+releasing the device. Intent is runtime state. Session restoration requests Start only for terminals
+whose saved actual connection was open. Automatic recovery never replays
 keyboard data or pending output from the broken connection.
 
 The selected terminal's Start action is disabled while connection is requested;
@@ -320,3 +323,22 @@ plugin/application suites passed.
 
 Native 1280 × 800 references: [Terminal menu](images/TerminalMenu.png) and
 [terminal toolbar](images/TerminalToolbar.png).
+
+## APP-32: Connection snapshots
+
+Session save, workspace replacement and normal application exit snapshot actual
+connections before releasing runtime devices. A closed view explicitly clears its
+snapshot; temporarily unavailable providers retain their saved values. Restoring
+opens only newly reconstructed terminals after layout, callbacks and processing
+are ready. Failed restoration follows the existing backend retry/error contract;
+it does not prevent other terminals from restoring or replay pending output.
+Snapshots contain no transport payload, screen history or queued sends.
+
+Verification uses synthetic devices for mixed open/closed/failed/closed-view
+sessions, provider unload/reload and process-exit persistence with detached tabs.
+
+Qt 6.12.0 MSVC Debug application and affected tests built successfully. Focused
+AppTests passed 14 cases including normal process exit; SessionTests passed 13
+cases with two host-dependent symlink skips. The connection restoration fixture
+also passed on the native Windows platform (3 cases including setup/cleanup).
+No hardware or external network was used.
