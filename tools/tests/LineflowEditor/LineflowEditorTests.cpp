@@ -535,6 +535,7 @@ private slots:
         ProcessorSelector selector(nullptr, &favorites);
         selector.setInplaceAvailable(true);
         selector.setCatalog(registry.types(), "native.hex-encoder");
+        selector.showPopup();
         auto*            tree     = selector.findChild<QTreeWidget*>("processorSelectorTree");
         auto*            search   = selector.findChild<QLineEdit*>("processorSelectorSearch");
         QTreeWidgetItem* regular  = nullptr;
@@ -1079,6 +1080,7 @@ private slots:
         QVERIFY(favorites.setIds({"native.hex-encoder", "fixture.duplex"}));
         ProcessorSelector selector(nullptr, &favorites);
         selector.setCatalog(registry.types(), "native.hex-encoder");
+        selector.showPopup();
         auto* tree = selector.findChild<QTreeWidget*>("processorSelectorTree");
         QVERIFY(contains(tree, "native.hex-encoder"));
         QVERIFY(!contains(tree, "fixture.duplex"));

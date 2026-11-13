@@ -2034,6 +2034,15 @@ content:
         };
         const auto baseline = readDisk();
         QVERIFY(!baseline.isEmpty());
+        auto* group = controller.terminalGroup(_app.selectedTerminal());
+        QVERIFY(group);
+        QVERIFY(group->styleSheet().isEmpty());
+        QCOMPARE(group->frameWidth(), 2);
+        QVERIFY(!_app.session()->isDirty());
+        QVERIFY(controller.moveTerminal(_app.selectedTerminal(), group, Qt::Edge(0), -1, &error));
+        QVERIFY(!_app.session()->isDirty());
+        QCOMPARE(readDisk(), baseline);
+
         auto* tabs = &static_cast<MainWindow&>(_app.mainWindow()).terminalTabs();
         QVERIFY(tabs);
         const auto visibleOrder = [&] {

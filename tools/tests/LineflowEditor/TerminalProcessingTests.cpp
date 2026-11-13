@@ -146,6 +146,8 @@ private:
         QCOMPARE(rx->findData("test.protocol"), -1);
         QVERIFY(shared->findData("test.protocol") >= 0);
         QCOMPARE(shared->findData("native.hex-encoder"), -1);
+        select(mode, "duplex");
+        shared->showPopup();
         auto* sharedTree = shared->findChild<QTreeWidget*>("processorSelectorTree");
         QVERIFY(sharedTree);
         for (QTreeWidgetItemIterator it(sharedTree); *it; ++it)
@@ -155,7 +157,7 @@ private:
         QVERIFY(
             !sharedTree->findItems("Unavailable: missing.processor", Qt::MatchExactly | Qt::MatchRecursive).isEmpty());
         QCOMPARE(favorites.ids(), QStringList({"native.hex-encoder", "test.protocol", "missing.processor"}));
-        select(mode, "duplex");
+        shared->hidePopup();
         QVERIFY(shared->isVisible());
         QVERIFY(!rx->isVisible());
         select(shared, "test.protocol");
@@ -613,6 +615,63 @@ private:
         selector.hidePopup();
     }
 
+    Q_SLOT void hiddenSelectorUpdatesAppearOnNextOpen()
+    {
+        Settings           settings(QString {});
+        ProcessorFavorites favorites(settings.node("processing"));
+        ProcessorRegistry  registry;
+        registerNativeProcessors(registry, "native");
+        ProcessorSelector selector(nullptr, &favorites);
+        auto*             tree   = selector.findChild<ProcessorCatalogTree*>("processorSelectorTree");
+        auto*             search = selector.findChild<QLineEdit*>("processorSelectorSearch");
+        QVERIFY(tree && search);
+        QSignalSpy resets(tree->model(), &QAbstractItemModel::modelReset);
+        QSignalSpy changed(&selector, &QComboBox::currentIndexChanged);
+        selector.setCatalog(registry.types(), "native.gate");
+        selector.setInplaceAvailable(true);
+        QVERIFY(favorites.setIds({"missing.processor"}));
+        QCOMPARE(selector.currentData().toString(), QString("native.gate"));
+        QVERIFY(selector.findData("native.stub") >= 0);
+        QCOMPARE(selector.count(), 21);
+        QCOMPARE(resets.count(), 0);
+        selector.showPopup();
+        QCOMPARE(tree->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("@inplace"));
+        QCOMPARE(tree->topLevelItem(1)->data(0, Qt::UserRole).toString(), QString("missing.processor"));
+        QCOMPARE(tree->currentItem()->data(0, Qt::UserRole).toString(), QString("native.gate"));
+        search->setText("Stub");
+        selector.hidePopup();
+        const auto previousResets = resets.count();
+        auto       types          = registry.types();
+        for (auto& type : types)
+        {
+            if (type.id == "native.stub")
+            {
+                type.title             = "Updated stub";
+                type.available         = false;
+                type.unavailableReason = "Provider removed";
+            }
+        }
+        selector.setCatalog(types, "native.stub");
+        QVERIFY(favorites.setIds({"native.stub"}));
+        QCOMPARE(selector.currentText(), QString("Updated stub"));
+        QCOMPARE(selector.itemData(selector.currentIndex(), Qt::ToolTipRole).toString(), QString("Provider removed"));
+        QCOMPARE(resets.count(), previousResets);
+        selector.showPopup();
+        QVERIFY(search->text().isEmpty());
+        QCOMPARE(tree->currentItem()->data(0, Qt::UserRole).toString(), QString("native.stub"));
+        QCOMPARE(tree->currentItem()->text(0), QString("Updated stub"));
+        QCOMPARE(tree->currentItem()->toolTip(0), QString("Provider removed"));
+        search->setText("Updated");
+        QVERIFY(favorites.setIds({"missing.processor"}));
+        QCOMPARE(search->text(), QString("Updated"));
+        QVERIFY(!tree->currentItem()->isHidden());
+        selector.setTopology(2);
+        QCOMPARE(selector.currentData().toString(), QString("native.stub"));
+        QVERIFY(selector.currentText().contains("Unavailable"));
+        QCOMPARE(changed.count(), 0);
+        selector.hidePopup();
+    }
+
     Q_SLOT void sharedFavoritesRefreshAllCatalogs()
     {
         Settings           settings(QString {});
@@ -626,10 +685,14 @@ private:
         auto* rxTree = receive.findChild<ProcessorCatalogTree*>();
         auto* txTree = transmit.findChild<ProcessorCatalogTree*>();
         QVERIFY(rxTree && txTree);
+        receive.showPopup();
         QCOMPARE(rxTree->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("native.bypass"));
         QVERIFY(favorites.setFavorite("native.stub", true));
         QCOMPARE(rxTree->topLevelItem(1)->data(0, Qt::UserRole).toString(), QString("native.stub"));
+        transmit.showPopup();
         QCOMPARE(txTree->topLevelItem(1)->data(0, Qt::UserRole).toString(), QString("native.stub"));
+        transmit.hidePopup();
+        receive.showPopup();
         QCOMPARE(receive.currentData().toString(), QString("native.gate"));
         QCOMPARE(transmit.currentData().toString(), QString("native.stub"));
         QVERIFY(favorites.move("native.stub", -1));
@@ -650,7 +713,10 @@ private:
         });
         emit rxTree->customContextMenuRequested(rxTree->visualItemRect(gate).center());
         QVERIFY(favorites.contains("native.gate"));
+        receive.hidePopup();
+        transmit.showPopup();
         QCOMPARE(txTree->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("native.gate"));
+        transmit.hidePopup();
         receive.hidePopup();
         QVERIFY(favorites.setIds({"native.bypass", "missing.processor"}));
         receive.showPopup();

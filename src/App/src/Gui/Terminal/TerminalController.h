@@ -190,7 +190,7 @@ private:
     void                            _setConnectionRequested(QString id, bool requested);
     void                            _changed(const QString& id);
     void                            _showTerminalMessage(const QString& id, const QString& message);
-    QString                         _mainParameter(const Runtime& terminal) const;
+    QString                         _mainParameter(const Runtime& terminal, const QVariantMap& transport) const;
     void                            _attemptConnection(const QString& id);
     QVariantMap                     _effective(const Type& type, SettingsOverlay settings) const;
     bool                            _validate(const Type& type, SettingsOverlay settings, QString* error) const;

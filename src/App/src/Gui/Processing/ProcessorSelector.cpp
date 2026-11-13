@@ -32,7 +32,7 @@ ProcessorSelector::ProcessorSelector(QWidget* parent, ProcessorFavorites* favori
     _tree = new ProcessorCatalogTree(_popup);
     _tree->setObjectName("processorSelectorTree");
     _tree->setFavorites(favorites);
-    connect(_tree, &ProcessorCatalogTree::favoritesChanged, this, &ProcessorSelector::_rebuild);
+    connect(_tree, &ProcessorCatalogTree::favoritesChanged, this, &ProcessorSelector::_invalidatePopup);
     _tree->setHeaderHidden(true);
     _tree->setUniformRowHeights(false);
     _tree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -135,7 +135,7 @@ void ProcessorSelector::_refreshSelection(const QString& selectedId)
         row = count() - 1;
     }
     setCurrentIndex(row);
-    _rebuild();
+    _invalidatePopup();
 }
 
 void ProcessorSelector::showPopup()
@@ -144,8 +144,18 @@ void ProcessorSelector::showPopup()
     {
         return;
     }
-    _search->clear();
-    _filter();
+    {
+        const QSignalBlocker blocker(_search);
+        _search->clear();
+    }
+    if (_popupDirty)
+    {
+        _rebuild();
+    }
+    else
+    {
+        _filter();
+    }
     const auto point  = mapToGlobal(QPoint(0, height()));
     auto*      screen = QGuiApplication::screenAt(point);
     if (!screen)
@@ -219,8 +229,18 @@ bool ProcessorSelector::eventFilter(QObject* watched, QEvent* event)
     return QComboBox::eventFilter(watched, event);
 }
 
+void ProcessorSelector::_invalidatePopup()
+{
+    _popupDirty = true;
+    if (_popup->isVisible())
+    {
+        _rebuild();
+    }
+}
+
 void ProcessorSelector::_rebuild()
 {
+    _popupDirty = false;
     _tree->clear();
     const auto                      selected = currentData().toString();
     QTreeWidgetItem*                current  = nullptr;

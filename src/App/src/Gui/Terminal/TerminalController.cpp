@@ -2015,6 +2015,10 @@ bool TerminalController::_rememberTabOrder(QString* error)
             order.append(id);
         }
     }
+    if (_session->presentation().value("tabOrder").toList() == order)
+    {
+        return true;
+    }
     return _session->presentation().setValue("tabOrder", order, error);
 }
 
@@ -3623,9 +3627,8 @@ void TerminalController::_close(const QString& id, bool preservePlacement)
         emit selectionChanged();
     }
 }
-QString TerminalController::_mainParameter(const Runtime& terminal) const
+QString TerminalController::_mainParameter(const Runtime& terminal, const QVariantMap& transport) const
 {
-    const auto transport = _effective(_types.at(terminal.type), terminal.settings).value("transport").toMap();
     if (terminal.type == "socket")
     {
         auto host = transport.value("host").toString();
@@ -3754,7 +3757,8 @@ void TerminalController::_changed(const QString& id)
     auto&              tabs      = terminal.group->tabs();
     const int          index     = tabs.indexOf(terminal.panel);
     const auto         type      = _types.at(terminal.type).registration.title;
-    const auto         parameter = _mainParameter(terminal);
+    const auto         effective = _effective(_types.at(terminal.type), terminal.settings);
+    const auto         parameter = _mainParameter(terminal, effective.value("transport").toMap());
     const QFontMetrics metrics(tabs.tabBar()->font());
     const auto  detail   = metrics.elidedText(parameter.simplified(), Qt::ElideMiddle, 32 * metrics.averageCharWidth());
     const auto  typeIcon = terminal.type == "serial" ? "cable" :
@@ -3766,8 +3770,7 @@ void TerminalController::_changed(const QString& id)
     {
         try
         {
-            const auto label = registration.tabTitle(_effective(_types.at(terminal.type), terminal.settings))
-                                   .simplified();
+            const auto label = registration.tabTitle(effective).simplified();
             if (!label.isEmpty() && !label.contains(QChar::Null) && label.size() <= 256)
             {
                 tabTitle = owned(label);

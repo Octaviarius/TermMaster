@@ -38,10 +38,12 @@ private:
     int                           _channels         = 1;
     bool                          _inplaceAvailable = false;
     bool                          _filtering        = false;
+    bool                          _popupDirty       = true;
 
     bool _supports(const ProcessorCatalog::Type& type) const;
     void _refreshSelection(const QString& selectedId);
 
+    void _invalidatePopup();
     void _rebuild();
     void _filter();
     void _accept(QTreeWidgetItem* item);
