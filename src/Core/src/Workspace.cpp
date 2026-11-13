@@ -703,6 +703,10 @@ bool Workspace::rememberSession(const QString& id, QString* error)
     {
         recent.removeLast();
     }
+    if (_settings->value("state/recentSessions").toStringList() == recent)
+    {
+        return true;
+    }
     return _settings->setValue("state/recentSessions", recent, error);
 }
 

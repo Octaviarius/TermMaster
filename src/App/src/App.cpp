@@ -271,17 +271,19 @@ int App::run()
     {
         _data->window->statusBar()->showMessage(error);
     }
+    QHash<QString, bool> defaults;
     for (const auto& plugin : _data->plugins.plugins())
     {
         if ((plugin.info.id == "SerialTerminal" || plugin.info.id == "ConsoleTerminal"
              || plugin.info.id == "SocketTerminal")
             && !_data->pluginSettings.contains("enabled/" + plugin.info.id))
         {
-            if (!_data->plugins.setEnabled(plugin.info.id, true, &error))
-            {
-                _data->window->statusBar()->showMessage(error);
-            }
+            defaults.insert(plugin.info.id, true);
         }
+    }
+    if (!defaults.isEmpty() && !_data->plugins.setEnabled(defaults, &error))
+    {
+        _data->window->statusBar()->showMessage(error);
     }
     if (!restoreLastWorkspace(&error))
     {
@@ -1614,7 +1616,9 @@ bool App::_activateSession(std::unique_ptr<Session> candidate, QString* error)
     {
         return false;
     }
-    if (!state.setValue("lastSession", candidate->id(), error) || !_data->workspace->sync(error))
+    if (((!hadLast || previousLast.toString() != candidate->id())
+         && !state.setValue("lastSession", candidate->id(), error))
+        || !_data->workspace->sync(error))
     {
         if (hadLast)
         {

@@ -287,6 +287,8 @@ private slots:
         QVERIFY(opened.load());
         QCOMPARE(opened.recentSessions(), expected);
         QVERIFY(!opened.isDirty());
+        QVERIFY(opened.rememberSession(expected.first()));
+        QVERIFY(!opened.isDirty());
         QVERIFY(!opened.rememberSession("absent"));
         QVERIFY(!opened.rememberSession(""));
         QVERIFY(!opened.rememberSession(QString(257, 'x')));

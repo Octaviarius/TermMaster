@@ -324,6 +324,13 @@ private:
         QVERIFY(manager.setEnabled("missing", true));
         QCOMPARE(read(trace).count("startFailure:start"), 1);
         QCOMPARE(entry(manager, "startFailure").status, PluginManager::Status::Failed);
+        QVERIFY(!manager.setEnabled(QHash<QString, bool> {
+            {    "provider", true},
+            {"startFailure", true}
+        }));
+        QCOMPARE(read(trace).count("startFailure:start"), 2);
+        QVERIFY(!manager.setEnabled("startFailure", true));
+        QCOMPARE(read(trace).count("startFailure:start"), 3);
         QVERIFY(manager.stop());
     }
 
@@ -483,6 +490,92 @@ private:
         QTRY_COMPARE_WITH_TIMEOUT(manager.rowCount(), 0, 6000);
         QVERIFY(manager.stop());
     }
+    Q_SLOT void batchedPreferencesReconcileDependencyLifecycleOnce()
+    {
+        QTemporaryDir temporary;
+        const QString directory = temporary.filePath("plugin");
+        QVERIFY(!copy(FIXTURE_Provider, directory).isEmpty());
+        QVERIFY(!copy(FIXTURE_Consumer, directory).isEmpty());
+        QVERIFY(!copy(FIXTURE_Leaf, directory).isEmpty());
+        const auto path = temporary.filePath("settings.yaml");
+        QVERIFY(write(path, "enabled: {unrelated: false}\nextra: {answer: 42}\n"));
+        Settings      settings(path);
+        PluginManager manager(settings, directory);
+        QVERIFY(manager.start());
+        QSignalSpy resets(&manager, &QAbstractItemModel::modelReset);
+        QSignalSpy started(&manager, &PluginManager::pluginStarted);
+        QSignalSpy stopped(&manager, &PluginManager::pluginStopped);
+        QString    error;
+        QVERIFY2(manager.setEnabled(
+                     {
+                         {    "leaf", true},
+                         {"provider", true},
+                         {"consumer", true}
+        },
+                     &error),
+                 qPrintable(error));
+        QCOMPARE(resets.count(), 1);
+        QCOMPARE(started.count(), 3);
+        QCOMPARE(started.at(0).at(0).toString(), QString("provider"));
+        QCOMPARE(started.at(1).at(0).toString(), QString("consumer"));
+        QCOMPARE(started.at(2).at(0).toString(), QString("leaf"));
+        QCOMPARE(entry(manager, "leaf").status, PluginManager::Status::Running);
+        auto document = YAML::Load(read(path).toStdString())["content"];
+        QVERIFY(document["enabled"]["provider"].as<bool>());
+        QVERIFY(document["enabled"]["consumer"].as<bool>());
+        QVERIFY(document["enabled"]["leaf"].as<bool>());
+        QVERIFY(!document["enabled"]["unrelated"].as<bool>());
+        QCOMPARE(document["extra"]["answer"].as<int>(), 42);
+        QVERIFY(manager.setEnabled(
+            {
+                {"provider", false},
+                {    "leaf", false}
+        },
+            &error));
+        QCOMPARE(resets.count(), 2);
+        QCOMPARE(stopped.count(), 3);
+        QCOMPARE(stopped.at(0).at(0).toString(), QString("leaf"));
+        QCOMPARE(stopped.at(1).at(0).toString(), QString("consumer"));
+        QCOMPARE(stopped.at(2).at(0).toString(), QString("provider"));
+        QVERIFY(entry(manager, "consumer").enabled);
+        QCOMPARE(entry(manager, "consumer").status, PluginManager::Status::Blocked);
+        QVERIFY(manager.setEnabled(
+            {
+                {"provider", true},
+                {    "leaf", true}
+        },
+            &error));
+        QCOMPARE(resets.count(), 3);
+        QCOMPARE(entry(manager, "leaf").status, PluginManager::Status::Running);
+
+        const auto before = read(path);
+        QVERIFY(!manager.setEnabled(
+            {
+                {"provider", false},
+                {  "bad/id",  true}
+        },
+            &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(resets.count(), 3);
+        QCOMPARE(read(path), before);
+        QCOMPARE(entry(manager, "provider").status, PluginManager::Status::Running);
+        QVERIFY(entry(manager, "provider").enabled);
+        QVERIFY(!settings.isDirty());
+        QVERIFY(settings.setValue("pending", 7));
+        QVERIFY(!manager.setEnabled(
+            {
+                {"provider", false},
+                {"consumer", false}
+        },
+            &error));
+        QCOMPARE(resets.count(), 3);
+        QCOMPARE(read(path), before);
+        QCOMPARE(settings.value("pending").toInt(), 7);
+        QCOMPARE(entry(manager, "leaf").status, PluginManager::Status::Running);
+        QVERIFY(settings.load());
+        QVERIFY(manager.stop());
+    }
+
     Q_SLOT void settingsValidationAndPreservation()
     {
         QTemporaryDir temporary;
