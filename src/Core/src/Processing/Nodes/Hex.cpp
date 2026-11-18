@@ -14,15 +14,16 @@ QByteArray envelope(const QByteArray& properties)
 
 Codec::Definition Hex::descriptor()
 {
-    return {envelope({}),
-            R"(letterCase: {type: string, title: Letter case, enum: [upper, lower], default: upper}
+    return {
+        envelope({}),
+        R"(letterCase: {type: string, title: Letter case, enum: [upper, lower], x-widget-options: {variantTitles: {upper: Uppercase, lower: Lowercase}}, default: upper}
 separator: {type: string, title: Byte separator, maxLength: 16, default: ' ', description: 'Literal UTF-8 separator, at most 16 characters.'}
 )",
-            R"(ignoreWhitespace: {type: boolean, title: Ignore ASCII whitespace, default: true}
+        R"(ignoreWhitespace: {type: boolean, title: Ignore ASCII whitespace, default: true}
 accumulate: {type: boolean, title: Accumulate incomplete HEX byte, default: false}
 )",
-            HexEncoder::create,
-            HexDecoder::create,
-            "HEX",
-            "Bytes"};
+        HexEncoder::create,
+        HexDecoder::create,
+        "HEX",
+        "Bytes"};
 }

@@ -538,3 +538,28 @@ complete merged graph cycle/depth checks and every applicable Lineflow node's
 port/configuration validation remain mandatory. A changed target still validates
 unchanged incoming references. Final editor commit and publication checks remain
 authoritative even after an accepted hover.
+
+## Native processor presentation
+
+Native processor names use title case. Settings labels, groups and choice
+captions use sentence case. Acronyms retain their conventional spelling: HEX,
+CRC, ASCII, URL, UTC, LF and CRLF. Multiword node names include Base64 Encoder, Checksum Wrap and
+Delimiter Framer. Directional codec groups remain Encode/Decode or Wrap/Unwrap.
+Enum captions are declared in descriptor presentation metadata, including
+Little-endian/Big-endian and Uppercase/Lowercase. Persisted enum values,
+configuration keys, defaults, constraints and processor IDs remain unchanged.
+Existing user-defined block and occurrence names retain their original text.
+
+Native editor captures cover codecs, framing, checksum, stuffing, compression
+and timestamp controls at 100% and 200% scaling. Selected reference captures:
+
+- [Base64 codec](images/processing-labels/Base64Codec.png)
+- [Custom CRC](images/processing-labels/ChecksumUnwrapCustom.png)
+- [Compression](images/processing-labels/Compress.png)
+- [Length fields at 200%](images/processing-labels/LengthWrapFixed2x.png)
+
+FLOW-31 verification exercised all 63 Release suites. A bundled help assertion
+was updated for the Date/time format caption; the help suites and five final
+affected suites passed. Native capture checks passed at both scales. Automated
+descriptor comparison confirmed unchanged enum values, defaults and numeric
+constraints. Final Release and Debug application builds completed.

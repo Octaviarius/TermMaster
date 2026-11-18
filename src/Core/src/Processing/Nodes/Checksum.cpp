@@ -22,6 +22,8 @@ content:
       title: Position
       description: Place the checksum before or after the payload; only payload bytes enter the checksum.
       enum: [suffix, prefix]
+      x-widget-options:
+        variantTitles: {suffix: Suffix, prefix: Prefix}
       default: suffix
       x-group: checksum
       x-order: 1
@@ -47,6 +49,8 @@ content:
           title: Endianness
           description: Byte order of the checksum field; irrelevant for an 8-bit custom CRC.
           enum: [little, big]
+          x-widget-options:
+            variantTitles: {little: Little-endian, big: Big-endian}
           default: little
           x-group: checksum
           x-order: 2
@@ -59,6 +63,8 @@ content:
           title: Endianness
           description: Byte order of the checksum field; irrelevant for an 8-bit custom CRC.
           enum: [little, big]
+          x-widget-options:
+            variantTitles: {little: Little-endian, big: Big-endian}
           default: little
           x-group: checksum
           x-order: 2
@@ -71,6 +77,8 @@ content:
           title: Endianness
           description: Byte order of the checksum field; irrelevant for an 8-bit custom CRC.
           enum: [little, big]
+          x-widget-options:
+            variantTitles: {little: Little-endian, big: Big-endian}
           default: little
           x-group: checksum
           x-order: 2
@@ -83,6 +91,8 @@ content:
           title: Endianness
           description: Byte order of the checksum field; irrelevant for an 8-bit custom CRC.
           enum: [little, big]
+          x-widget-options:
+            variantTitles: {little: Little-endian, big: Big-endian}
           default: little
           x-group: checksum
           x-order: 2
@@ -95,6 +105,8 @@ content:
           title: Endianness
           description: Byte order of the checksum field; irrelevant for an 8-bit custom CRC.
           enum: [little, big]
+          x-widget-options:
+            variantTitles: {little: Little-endian, big: Big-endian}
           default: little
           x-group: checksum
           x-order: 2

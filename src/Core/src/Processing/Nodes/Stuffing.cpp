@@ -18,6 +18,8 @@ content:
       title: Boundary mode
       description: Suffix adds/requires a trailing delimiter; both also adds/requires a leading delimiter. Use none when a Framer has already removed the delimiter.
       enum: [suffix, both, none]
+      x-widget-options:
+        variantTitles: {suffix: Suffix, both: Both, none: None}
       default: suffix
       x-group: stuffing
       x-order: 0

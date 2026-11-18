@@ -16,10 +16,10 @@ Codec::Definition Base64::descriptor()
 {
     return {
         envelope(
-            "    alphabet: {type: string, title: Alphabet, enum: [standard, url], default: standard, x-group: format}\n"),
+            "    alphabet: {type: string, title: Alphabet, enum: [standard, url], x-widget-options: {variantTitles: {standard: Standard, url: URL}}, default: standard, x-group: format}\n"),
         R"(padding: {type: boolean, title: Emit padding, default: true}
 lineLength: {type: integer, title: Line length, minimum: 0, maximum: 4096, multipleOf: 4, default: 0}
-lineEnding: {type: string, title: Line ending, enum: [lf, crlf], default: lf}
+lineEnding: {type: string, title: Line ending, enum: [lf, crlf], x-widget-options: {variantTitles: {lf: LF, crlf: CRLF}}, default: lf}
 )",
         R"(ignoreWhitespace: {type: boolean, title: Ignore ASCII whitespace, default: true}
 requirePadding: {type: boolean, title: Require padding, default: true}

@@ -727,3 +727,11 @@ Priorities are ordered by dependency; reusable one-line compositions remain supp
 - [x] Match Device/Terminal and Input/Output property groups to diagram boundary names.
 - [x] Use sentence case and conventional acronym casing for recording choices while preserving stored values.
 - [x] Verify four affected Release suites, native editor/property captures and the final Debug build.
+
+## FLOW-31: Consistent native node presentation
+
+- [x] Keep native node names in title case and settings/choices in sentence case, preserving acronyms.
+- [x] Add explicit captions for string enums across all native codec, compression, framing and timestamp schemas.
+- [x] Preserve processor IDs, configuration keys, stored enum values, defaults and validation constraints.
+- [x] Exercise all 63 Release suites, correct the stale date/time help expectation and pass final affected suites.
+- [x] Inspect native captures at 100%/200% and build final Release and Debug applications.
