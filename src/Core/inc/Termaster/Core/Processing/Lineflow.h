@@ -36,8 +36,9 @@ public:
             QString     path;
             QString     type;
             QVariantMap configuration;
-            int         lane    = 0;
-            bool        flipped = false;
+            int         lane             = 0;
+            bool        flipped          = false;
+            int         endpointChannels = 0;
         };
 
         QVariantMap       _configuration;

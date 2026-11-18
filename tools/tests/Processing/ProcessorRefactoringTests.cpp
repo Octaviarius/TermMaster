@@ -23,10 +23,11 @@ QVariantMap definition(const QString& id, const QVariantList& nodes)
 QVariantMap object(const QString& root, const QVariantMap& overrides)
 {
     return {
-        {  "module",                                                       "unavailable.module"                    },
-        { "unknown",                                                                                     "retained"},
+        {  "module",                                                    "unavailable.module"                    },
+        { "unknown",                                                                                  "retained"},
         {"settings",
-         QVariantMap {{"processing", QVariantMap {{"rx", QVariantMap {{"type", root}, {"overrides", overrides}}}}}}}
+         QVariantMap {
+         {"processing", QVariantMap {{"lineflow", QVariantMap {{"type", root}, {"overrides", overrides}}}}}}    }
     };
 }
 QVariantMap overrides(const QVariantMap& objects, const QString& id)
@@ -37,7 +38,7 @@ QVariantMap overrides(const QVariantMap& objects, const QString& id)
         .toMap()
         .value("processing")
         .toMap()
-        .value("rx")
+        .value("lineflow")
         .toMap()
         .value("overrides")
         .toMap();
@@ -166,7 +167,7 @@ private slots:
                 {   "mode",              "bypass"},
                 {"unknown", "processing metadata"}
             };
-            for (const auto& direction : {QStringLiteral("rx"), QStringLiteral("tx"), QStringLiteral("duplex")})
+            for (const auto& direction : {QStringLiteral("lineflow")})
             {
                 const auto id     = "terminal.inplace." + direction;
                 auto       nested = node(prefix, "shared");
@@ -177,7 +178,7 @@ private slots:
                 });
                 auto root   = definition(id, {nested, node("old", "missing.native")});
                 auto source = root.value("source").toMap();
-                source.insert("channels", direction == "duplex" ? 2 : 1);
+                source.insert("channels", 2);
                 root.insert("source", source);
                 root.insert("defaults",
                             QVariantMap {
@@ -236,7 +237,7 @@ private slots:
                                      .toMap();
             QCOMPARE(changed.value("mode").toString(), QString("bypass"));
             QCOMPARE(changed.value("unknown").toString(), QString("processing metadata"));
-            for (const auto& direction : {QStringLiteral("rx"), QStringLiteral("tx"), QStringLiteral("duplex")})
+            for (const auto& direction : {QStringLiteral("lineflow")})
             {
                 const auto id   = "terminal.inplace." + direction;
                 const auto root = changed.value("inplace").toMap().value(direction).toMap().value(id).toMap();
@@ -274,7 +275,7 @@ private slots:
 
     void embeddedDiagramRefactoringRejectsCollisionsAndStaleAddresses()
     {
-        const auto        id = QStringLiteral("terminal.inplace.rx");
+        const auto        id = QStringLiteral("terminal.inplace.lineflow");
         const QVariantMap shared {
             {"shared", definition("shared", {node("old", "missing.native")})}
         };
@@ -289,7 +290,7 @@ private slots:
         };
         processing.insert("inplace",
                           QVariantMap {
-                              {"rx", local}
+                              {"lineflow", local}
         });
         settings.insert("processing", processing);
         terminal.insert("settings", settings);

@@ -145,8 +145,10 @@ private slots:
             { "left/item",                       QVariantMap {{"value", 9}}},
             {"right/item", QVariantMap {{"nested", QVariantMap {{"b", 8}}}}}
         };
-        const auto nodes = registry.properties("root", stored, overrides, &error);
+        auto nodes = registry.properties("root", stored, overrides, &error);
         QVERIFY2(nodes, qPrintable(error));
+        QCOMPARE(nodes->size(), 9);
+        nodes->removeIf([](const auto& node) { return node.path.section('/', -1).startsWith('@'); });
         QCOMPARE(nodes->size(), 3);
         QCOMPARE(nodes->at(0).path, QString("left/item"));
         QCOMPARE(nodes->at(1).path, QString("right/item"));
@@ -279,8 +281,8 @@ private slots:
         }
         QString error;
         QVERIFY(registry.publishDefinitions("workspace", definitions, &error));
-        QVERIFY(registry.properties("level6", {}, {}, &error));
-        QVERIFY(!registry.properties("level7", {}, {}, &error));
+        QVERIFY(registry.properties("level5", {}, {}, &error));
+        QVERIFY(!registry.properties("level6", {}, {}, &error));
         QVERIFY(error.contains("256"));
         QVariantMap deep;
         for (int index = 0; index < 66; ++index)

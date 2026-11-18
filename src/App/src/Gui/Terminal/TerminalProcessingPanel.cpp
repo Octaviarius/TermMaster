@@ -28,10 +28,6 @@
 
 namespace
 {
-QString directionKey(int index)
-{
-    return index == 2 ? QStringLiteral("duplex") : index == 0 ? QStringLiteral("rx") : QStringLiteral("tx");
-}
 QString stateName(ProcessingRouter::State state)
 {
     switch (state)
@@ -75,75 +71,24 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
     _modeSelector = new QComboBox(this);
     _modeSelector->setObjectName("processingMode");
     _modeSelector->addItem(tr("Bypass"), "bypass");
-    _modeSelector->addItem(tr("Simplex"), "simplex");
-    _modeSelector->addItem(tr("Duplex"), "duplex");
-    _modeSelector->setToolTip(tr("Processing topology"));
+    _modeSelector->addItem(tr("Lineflow"), "lineflow");
+    _modeSelector->setToolTip(tr("Terminal processing"));
     bar->addWidget(_modeSelector);
-    auto inplaceButton = [this, bar](int direction) {
-        auto* button = new QToolButton(this);
-        button->setObjectName(direction == 2 ? "duplexInplace" : direction == 0 ? "rxInplace" : "txInplace");
-        button->setIcon(Icons::icon("Lineflow"));
-        button->setToolTip(tr("Edit terminal-local Inplace diagram"));
-        bar->addWidget(button);
-        connect(button, &QToolButton::clicked, this, [this, direction] { _editInplace(direction); });
-        return button;
-    };
-    for (int index = 0; index < 2; ++index)
-    {
-        _labels[index] = new QLabel(index == 0 ? tr("Rx") : tr("Tx"), this);
-        bar->addWidget(_labels[index]);
-        _selectors[index] = new ProcessorSelector(this, favorites);
-        _selectors[index]->setInplaceAvailable(true);
-        _selectors[index]->setObjectName(index == 0 ? "rxProcessor" : "txProcessor");
-        _selectors[index]->setMinimumContentsLength(12);
-        _selectors[index]->setMaximumWidth(240);
-        _selectors[index]->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-        bar->addWidget(_selectors[index], 1);
-        _inplaceButtons[index] = inplaceButton(index);
-        connect(_selectors[index], &QComboBox::activated, this, [this, index] {
-            QString error;
-            if (!_flush(&error))
-            {
-                _error->setText(error);
-                _catalog();
-                return;
-            }
-            const auto id = _selectors[index]->currentData().toString();
-            if (_draft.value(directionKey(index)).toMap().value("type").toString() == id)
-            {
-                return;
-            }
-            if (id.isEmpty())
-            {
-                _draft.remove(directionKey(index));
-            }
-            else
-            {
-                _draft.insert(directionKey(index),
-                              QVariantMap {
-                                  {"type", id}
-                });
-            }
-            _direction->setCurrentIndex(index);
-            _shownDirection = index;
-            _draft.insert("mode", "simplex");
-            _mode("simplex");
-            _shownDirection = index;
-            _direction->setCurrentIndex(index);
-            _showProperties();
-            applyDraft(&error);
-        });
-    }
-    _duplexSelector = new ProcessorSelector(this, favorites);
-    _duplexSelector->setObjectName("duplexProcessor");
-    _duplexSelector->setMaximumWidth(440);
-    _duplexSelector->setMinimumContentsLength(18);
-    _duplexSelector->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-    _duplexSelector->setToolTip(tr("Shared receive and transmit processor"));
-    bar->addWidget(_duplexSelector, 1);
-    _duplexSelector->setTopology(2);
-    _duplexSelector->setInplaceAvailable(true);
-    _inplaceButtons[2] = inplaceButton(2);
+    _selector = new ProcessorSelector(this, favorites);
+    _selector->setObjectName("lineflowProcessor");
+    _selector->setMaximumWidth(440);
+    _selector->setMinimumContentsLength(18);
+    _selector->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    _selector->setToolTip(tr("Receive and transmit Lineflow diagram"));
+    bar->addWidget(_selector, 1);
+    _selector->setTopology(2);
+    _selector->setInplaceAvailable(true);
+    _inplaceButton = new QToolButton(this);
+    _inplaceButton->setObjectName("lineflowInplace");
+    _inplaceButton->setIcon(Icons::icon("Lineflow"));
+    _inplaceButton->setToolTip(tr("Edit terminal-local Inplace diagram"));
+    bar->addWidget(_inplaceButton);
+    connect(_inplaceButton, &QToolButton::clicked, this, &TerminalProcessingPanel::_editInplace);
     connect(_modeSelector, &QComboBox::activated, this, [this] {
         if (_updating)
         {
@@ -160,9 +105,9 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
         }
         const auto selected = _modeSelector->currentData().toString();
         _draft.insert("mode", selected);
-        if (selected == "duplex" && _draft.value("duplex").toMap().isEmpty())
+        if (selected == "lineflow" && _draft.value("lineflow").toMap().isEmpty())
         {
-            _draft.insert("duplex",
+            _draft.insert("lineflow",
                           QVariantMap {
                               {"type", "@inplace"}
             });
@@ -172,7 +117,7 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
         _showProperties();
         applyDraft(&error);
     });
-    connect(_duplexSelector, &QComboBox::activated, this, [this] {
+    connect(_selector, &QComboBox::activated, this, [this] {
         QString error;
         if (!_flush(&error))
         {
@@ -180,29 +125,16 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
             _catalog();
             return;
         }
-        auto id = _duplexSelector->currentData().toString();
-        if (id == "native.bypass")
+        const auto id = _selector->currentData().toString();
+        if (_draft.value("lineflow").toMap().value("type").toString() != id)
         {
-            id.clear();
+            _draft.insert("lineflow",
+                          QVariantMap {
+                              {"type", id}
+            });
         }
-        if (_draft.value("duplex").toMap().value("type").toString() != id)
-        {
-            if (id.isEmpty())
-            {
-                _draft.remove("duplex");
-            }
-            else
-            {
-                _draft.insert("duplex",
-                              QVariantMap {
-                                  {"type", id}
-                });
-            }
-        }
-        _shownDirection = 2;
-        _direction->setCurrentIndex(2);
-        _draft.insert("mode", "duplex");
-        _mode("duplex");
+        _draft.insert("mode", "lineflow");
+        _mode("lineflow");
         _showProperties();
         applyDraft(&error);
     });
@@ -219,10 +151,6 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
     _properties->setMinimumWidth(300);
     auto* layout = new QVBoxLayout(_properties);
     layout->setContentsMargins(6, 4, 6, 4);
-    _direction = new QComboBox(_properties);
-    _direction->setObjectName("processingPropertyDirection");
-    _direction->addItems({tr("Receive (Rx)"), tr("Transmit (Tx)"), tr("Shared flow")});
-    layout->addWidget(_direction);
     _table = new QTableWidget(0, 2, _properties);
     _table->setObjectName("processingPropertyTable");
     _table->setHorizontalHeaderLabels({tr("Parameter"), tr("Value")});
@@ -260,17 +188,6 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
         {
             _showProperties();
         }
-    });
-    connect(_direction, &QComboBox::activated, this, [this](int index) {
-        QString error;
-        if (!_flush(&error))
-        {
-            _direction->setCurrentIndex(_shownDirection);
-            _error->setText(error);
-            return;
-        }
-        _shownDirection = index;
-        _showProperties();
     });
     connect(revert, &QPushButton::clicked, this, [this] {
         _clearRows();
@@ -380,14 +297,11 @@ bool TerminalProcessingPanel::applyDraft(QString* error)
     }
     else if (_flush(&message))
     {
-        for (const auto& key : {QStringLiteral("rx"), QStringLiteral("tx"), QStringLiteral("duplex")})
+        if (_draft.value("lineflow").toMap().value("type") == "@inplace")
         {
-            if (_draft.value(key).toMap().value("type") == "@inplace")
-            {
-                auto diagrams = _draft.value("inplace").toMap();
-                diagrams.insert(key, TerminalProcessing::diagram(_draft, key));
-                _draft.insert("inplace", diagrams);
-            }
+            auto diagrams = _draft.value("inplace").toMap();
+            diagrams.insert("lineflow", TerminalProcessing::diagram(_draft));
+            _draft.insert("inplace", diagrams);
         }
         if (_draft == _baseline)
         {
@@ -469,70 +383,33 @@ void TerminalProcessingPanel::_clearRows()
 
 void TerminalProcessingPanel::_mode(const QString& mode)
 {
-    const bool shared  = mode == "duplex";
-    const bool enabled = mode != "bypass";
+    const bool enabled = mode == "lineflow";
     _updating          = true;
     _modeSelector->setCurrentIndex(_modeSelector->findData(mode));
     _updating = false;
-    for (int index = 0; index < 2; ++index)
-    {
-        _selectors[index]->setVisible(enabled && !shared);
-        _labels[index]->setVisible(enabled && !shared);
-        _inplaceButtons[index]->setVisible(enabled && !shared);
-    }
-    _duplexSelector->setVisible(enabled && shared);
-    _inplaceButtons[2]->setVisible(enabled && shared);
-    _shownDirection = shared ? 2 : 0;
-    _direction->setCurrentIndex(_shownDirection);
-    for (int index = 0; index < _direction->count(); ++index)
-    {
-        _direction->setItemData(index,
-                                (shared ? index == 2 : index != 2) ? QVariant {} : QVariant(0),
-                                Qt::UserRole - 1);
-    }
+    _selector->setVisible(enabled);
+    _inplaceButton->setVisible(enabled);
 }
 
 void TerminalProcessingPanel::_catalog()
 {
-    const auto                    types = _registry.types();
-    QList<ProcessorCatalog::Type> independent;
-    QList<ProcessorCatalog::Type> shared;
-    QStringList                   excludedIndependent;
-    QStringList                   excludedShared;
-    for (const auto& type : types)
+    QList<ProcessorCatalog::Type> diagrams;
+    QStringList                   excluded;
+    for (const auto& type : _registry.types())
     {
-        if (type.id != "native.bypass" && (type.inputCount != 2 || type.outputCount != 2))
+        if (type.inputCount == 2 && type.outputCount == 2)
         {
-            excludedShared.append(type.id);
+            diagrams.append(type);
         }
-        if (type.inputCount != 1 || type.outputCount != 1)
+        else
         {
-            excludedIndependent.append(type.id);
-        }
-        if (type.inputCount == 1 && type.outputCount == 1)
-        {
-            independent.append(type);
-            if (type.id == "native.bypass")
-            {
-                // The selector's Bypass entry clears selection; it is not a shared instance.
-                shared.append(type);
-            }
-        }
-        else if (type.inputCount == 2 && type.outputCount == 2)
-        {
-            shared.append(type);
+            excluded.append(type.id);
         }
     }
-    for (int index = 0; index < 2; ++index)
-    {
-        _selectors[index]->setCatalog(independent,
-                                      _draft.value(directionKey(index)).toMap().value("type").toString(),
-                                      excludedIndependent);
-    }
-    _duplexSelector->setCatalog(shared, _draft.value("duplex").toMap().value("type").toString(), excludedShared);
+    _selector->setCatalog(diagrams, _draft.value("lineflow").toMap().value("type").toString(), excluded);
 }
 
-void TerminalProcessingPanel::_editInplace(int direction)
+void TerminalProcessingPanel::_editInplace()
 {
     if (_inplaceEditor)
     {
@@ -548,11 +425,11 @@ void TerminalProcessingPanel::_editInplace(int direction)
         return;
     }
 
-    const auto                              key  = directionKey(direction);
-    const auto                              root = TerminalProcessing::rootId(key);
+    const auto                              key  = QStringLiteral("lineflow");
+    const auto                              root = TerminalProcessing::rootId();
     const QPointer<TerminalProcessingPanel> self(this);
     auto*                                   editor = new LineflowEditorDialog(
-        TerminalProcessing::diagram(_draft, key),
+        TerminalProcessing::diagram(_draft),
         _registry,
         _editors,
         [self, key, root](const QVariantMap&                        original,
@@ -569,7 +446,7 @@ void TerminalProcessingPanel::_editInplace(int direction)
             {
                 return false;
             }
-            const int channels = key == "duplex" ? 2 : 1;
+            const int channels = 2;
             if (!metadata || metadata->inputCount != channels || metadata->outputCount != channels)
             {
                 if (error && error->isEmpty())
@@ -578,7 +455,7 @@ void TerminalProcessingPanel::_editInplace(int direction)
                 }
                 return false;
             }
-            if (TerminalProcessing::diagram(self->_draft, key) != original)
+            if (TerminalProcessing::diagram(self->_draft) != original)
             {
                 if (error)
                 {
@@ -630,6 +507,10 @@ void TerminalProcessingPanel::_editInplace(int direction)
         this);
     editor->setObjectName("inplaceLineflowEditor");
     editor->setWindowTitle(tr("Inplace · %1").arg(key));
+    connect(editor,
+            &LineflowEditorDialog::compositionEditorRequested,
+            this,
+            &TerminalProcessingPanel::compositionEditorRequested);
     editor->setAttribute(Qt::WA_DeleteOnClose);
     editor->model().setSelectedBlock(root);
     _inplaceEditor = editor;
@@ -638,7 +519,7 @@ void TerminalProcessingPanel::_editInplace(int direction)
 
 bool TerminalProcessingPanel::_flush(QString* error)
 {
-    auto selection = _draft.value(directionKey(_shownDirection)).toMap();
+    auto selection = _draft.value(QStringLiteral("lineflow")).toMap();
     auto overrides = selection.value("overrides").toMap();
     for (const auto& node : _nodes)
     {
@@ -670,7 +551,7 @@ bool TerminalProcessingPanel::_flush(QString* error)
         {
             selection.insert("overrides", overrides);
         }
-        _draft.insert(directionKey(_shownDirection), selection);
+        _draft.insert(QStringLiteral("lineflow"), selection);
     }
     return true;
 }
@@ -687,7 +568,7 @@ void TerminalProcessingPanel::_showProperties()
     }
     _propertiesPending = false;
     _error->clear();
-    const auto selection = _draft.value(directionKey(_shownDirection)).toMap();
+    const auto selection = _draft.value(QStringLiteral("lineflow")).toMap();
     auto       id        = selection.value("type").toString();
     if (id.isEmpty())
     {
@@ -698,8 +579,8 @@ void TerminalProcessingPanel::_showProperties()
     auto*                              registry = &_registry;
     if (id == "@inplace")
     {
-        const auto key = directionKey(_shownDirection);
-        scope          = _registry.scoped(TerminalProcessing::diagram(_draft, key), &error);
+        const auto key = QStringLiteral("lineflow");
+        scope          = _registry.scoped(TerminalProcessing::diagram(_draft), &error);
         if (!self)
         {
             return;
@@ -710,7 +591,7 @@ void TerminalProcessingPanel::_showProperties()
             return;
         }
         registry = scope.get();
-        id       = TerminalProcessing::rootId(key);
+        id       = TerminalProcessing::rootId();
     }
     const auto properties = registry->properties(id,
                                                  selection.value("configuration").toMap(),
@@ -727,7 +608,14 @@ void TerminalProcessingPanel::_showProperties()
         {
             const auto row = _table->rowCount();
             _table->insertRow(row);
-            auto* header = new QTableWidgetItem(property.path.isEmpty() ? property.title : property.path);
+            auto       label   = property.path.isEmpty() ? property.title : property.path;
+            const auto segment = property.path.section('/', -1);
+            if (segment == "@initial" || segment == "@final")
+            {
+                const auto parent = property.path.section('/', 0, -2);
+                label             = parent.isEmpty() ? property.title : parent + " / " + property.title;
+            }
+            auto* header = new QTableWidgetItem(label);
             header->setToolTip(property.path + "\n" + property.type);
             auto font = header->font();
             font.setBold(true);

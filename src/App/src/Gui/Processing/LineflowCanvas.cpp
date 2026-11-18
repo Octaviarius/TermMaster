@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QPolygonF>
 #include <QScrollBar>
+#include <QToolButton>
 #include <QToolTip>
 #include <Termaster/Core/Gui/Icons.h>
 #include <algorithm>
@@ -34,12 +35,43 @@ LineflowCanvas::LineflowCanvas(LineflowEditorModel& model, QWidget* parent) : QA
     setVerticalScrollMode(ScrollPerPixel);
     setMinimumWidth(300);
     setAccessibleName(tr("Lineflow canvas"));
+    _initial = new QToolButton(viewport());
+    _final   = new QToolButton(viewport());
+    _initial->setObjectName("initialEndpoint");
+    _final->setObjectName("finalEndpoint");
+    for (auto* button : {_initial, _final})
+    {
+        button->setIcon(Icons::icon("sliders-horizontal"));
+        button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        button->setCheckable(true);
+        button->setAutoRaise(true);
+        button->setToolTip(tr("Configure endpoint packet recording"));
+    }
+    for (const bool initial : {true, false})
+    {
+        auto* button = initial ? _initial : _final;
+        connect(button, &QToolButton::clicked, this, [this, initial] {
+            setCurrentIndex({});
+            selectionModel()->clearSelection();
+            _initial->setChecked(initial);
+            _final->setChecked(!initial);
+            emit endpointActivated(initial ? "@initial" : "@final");
+        });
+    }
+    connect(verticalScrollBar(), &QScrollBar::valueChanged, this, [this] { _positionEndpoints(); });
     connect(&model, &QAbstractItemModel::modelReset, this, [this] {
         _clearDrop();
         updateGeometries();
         viewport()->update();
     });
-    connect(selectionModel(), &QItemSelectionModel::currentChanged, this, [this] { viewport()->update(); });
+    connect(selectionModel(), &QItemSelectionModel::currentChanged, this, [this](const QModelIndex& current) {
+        if (current.isValid())
+        {
+            _initial->setChecked(false);
+            _final->setChecked(false);
+        }
+        viewport()->update();
+    });
 }
 
 QRect LineflowCanvas::visualRect(const QModelIndex& index) const
@@ -197,7 +229,7 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
         const QRect band(0, y, _contentWidth(), 32);
         painter.fillRect(band, palette().brush(QPalette::AlternateBase));
         painter.setPen(palette().color(QPalette::PlaceholderText));
-        painter.drawText(band.adjusted(12, 0, -12, 0), Qt::AlignLeft | Qt::AlignVCenter, text);
+        Q_UNUSED(text);
         painter.setPen(palette().color(QPalette::Text));
         painter.drawText(QRect(left - 16, y, 32, 32), Qt::AlignCenter, tr("Rx"));
         if (paired)
@@ -276,7 +308,13 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
         auto titleFont = this->font();
         titleFont.setBold(!linked);
         painter.setFont(titleFont);
-        const QRect        titleRect(item.rect.left() + 30, contentTop, qMax(1, item.rect.width() - 60), titleHeight);
+        const bool  pairedComposition = !linked && item.index.data(LineflowEditorModel::InputCountRole).toInt() == 2
+                                     && !item.index.data(LineflowEditorModel::CompositionKindRole).toString().isEmpty();
+        const int   padding           = pairedComposition ? 56 : 30;
+        const QRect titleRect(item.rect.left() + padding,
+                              contentTop,
+                              qMax(1, item.rect.width() - 2 * padding),
+                              titleHeight);
         const QString      name      = item.index.data().toString();
         const QString      typeLabel = linked ? QString() : item.index.siblingAtColumn(1).data().toString();
         const QString      type      = typeLabel == name ? QString() : typeLabel;
@@ -298,6 +336,14 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
                              titleMetrics.elidedText(name, Qt::ElideMiddle, titleRect.width()));
         }
 
+        if (!item.index.data(LineflowEditorModel::CompositionKindRole).toString().isEmpty())
+        {
+            const auto open = _openRect(item.index, item.rect);
+            painter.setBrush(palette().brush(QPalette::Button));
+            painter.setPen(QPen(palette().color(QPalette::Mid), 1));
+            painter.drawRoundedRect(open, 3, 3);
+            Icons::icon("Lineflow").paint(&painter, open.adjusted(3, 3, -3, -3));
+        }
         if (!linked)
         {
             if (item.index.data(LineflowEditorModel::InputCountRole).toInt() == 2
@@ -355,6 +401,7 @@ void LineflowCanvas::updateGeometries()
     }
     verticalScrollBar()->setPageStep(viewport()->height());
     verticalScrollBar()->setRange(0, qMax(0, height - viewport()->height()));
+    _positionEndpoints();
 }
 
 void LineflowCanvas::startDrag(Qt::DropActions)
@@ -426,6 +473,14 @@ void LineflowCanvas::dropEvent(QDropEvent* event)
 void LineflowCanvas::mousePressEvent(QMouseEvent* event)
 {
     const auto index = indexAt(event->position().toPoint());
+    if (event->button() == Qt::LeftButton && index.isValid()
+        && !index.data(LineflowEditorModel::CompositionKindRole).toString().isEmpty()
+        && _openRect(index, visualRect(index)).contains(event->position().toPoint()))
+    {
+        emit openComposition(index);
+        event->accept();
+        return;
+    }
     if (event->button() == Qt::LeftButton && index.isValid() && !index.data(LineflowEditorModel::LinkedRole).toBool()
         && index.data(LineflowEditorModel::InputCountRole).toInt() == 2
         && index.data(LineflowEditorModel::OutputCountRole).toInt() == 2
@@ -454,7 +509,6 @@ void LineflowCanvas::mouseDoubleClickEvent(QMouseEvent* event)
     const auto index = indexAt(event->position().toPoint());
     if (index.isValid())
     {
-        setCurrentIndex(index);
         emit doubleClicked(index);
     }
 }
@@ -495,6 +549,12 @@ bool LineflowCanvas::viewportEvent(QEvent* event)
     {
         auto*      help   = static_cast<QHelpEvent*>(event);
         const auto target = indexAt(help->pos());
+        if (target.isValid() && !target.data(LineflowEditorModel::CompositionKindRole).toString().isEmpty()
+            && _openRect(target, visualRect(target)).contains(help->pos()))
+        {
+            QToolTip::showText(help->globalPos(), tr("Open composition editor"), this);
+            return true;
+        }
         if (target.isValid() && !target.data(LineflowEditorModel::LinkedRole).toBool()
             && target.data(LineflowEditorModel::InputCountRole).toInt() == 2
             && target.data(LineflowEditorModel::OutputCountRole).toInt() == 2
@@ -602,6 +662,35 @@ int LineflowCanvas::_stageGap() const
 int LineflowCanvas::_bodyHeight() const
 {
     return qMax(62, 3 * fontMetrics().height() + 14);
+}
+
+void LineflowCanvas::_positionEndpoints()
+{
+    if (!_initial || !_final)
+    {
+        return;
+    }
+    const bool paired = _draft.blockChannels(_draft.selectedBlock()) == 2;
+    int        bottom = 100;
+    for (const auto& item : _items())
+    {
+        bottom = qMax(bottom, item.rect.bottom() + qMax(44, fontMetrics().height() + 32));
+    }
+    _initial->setText(paired ? tr("Device") : tr("Input"));
+    _final->setText(paired ? tr("Terminal") : tr("Output"));
+    _initial->setGeometry(6, 8 - verticalOffset(), qMin(118, _laneRect("rx", 0, 1).center().x() - 25), 28);
+    _final->setGeometry(6, bottom + 6 - verticalOffset(), _initial->width(), 28);
+    _initial->setEnabled(!_draft.selectedBlock().isEmpty());
+    _final->setEnabled(!_draft.selectedBlock().isEmpty());
+    _initial->raise();
+    _final->raise();
+}
+
+QRect LineflowCanvas::_openRect(const QModelIndex& index, const QRect& rect) const
+{
+    const bool paired = !index.data(LineflowEditorModel::LinkedRole).toBool()
+                     && index.data(LineflowEditorModel::InputCountRole).toInt() == 2;
+    return QRect(rect.right() - (paired ? 54 : 28), rect.top() + (_bodyHeight() - 22) / 2, 22, 22);
 }
 
 QRect LineflowCanvas::_flipRect(const QRect& rect) const

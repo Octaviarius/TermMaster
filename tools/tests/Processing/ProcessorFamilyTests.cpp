@@ -279,7 +279,7 @@ private slots:
                 ++duplex;
             }
         }
-        QCOMPARE(unary, 20);
+        QCOMPARE(unary, 21);
         // Six paired families plus the native four-port Bypass.
         QCOMPARE(duplex, 7);
         const auto bypass = registry.type("native.duplex-bypass");

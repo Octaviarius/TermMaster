@@ -101,6 +101,7 @@ public:
     void          refreshTerminalActions() override;
 
     Q_SIGNAL void selectionChanged();
+    Q_SIGNAL void compositionEditorRequested(const QString& id, const QString& kind);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -114,6 +115,11 @@ private:
         std::shared_ptr<SettingsSchema> defaultSchema;
     };
     struct Runtime;
+    struct PreparedProcessing
+    {
+        std::shared_ptr<Processor> processor;
+        QVariantMap                lineRecording;
+    };
     struct ConnectionDraft
     {
         std::shared_ptr<Settings> values;
@@ -170,40 +176,40 @@ private:
     QStringList               _surfaceCommands(const QString& surface, bool secondary) const;
     void                      _showGroupMenu(const QString& id, const QPoint& position);
 
-    QString  _connectionAction(Action::Role role) const;
-    Runtime* _current() const;
-    QString  _mainTerminalId() const;
-    void     _focusChanged();
-    void     _triggerAction(const QString& command, const QString& target, QWidget* window);
-    void     _refreshHostActions(const QString& id);
-    bool     _actionChecked(const QString& command, const Runtime* terminal) const;
-    bool     _activeWindow() const;
-    bool     _materialize(const QString&   id,
-                          QString*         error,
-                          TerminalDisplay* display = nullptr,
-                          CommandEditor*   editor  = nullptr);
-    void     _restore();
-    bool     _rememberTabOrder(QString* error = nullptr);
-    void     _registerAction(Action action, ActionContainer* menu);
-    void     _beginBatch();
-    void     _endBatch();
-    std::optional<std::array<std::shared_ptr<Processor>, 2>> _prepareProcessing(const QVariantMap& configuration,
-                                                                                QString*           error,
-                                                                                bool               txOnly = false);
-    bool                                                     _applyProcessing(const QString&     id,
-                                                                              const QVariantMap& baseline,
-                                                                              const QVariantMap& configuration,
-                                                                              QString*           error);
-    bool                            _configureProcessing(Runtime& terminal, QString* error, bool txOnly = false);
-    void                            _close(const QString& id, bool preservePlacement = false);
-    bool                            _canSetAllConnections(bool requested) const;
-    void                            _setAllConnections(bool requested);
-    void                            _setConnectionRequested(QString id, bool requested);
-    void                            _changed(const QString& id);
-    void                            _showTerminalMessage(const QString& id, const QString& message);
-    QString                         _mainParameter(const Runtime& terminal, const QVariantMap& transport) const;
-    void                            _attemptConnection(const QString& id);
-    QVariantMap                     _effective(const Type& type, SettingsOverlay settings) const;
-    bool                            _validate(const Type& type, SettingsOverlay settings, QString* error) const;
+    QString                           _connectionAction(Action::Role role) const;
+    Runtime*                          _current() const;
+    QString                           _mainTerminalId() const;
+    void                              _focusChanged();
+    void                              _triggerAction(const QString& command, const QString& target, QWidget* window);
+    void                              _refreshHostActions(const QString& id);
+    bool                              _actionChecked(const QString& command, const Runtime* terminal) const;
+    bool                              _activeWindow() const;
+    bool                              _materialize(const QString&   id,
+                                                   QString*         error,
+                                                   TerminalDisplay* display = nullptr,
+                                                   CommandEditor*   editor  = nullptr);
+    void                              _restore();
+    bool                              _rememberTabOrder(QString* error = nullptr);
+    void                              _registerAction(Action action, ActionContainer* menu);
+    void                              _beginBatch();
+    void                              _endBatch();
+    std::optional<PreparedProcessing> _prepareProcessing(const QVariantMap& configuration, QString* error);
+    bool                              _applyProcessing(const QString&     id,
+                                                       const QVariantMap& baseline,
+                                                       const QVariantMap& configuration,
+                                                       QString*           error);
+    bool                              _configureProcessing(Runtime& terminal, QString* error);
+    void        _setLineRecorder(Runtime& terminal, const QVariantMap& configuration, bool replace = false);
+    void        _stopLineRecorder(Runtime& terminal);
+    void        _close(const QString& id, bool preservePlacement = false);
+    bool        _canSetAllConnections(bool requested) const;
+    void        _setAllConnections(bool requested);
+    void        _setConnectionRequested(QString id, bool requested);
+    void        _changed(const QString& id);
+    void        _showTerminalMessage(const QString& id, const QString& message);
+    QString     _mainParameter(const Runtime& terminal, const QVariantMap& transport) const;
+    void        _attemptConnection(const QString& id);
+    QVariantMap _effective(const Type& type, SettingsOverlay settings) const;
+    bool        _validate(const Type& type, SettingsOverlay settings, QString* error) const;
     std::shared_ptr<SettingsSchema> _appearanceSchema();
 };

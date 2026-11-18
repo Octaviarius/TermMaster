@@ -34,10 +34,11 @@ public:
                             QWidget*                parent    = nullptr,
                             ProcessorFavorites*     favorites = nullptr);
     ~TerminalProcessingPanel() override;
-    QWidget* propertiesWidget() const;
-    void     setConfiguration(const QVariantMap& configuration);
-    void     releaseEditors();
-    bool     applyDraft(QString* error = nullptr);
+    Q_SIGNAL void compositionEditorRequested(const QString& id, const QString& kind);
+    QWidget*      propertiesWidget() const;
+    void          setConfiguration(const QVariantMap& configuration);
+    void          releaseEditors();
+    bool          applyDraft(QString* error = nullptr);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -52,13 +53,10 @@ private:
     QVariantMap                             _latest;
     QVariantMap                             _draft;
     Apply                                   _apply;
-    ProcessorSelector*                      _selectors[2];
-    QLabel*                                 _labels[2];
-    ProcessorSelector*                      _duplexSelector;
+    ProcessorSelector*                      _selector;
     QComboBox*                              _modeSelector;
-    QToolButton*                            _inplaceButtons[3];
+    QToolButton*                            _inplaceButton;
     QPointer<LineflowEditorDialog>          _inplaceEditor;
-    QComboBox*                              _direction;
     QPointer<QWidget>                       _properties;
     QTableWidget*                           _table;
     QLabel*                                 _error;
@@ -67,10 +65,9 @@ private:
     std::vector<std::unique_ptr<NodeDraft>> _nodes;
     bool                                    _propertiesPending = true;
     bool                                    _updating          = false;
-    int                                     _shownDirection    = 0;
     void                                    _catalog();
     void                                    _mode(const QString& mode);
-    void                                    _editInplace(int direction);
+    void                                    _editInplace();
     void                                    _clearRows();
     void                                    _showProperties();
     bool                                    _flush(QString* error);

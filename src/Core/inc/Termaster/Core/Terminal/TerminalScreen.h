@@ -56,6 +56,8 @@ public:
         bool softWrapped       = false;
         int  wrappedColumns    = 0;
     };
+    using HistoryRowHandler = std::function<void(const Line&)>;
+
     TerminalScreen();
     Q_DISABLE_COPY_MOVE(TerminalScreen)
     /** Echoes printable UTF-8 and basic spacing controls without protocol side effects. */
@@ -67,28 +69,33 @@ public:
     void                 setLimits(int columns, int rows, int history);
     void                 setColors(const QColor& foreground, const QColor& background);
     const QVector<Line>& lines() const;
-    int                  cursorLine() const;
-    int                  cursorColumn() const;
-    quint64              discardedLines() const;
-    quint64              resetRevision() const;
-    QString              text() const;
-    bool                 alternateScreen() const;
-    bool                 cursorVisible() const;
-    int                  cursorShape() const;
-    bool                 mode(int number, bool privateMode = true) const;
-    bool                 bracketedPaste() const;
-    bool                 applicationCursorKeys() const;
-    bool                 applicationKeypad() const;
-    bool                 focusReporting() const;
-    int                  mouseTracking() const;
-    int                  mouseEncoding() const;
-    int                  kittyKeyboardFlags() const;
-    int                  modifyOtherKeys() const;
-    QString              title() const;
-    QString              currentDirectory() const;
-    QByteArray           takeOutput();
+    int                  historyLineCount() const;
+    /** Plain source-row text, omitting wide-glyph continuation cells and automatic-wrap padding. */
+    static QString lineText(const Line& line);
+    int            cursorLine() const;
+    int            cursorColumn() const;
+    quint64        discardedLines() const;
+    quint64        resetRevision() const;
+    QString        text() const;
+    bool           alternateScreen() const;
+    bool           cursorVisible() const;
+    int            cursorShape() const;
+    bool           mode(int number, bool privateMode = true) const;
+    bool           bracketedPaste() const;
+    bool           applicationCursorKeys() const;
+    bool           applicationKeypad() const;
+    bool           focusReporting() const;
+    int            mouseTracking() const;
+    int            mouseEncoding() const;
+    int            kittyKeyboardFlags() const;
+    int            modifyOtherKeys() const;
+    QString        title() const;
+    QString        currentDirectory() const;
+    QByteArray     takeOutput();
     /** Receives future replies synchronously. Bytes are borrowed; the handler must not reenter the model. */
     void setReplyHandler(ReplyHandler handler);
+    /** Future primary rows only, synchronously before history eviction. The row is borrowed; do not reenter. */
+    void setHistoryRowHandler(HistoryRowHandler handler);
     /** Callback receives a borrowed sequence synchronously; it must not retain references. */
     void setExtensionHandler(std::function<void(const VtParser::Sequence&)> handler);
 
@@ -138,6 +145,7 @@ private:
     QString                                        _directory;
     QString                                        _lastPrinted;
     ReplyHandler                                   _replyHandler;
+    HistoryRowHandler                              _historyRowHandler;
     std::function<void(const VtParser::Sequence&)> _extensionHandler;
     int                                            _column          = 0;
     int                                            _row             = 0;

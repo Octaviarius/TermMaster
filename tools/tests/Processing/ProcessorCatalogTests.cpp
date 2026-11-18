@@ -363,6 +363,8 @@ private slots:
         QCOMPARE(local->type("local.flow")->origin, QString("terminal.inplace"));
         auto properties = local->properties("local.flow", {}, {}, &error);
         QVERIFY2(properties, qPrintable(error));
+        QCOMPARE(properties->size(), 6);
+        properties->removeIf([](const auto& node) { return node.path.section('/', -1).startsWith('@'); });
         QCOMPARE(properties->size(), 2);
         QCOMPARE(properties->at(0).path, QString("saved/gate"));
         QCOMPARE(properties->at(1).path, QString("direct"));

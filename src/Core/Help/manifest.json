@@ -45,6 +45,18 @@
         "title": "Create a processor plugin",
         "parent": "index",
         "file": "DeveloperProcessor.md"
+      },
+      {
+        "id": "processing.boundaries",
+        "title": "Boundary recording",
+        "parent": "processing.lineflow",
+        "file": "Boundaries.md"
+      },
+      {
+        "id": "processing.tap",
+        "title": "Tap observation branch",
+        "parent": "processing.lineflow",
+        "file": "Tap.md"
       }
     ]
   }

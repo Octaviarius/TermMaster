@@ -3,6 +3,7 @@
 #include "../../Processing/TerminalProcessing.h"
 #include "../../Terminal/AdvancedSender.h"
 #include "../../Terminal/ProcessingRouter.h"
+#include "../../Terminal/TerminalLineRecorder.h"
 #include "../Main/MainWindow.h"
 #include "../Processing/ProcessorFavorites.h"
 #include "../Settings/SettingsDialog.h"
@@ -45,6 +46,7 @@
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 #include <Termaster/Core/NumberedName.h>
+#include <Termaster/Core/Processing/LineflowEndpoint.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/Processing/ThreadedProcessor.h>
 #include <Termaster/Core/Session.h>
@@ -175,29 +177,30 @@ private:
 
 struct TerminalController::Runtime
 {
-    QString                            id;
-    QString                            type;
-    QString                            name;
-    SettingsOverlay                    settings;
-    std::unique_ptr<SerialDevice>      device;
-    std::unique_ptr<TerminalSendQueue> sender;
-    std::unique_ptr<AdvancedSender>    advanced;
-    std::unique_ptr<ProcessingRouter>  processing;
-    QVariantMap                        processingConfiguration;
-    QPointer<TerminalProcessingPanel>  processingPanel;
-    bool                               processingUpdate = false;
-    bool                               processingOpen   = false;
-    QVariantMap                        targetConfiguration;
-    QPointer<CommandEditor>            editor;
-    QPointer<TerminalDisplay>          display;
-    QPointer<QWidget>                  panel;
-    QPointer<DetachedTerminalWindow>   window;
-    QPointer<TerminalTabGroup>         group;
-    bool                               connectionRequested = false;
-    QString                            lastError;
-    QString                            title;
-    QString                            completion;
-    QTimer                             reconnect;
+    QString                               id;
+    QString                               type;
+    QString                               name;
+    SettingsOverlay                       settings;
+    std::unique_ptr<SerialDevice>         device;
+    std::unique_ptr<TerminalSendQueue>    sender;
+    std::unique_ptr<AdvancedSender>       advanced;
+    std::unique_ptr<ProcessingRouter>     processing;
+    std::unique_ptr<TerminalLineRecorder> lineRecorder;
+    QVariantMap                           processingConfiguration;
+    QPointer<TerminalProcessingPanel>     processingPanel;
+    bool                                  processingUpdate = false;
+    bool                                  processingOpen   = false;
+    QVariantMap                           targetConfiguration;
+    QPointer<CommandEditor>               editor;
+    QPointer<TerminalDisplay>             display;
+    QPointer<QWidget>                     panel;
+    QPointer<DetachedTerminalWindow>      window;
+    QPointer<TerminalTabGroup>            group;
+    bool                                  connectionRequested = false;
+    QString                               lastError;
+    QString                               title;
+    QString                               completion;
+    QTimer                                reconnect;
     explicit Runtime(SettingsOverlay configuration) : settings(std::move(configuration))
     {
     }
@@ -211,6 +214,7 @@ struct TerminalController::Runtime
             device->setCallbacks({});
         }
 
+        lineRecorder.reset();
         advanced.reset();
         delete processingPanel.data();
         delete panel.data();
@@ -1409,6 +1413,10 @@ bool TerminalController::_materialize(const QString&   id,
                 },
                 terminalArea,
                 _processorFavorites);
+            connect(terminal->processingPanel,
+                    &TerminalProcessingPanel::compositionEditorRequested,
+                    this,
+                    &TerminalController::compositionEditorRequested);
             split->addWidget(terminal->processingPanel->propertiesWidget());
             split->setStretchFactor(0, 1);
             split->setStretchFactor(1, 0);
@@ -1450,8 +1458,7 @@ bool TerminalController::_materialize(const QString&   id,
         if (it != self->_terminals.end() && it->second->display)
         {
             auto& runtime = *it->second;
-            if (TerminalProcessing::active(runtime.processingConfiguration).value("rx").toMap().isEmpty()
-                && !TerminalProcessing::active(runtime.processingConfiguration).contains("duplex"))
+            if (TerminalProcessing::mode(runtime.processingConfiguration) == "bypass")
             {
                 runtime.display->receive(bytes);
                 return;
@@ -1635,10 +1642,7 @@ bool TerminalController::_materialize(const QString&   id,
         if (it != _terminals.end() && !it->second->processingUpdate)
         {
             QString    error;
-            const bool configured = _configureProcessing(*it->second,
-                                                         &error,
-                                                         it->second->processingConfiguration
-                                                             == it->second->settings.value("processing").toMap());
+            const bool configured = _configureProcessing(*it->second, &error);
             if (self && !configured)
             {
                 _showTerminalMessage(id, error);
@@ -1763,12 +1767,7 @@ bool TerminalController::_materialize(const QString&   id,
                     }
                 }
                 QString    error;
-                const bool accepted = TerminalProcessing::active(it->second->processingConfiguration)
-                                                  .value("tx")
-                                                  .toMap()
-                                                  .isEmpty()
-                                           && !TerminalProcessing::active(it->second->processingConfiguration)
-                                                   .contains("duplex") ?
+                const bool accepted = TerminalProcessing::mode(it->second->processingConfiguration) == "bypass" ?
                                           it->second->sender->enqueue(data, &error) :
                                           it->second->processing->submit(ProcessingRouter::Direction::Tx,
                                                                          {data},
@@ -3733,6 +3732,8 @@ void TerminalController::_changed(const QString& id)
             }
             if (!configured)
             {
+                terminal.processingConfiguration = terminal.settings.value("processing").toMap();
+                terminal.advanced->setProcessingRouter(terminal.processing.get());
                 terminal.processing->fail(ProcessingRouter::Direction::Rx, error);
                 if (!self || !panel)
                 {
@@ -3747,6 +3748,7 @@ void TerminalController::_changed(const QString& id)
         }
         else
         {
+            _stopLineRecorder(terminal);
             // Drain already received output after peer closure; recreate Rx on reconnect.
             terminal.processing->cancel(ProcessingRouter::Direction::Tx);
         }
@@ -3936,10 +3938,8 @@ void TerminalController::setProcessorRegistry(ProcessorRegistry& registry)
     _processors = &registry;
 }
 
-std::optional<std::array<std::shared_ptr<Processor>, 2>> TerminalController::_prepareProcessing(
-    const QVariantMap& stored,
-    QString*           error,
-    bool               txOnly)
+std::optional<TerminalController::PreparedProcessing> TerminalController::_prepareProcessing(const QVariantMap& stored,
+                                                                                             QString*           error)
 {
     const QPointer<TerminalController> self(this);
     const QPointer<ProcessorRegistry>  processors(_processors);
@@ -3947,91 +3947,99 @@ std::optional<std::array<std::shared_ptr<Processor>, 2>> TerminalController::_pr
     {
         return std::nullopt;
     }
-    const auto                                configuration = TerminalProcessing::active(stored);
-    std::array<std::shared_ptr<Processor>, 2> instances;
-    const bool                                shared = configuration.contains("duplex");
-    if (shared && (!configuration.value("rx").toMap().isEmpty() || !configuration.value("tx").toMap().isEmpty()))
+    if (TerminalProcessing::mode(stored) == "bypass")
     {
-        fail(error, "Shared processing cannot be combined with independent Rx/Tx selections");
-        return std::nullopt;
-    }
-    const QStringList directions = shared ? QStringList {"duplex"} : QStringList {"rx", "tx"};
-    for (int index = txOnly && !shared ? 1 : 0; index < directions.size(); ++index)
-    {
-        const auto value = configuration.value(directions[index]);
-        if (value.isValid() && value.metaType().id() != QMetaType::QVariantMap)
-        {
-            fail(error, "Processing selection must be a map: " + directions[index]);
-            return std::nullopt;
-        }
-        const auto selection = value.toMap();
-        for (const auto& key : {QStringLiteral("configuration"), QStringLiteral("overrides")})
-        {
-            if (selection.contains(key) && selection.value(key).metaType().id() != QMetaType::QVariantMap)
-            {
-                fail(error, "Processing configuration must be a map: " + directions[index] + "/" + key);
-                return std::nullopt;
-            }
-        }
-        if (selection.contains("type") && selection.value("type").metaType().id() != QMetaType::QString)
-        {
-            fail(error, "Processing identifier must be a string: " + directions[index]);
-            return std::nullopt;
-        }
-        const auto type = selection.value("type").toString();
-        if (type.isEmpty())
-        {
-            if (!selection.isEmpty())
-            {
-                fail(error, "Processing selection requires a type: " + directions[index]);
-                return std::nullopt;
-            }
-            continue;
-        }
-        if (!self || !processors)
-        {
-            fail(error, "Processing registry is unavailable");
-            return std::nullopt;
-        }
-        std::unique_ptr<ProcessorRegistry> scope;
-        auto*                              registry = processors.data();
-        auto                               target   = type;
-        if (type == "@inplace")
-        {
-            const auto key = directions[index];
-            scope          = processors->scoped(TerminalProcessing::diagram(stored, key), error);
-            if (!self || !processors || !scope)
-            {
-                return std::nullopt;
-            }
-            registry = scope.get();
-            target   = TerminalProcessing::rootId(key);
-        }
-        const auto prepared = registry->prepare(target, selection.value("configuration").toMap(), {}, error);
-        if (!self || !processors || !prepared)
-        {
-            return std::nullopt;
-        }
-        const int ports = shared ? 2 : 1;
-        if (prepared->inputCount() != ports || prepared->outputCount() != ports)
-        {
-            fail(error,
-                 shared ? "Shared processing requires a 2x2 processor" :
-                          "Independent Rx/Tx processing requires a 1x1 processor");
-            return std::nullopt;
-        }
-        instances[index] = ThreadedProcessor::create(prepared, selection.value("overrides").toMap(), error);
-        if (!self || !processors || !instances[index])
-        {
-            return std::nullopt;
-        }
+        return PreparedProcessing {};
     }
 
-    if (shared)
+    const auto value = stored.value("lineflow");
+    if (value.metaType().id() != QMetaType::QVariantMap)
     {
-        instances[1] = instances[0];
+        fail(error, "Lineflow processing selection must be a map");
+        return std::nullopt;
     }
-    return instances;
+    const auto selection = value.toMap();
+    for (const auto& key : {QStringLiteral("configuration"), QStringLiteral("overrides")})
+    {
+        if (selection.contains(key) && selection.value(key).metaType().id() != QMetaType::QVariantMap)
+        {
+            fail(error, "Lineflow processing configuration must be a map: " + key);
+            return std::nullopt;
+        }
+    }
+    if (selection.value("type").metaType().id() != QMetaType::QString || selection.value("type").toString().isEmpty())
+    {
+        fail(error, "Lineflow processing selection requires a string type");
+        return std::nullopt;
+    }
+    if (!self || !processors)
+    {
+        fail(error, "Processing registry is unavailable");
+        return std::nullopt;
+    }
+
+    std::unique_ptr<ProcessorRegistry> scope;
+    auto*                              registry = processors.data();
+    auto                               target   = selection.value("type").toString();
+    if (target == "@inplace")
+    {
+        scope = processors->scoped(TerminalProcessing::diagram(stored), error);
+        if (!self || !processors || !scope)
+        {
+            return std::nullopt;
+        }
+        registry = scope.get();
+        target   = TerminalProcessing::rootId();
+    }
+    PreparedProcessing result;
+    auto               runtimeConfiguration = selection.value("configuration").toMap();
+    auto               runtimeOverrides     = selection.value("overrides").toMap();
+    const auto         properties = registry->properties(target, runtimeConfiguration, runtimeOverrides, error);
+    if (!self || !processors || !properties)
+    {
+        return std::nullopt;
+    }
+    for (const auto& property : *properties)
+    {
+        if (property.path != "@final" || !property.configuration.value("enabled").toBool()
+            || property.configuration.value("recordingMode").toString() != "lines")
+        {
+            continue;
+        }
+        const auto resolved = LineflowEndpoint::resolveConfiguration(property.configuration, {}, 2, error);
+        if (!resolved)
+        {
+            return std::nullopt;
+        }
+        result.lineRecording = *resolved;
+        // Only the selected root's rendered endpoint is replaced by the display collector.
+        // Nested endpoints remain untouched and are rejected by generic preparation when enabled in lines mode.
+        auto defaults        = runtimeConfiguration.value("overrides").toMap();
+        auto endpoint        = defaults.value("@final").toMap();
+        endpoint.insert("enabled", false);
+        defaults.insert("@final", endpoint);
+        runtimeConfiguration.insert("overrides", defaults);
+        endpoint = runtimeOverrides.value("@final").toMap();
+        endpoint.insert("enabled", false);
+        runtimeOverrides.insert("@final", endpoint);
+    }
+    const auto prepared = registry->prepare(target, runtimeConfiguration, {}, error);
+    if (!self || !processors || !prepared)
+    {
+        return std::nullopt;
+    }
+    if (prepared->inputCount() != 2 || prepared->outputCount() != 2)
+    {
+        fail(error, "Terminal Lineflow requires a 2x2 processor");
+        return std::nullopt;
+    }
+    auto instance = ThreadedProcessor::create(prepared, runtimeOverrides, error);
+    if (!self || !processors || !instance)
+    {
+        return std::nullopt;
+    }
+    result.processor = std::move(instance);
+    return result;
 }
 
 void TerminalController::setProcessorFavorites(ProcessorFavorites& favorites)
@@ -4039,7 +4047,7 @@ void TerminalController::setProcessorFavorites(ProcessorFavorites& favorites)
     _processorFavorites = &favorites;
 }
 
-bool TerminalController::_configureProcessing(Runtime& terminal, QString* error, bool txOnly)
+bool TerminalController::_configureProcessing(Runtime& terminal, QString* error)
 {
     const QPointer<TerminalController> self(this);
     const QString                      id              = terminal.id;
@@ -4054,14 +4062,12 @@ bool TerminalController::_configureProcessing(Runtime& terminal, QString* error,
         const auto current = self->_terminals.find(id);
         return current != self->_terminals.end() && current->second->panel == panel ? current->second.get() : nullptr;
     };
-    auto prepared = _prepareProcessing(configuration, error, txOnly);
+    auto prepared = _prepareProcessing(configuration, error);
     if (!prepared)
     {
         return false;
     }
-    auto&      instances = *prepared;
-    const auto active    = TerminalProcessing::active(configuration);
-    auto*      live      = liveTerminal();
+    auto* live = liveTerminal();
     if (!live)
     {
         return fail(error, "Terminal changed while preparing processing instances");
@@ -4071,32 +4077,50 @@ bool TerminalController::_configureProcessing(Runtime& terminal, QString* error,
         return fail(error, "Terminal processing settings changed while preparing processing instances");
     }
 
-    if (active.contains("duplex"))
-    {
-        live->processing->replaceDuplex(std::move(instances[0]));
-    }
-    else
-    {
-        if (!txOnly)
-        {
-            live->processing->replace(ProcessingRouter::Direction::Rx, std::move(instances[0]));
-            live = liveTerminal();
-            if (!live || live->settings.value("processing").toMap() != configuration)
-            {
-                return fail(error, "Terminal changed while replacing processing instances");
-            }
-        }
-        live->processing->replace(ProcessingRouter::Direction::Tx, std::move(instances[1]));
-    }
+    _setLineRecorder(*live, prepared->lineRecording);
+    live->processing->replaceDuplex(std::move(prepared->processor));
     live = liveTerminal();
     if (!live || live->settings.value("processing").toMap() != configuration)
     {
         return fail(error, "Terminal changed while replacing processing instances");
     }
     live->processingConfiguration = configuration;
-    live->advanced->setProcessingRouter(
-        active.value("tx").toMap().isEmpty() && !active.contains("duplex") ? nullptr : live->processing.get());
+    live->advanced->setProcessingRouter(TerminalProcessing::mode(configuration) == "bypass" ? nullptr :
+                                                                                              live->processing.get());
     return true;
+}
+
+void TerminalController::_setLineRecorder(Runtime& terminal, const QVariantMap& configuration, bool replace)
+{
+    if (terminal.lineRecorder && !replace && terminal.lineRecorder->configuration() == configuration)
+    {
+        return;
+    }
+    _stopLineRecorder(terminal);
+    if (configuration.isEmpty() || !terminal.display)
+    {
+        return;
+    }
+    terminal.lineRecorder = std::make_unique<TerminalLineRecorder>(*terminal.display, configuration);
+    connect(terminal.lineRecorder.get(),
+            &TerminalLineRecorder::error,
+            this,
+            [this, id = terminal.id](const QString& error) {
+                _showTerminalMessage(id, tr("Rendered line recording: %1").arg(error));
+            });
+}
+
+void TerminalController::_stopLineRecorder(Runtime& terminal)
+{
+    if (terminal.lineRecorder)
+    {
+        QString error;
+        if (!terminal.lineRecorder->stop(&error))
+        {
+            _showTerminalMessage(terminal.id, tr("Rendered line recording: %1").arg(error));
+        }
+        terminal.lineRecorder.reset();
+    }
 }
 
 bool TerminalController::_applyProcessing(const QString&     id,
@@ -4125,29 +4149,12 @@ bool TerminalController::_applyProcessing(const QString&     id,
     {
         return false;
     }
-    const auto active   = TerminalProcessing::active(configuration);
-    const auto previous = TerminalProcessing::active(baseline);
-    const auto changed  = [&](const QString& key) {
-        return active.value(key) != previous.value(key)
-            || (active.value(key).toMap().value("type") == "@inplace"
-                && TerminalProcessing::diagram(configuration, key) != TerminalProcessing::diagram(baseline, key));
-    };
-    const bool sharedChanged        = active.contains("duplex") != previous.contains("duplex") || changed("duplex");
-    const bool rxChanged            = sharedChanged || changed("rx");
-    const bool txChanged            = sharedChanged || changed("tx");
-    auto       changedConfiguration = configuration;
-    if (!rxChanged)
+    const bool                        processingChanged = !TerminalProcessing::validateMode(baseline, nullptr)
+                                                       || !TerminalProcessing::sameActive(configuration, baseline);
+    std::optional<PreparedProcessing> prepared;
+    if (processingChanged)
     {
-        changedConfiguration.remove("rx");
-    }
-    if (!txChanged)
-    {
-        changedConfiguration.remove("tx");
-    }
-    std::optional<std::array<std::shared_ptr<Processor>, 2>> prepared;
-    if (rxChanged || txChanged)
-    {
-        prepared = _prepareProcessing(changedConfiguration, error);
+        prepared = _prepareProcessing(configuration, error);
         if (!prepared)
         {
             return false;
@@ -4193,7 +4200,7 @@ bool TerminalController::_applyProcessing(const QString&     id,
     {
         return false;
     }
-    if (!rxChanged && !txChanged)
+    if (!processingChanged)
     {
         terminal.processingConfiguration = configuration;
         return true;
@@ -4211,41 +4218,23 @@ bool TerminalController::_applyProcessing(const QString&     id,
                    nullptr;
     };
     terminal.processingUpdate = true;
-    if (txChanged)
-    {
-        terminal.advanced->stop();
-    }
+    terminal.advanced->stop();
     auto* live = liveTerminal();
     if (!live)
     {
         return true;
     }
     live->processingUpdate = false;
-    if (active.contains("duplex"))
-    {
-        live->processing->replaceDuplex(std::move((*prepared)[0]));
-    }
-    else if (rxChanged)
-    {
-        live->processing->replace(ProcessingRouter::Direction::Rx, std::move((*prepared)[0]));
-    }
-    live = liveTerminal();
-    if (!live)
-    {
-        return true;
-    }
-    if (txChanged && !active.contains("duplex"))
-    {
-        live->processing->replace(ProcessingRouter::Direction::Tx, std::move((*prepared)[1]));
-    }
+    _setLineRecorder(*live, prepared->lineRecording, true);
+    live->processing->replaceDuplex(std::move(prepared->processor));
     live = liveTerminal();
     if (!live)
     {
         return true;
     }
     live->processingConfiguration = configuration;
-    live->advanced->setProcessingRouter(
-        active.value("tx").toMap().isEmpty() && !active.contains("duplex") ? nullptr : live->processing.get());
+    live->advanced->setProcessingRouter(TerminalProcessing::mode(configuration) == "bypass" ? nullptr :
+                                                                                              live->processing.get());
     return true;
 }
 
@@ -4469,6 +4458,7 @@ void TerminalController::applySettings()
         if (terminal->processingConfiguration != processing)
         {
             if (TerminalProcessing::validateMode(processing, nullptr)
+                && TerminalProcessing::validateMode(terminal->processingConfiguration, nullptr)
                 && TerminalProcessing::sameActive(terminal->processingConfiguration, processing))
             {
                 terminal->processingConfiguration = processing;
@@ -4594,6 +4584,7 @@ void TerminalController::_setConnectionRequested(QString id, bool requested)
     terminal.reconnect.stop();
     terminal.lastError.clear();
     terminal.advanced->stop();
+    _stopLineRecorder(terminal);
     terminal.device->close();
     _changed(id);
 }

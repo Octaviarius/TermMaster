@@ -5,6 +5,64 @@ class TerminalScreenTests : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void committedRowsAreObservedBeforeZeroHistoryEviction()
+    {
+        TerminalScreen screen;
+        screen.setLimits(4, 2, 0);
+        screen.receive("old\r\nnext");
+        QStringList rows;
+        QList<bool> wrapped;
+        screen.setHistoryRowHandler([&](const TerminalScreen::Line& line) {
+            QCOMPARE(screen.historyLineCount(), 0);
+            rows.append(TerminalScreen::lineText(line));
+            wrapped.append(line.softWrapped);
+        });
+        QVERIFY(rows.isEmpty());
+        screen.receive("\r\n");
+        QCOMPARE(rows, QStringList {"old "});
+        QCOMPARE(wrapped, QList<bool> {false});
+        QCOMPARE(screen.lines().size(), 2);
+        screen.setHistoryRowHandler({});
+        screen.receive("again\r\n");
+        QCOMPARE(rows.size(), 1);
+    }
+
+    Q_SLOT void committedRowsPreserveSoftWrapAndIgnoreAlternateAndPartialScroll()
+    {
+        TerminalScreen screen;
+        screen.setLimits(4, 2, 0);
+        QStringList rows;
+        QList<bool> wrapped;
+        screen.setHistoryRowHandler([&](const TerminalScreen::Line& line) {
+            rows.append(TerminalScreen::lineText(line));
+            wrapped.append(line.softWrapped);
+        });
+        screen.receive("abcdef\r\nx\r\n");
+        QCOMPARE(rows, QStringList({"abcd", "ef  "}));
+        QCOMPARE(wrapped, QList<bool>({true, false}));
+        screen.receive("\x1b[?1049halt\r\nscreen\r\nscroll\r\n\x1b[?1049l");
+        QCOMPARE(rows.size(), 2);
+        screen.setLimits(4, 3, 0);
+        screen.receive("\x1b[2;3r\x1b[3;1H\n\x1b[1T");
+        QCOMPARE(rows.size(), 2);
+    }
+
+    Q_SLOT void heightShrinkCommitsOnlyNewlyImmutablePrimaryRows()
+    {
+        TerminalScreen screen;
+        screen.setLimits(6, 3, 0);
+        screen.receive("one\r\ntwo\r\nthree");
+        QStringList rows;
+        screen.setHistoryRowHandler(
+            [&](const TerminalScreen::Line& line) { rows.append(TerminalScreen::lineText(line).trimmed()); });
+        screen.setLimits(6, 1, 0);
+        QCOMPARE(rows, QStringList({"one", "two"}));
+        QCOMPARE(screen.historyLineCount(), 0);
+        screen.setLimits(4, 1, 0);
+        screen.setLimits(8, 3, 0);
+        QCOMPARE(rows.size(), 2);
+    }
+
     Q_SLOT void cursorShapeAndBlink()
     {
         TerminalScreen screen;

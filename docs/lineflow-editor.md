@@ -45,7 +45,7 @@ are rejected. Cancel discards the editor draft. Successful Apply publishes saved
 definitions through the common catalog; running processors retain their existing
 snapshots until explicitly replaced.
 
-Node renames rewrite occurrence paths in Rx/Tx selections for the active session
+Node renames rewrite occurrence paths in terminal Lineflow selections for the active session
 and every registered closed session. Refactoring also updates definition defaults
 and nested instance configuration overrides. Repeated nested occurrences each keep
 their own settings. Removing a node or replacing its processor target prunes only
@@ -222,8 +222,7 @@ no skips). The Debug application and affected targets built successfully.
 
 The palette displays 1x1 processors in a unary block and both 1x1 and 2x2
 processors in a paired block. Incompatible favorites are omitted from the view
-without removing their saved IDs. Terminal selectors require the exact topology
-of their Simplex or Duplex mode and add their own local Inplace entry.
+without removing their saved IDs. The terminal selector requires 2x2 topology and adds its local Inplace entry.
 
 The center canvas uses compact numbered stages with a small gap between rounded,
 opaque tinted blocks. Unary nodes occupy one Rx or Tx column; shared 2x2 nodes
@@ -458,3 +457,16 @@ remains unchanged. Deleting or renaming a definition makes its number available.
 Existing saved definition and node names are preserved. Focused naming checks cover
 block creation, duplication, explicit names, released numbers, insertion/drop paths
 and bounded long node names.
+
+## Fixed boundaries and composition editors
+
+Initial and final boundary buttons select their recording properties without
+adding palette entries or movable sequence rows. Byte recording and rendered
+terminal-line recording remain distinct. See [boundary semantics](lineflow-boundaries.md).
+
+Every supported composition exposes a compact editor button on its card and opens
+the same editor on double-click. Single-click selects parameters. Reusable
+Lineflow references open their shared definition; terminal-local references stay
+in the private editor. The Native Tap template creates an owned private 1x1
+composition. Its branch is edited with the same palette/canvas/properties layout;
+its output does not replace the main packet. The Tap topology is fixed to 1x1.

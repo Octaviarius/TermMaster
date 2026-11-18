@@ -29,6 +29,7 @@
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
+#include <Termaster/Core/Processing/LineflowEndpoint.h>
 #include <algorithm>
 #include <exception>
 
@@ -287,13 +288,9 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
         _resetting = false;
         _showProperties({});
     });
-    connect(_tree, &QAbstractItemView::doubleClicked, this, [this](const QModelIndex& index) {
-        const auto target = index.data(LineflowEditorModel::CatalogIdRole).toString();
-        if (_model->blockIds().contains(target))
-        {
-            _blocks->setCurrentIndex(_blocks->findData(target));
-        }
-    });
+    connect(_tree, &QAbstractItemView::doubleClicked, this, &LineflowEditorDialog::_openComposition);
+    connect(_tree, &LineflowCanvas::openComposition, this, &LineflowEditorDialog::_openComposition);
+    connect(_tree, &LineflowCanvas::endpointActivated, this, &LineflowEditorDialog::_showEndpoint);
     connect(_catalog, &QTreeWidget::currentItemChanged, this, [this] { _refreshActions(); });
     connect(_catalog, &QTreeWidget::itemDoubleClicked, this, [this] { _addOperation(); });
     connect(_search, &QLineEdit::textChanged, this, [this] { _refreshCatalog(); });
@@ -415,6 +412,94 @@ LineflowEditorModel& LineflowEditorDialog::model()
     return *_model;
 }
 
+bool LineflowEditorDialog::selectBlock(const QString& id)
+{
+    const int index = _blocks->findData(id);
+    if (index < 0)
+    {
+        if (!_model->blockIds().contains(id))
+        {
+            return false;
+        }
+        _select();
+        _model->setSelectedBlock(id);
+        _refreshBlocks();
+        return true;
+    }
+    _select();
+    _blocks->setCurrentIndex(index);
+    return true;
+}
+
+void LineflowEditorDialog::_openComposition(const QModelIndex& index)
+{
+    const auto kind   = index.data(LineflowEditorModel::CompositionKindRole).toString();
+    const auto target = index.data(LineflowEditorModel::CatalogIdRole).toString();
+    if (kind.isEmpty() || target.isEmpty())
+    {
+        return;
+    }
+    if ((kind == "lineflow" || kind == "tap") && selectBlock(target))
+    {
+        return;
+    }
+    emit compositionEditorRequested(target, kind);
+}
+
+void LineflowEditorDialog::_showEndpoint(const QString& name)
+{
+    if ((name != "@initial" && name != "@final") || _model->selectedBlock().isEmpty())
+    {
+        return;
+    }
+    _select();
+    _clearProperties();
+    _active.clear();
+    _name->setText(name == "@initial" ? tr("Initial endpoint") : tr("Final endpoint"));
+    _name->setEnabled(false);
+    const auto             block    = _model->selectedBlock();
+    const auto             key      = block + '\n' + name;
+    const int              channels = _model->blockChannels(block);
+    ProcessorCatalog::Type metadata;
+    metadata.id             = name;
+    metadata.settingsSchema = LineflowEndpoint::settingsSchema(channels, name == "@final");
+    metadata.defaults       = LineflowEndpoint::defaults(channels);
+    auto it                 = _drafts.find(key);
+    if (it == _drafts.end())
+    {
+        auto draft      = std::make_unique<Draft>();
+        draft->block    = block;
+        draft->node     = name;
+        draft->schema   = std::make_shared<SettingsSchema>(metadata.settingsSchema);
+        draft->defaults = std::make_unique<Settings>(QString {});
+        draft->defaults->setValue("configuration", metadata.defaults);
+        draft->settings = std::make_unique<Settings>(QString {});
+        draft->settings->setValue("configuration", _model->node(block, name).value("configuration").toMap());
+        draft->form = new SettingsFormModel(draft->schema,
+                                            SettingsOverlay(draft->defaults->node("configuration"),
+                                                            draft->settings->node("configuration")),
+                                            this);
+        it          = _drafts.emplace(key, std::move(draft)).first;
+    }
+    QString error;
+    if (!_refreshDraft(*it->second, metadata, &error))
+    {
+        _message(error);
+        return;
+    }
+    _active           = key;
+    auto* description = new QLabel(
+        channels == 2 ?
+            tr("Device records received Rx and transmitted Tx packets. Terminal records processed Rx and original Tx packets.") :
+            tr("Records the packets passing this boundary of the single-line composition."),
+        _properties);
+    description->setWordWrap(true);
+    _propertyLayout->addWidget(description);
+    _formWidget = new SettingsFormWidget(*it->second->form, _widgets, _properties);
+    _formWidget->setObjectName("endpointSettingsForm");
+    _propertyLayout->addWidget(_formWidget);
+}
+
 HelpSource::Topic LineflowEditorDialog::helpContext() const
 {
     HelpSource::Topic topic;
@@ -424,6 +509,19 @@ HelpSource::Topic LineflowEditorDialog::helpContext() const
         "Build reusable processing blocks by adding catalog processors and connecting their byte-packet "
         "ports. Select an operation or catalog entry to view its parameter reference. Changes remain "
         "drafts until applied.\n\n[First custom processor](help:developer.processor)");
+
+    const auto activeDraft = _drafts.find(_active);
+    if (activeDraft != _drafts.end()
+        && (activeDraft->second->node == "@initial" || activeDraft->second->node == "@final"))
+    {
+        topic.id       = "processing.lineflow.endpoint";
+        topic.title    = activeDraft->second->node == "@initial" ? tr("Initial boundary") : tr("Final boundary");
+        topic.markdown = tr("Packet recording writes bytes at this boundary. Rendered-line recording is available only "
+                            "at the actual terminal root's final boundary, after escape processing. Rows are saved "
+                            "when they leave the mutable screen; the final screen can optionally be flushed at stop.");
+        topic.markdown += "\n\n" + HelpSource::schemaReference(*activeDraft->second->schema);
+        return topic;
+    }
 
     const auto  index          = _tree->currentIndex();
     const auto* focused        = focusWidget();
@@ -529,9 +627,14 @@ void LineflowEditorDialog::_refreshBlocks()
     _groups->setEnabled(!_model->selectedBlock().isEmpty());
     for (const auto& id : _model->blockIds())
     {
-        _blocks->addItem(_model->blockName(id), id);
+        const auto editor = _model->definitions().value(id).toMap().value("editor").toMap();
+        if (!editor.contains("inlineOwner") || id == _model->selectedBlock())
+        {
+            _blocks->addItem(_model->blockName(id), id);
+        }
     }
     _blocks->setCurrentIndex(_blocks->findData(_model->selectedBlock()));
+    _topology->setEnabled(_model->definitions().value(_model->selectedBlock()).toMap().value("kind") != "tap");
     _refreshActions();
 }
 void LineflowEditorDialog::_refreshCatalog()
@@ -582,6 +685,10 @@ void LineflowEditorDialog::_refreshCatalog()
     QStringList excluded;
     for (auto it = entries.cbegin(); it != entries.cend(); ++it)
     {
+        if (definitions.value(it.key()).toMap().value("editor").toMap().contains("inlineOwner"))
+        {
+            continue;
+        }
         const auto shape     = _model->processorShape(it.key());
         const bool supported = shape.first == shape.second
                             && (shape.first == 1

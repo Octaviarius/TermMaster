@@ -215,7 +215,7 @@ private slots:
                  {"settings",
                   QVariantMap {
                       {"processing",
-                       QVariantMap {{"rx",
+                       QVariantMap {{"lineflow",
                                      QVariantMap {{"type", "root"},
                                                   {"overrides",
                                                    QVariantMap {{"first", QVariantMap {{"marker", 1}}},
@@ -234,7 +234,7 @@ private slots:
                                    .toMap()
                                    .value("processing")
                                    .toMap()
-                                   .value("rx")
+                                   .value("lineflow")
                                    .toMap()
                                    .value("overrides")
                                    .toMap();
@@ -1084,14 +1084,14 @@ private slots:
             }
             return ids.size();
         };
-        QCOMPARE(nativeCount(catalog), 20);
+        QCOMPARE(nativeCount(catalog), 21);
         QVERIFY(contains(catalog, "native.hex-encoder"));
         QVERIFY(!contains(catalog, "fixture.duplex"));
         const auto paired = dialog.model().createBlock("Paired", 2);
         dialog.model().setSelectedBlock(paired);
         QVERIFY(contains(catalog, "native.hex-encoder"));
         QVERIFY(contains(catalog, "fixture.duplex"));
-        QCOMPARE(nativeCount(catalog), 27);
+        QCOMPARE(nativeCount(catalog), 28);
         QVERIFY(contains(catalog, "native.duplex-bypass"));
         dialog.model().setSelectedBlock("root");
         QVERIFY(!contains(catalog, "fixture.duplex"));
@@ -2306,6 +2306,217 @@ private slots:
         }
         QString error;
         QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+    }
+
+    void fixedEndpointDraftsAndCompositeButtons()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QTemporaryDir temporary;
+        QVariantMap   definitions {
+            { "root",  definition("root",  "Root", {QVariantMap {{"name", "Nested"}, {"reference", "inner"}}})},
+            {"inner", definition("inner", "Inner",                         {operation("Gate", "native.gate")})}
+        };
+        SettingsWidgetRegistry widgets;
+        QVariantMap            saved;
+        LineflowEditorDialog   dialog(definitions,
+                                      registry,
+                                      widgets,
+                                      [&](const auto&, const auto& candidate, const auto&, QString*) {
+                                        saved = candidate;
+                                        return true;
+                                      });
+        dialog.resize(1100, 760);
+        QVERIFY(dialog.selectBlock("root"));
+        dialog.show();
+        QTest::qWait(30);
+        auto* canvas  = dialog.findChild<LineflowCanvas*>();
+        auto* initial = canvas->findChild<QToolButton*>("initialEndpoint");
+        auto* final   = canvas->findChild<QToolButton*>("finalEndpoint");
+        QVERIFY(initial && final && initial->isVisible() && final->isVisible());
+        QCOMPARE(dialog.model().rowCount(), 1);
+        QVERIFY(!registry.type("@initial"));
+        QVERIFY(!registry.type("@final"));
+        initial->click();
+        auto* form = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
+        QVERIFY(form);
+        auto* file    = form->editor("file")->findChild<QLineEdit*>();
+        auto* enabled = form->editor("enabled")->findChild<QCheckBox*>();
+        QVERIFY(file && enabled);
+        file->setText(temporary.filePath("received.bin"));
+        enabled->setChecked(true);
+        QString error;
+        QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+        QVERIFY(saved.value("root").toMap().value("source").toMap().value("initial").toMap().value("enabled").toBool());
+        QVERIFY(!QFile::exists(temporary.filePath("received.bin")));
+        final->click();
+        form = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
+        QVERIFY(form);
+        QVERIFY(!form->editor("enabled")->findChild<QCheckBox*>()->isChecked());
+        QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+        QVERIFY(dialog.selectBlock("root"));
+        const auto index = dialog.model().index(0, 0);
+        QCOMPARE(index.data(LineflowEditorModel::CompositionKindRole).toString(), QString("lineflow"));
+        const auto card = canvas->visualRect(index);
+        QTest::mouseClick(canvas->viewport(),
+                          Qt::LeftButton,
+                          Qt::NoModifier,
+                          QPoint(card.right() - 17,
+                                 card.top() + qMax(62, 3 * canvas->fontMetrics().height() + 14) / 2));
+        QCOMPARE(dialog.model().selectedBlock(), QString("inner"));
+        QVERIFY(dialog.selectBlock("root"));
+        QTest::mouseDClick(canvas->viewport(),
+                           Qt::LeftButton,
+                           Qt::NoModifier,
+                           QPoint(card.center().x(),
+                                  card.top() + qMax(62, 3 * canvas->fontMetrics().height() + 14) / 2));
+        QCOMPARE(dialog.model().selectedBlock(), QString("inner"));
+    }
+
+    void tapOwnsAnEditablePrivateSingleLine()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QVERIFY(registry.type("native.tap"));
+        QVariantMap root   = definition("root", "Root", {});
+        auto        source = root.value("source").toMap();
+        source.insert("channels", 2);
+        root.insert("source", source);
+        SettingsWidgetRegistry widgets;
+        LineflowEditorDialog   dialog(
+            {
+                {"root", root}
+        },
+            registry,
+            widgets,
+            [](const auto&, const auto&, const auto&, QString*) { return true; });
+        QString    error;
+        const auto name = dialog.model().insertNodeAt("root", 0, "native.tap", "rx", &error);
+        QVERIFY2(!name.isEmpty(), qPrintable(error));
+        const auto tapId = dialog.model().node("root", name).value("reference").toString();
+        QVERIFY(!tapId.isEmpty());
+        QCOMPARE(dialog.model().definitions().value(tapId).toMap().value("kind").toString(), QString("tap"));
+        QCOMPARE(dialog.model().blockChannels(tapId), 1);
+        dialog.resize(1100, 760);
+        dialog.show();
+        QTest::qWait(30);
+        auto*      canvas = dialog.findChild<LineflowCanvas*>();
+        const auto card   = canvas->visualRect(dialog.model().index(0, 0));
+        QTest::mouseClick(canvas->viewport(),
+                          Qt::LeftButton,
+                          Qt::NoModifier,
+                          QPoint(card.right() - 17, card.center().y()));
+        QCOMPARE(dialog.model().selectedBlock(), tapId);
+        QVERIFY(!dialog.findChild<QComboBox*>("blockTopology")->isEnabled());
+        QVERIFY(!dialog.model().insertNode(tapId, 0, "native.timestamp", &error).isEmpty());
+        QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
+        QVERIFY(dialog.selectBlock("root"));
+        const auto second = dialog.model().insertNodeAt("root", 1, "native.tap", "tx", &error);
+        QVERIFY2(!second.isEmpty(), qPrintable(error));
+        const auto secondId = dialog.model().node("root", second).value("reference").toString();
+        QVERIFY(secondId != tapId);
+        QCOMPARE(dialog.model()
+                     .definitions()
+                     .value(secondId)
+                     .toMap()
+                     .value("source")
+                     .toMap()
+                     .value("nodes")
+                     .toList()
+                     .size(),
+                 0);
+        const auto duplicate = dialog.model().duplicateBlock("root", "Copy", &error);
+        QVERIFY2(!duplicate.isEmpty(), qPrintable(error));
+        const auto copied   = dialog.model()
+                                  .definitions()
+                                  .value(duplicate)
+                                  .toMap()
+                                  .value("source")
+                                  .toMap()
+                                  .value("nodes")
+                                  .toList();
+        const auto copiedId = copied.first().toMap().value("reference").toString();
+        QVERIFY(copiedId != tapId);
+        QCOMPARE(dialog.model()
+                     .definitions()
+                     .value(copiedId)
+                     .toMap()
+                     .value("source")
+                     .toMap()
+                     .value("nodes")
+                     .toList()
+                     .size(),
+                 1);
+        QVERIFY(dialog.model().removeNode("root", name, &error));
+        QVERIFY(!dialog.model().definitions().contains(tapId));
+        QVERIFY(dialog.model().definitions().contains(copiedId));
+        const auto capture = qEnvironmentVariable("TERMASTER_FLOW28_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QVERIFY(dialog.selectBlock("root"));
+            QTest::qWait(80);
+            QVERIFY(dialog.grab().save(QDir(capture).filePath("Tap.png")));
+        }
+    }
+
+    void boundaryRecordingAndTapCapture()
+    {
+        const auto capture = qEnvironmentVariable("TERMASTER_FLOW28_CAPTURE");
+        if (capture.isEmpty())
+        {
+            QSKIP("Set TERMASTER_FLOW28_CAPTURE for boundary visual acceptance");
+        }
+        QVERIFY(QDir().mkpath(capture));
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        SettingsWidgetRegistry widgets;
+        auto                   root   = definition("root", "Terminal flow", {operation("Frames", "native.framer")});
+        auto                   source = root.value("source").toMap();
+        source.insert("channels", 2);
+        root.insert("source", source);
+        LineflowEditorDialog dialog(
+            {
+                {"root", root}
+        },
+            registry,
+            widgets,
+            [](const auto&, const auto&, const auto&, QString*) { return true; });
+        dialog.resize(1100, 760);
+        QString    error;
+        const auto tap = dialog.model().insertNodeAt("root", 1, "native.tap", "rx", &error);
+        QVERIFY2(!tap.isEmpty(), qPrintable(error));
+        const auto tapId = dialog.model().node("root", tap).value("reference").toString();
+        QVERIFY(!dialog.model().insertNode(tapId, 0, "native.timestamp", &error).isEmpty());
+        auto* catalog = dialog.findChild<QTreeWidget*>("processorCatalog");
+        for (QTreeWidgetItemIterator item(catalog); *item; ++item)
+        {
+            if ((*item)->text(0) == "Control")
+            {
+                (*item)->setExpanded(true);
+            }
+        }
+        dialog.show();
+        QTest::qWait(80);
+        auto* canvas = dialog.findChild<LineflowCanvas*>();
+        canvas->findChild<QToolButton*>("finalEndpoint")->click();
+        auto* form = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
+        QVERIFY(form);
+        auto* mode = form->editor("recordingMode")->findChild<QComboBox*>();
+        QVERIFY(mode);
+        mode->setCurrentIndex(mode->findData("lines"));
+        auto* file = form->editor("file")->findChild<QLineEdit*>();
+        file->setText("C:/Logs/terminal-{direction}.txt");
+        QTest::qWait(80);
+        QVERIFY(dialog.grab().save(QDir(capture).filePath("TerminalLines.png")));
+        canvas->findChild<QToolButton*>("initialEndpoint")->click();
+        form = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
+        QVERIFY(form);
+        form->editor("file")->findChild<QLineEdit*>()->setText("C:/Logs/device-{direction}.jsonl");
+        QTest::qWait(80);
+        QVERIFY(dialog.grab().save(QDir(capture).filePath("DevicePackets.png")));
+        QVERIFY(dialog.selectBlock(tapId));
+        QTest::qWait(80);
+        QVERIFY(dialog.grab().save(QDir(capture).filePath("TapBranch.png")));
     }
 
     void visualCapture()

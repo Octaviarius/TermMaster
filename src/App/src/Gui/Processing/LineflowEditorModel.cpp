@@ -32,6 +32,69 @@ void putNodes(QVariantMap& definitions, const QString& block, QVariantList list)
     definition.insert("source", source);
     definitions.insert(block, definition);
 }
+bool lineflowKind(const QVariant& kind)
+{
+    return kind == "lineflow" || kind == "tap";
+}
+
+QString compositionInstance(QVariantMap&       definitions,
+                            ProcessorRegistry& registry,
+                            const QString&     owner,
+                            const QString&     target)
+{
+    const auto metadata = registry.type(target);
+    if (!metadata || !metadata->editor.value("compositionTemplate").toBool())
+    {
+        return target;
+    }
+    const auto id     = "inline." + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    auto       source = metadata->definition;
+    if (source.isEmpty())
+    {
+        source = {
+            {"channels",               1},
+            {   "nodes", QVariantList {}}
+        };
+    }
+    definitions.insert(id,
+                       QVariantMap {
+                           {    "id",                                   id},
+                           {  "name",                      metadata->title},
+                           {  "kind",                       metadata->kind},
+                           {"source",                               source},
+                           {"editor", QVariantMap {{"inlineOwner", owner}}}
+    });
+    return id;
+}
+
+void pruneInlineDefinitions(QVariantMap& definitions)
+{
+    bool changed = true;
+    while (changed)
+    {
+        changed = false;
+        QSet<QString> referenced;
+        for (auto it = definitions.cbegin(); it != definitions.cend(); ++it)
+        {
+            for (const auto& value : nodes(definitions, it.key()))
+            {
+                const auto node = value.toMap();
+                referenced.insert(node.value(node.contains("reference") ? "reference" : "type").toString());
+            }
+        }
+        const auto ids = definitions.keys();
+        for (const auto& id : ids)
+        {
+            if (!referenced.contains(id)
+                && definitions.value(id).toMap().value("editor").toMap().contains("inlineOwner"))
+            {
+                definitions.remove(id);
+                changed = true;
+            }
+        }
+    }
+}
+
 } // namespace
 LineflowEditorModel::LineflowEditorModel(QVariantMap definitions, ProcessorRegistry& registry, QObject* parent) :
     QStandardItemModel(parent), _baseline(definitions), _draft(std::move(definitions)), _registry(registry),
@@ -98,7 +161,7 @@ QStringList LineflowEditorModel::blockIds() const
     QStringList result;
     for (auto it = _draft.cbegin(); it != _draft.cend(); ++it)
     {
-        if (it.value().toMap().value("kind") == "lineflow")
+        if (lineflowKind(it.value().toMap().value("kind")))
         {
             result.append(it.key());
         }
@@ -116,7 +179,7 @@ int LineflowEditorModel::blockChannels(const QString& id) const
 
 QPair<int, int> LineflowEditorModel::processorShape(const QString& id) const
 {
-    if (_draft.value(id).toMap().value("kind") == "lineflow")
+    if (lineflowKind(_draft.value(id).toMap().value("kind")))
     {
         const int channels = blockChannels(id);
         return {channels, channels};
@@ -128,7 +191,7 @@ QPair<int, int> LineflowEditorModel::processorShape(const QString& id) const
 QStringList LineflowEditorModel::_portNames(const QString& id, bool input) const
 {
     const auto definition = _draft.value(id).toMap();
-    const bool local      = definition.value("kind") == "lineflow";
+    const bool local      = lineflowKind(definition.value("kind"));
     const auto metadata   = _registry.type(id);
     const auto shape      = processorShape(id);
     const int  count      = input ? shape.first : shape.second;
@@ -224,7 +287,7 @@ QString LineflowEditorModel::_defaultNodeName(const QString& block, const QStrin
 {
     const auto definition = _draft.value(catalogId).toMap();
     const auto metadata   = _registry.type(catalogId);
-    QString    title      = definition.value("kind") == "lineflow" ? definition.value("name").toString() :
+    QString    title      = lineflowKind(definition.value("kind")) ? definition.value("name").toString() :
                             metadata                               ? metadata->title :
                                                                      QString {};
     title.replace('/', ' ');
@@ -253,11 +316,19 @@ QString LineflowEditorModel::_defaultNodeName(const QString& block, const QStrin
 
 QVariantMap LineflowEditorModel::node(const QString& block, const QString& name) const
 {
+    if ((name == "@initial" || name == "@final") && _draft.contains(block))
+    {
+        return {
+            {         "name",                                                                           name},
+            {"configuration", _draft.value(block).toMap().value("source").toMap().value(name.mid(1)).toMap()}
+        };
+    }
     const int index = _nodeIndex(block, name);
     return index < 0 ? QVariantMap {} : nodes(_draft, block)[index].toMap();
 }
 bool LineflowEditorModel::_commit(QVariantMap draft, QString* error)
 {
+    pruneInlineDefinitions(draft);
     qCDebug(editorTrace) << "Draft commit requested definitions" << draft.size();
     auto parsed = ProcessorRegistry::parseDefinitions(draft, error);
     if (!parsed || !_registry.validatePublication("workspace", *parsed, error))
@@ -342,7 +413,38 @@ QString LineflowEditorModel::duplicateBlock(const QString& id, const QString& na
     auto       definition = _draft.value(id).toMap();
     definition.insert("id", copy);
     definition.insert("name", name.isEmpty() ? defaultBlockName() : name);
-    auto draft = _draft;
+    auto                                                                   draft = _draft;
+    std::function<void(QVariantMap&, const QString&, const QString&, int)> cloneChildren;
+    cloneChildren = [&](QVariantMap& parent, const QString& oldOwner, const QString& newOwner, int depth) {
+        if (depth > 16)
+        {
+            return;
+        }
+        auto source   = parent.value("source").toMap();
+        auto children = source.value("nodes").toList();
+        for (auto& value : children)
+        {
+            auto       node   = value.toMap();
+            const auto target = node.value("reference").toString();
+            auto       child  = _draft.value(target).toMap();
+            auto       editor = child.value("editor").toMap();
+            if (editor.value("inlineOwner").toString() != oldOwner)
+            {
+                continue;
+            }
+            const auto childId = "inline." + QUuid::createUuid().toString(QUuid::WithoutBraces);
+            cloneChildren(child, target, childId, depth + 1);
+            child.insert("id", childId);
+            editor.insert("inlineOwner", newOwner);
+            child.insert("editor", editor);
+            draft.insert(childId, child);
+            node.insert("reference", childId);
+            value = node;
+        }
+        source.insert("nodes", children);
+        parent.insert("source", source);
+    };
+    cloneChildren(definition, id, copy, 0);
     draft.insert(copy, definition);
     if (!_commit(draft, error))
     {
@@ -413,7 +515,7 @@ QString LineflowEditorModel::insertNodeAt(const QString& block,
     QVariantMap entry {
         {"name", name}
     };
-    if (_draft.value(catalogId).toMap().value("kind") == "lineflow")
+    if (lineflowKind(_draft.value(catalogId).toMap().value("kind")))
     {
         entry.insert("reference", catalogId);
     }
@@ -430,9 +532,15 @@ QString LineflowEditorModel::insertNodeAt(const QString& block,
         fail(error, tr("The processor shape does not fit this lane."));
         return {};
     }
+    auto       draft    = _draft;
+    const auto instance = compositionInstance(draft, _registry, block, catalogId);
+    if (instance != catalogId)
+    {
+        entry.remove("type");
+        entry.insert("reference", instance);
+    }
     entry.insert("lane", lane);
     list.insert(row, entry);
-    auto draft = _draft;
     putNodes(draft, block, list);
     return _commit(draft, error) ? name : QString {};
 }
@@ -595,7 +703,7 @@ std::optional<QVariantMap> LineflowEditorModel::_dropDraft(const QMimeData*   da
         target          = QString::fromUtf8(data->data(mimeTypes()[1]));
         const auto name = _defaultNodeName(_selected, target);
         entry.insert("name", name);
-        entry.insert(draft.value(target).toMap().value("kind") == "lineflow" ? "reference" : "type", target);
+        entry.insert(lineflowKind(draft.value(target).toMap().value("kind")) ? "reference" : "type", target);
     }
     else if (data->hasFormat(mimeTypes()[0]))
     {
@@ -631,6 +739,15 @@ std::optional<QVariantMap> LineflowEditorModel::_dropDraft(const QMimeData*   da
         || (blockChannels(_selected) == 1 && lane != "rx"))
     {
         return {};
+    }
+    if (data->hasFormat(mimeTypes()[1]))
+    {
+        const auto instance = compositionInstance(draft, _registry, _selected, target);
+        if (instance != target)
+        {
+            entry.remove("type");
+            entry.insert("reference", instance);
+        }
     }
     entry.insert("lane", lane);
     list.insert(row, entry);
@@ -746,6 +863,20 @@ bool LineflowEditorModel::setNodeConfiguration(const QString&     block,
                                                const QVariantMap& configuration,
                                                QString*           error)
 {
+    if ((name == "@initial" || name == "@final") && _draft.contains(block))
+    {
+        if (node(block, name).value("configuration").toMap() == configuration)
+        {
+            return true;
+        }
+        auto draft      = _draft;
+        auto definition = draft.value(block).toMap();
+        auto source     = definition.value("source").toMap();
+        source.insert(name.mid(1), configuration);
+        definition.insert("source", source);
+        draft.insert(block, definition);
+        return _commit(draft, error);
+    }
     const int index = _nodeIndex(block, name);
     if (index < 0)
     {
@@ -786,7 +917,7 @@ QString LineflowEditorModel::_unavailableReason(const QString& id, QSet<QString>
         return tr("Reference cycle or depth limit.");
     }
     const auto definition = _draft.value(id).toMap();
-    if (definition.value("kind") != "lineflow")
+    if (!lineflowKind(definition.value("kind")))
     {
         const auto type    = _registry.type(id);
         const bool removed = type && type->origin == "workspace" && !_draft.contains(id);
@@ -849,7 +980,7 @@ void LineflowEditorModel::_append(QStandardItem* parent,
         {
             title = metadata ? metadata->title : target;
         }
-        const bool localBlock  = definition.value("kind") == "lineflow";
+        const bool localBlock  = lineflowKind(definition.value("kind"));
         const auto reason      = _unavailableReason(target);
         const bool unavailable = !reason.isEmpty();
         auto*      item        = new QStandardItem(node.value("name").toString());
@@ -868,6 +999,8 @@ void LineflowEditorModel::_append(QStandardItem* parent,
             column->setData(block, BlockRole);
             column->setData(node.value("name"), NodeRole);
             column->setData(target, CatalogIdRole);
+            const auto kind = definition.value("kind", metadata ? metadata->kind : QString {}).toString();
+            column->setData(kind == "native" ? QString {} : kind, CompositionKindRole);
             column->setData(linked, LinkedRole);
             column->setData(unavailable, UnavailableRole);
             column->setToolTip(unavailable ? reason : target);
@@ -881,7 +1014,7 @@ void LineflowEditorModel::_append(QStandardItem* parent,
         item->setIcon(unavailable ? Icons::icon("triangle-exclamation-point") :
                                     Icons::processorBlock(composite, shape.first == 2 && shape.second == 2));
         parent->appendRow({item, description});
-        if (localBlock)
+        if (localBlock && definition.value("kind") != "tap")
         {
             _append(item, target, true, path, depth + 1);
         }
@@ -951,7 +1084,8 @@ bool LineflowEditorModel::_canDropMimeData(const QMimeData* data, int row) const
         QVariantMap node {
             {"name", name}
         };
-        node.insert(draft.value(target).toMap().value("kind") == "lineflow" ? "reference" : "type", target);
+        const auto instance = compositionInstance(draft, _registry, _selected, target);
+        node.insert(lineflowKind(draft.value(instance).toMap().value("kind")) ? "reference" : "type", instance);
         list.insert(row < 0 ? list.size() : row, node);
         putNodes(draft, _selected, list);
         return _registry.validatePublicationDraft("workspace", draft);

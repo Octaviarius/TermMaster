@@ -1,5 +1,6 @@
 #include <QRegularExpression>
 #include <QSet>
+#include <Termaster/Core/Processing/LineflowEndpoint.h>
 #include <Termaster/Core/Processing/ProcessorBlocks.h>
 #include <algorithm>
 #include <functional>
@@ -29,7 +30,7 @@ bool validNodeName(const QVariant& value)
     }
     const auto name = value.toString();
     return !name.isEmpty() && name.size() <= 256 && name == name.trimmed() && !name.contains(QChar::Null)
-        && !name.contains(QLatin1Char('/'));
+        && !name.contains(QLatin1Char('/')) && name != "@initial" && name != "@final";
 }
 } // namespace
 
@@ -99,6 +100,23 @@ bool ProcessorBlocks::validate(const QVariantMap& blocks, QString* error)
                         "Lineflow port names must be unique trimmed names of 1 to 128 characters without controls");
                 }
                 seen.insert(name.toString());
+            }
+        }
+        for (const auto& endpoint : {"initial", "final"})
+        {
+            if (block.contains(endpoint) && block.value(endpoint).typeId() != QMetaType::QVariantMap)
+            {
+                return fail(error, "Lineflow endpoint configuration must be a mapping");
+            }
+            const auto configuration = block.value(endpoint).toMap();
+            if (QString::fromLatin1(endpoint) == "initial"
+                && configuration.value("recordingMode").toString() == "lines")
+            {
+                return fail(error, "Rendered line recording is only valid at a final endpoint");
+            }
+            if (!LineflowEndpoint::resolveConfiguration(configuration, {}, channelValue.toInt(), error))
+            {
+                return false;
             }
         }
         const auto nodes = block.value("nodes");

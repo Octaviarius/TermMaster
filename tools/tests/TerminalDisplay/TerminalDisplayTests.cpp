@@ -12,6 +12,34 @@ class TerminalDisplayTests : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void committedLineCallbackUsesPlainSourceRowsAndDoesNotReplayHistory()
+    {
+        TerminalDisplay display;
+        display.resize(400, 150);
+        display.show();
+        QCoreApplication::processEvents();
+        const int rows = display.terminalSize().height();
+        display.receive(QByteArray("old\r\n").repeated(rows + 2));
+        QVERIFY(display.historyLineCount() > 0);
+        QStringList committed;
+        QList<bool> wrapped;
+        display.setCommittedLineHandler([&](const QString& text, bool softWrapped) {
+            committed.append(text);
+            wrapped.append(softWrapped);
+        });
+        QVERIFY(committed.isEmpty());
+        display.receive("\x1b[2J\x1b[H\x1b[31m" + QString::fromUtf8("é😀").toUtf8() + "\x1b[0m");
+        display.receive(QByteArray("\r\n").repeated(rows));
+        QVERIFY(!committed.isEmpty());
+        QCOMPARE(committed.first().trimmed(), QString::fromUtf8("é😀"));
+        QVERIFY(!committed.first().contains(QChar(0x1b)));
+        QVERIFY(!wrapped.first());
+        const int count = committed.size();
+        display.setCommittedLineHandler({});
+        display.receive(QByteArray("more\r\n").repeated(rows + 1));
+        QCOMPARE(committed.size(), count);
+    }
+
     Q_SLOT void visualWrapPreservesSourceSelectionAndMapsCursor()
     {
         TerminalDisplay display;

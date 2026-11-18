@@ -4,6 +4,7 @@
 #include <QSet>
 #include <QTimer>
 #include <Termaster/Core/Processing/Lineflow.h>
+#include <Termaster/Core/Processing/LineflowEndpoint.h>
 #include <Termaster/Core/Processing/ProcessorBlocks.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <algorithm>
@@ -139,10 +140,15 @@ std::unique_ptr<Lineflow> Lineflow::Prepared::instantiate(ProcessorRegistry& reg
     std::vector<QVariantMap> configurations;
     for (const auto& node : _nodes)
     {
-        auto configuration = registry.resolveConfiguration(node.type,
-                                                           node.configuration,
-                                                           overrides.value(node.path).toMap(),
-                                                           error);
+        auto configuration = node.endpointChannels ?
+                                 LineflowEndpoint::resolveConfiguration(node.configuration,
+                                                                        overrides.value(node.path).toMap(),
+                                                                        node.endpointChannels,
+                                                                        error) :
+                                 registry.resolveConfiguration(node.type,
+                                                               node.configuration,
+                                                               overrides.value(node.path).toMap(),
+                                                               error);
         if (!configuration)
         {
             return {};
@@ -156,7 +162,15 @@ std::unique_ptr<Lineflow> Lineflow::Prepared::instantiate(ProcessorRegistry& reg
     runtime->_configuration.insert(QStringLiteral("effectiveNodes"), effectiveNodes);
     for (size_t index = 0; index < _nodes.size(); ++index)
     {
-        auto processor = registry.create(_nodes[index].type, configurations[index], _limits, error);
+        std::shared_ptr<Processor> processor;
+        if (_nodes[index].endpointChannels)
+        {
+            processor = LineflowEndpoint::create(configurations[index], _nodes[index].endpointChannels, _limits, error);
+        }
+        else
+        {
+            processor = registry.create(_nodes[index].type, configurations[index], _limits, error);
+        }
         if (!processor)
         {
             return {};
@@ -278,6 +292,28 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
             const int  channels = block.value("channels", 1).toInt();
             const auto start    = result->_nodes.size();
             visiting.insert(key);
+            const auto addEndpoint = [&](const QString& name) {
+                if (++visitedNodes > limits.maxInstances || result->_nodes.size() >= size_t(limits.maxInstances))
+                {
+                    problem = QStringLiteral("Lineflow expanded node limit exceeded by endpoints");
+                    return false;
+                }
+                const auto configuration = block.value(name).toMap();
+                if (configuration.value("enabled").toBool()
+                    && configuration.value("recordingMode").toString() == "lines")
+                {
+                    problem = QStringLiteral("Rendered line recording requires the terminal root final endpoint");
+                    return false;
+                }
+                const auto path = prefix.isEmpty() ? '@' + name : prefix + "/@" + name;
+                result->_nodes.push_back(
+                    {path, {}, ownedValue(block.value(name).toMap()).toMap(), channels == 2 ? 2 : 0, false, channels});
+                return true;
+            };
+            if (!addEndpoint(QStringLiteral("initial")))
+            {
+                return false;
+            }
             for (const auto& value : block.value(QStringLiteral("nodes")).toList())
             {
                 if (value.metaType().id() != QMetaType::QVariantMap)
@@ -349,6 +385,10 @@ std::shared_ptr<const Lineflow::Prepared> Lineflow::prepare(const QVariantMap& b
                                               lane,
                                               node.value("flipped", false).toBool()});
                 }
+            }
+            if (!addEndpoint(QStringLiteral("final")))
+            {
+                return false;
             }
             if (channels == 1 && placement >= 0)
             {
@@ -469,6 +509,23 @@ size_t Lineflow::_nextStage(int from, int direction) const
 
 void Lineflow::_connectOutputs()
 {
+    // Immutable preparations keep both endpoint addresses available for overrides.
+    // Elide disabled recorders so ordinary processing keeps its queue/step budgets.
+    for (size_t index = 0; index < _nodes.size();)
+    {
+        const auto name = _nodeNames.value(qsizetype(index)).section('/', -1);
+        if ((name == "@initial" || name == "@final") && !_nodes[index]->configuration().value("enabled").toBool())
+        {
+            _nodes.erase(_nodes.begin() + qsizetype(index));
+            _nodeNames.removeAt(qsizetype(index));
+            _lanes.erase(_lanes.begin() + qsizetype(index));
+            _flipped.erase(_flipped.begin() + qsizetype(index));
+        }
+        else
+        {
+            ++index;
+        }
+    }
     _stages.resize(_nodes.size());
     _blocked.resize(_nodes.size());
     QPointer<Lineflow> guard(this);
@@ -570,7 +627,17 @@ void Lineflow::_pump()
         const auto positionIndex = std::distance(_queue.begin(), position);
         auto       work          = std::move(*position);
         _queue.erase(position);
-        _queuedBytes -= work.chunk.bytes.size();
+        _queuedBytes         -= work.chunk.bytes.size();
+        const auto stageName  = _nodeNames.value(qsizetype(work.stage));
+        if (work.stage < _nodes.size()
+            && (stageName == "@initial" || stageName == "@final" || stageName.endsWith("/@initial")
+                || stageName.endsWith("/@final")))
+        {
+            // Private recorders synchronously forward one packet. Charging their
+            // extra queue hop would let a Pacer outproduce its enclosing pump.
+            // Lineage steps, bytes and resident chunks remain bounded below.
+            ++budget;
+        }
         if (work.budget->remaining <= 0)
         {
             _fail(QStringLiteral("Lineflow processing step limit exceeded"));

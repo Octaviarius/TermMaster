@@ -10,6 +10,7 @@
 #include "Nodes/PatternFramer.h"
 #include "Nodes/Stub.h"
 #include "Nodes/Stuffing.h"
+#include "Nodes/Tap.h"
 #include "Nodes/TimedFramer.h"
 #include "Nodes/Timestamp.h"
 
@@ -157,6 +158,25 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
     QStringList registered;
     try
     {
+        ProcessorCatalog::Type tap;
+        tap.id             = QStringLiteral("native.tap");
+        tap.title          = QStringLiteral("Tap");
+        tap.kind           = QStringLiteral("tap");
+        tap.group          = QStringLiteral("Control");
+        tap.settingsSchema = Tap::schema();
+        tap.create         = Tap::create;
+        tap.inputNames     = {QStringLiteral("Data")};
+        tap.outputNames    = {QStringLiteral("Data")};
+        tap.definition     = {
+            {"channels",               1},
+            {   "nodes", QVariantList {}}
+        };
+        tap.editor = {
+            {"compositionTemplate",             true},
+            {          "helpTopic", "processing.tap"}
+        };
+        catalog.registerType(owner, std::move(tap));
+        registered.append(QStringLiteral("native.tap"));
         for (const auto& definition : definitions)
         {
             ProcessorCatalog::Type type;
