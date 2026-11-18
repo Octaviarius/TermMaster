@@ -461,9 +461,18 @@ void LineflowEditorDialog::_showEndpoint(const QString& name)
     _name->setText(channels == 2 ? (name == "@initial" ? tr("Device") : tr("Terminal")) :
                                    (name == "@initial" ? tr("Input") : tr("Output")));
     _name->setEnabled(false);
+    const bool tap = _model->definitions().value(block).toMap().value("kind").toString() == "tap";
+    if (tap && name == "@initial")
+    {
+        auto* description = new QLabel(tr("Passes incoming packets to the processing line unchanged."), _properties);
+        description->setWordWrap(true);
+        description->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        _propertyLayout->addWidget(description);
+        return;
+    }
     ProcessorCatalog::Type metadata;
     metadata.id             = name;
-    metadata.settingsSchema = LineflowEndpoint::settingsSchema(channels, name == "@final");
+    metadata.settingsSchema = LineflowEndpoint::settingsSchema(channels, channels == 2 && name == "@final");
     metadata.defaults       = LineflowEndpoint::defaults(channels);
     auto it                 = _drafts.find(key);
     if (it == _drafts.end())
@@ -490,6 +499,8 @@ void LineflowEditorDialog::_showEndpoint(const QString& name)
     }
     _active           = key;
     auto* description = new QLabel(
+        tap ?
+            tr("Records the processed copy. The original packet passes through Tap unchanged.") :
         channels == 2 ?
             tr("Device records received Rx and transmitted Tx packets. Terminal records processed Rx and original Tx packets.") :
             tr("Records the packets passing this boundary of the single-line composition."),

@@ -4,7 +4,7 @@ Select the Initial/Device or Final/Terminal boundary control in Lineflow. Bounda
 
 ## Packets
 
-Choose JSONL, binary or HEX. JSONL preserves packet boundaries with UTC time, an exact index, direction, byte length and Base64 payload. Choose a direction in paired flows. `{direction}` in the absolute filename expands to `rx`, `tx` or `stream`; binary recording in both directions requires separate directional files. Create the parent directory first.
+Choose JSONL, binary or HEX. JSONL preserves packet boundaries with UTC time, an exact index, direction, byte length and Base64 payload. Choose a direction in paired flows. Relative filenames start in the folder containing the open workspace file; absolute paths remain valid. `{direction}` in the filename expands to `rx`, `tx` or `stream`; binary recording in both directions requires separate directional files. Create the parent directory first.
 
 Append mode, maximum file size, backup count and flush frequency are configurable. Writers hold an exclusive file lease, rotate bounded backups and stop on recording errors. Processing errors do not disconnect the transport. Already forwarded data cannot be rolled back.
 

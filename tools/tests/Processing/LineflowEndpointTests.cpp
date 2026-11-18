@@ -113,14 +113,18 @@ private slots:
         QCOMPARE(processor->accept({"bytes"}, {}), Processor::AcceptResult::Accepted);
         QVERIFY(!QFile::exists(path));
         processor->cancel({});
-        QVERIFY(!LineflowEndpoint::resolveConfiguration(
+        const auto relative = LineflowEndpoint::resolveConfiguration(
             {
                 {"enabled",       true},
                 {   "file", "relative"}
         },
             {},
             1,
-            &error));
+            &error);
+        QVERIFY(relative);
+        QCOMPARE(relative->value("file").toString(), QString("relative"));
+        QVERIFY(!LineflowEndpoint::create(*relative, 1, {}, &error));
+        QVERIFY(error.contains("workspace"));
         QVERIFY(!LineflowEndpoint::resolveConfiguration(
             {
                 {"backups", 21}

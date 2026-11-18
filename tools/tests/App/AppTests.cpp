@@ -5177,6 +5177,91 @@ content:
         QVERIFY(!registry.type("workspace.pipeline"));
     }
 
+    Q_SLOT void workspaceRelativePacketRecordingIncludesTapOutput()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Relative.termaster")), "Relative", &error));
+        QVERIFY(_app.createSession("Relative", &error));
+        auto& host                       = _app.pluginHost();
+        auto& controller                 = static_cast<TerminalController&>(host);
+        auto  probe                      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                 = true;
+        const auto               cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("relativeFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "relativeFixture";
+        type.title  = "Relative fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Relative fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        auto       definitions = terminalInplaceDiagram({
+            QVariantMap {{"name", "Observe"}, {"reference", "tap"}, {"lane", "rx"}}
+        });
+        const auto recorder    = [](const QString& file) {
+            return QVariantMap {
+                {  "enabled",     true},
+                {     "file",     file},
+                {   "format", "binary"},
+                {"direction",     "rx"}
+            };
+        };
+        const auto root       = TerminalProcessing::rootId();
+        auto       definition = definitions.value(root).toMap();
+        auto       source     = definition.value("source").toMap();
+        source.insert("initial", recorder("device-{direction}.bin"));
+        source.insert("final", recorder("terminal-{direction}.bin"));
+        definition.insert("source", source);
+        definitions.insert(root, definition);
+        definitions.insert("tap",
+                           QVariantMap {
+                               {    "id","tap"                                         },
+                               {  "name",                              "Tap"},
+                               {  "kind",                              "tap"},
+                               {"source",
+                                QVariantMap {{"channels", 1},
+                                {"nodes",
+                                QVariantList {
+                                QVariantMap {{"name", "Encode"},
+                                {"type", "native.hex-encoder"},
+                                {"configuration", QVariantMap {{"separator", ""}}}}}},
+                                {"final", recorder("tap.bin")}}             }
+        });
+        const QVariantMap processing {
+            {    "mode",                              "lineflow"},
+            {"lineflow",      QVariantMap {{"type", "@inplace"}}},
+            { "inplace", QVariantMap {{"lineflow", definitions}}}
+        };
+        QVERIFY2(_app.createTerminal("relativeFixture",
+                                     {
+                                         {"processing", processing}
+        },
+                                     "Relative",
+                                     &error),
+                 qPrintable(error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
+        const QByteArray packet("A\0B", 3);
+        probe->injectReceive(packet);
+        const auto contents = [&](const QString& name) {
+            QFile file(temporary.filePath(name));
+            return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray {};
+        };
+        QTRY_COMPARE(contents("device-rx.bin"), packet);
+        QTRY_COMPARE(contents("terminal-rx.bin"), packet);
+        QTRY_COMPARE(contents("tap.bin"), QByteArray("410042"));
+        QCOMPARE(controller.selectedSettings().value("processing").toMap(), processing);
+        QVERIFY(_app.saveSession(&error));
+        host.disconnectSelectedTerminal();
+        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Closed);
+    }
+
     Q_SLOT void terminalRenderedLineRecording_data()
     {
         QTest::addColumn<bool>("flushScreen");
@@ -5239,7 +5324,7 @@ content:
             {           "enabled",        true},
             {     "recordingMode",     "lines"},
             {         "direction",        "rx"},
-            {              "file",    filePath},
+            {              "file", "lines.txt"},
             {        "lineEnding",        "lf"},
             {"trimTrailingSpaces",        true},
             {       "flushScreen", flushScreen}

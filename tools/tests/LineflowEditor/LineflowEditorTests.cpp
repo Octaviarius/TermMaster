@@ -2417,6 +2417,20 @@ private slots:
                           QPoint(card.right() - 17, card.center().y()));
         QCOMPARE(dialog.model().selectedBlock(), tapId);
         QVERIFY(!dialog.findChild<QComboBox*>("blockTopology")->isEnabled());
+        QTest::mouseClick(canvas->viewport(),
+                          Qt::LeftButton,
+                          Qt::NoModifier,
+                          canvas->endpointRect("@initial").center());
+        QCOMPARE(dialog.findChild<QLineEdit*>("nodeName")->text(), QString("Input"));
+        QVERIFY(!dialog.findChild<SettingsFormWidget*>("endpointSettingsForm"));
+        QTest::mouseClick(canvas->viewport(), Qt::LeftButton, Qt::NoModifier, canvas->endpointRect("@final").center());
+        auto* outputForm = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
+        QVERIFY(outputForm && outputForm->editor("file"));
+        const auto* recordingMode = outputForm->editor("recordingMode")->findChild<QComboBox*>();
+        QVERIFY(recordingMode);
+        QCOMPARE(recordingMode->count(), 1);
+        QCOMPARE(recordingMode->currentData().toString(), QString("packets"));
+
         QVERIFY(!dialog.model().insertNode(tapId, 0, "native.timestamp", &error).isEmpty());
         QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
         QVERIFY(dialog.selectBlock("root"));
@@ -2546,6 +2560,19 @@ private slots:
         QVERIFY(dialog.selectBlock(tapId));
         QTest::qWait(80);
         QVERIFY(dialog.grab().save(QDir(capture).filePath("TapBranch.png")));
+        QTest::mouseClick(canvas->viewport(),
+                          Qt::LeftButton,
+                          Qt::NoModifier,
+                          canvas->endpointRect("@initial").center());
+        QVERIFY(!dialog.findChild<SettingsFormWidget*>("endpointSettingsForm"));
+        QTest::qWait(30);
+        QVERIFY(dialog.grab().save(QDir(capture).filePath("TapInput.png")));
+        QTest::mouseClick(canvas->viewport(), Qt::LeftButton, Qt::NoModifier, canvas->endpointRect("@final").center());
+        auto* output = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
+        QVERIFY(output);
+        output->editor("file")->findChild<QLineEdit*>()->setText("tap.bin");
+        QTest::qWait(30);
+        QVERIFY(dialog.grab().save(QDir(capture).filePath("TapOutput.png")));
     }
 
     void visualCapture()
