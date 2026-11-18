@@ -1675,8 +1675,10 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
                 child.name              = '@' + QString::fromLatin1(endpoint);
                 child.entry             = std::make_shared<Entry>();
                 child.entry->type.id    = child.name;
-                child.entry->type.title = QString::fromLatin1(endpoint) == "initial" ? QStringLiteral("Initial") :
-                                                                                       QStringLiteral("Final");
+                const bool initial      = QString::fromLatin1(endpoint) == "initial";
+                child.entry->type.title = entry->type.inputCount == 2 ?
+                                              (initial ? QStringLiteral("Device") : QStringLiteral("Terminal")) :
+                                              (initial ? QStringLiteral("Input") : QStringLiteral("Output"));
                 child.entry->type.settingsSchema = LineflowEndpoint::settingsSchema(entry->type.inputCount,
                                                                                     QString::fromLatin1(endpoint)
                                                                                         == "final");

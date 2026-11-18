@@ -721,3 +721,9 @@ Priorities are ordered by dependency; reusable one-line compositions remain supp
 - [x] Render boundaries with the ordinary node body and port markers, retaining only the lower Device pair and upper Terminal pair.
 - [x] Preserve fixed positions, recording drafts and lane-aligned port directions.
 - [x] Verify the Release editor suite, native 100%/200% captures and final Debug build.
+
+## FLOW-30: Consistent boundary recording labels
+
+- [x] Match Device/Terminal and Input/Output property groups to diagram boundary names.
+- [x] Use sentence case and conventional acronym casing for recording choices while preserving stored values.
+- [x] Verify four affected Release suites, native editor/property captures and the final Debug build.
