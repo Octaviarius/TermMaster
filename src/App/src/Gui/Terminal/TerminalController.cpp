@@ -16,6 +16,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QDesktopServices>
+#include <QDir>
 #include <QEvent>
 #include <QFile>
 #include <QFileDialog>
@@ -3999,14 +4000,34 @@ std::optional<TerminalController::PreparedProcessing> TerminalController::_prepa
     {
         return std::nullopt;
     }
+    auto*         workspace = _workspace ? _workspace() : nullptr;
+    const QString directory = workspace ? workspace->filePath().parent().toString() : QString {};
     for (const auto& property : *properties)
     {
-        if (property.path != "@final" || !property.configuration.value("enabled").toBool()
-            || property.configuration.value("recordingMode").toString() != "lines")
+        auto configuration = property.configuration;
+        if ((property.type == "@initial" || property.type == "@final") && configuration.value("enabled").toBool())
+        {
+            auto path = configuration.value("file").toString();
+            if (!QDir::isAbsolutePath(path))
+            {
+                if (directory.isEmpty())
+                {
+                    fail(error, "Relative recording paths require an open workspace");
+                    return std::nullopt;
+                }
+                path = QDir::cleanPath(QDir(directory).absoluteFilePath(path));
+                configuration.insert("file", path);
+                auto endpoint = runtimeOverrides.value(property.path).toMap();
+                endpoint.insert("file", path);
+                runtimeOverrides.insert(property.path, endpoint);
+            }
+        }
+        if (property.path != "@final" || !configuration.value("enabled").toBool()
+            || configuration.value("recordingMode").toString() != "lines")
         {
             continue;
         }
-        const auto resolved = LineflowEndpoint::resolveConfiguration(property.configuration, {}, 2, error);
+        const auto resolved = LineflowEndpoint::resolveConfiguration(configuration, {}, 2, error);
         if (!resolved)
         {
             return std::nullopt;

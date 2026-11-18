@@ -743,3 +743,11 @@ Priorities are ordered by dependency; reusable one-line compositions remain supp
 - [x] Apply pickers to Lineflow recording files and console working directories; retain shell suggestions with an executable browse button.
 - [x] Verify cancellation, dialog ownership, raw substitutions, six affected Release suites and final open/save/directory checks.
 - [x] Inspect native 100%/200% presentation and build Release and Debug applications.
+
+## FLOW-32: Workspace-relative recording and Tap boundaries
+
+- [x] Resolve enabled relative recording paths against the open workspace file directory through transient runtime overrides.
+- [x] Preserve stored relative paths, directional substitutions and absolute-path behavior for packet and rendered-line recording.
+- [x] Keep an empty Tap branch as a pass-through line; remove Input recording parameters and retain Output recording of processed copies.
+- [x] Reject unresolved relative paths in standalone Core writers and invalid Tap Input recording explicitly.
+- [x] Verify six affected Release suites, empty Tap execution, native 100%/200% captures and final Debug build.

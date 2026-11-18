@@ -34,8 +34,14 @@ upper pair, aligned with the two lanes. Boundaries cannot be moved or deleted. D
 customize each instance. Nested boundaries retain prefixed paths. Disabled packet
 recorders do not add runtime scheduling stages.
 
-Packet recording is explicitly disabled by default. Enabled writers own absolute
-file paths and exclusive locks. Direction substitutions keep Rx and Tx binary
+Packet recording is explicitly disabled by default. Settings retain relative or
+absolute paths. Relative paths resolve against the parent directory of the open
+workspace file, including nested compositions and Tap outputs. App captures the
+workspace directory and supplies transient absolute occurrence overrides before
+starting workers; saved definitions and terminal settings retain their original
+text. No process-wide current-directory changes are made. Standalone Core writers
+require an absolute path and reject unresolved relative paths. Enabled writers own
+absolute runtime file paths and exclusive locks. Direction substitutions keep Rx and Tx binary
 streams separate. JSONL preserves packet boundaries, timestamp, direction, index,
 length and Base64 payload. HEX and binary formats are alternatives. File size,
 backup count and flush frequency are bounded and configurable. File access occurs
@@ -60,6 +66,11 @@ configuration; it is drained and joined before terminal resources are released. 
 cannot claim to observe a terminal display.
 
 ## Tap
+
+A new Tap has an empty internal line connecting Input to Output unchanged. Input
+has no parameters or recording occurrence. Output records the processed copy and
+supports packet formats only; rendered terminal lines belong to the terminal root.
+Recording remains opt-in. Configured Input recording is rejected explicitly.
 
 A Tap is a one-channel observation composition. It forwards the original packet
 unchanged exactly once and independently supplies a byte-owning copy to its
@@ -109,3 +120,14 @@ presentation. The final Debug application was rebuilt.
 Boundary property groups use the same names as their diagram blocks. Recording
 choices use sentence case with conventional acronyms (JSONL, HEX, LF, CRLF);
 only presentation labels change, while stored values remain unchanged.
+
+FLOW-32 acceptance passed six affected Release suites, including real application
+configuration with workspace-relative Device/Terminal packet files, a nested Tap
+file and rendered terminal lines. Stored settings retained their relative paths.
+An empty saved Tap forwards a NUL-containing packet unchanged and exposes only
+Output recording settings. Refactoring and metadata checks cover the removed
+Input occurrence. Native 100%/200% checks and final Release/Debug builds passed.
+
+- [Parameterless Tap Input](images/lineflow-boundaries/100TapInput.png)
+- [Tap Output recording](images/lineflow-boundaries/100TapOutput.png)
+- [Tap Output at 200%](images/lineflow-boundaries/200TapOutput.png)

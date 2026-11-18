@@ -695,6 +695,14 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
             {
                 throw std::invalid_argument("Lineflow endpoint configuration must be a mapping");
             }
+            if (definition.kind == "tap" && QString::fromLatin1(endpoint) == "initial")
+            {
+                if (definition.source.value(endpoint).toMap().value("enabled").toBool())
+                {
+                    throw std::invalid_argument("Tap Input has no recording settings; use Output");
+                }
+                continue;
+            }
             if (QString::fromLatin1(endpoint) == "initial"
                 && definition.source.value(endpoint).toMap().value("recordingMode").toString() == "lines")
             {
@@ -1666,6 +1674,10 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
             const auto leave = qScopeGuard([&] { visiting.remove(target); });
             for (const auto& endpoint : {"initial", "final"})
             {
+                if (entry->type.kind == "tap" && QString::fromLatin1(endpoint) == "initial")
+                {
+                    continue;
+                }
                 if (++count > 256)
                 {
                     fail(error, "Processor property expansion exceeds 256 nodes");
@@ -1680,8 +1692,9 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
                                               (initial ? QStringLiteral("Device") : QStringLiteral("Terminal")) :
                                               (initial ? QStringLiteral("Input") : QStringLiteral("Output"));
                 child.entry->type.settingsSchema = LineflowEndpoint::settingsSchema(entry->type.inputCount,
-                                                                                    QString::fromLatin1(endpoint)
-                                                                                        == "final");
+                                                                                    entry->type.inputCount == 2
+                                                                                        && QString::fromLatin1(endpoint)
+                                                                                               == "final");
                 child.entry->schema    = std::make_shared<const SettingsSchema>(child.entry->type.settingsSchema);
                 child.entry->defaults  = LineflowEndpoint::defaults(entry->type.inputCount);
                 child.base             = entry->type.definition.value(endpoint).toMap();
@@ -1712,8 +1725,9 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
                 }
                 tree.children.push_back(std::move(*child));
             }
-            auto finalEndpoint = std::move(tree.children[1]);
-            tree.children.erase(tree.children.begin() + 1);
+            const int finalIndex    = entry->type.kind == "tap" ? 0 : 1;
+            auto      finalEndpoint = std::move(tree.children[finalIndex]);
+            tree.children.erase(tree.children.begin() + finalIndex);
             tree.children.push_back(std::move(finalEndpoint));
             return tree;
         };
@@ -2163,7 +2177,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                                 node.value("flipped", false).toBool()});
         }
         // A Tap additionally owns the independently executing copy Lineflow.
-        instances += entry->type.kind == "tap" ? 3 : 2;
+        instances += 2;
         if (instances > limits.maxInstances)
         {
             fail(error, "Processor expansion limits exceeded by Lineflow endpoints");
@@ -2171,6 +2185,10 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
         }
         for (const auto& endpoint : {"initial", "final"})
         {
+            if (entry->type.kind == "tap" && QString::fromLatin1(endpoint) == "initial")
+            {
+                continue;
+            }
             const auto name                  = '@' + QString::fromLatin1(endpoint);
             const auto endpointConfiguration = LineflowEndpoint::
                 resolveConfiguration(entry->type.definition.value(endpoint).toMap(),
@@ -2188,7 +2206,10 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                 return {};
             }
         }
-        result->_paths.prepend(QStringLiteral("@initial"));
+        if (entry->type.kind != "tap")
+        {
+            result->_paths.prepend(QStringLiteral("@initial"));
+        }
         result->_paths.append(QStringLiteral("@final"));
         result->_composite   = true;
         const auto paths     = result->_paths;
@@ -2250,6 +2271,10 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                 configuration.insert("overrides", values);
                 for (const auto& endpoint : {"initial", "final"})
                 {
+                    if (entry->type.kind == "tap" && QString::fromLatin1(endpoint) == "initial")
+                    {
+                        continue;
+                    }
                     const auto name     = '@' + QString::fromLatin1(endpoint);
                     const auto resolved = LineflowEndpoint::resolveConfiguration(entry->type.definition.value(endpoint)
                                                                                      .toMap(),
@@ -2283,12 +2308,21 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                     lanes.push_back(child.lane);
                     flipped.push_back(child.flipped);
                 }
-                nodeNames.prepend(QStringLiteral("@initial"));
+                if (entry->type.kind != "tap")
+                {
+                    nodeNames.prepend(QStringLiteral("@initial"));
+                }
                 nodeNames.append(QStringLiteral("@final"));
                 const int endpointLane = entry->type.inputCount == 2 ? 2 : 0;
-                lanes.insert(lanes.begin(), endpointLane);
+                if (entry->type.kind != "tap")
+                {
+                    lanes.insert(lanes.begin(), endpointLane);
+                }
                 lanes.push_back(endpointLane);
-                flipped.insert(flipped.begin(), false);
+                if (entry->type.kind != "tap")
+                {
+                    flipped.insert(flipped.begin(), false);
+                }
                 flipped.push_back(false);
                 Type::Factory factory = [nodes       = std::move(nodes),
                                          nodeNames   = std::move(nodeNames),

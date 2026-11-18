@@ -191,6 +191,11 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
                     }
                     if (parts[index] == "@initial" || parts[index] == "@final")
                     {
+                        if (parts[index] == "@initial"
+                            && originalDefinitions.value(block).toMap().value("kind").toString() == "tap")
+                        {
+                            reject("Tap Input has no configurable occurrence: " + it.key());
+                        }
                         if (index != parts.size() - 1)
                         {
                             reject("Lineflow endpoint occurrence cannot have descendants: " + it.key());

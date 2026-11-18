@@ -314,7 +314,7 @@ content:
     file:
       type: string
       title: File
-      description: 'Absolute path; {direction} expands to rx, tx or stream. The parent directory must exist.'
+      description: 'Relative paths start at the open workspace folder; {direction} expands to rx, tx or stream. The parent directory must exist.'
       maxLength: 32768
       x-widget: filePath
       x-widget-options: {mode: save}
@@ -465,9 +465,9 @@ std::optional<QVariantMap> LineflowEndpoint::resolveConfiguration(const QVariant
     if (result.value("enabled").toBool())
     {
         const auto path = result.value("file").toString();
-        if (path.isEmpty() || path.contains(QChar::Null) || !QDir::isAbsolutePath(path))
+        if (path.isEmpty() || path.contains(QChar::Null))
         {
-            fail(error, "Recording requires an absolute nonempty file path without NUL");
+            fail(error, "Recording requires a nonempty file path without NUL");
             return {};
         }
         if (channels == 2 && result.value("format").toString() == "binary"
@@ -488,6 +488,11 @@ std::unique_ptr<Processor> LineflowEndpoint::create(const QVariantMap& configura
     const auto resolved = resolveConfiguration(configuration, {}, channels, error);
     if (!resolved)
     {
+        return {};
+    }
+    if (resolved->value("enabled").toBool() && !QDir::isAbsolutePath(resolved->value("file").toString()))
+    {
+        fail(error, "Relative recording paths require an open workspace directory");
         return {};
     }
     if (resolved->value("enabled").toBool() && resolved->value("recordingMode").toString() == "lines")

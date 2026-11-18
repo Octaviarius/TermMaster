@@ -7,6 +7,7 @@
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRefactoring.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
+#include <Termaster/Core/SettingsSchema.h>
 #include <algorithm>
 
 namespace
@@ -83,6 +84,41 @@ class TapProcessorTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void emptySavedTapPassesThroughAndHasOnlyOutputSettings()
+    {
+        ProcessorRegistry registry;
+        QString           error;
+        auto              scope = registry.scoped(
+            {
+                {"empty", saved("empty", "tap", {})}
+        },
+            &error);
+        QVERIFY2(scope, qPrintable(error));
+        const auto properties = scope->properties("empty", {}, {}, &error);
+        QVERIFY2(properties, qPrintable(error));
+        QCOMPARE(properties->size(), 1);
+        QCOMPARE(properties->first().path, QString("@final"));
+        QCOMPARE(properties->first().title, QString("Output"));
+        auto runtime = scope->create("empty", {}, {}, &error);
+        QVERIFY2(runtime, qPrintable(error));
+        QList<QByteArray> output;
+        bool              completed = false;
+        const QByteArray  packet("A\0B", 3);
+        QCOMPARE(runtime->accept({packet},
+                                 {[&](auto chunk) { output.append(chunk.bytes); },
+                                  [&](QString failure) {
+                                      error     = failure;
+                                      completed = true;
+                                  }}),
+                 Processor::AcceptResult::Accepted);
+        QTRY_VERIFY(completed);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(output, QList<QByteArray> {packet});
+        bool cancelled = false;
+        runtime->cancel([&] { cancelled = true; });
+        QTRY_VERIFY(cancelled);
+    }
+
     void mainPacketsCompleteBeforeIndependentBranchAndDiscardItsOutput()
     {
         auto branch = std::make_shared<Manual>();
@@ -232,6 +268,16 @@ private slots:
         QVERIFY2(scoped, qPrintable(error));
         const auto properties = scoped->properties("root", {}, {}, &error);
         QVERIFY2(properties, qPrintable(error));
+        QVERIFY(std::none_of(properties->cbegin(), properties->cend(), [](const auto& node) {
+            return node.path == "observer/@initial";
+        }));
+        const auto outputSettings = std::find_if(properties->cbegin(), properties->cend(), [](const auto& node) {
+            return node.path == "observer/@final";
+        });
+        QVERIFY(outputSettings != properties->cend());
+        SettingsSchema outputSchema(outputSettings->settingsSchema);
+        QVERIFY(outputSchema.discriminator().isEmpty());
+
         QVERIFY(std::any_of(properties->cbegin(), properties->cend(), [](const auto& node) {
             return node.path == "observer/encode";
         }));
