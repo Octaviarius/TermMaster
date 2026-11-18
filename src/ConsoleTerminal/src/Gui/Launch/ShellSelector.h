@@ -1,9 +1,11 @@
 #pragma once
 
+#include <QPointer>
 #include <QWidget>
 #include <Termaster/Core/Plugin/PluginHost.h>
 
 class QComboBox;
+class QFileDialog;
 
 /** Editable shell suggestions. The persisted value is always an executable/path. */
 class ShellSelector final : public QWidget, public PluginHost::FieldEditor
@@ -18,6 +20,7 @@ public:
 
 private:
     QComboBox*            _combo;
+    QPointer<QFileDialog> _dialog;
     QVariant              _value     = QString();
     bool                  _untouched = true;
     std::function<void()> _changed;

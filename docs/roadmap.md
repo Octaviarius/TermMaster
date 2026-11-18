@@ -735,3 +735,11 @@ Priorities are ordered by dependency; reusable one-line compositions remain supp
 - [x] Preserve processor IDs, configuration keys, stored enum values, defaults and validation constraints.
 - [x] Exercise all 63 Release suites, correct the stale date/time help expectation and pass final affected suites.
 - [x] Inspect native captures at 100%/200% and build final Release and Debug applications.
+
+## SET-38: Editable file and directory pickers
+
+- [x] Add descriptor-selected filePath and directoryPath editors with raw string input and standard Qt browse dialogs.
+- [x] Support existing input files, new output paths and directories without writing during selection.
+- [x] Apply pickers to Lineflow recording files and console working directories; retain shell suggestions with an executable browse button.
+- [x] Verify cancellation, dialog ownership, raw substitutions, six affected Release suites and final open/save/directory checks.
+- [x] Inspect native 100%/200% presentation and build Release and Debug applications.

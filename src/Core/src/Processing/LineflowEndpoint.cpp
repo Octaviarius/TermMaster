@@ -316,6 +316,8 @@ content:
       title: File
       description: 'Absolute path; {direction} expands to rx, tx or stream. The parent directory must exist.'
       maxLength: 32768
+      x-widget: filePath
+      x-widget-options: {mode: save}
       default: ''
       x-order: 3
     append:
