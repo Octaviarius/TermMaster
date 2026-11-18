@@ -25,7 +25,11 @@ flowchart TB
 ## Fixed endpoint recording
 
 Initial and final boundaries have stable reserved occurrence names `@initial`
-and `@final`; they are not draggable catalog processors. Definition source maps
+and `@final`; they are not draggable catalog processors. Canvas and property names
+are Device/Terminal for two-channel diagrams and Input/Output for one-channel
+diagrams, including private Tap branches. They use the ordinary node body, colors
+and port markers. Device has only the lower Rx/Tx pair, and Terminal only the
+upper pair, aligned with the two lanes. Boundaries cannot be moved or deleted. Definition source maps
 `initial` and `final` hold their defaults, while normal occurrence overrides can
 customize each instance. Nested boundaries retain prefixed paths. Disabled packet
 recorders do not add runtime scheduling stages.
@@ -97,3 +101,7 @@ hardware or external network connections. The current terminal processing format
 is supported; obsolete Simplex/Duplex documents are not migrated automatically.
 
 The final Debug application and bundled transport plugins were built successfully.
+
+The FLOW-29 boundary presentation update passed the complete Release editor suite
+and native 100%/200% checks. Captures above reflect the ordinary fixed block
+presentation. The final Debug application was rebuilt.

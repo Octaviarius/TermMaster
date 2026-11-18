@@ -3,7 +3,7 @@
 #include <QAbstractItemView>
 
 class LineflowEditorModel;
-class QToolButton;
+class QPainter;
 
 /** Native-style canvas over the authoritative draft model. Layout is derived, never persisted. */
 class LineflowCanvas final : public QAbstractItemView
@@ -25,6 +25,8 @@ public:
     void          scrollTo(const QModelIndex& index, ScrollHint hint = EnsureVisible) override;
     QModelIndex   indexAt(const QPoint& point) const override;
     QList<Port>   ports(const QModelIndex& index) const;
+    QRect         endpointRect(const QString& endpoint) const;
+    QList<Port>   endpointPorts(const QString& endpoint) const;
     bool          dropIndicatorVisible() const;
     void          expandAll();
     Q_SIGNAL void endpointActivated(const QString& endpoint);
@@ -57,8 +59,7 @@ private:
         QRect       rect;
     };
     LineflowEditorModel& _draft;
-    QToolButton*         _initial = nullptr;
-    QToolButton*         _final   = nullptr;
+    QString              _activeEndpoint;
     int                  _dropRow = -1;
     QString              _dropLane;
     QStringList          _dropOrder;
@@ -68,7 +69,8 @@ private:
     int                  _bodyHeight() const;
     QRect                _flipRect(const QRect& rect) const;
     QRect                _openRect(const QModelIndex& index, const QRect& rect) const;
-    void                 _positionEndpoints();
+    void                 _paintBody(QPainter& painter, const QRect& rect, bool selected) const;
+    void                 _paintPort(QPainter& painter, const Port& port) const;
     int                  _contentWidth() const;
     QList<Item>          _items() const;
     void                 _appendLinked(QList<Item>& items, const QModelIndex& parent, const QRect& card, int& y) const;
