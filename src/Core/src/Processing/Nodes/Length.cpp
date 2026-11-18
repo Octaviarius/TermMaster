@@ -43,6 +43,8 @@ content:
           title: Position
           description: Place the length field before or after the payload.
           enum: [prefix, suffix]
+          x-widget-options:
+            variantTitles: {prefix: Prefix, suffix: Suffix}
           default: prefix
           x-group: length
           x-order: 1
@@ -60,6 +62,8 @@ content:
           title: Endianness
           description: Byte order of the unsigned length field.
           enum: [little, big]
+          x-widget-options:
+            variantTitles: {little: Little-endian, big: Big-endian}
           default: little
           x-group: length
           x-order: 3

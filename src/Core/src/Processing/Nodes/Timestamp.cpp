@@ -31,7 +31,7 @@ content:
   properties:
     format:
       type: string
-      title: Datetime format
+      title: Date/time format
       description: "Qt date/time format for {datetime}: yyyy-MM-dd HH:mm:ss.zzz. Single-quoted words are literal. Unused variables are not evaluated."
       maxLength: 512
       default: 'yyyy-MM-dd HH:mm:ss.zzz'
@@ -42,6 +42,8 @@ content:
       title: Time zone
       description: 'Local or UTC for {datetime}. Unix and boot-relative clocks are unaffected.'
       enum: [local, utc]
+      x-widget-options:
+        variantTitles: {local: Local, utc: UTC}
       default: local
       x-group: timestamp
       x-order: 2

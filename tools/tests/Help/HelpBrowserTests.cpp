@@ -100,7 +100,7 @@ void HelpBrowserTests::compiledMetadataAndNativeReference()
     QCOMPARE(text->source().scheme(), QStringLiteral("qthelp"));
     const auto reference = text->toPlainText();
     QVERIFY(reference.contains(QStringLiteral("Parameters")));
-    QVERIFY(reference.contains(QStringLiteral("Datetime format")));
+    QVERIFY(reference.contains(QStringLiteral("Date/time format")));
     QVERIFY(reference.contains(QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")));
     QVERIFY(reference.contains(QStringLiteral("Required:")));
     QVERIFY(reference.contains(QStringLiteral("Default:")));
