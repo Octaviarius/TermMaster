@@ -455,11 +455,12 @@ void LineflowEditorDialog::_showEndpoint(const QString& name)
     _select();
     _clearProperties();
     _active.clear();
-    _name->setText(name == "@initial" ? tr("Initial endpoint") : tr("Final endpoint"));
+    const auto block    = _model->selectedBlock();
+    const auto key      = block + '\n' + name;
+    const int  channels = _model->blockChannels(block);
+    _name->setText(channels == 2 ? (name == "@initial" ? tr("Device") : tr("Terminal")) :
+                                   (name == "@initial" ? tr("Input") : tr("Output")));
     _name->setEnabled(false);
-    const auto             block    = _model->selectedBlock();
-    const auto             key      = block + '\n' + name;
-    const int              channels = _model->blockChannels(block);
     ProcessorCatalog::Type metadata;
     metadata.id             = name;
     metadata.settingsSchema = LineflowEndpoint::settingsSchema(channels, name == "@final");

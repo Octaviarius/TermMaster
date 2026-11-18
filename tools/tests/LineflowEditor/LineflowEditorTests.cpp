@@ -2330,14 +2330,17 @@ private slots:
         QVERIFY(dialog.selectBlock("root"));
         dialog.show();
         QTest::qWait(30);
-        auto* canvas  = dialog.findChild<LineflowCanvas*>();
-        auto* initial = canvas->findChild<QToolButton*>("initialEndpoint");
-        auto* final   = canvas->findChild<QToolButton*>("finalEndpoint");
-        QVERIFY(initial && final && initial->isVisible() && final->isVisible());
+        auto* canvas = dialog.findChild<LineflowCanvas*>();
+        QVERIFY(canvas->endpointRect("@initial").isValid());
+        QVERIFY(canvas->endpointRect("@final").isValid());
         QCOMPARE(dialog.model().rowCount(), 1);
         QVERIFY(!registry.type("@initial"));
         QVERIFY(!registry.type("@final"));
-        initial->click();
+        QTest::mouseClick(canvas->viewport(),
+                          Qt::LeftButton,
+                          Qt::NoModifier,
+                          canvas->endpointRect("@initial").center());
+        QCOMPARE(dialog.findChild<QLineEdit*>("nodeName")->text(), QString("Input"));
         auto* form = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
         QVERIFY(form);
         auto* file    = form->editor("file")->findChild<QLineEdit*>();
@@ -2349,10 +2352,16 @@ private slots:
         QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
         QVERIFY(saved.value("root").toMap().value("source").toMap().value("initial").toMap().value("enabled").toBool());
         QVERIFY(!QFile::exists(temporary.filePath("received.bin")));
-        final->click();
+        QTest::mouseClick(canvas->viewport(), Qt::LeftButton, Qt::NoModifier, canvas->endpointRect("@final").center());
         form = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
         QVERIFY(form);
         QVERIFY(!form->editor("enabled")->findChild<QCheckBox*>()->isChecked());
+        QCOMPARE(dialog.findChild<QLineEdit*>("nodeName")->text(), QString("Output"));
+        QCOMPARE(canvas->endpointPorts("@initial").size(), 1);
+        QCOMPARE(canvas->endpointPorts("@final").size(), 1);
+        QTest::keyClick(canvas, Qt::Key_Delete);
+        QCOMPARE(dialog.model().rowCount(), 1);
+
         QVERIFY2(dialog.applyDraft(&error), qPrintable(error));
         QVERIFY(dialog.selectBlock("root"));
         const auto index = dialog.model().index(0, 0);
@@ -2498,7 +2507,23 @@ private slots:
         dialog.show();
         QTest::qWait(80);
         auto* canvas = dialog.findChild<LineflowCanvas*>();
-        canvas->findChild<QToolButton*>("finalEndpoint")->click();
+        QTest::mouseClick(canvas->viewport(), Qt::LeftButton, Qt::NoModifier, canvas->endpointRect("@final").center());
+
+        QCOMPARE(dialog.findChild<QLineEdit*>("nodeName")->text(), QString("Terminal"));
+        const auto initialPorts = canvas->endpointPorts("@initial");
+        const auto finalPorts   = canvas->endpointPorts("@final");
+        QCOMPARE(initialPorts.size(), 2);
+        QCOMPARE(finalPorts.size(), 2);
+        QVERIFY(!initialPorts[0].top && !initialPorts[1].top);
+        QVERIFY(finalPorts[0].top && finalPorts[1].top);
+        QVERIFY(!initialPorts[0].input && initialPorts[1].input);
+        QVERIFY(finalPorts[0].input && !finalPorts[1].input);
+        QCOMPARE(initialPorts[0].point.y(), canvas->endpointRect("@initial").bottom());
+        QCOMPARE(initialPorts[1].point.y(), canvas->endpointRect("@initial").bottom());
+        QCOMPARE(finalPorts[0].point.y(), canvas->endpointRect("@final").top());
+        QCOMPARE(finalPorts[1].point.y(), canvas->endpointRect("@final").top());
+        const auto firstPorts = canvas->ports(dialog.model().index(0, 0));
+        QCOMPARE(initialPorts[0].point.x(), firstPorts[0].point.x());
         auto* form = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
         QVERIFY(form);
         auto* mode = form->editor("recordingMode")->findChild<QComboBox*>();
@@ -2508,7 +2533,11 @@ private slots:
         file->setText("C:/Logs/terminal-{direction}.txt");
         QTest::qWait(80);
         QVERIFY(dialog.grab().save(QDir(capture).filePath("TerminalLines.png")));
-        canvas->findChild<QToolButton*>("initialEndpoint")->click();
+        QTest::mouseClick(canvas->viewport(),
+                          Qt::LeftButton,
+                          Qt::NoModifier,
+                          canvas->endpointRect("@initial").center());
+        QCOMPARE(dialog.findChild<QLineEdit*>("nodeName")->text(), QString("Device"));
         form = dialog.findChild<SettingsFormWidget*>("endpointSettingsForm");
         QVERIFY(form);
         form->editor("file")->findChild<QLineEdit*>()->setText("C:/Logs/device-{direction}.jsonl");

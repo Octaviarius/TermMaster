@@ -460,7 +460,7 @@ and bounded long node names.
 
 ## Fixed boundaries and composition editors
 
-Initial and final boundary buttons select their recording properties without
+Initial and final boundary blocks select their recording properties without
 adding palette entries or movable sequence rows. Byte recording and rendered
 terminal-line recording remain distinct. See [boundary semantics](lineflow-boundaries.md).
 

@@ -714,3 +714,10 @@ Priorities are ordered by dependency; reusable one-line compositions remain supp
 - [x] Open the appropriate editor for every supported composition by double-click or a compact node button.
 - [x] Preserve branch identity, per-instance configuration, refactoring, duplication and provider lifetimes.
 - [x] Verify native 100%/200% editor presentation, affected Release suites and final Debug build.
+
+## FLOW-29: Ordinary fixed boundary blocks
+
+- [x] Use Device/Terminal names consistently in paired canvas and properties; Input/Output in unary diagrams.
+- [x] Render boundaries with the ordinary node body and port markers, retaining only the lower Device pair and upper Terminal pair.
+- [x] Preserve fixed positions, recording drafts and lane-aligned port directions.
+- [x] Verify the Release editor suite, native 100%/200% captures and final Debug build.
