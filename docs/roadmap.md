@@ -87,8 +87,9 @@ mode, not a new terminal backend.
 - [ ] Define interpreter ownership, script/module lifetime, error reporting and
       execution limits without blocking the GUI.
 
-See [Python integration and stream codecs](python-and-codecs.md). Implementation
-is deferred until an explicit start instruction.
+See [Python processors and Codeflow](python-and-codecs.md). This is the next
+processing priority; the ordered implementation plan is in FLOW-6. Runtime
+implementation follows approval of the execution-mode decision.
 
 ## P8: Stream codecs and packet input
 
@@ -198,21 +199,38 @@ See [terminal processing](terminal-processing.md) for UI and acceptance details.
 Private values resolve over workspace node configuration and processor defaults.
 Rx/Tx and different terminals must remain independent even when sharing a block.
 
-## FLOW-6: Codeflow
+## FLOW-6: Python processors and Codeflow
 
-- [ ] Build on the Python ownership and execution work tracked in P7; define an
-      explicit processing/control context without granting implicit transport ownership.
-- [ ] Implement Codeflow as another Processor composition, accepting bytes and
-      producing asynchronous results under the same limits and cancellation contract.
-- [ ] Expose registered native processors and Lineflow blocks to scripts through
-      owned instance handles, with defined async waits, ordering and error propagation.
-- [ ] Add code editing, validation and diagnostics, preserving saved source/configuration
-      separately from live script state and worker/interpreter resources.
-- [ ] Verify cancellation, plugin/interpreter shutdown and bounded expansion without
-      representing arbitrary script execution as sandboxed.
+This is the next processing priority. The declarative Python class API and runtime
+choices are detailed in [Python processors and Codeflow](python-and-codecs.md).
+The stages below replace the earlier coarse Codeflow checklist; runtime remains
+unimplemented. Their order is by dependency, not a schedule estimate.
 
-Codeflow can be selected on Rx/Tx or used inside Lineflow through the common
-Processor contract. It does not add ControlFlow nodes to the Lineflow editor.
+- [x] Record the proposed Processor/Property/port API, module/environment model,
+      source storage, editor behavior and execution-mode trade-offs.
+- [ ] Stage 1 — settle execution mode; prototype runtime/module compatibility and
+      Qt code-editor integration on the actual toolchain. Do not implement a local
+      IPC/helper architecture without explicit approval of that exception.
+- [ ] Stage 2 — implement the Python SDK: inherited Property/Input/Output/handles,
+      immutable descriptor snapshots and generation into existing settings forms;
+      support 1x1 and paired 2x2 byte ports with strict validation.
+- [ ] Stage 3 — deliver the vertical processing path: open an external .py file,
+      select its environment, load a class, create independent state, process Rx/Tx bytes, enforce admission/output/time limits and stop/error
+      lifecycle without disconnecting transport or touching widgets from workers.
+- [ ] Stage 4 — deliver usable code editing with Python highlighting, indentation,
+      diagnostics, parameter/port preview and isolated synthetic packet tests.
+- [ ] Stage 5 — integrate managed/external source files, workspace catalog publication,
+      path pickers, conflict-safe saves and explicit revision replacement/restart.
+- [ ] Stage 6 — expose declared native/Lineflow child handles to async Codeflow;
+      implement cancellation, provider leases, ordering and bounded composition.
+- [ ] Stage 7 — finish environment/package UI, compatibility checks, cold/hot performance,
+      shutdown/reload acceptance, bundled help/examples and dependency notices.
+
+Each implementation stage must have a usable acceptance fixture. Basic environment
+selection and imports belong to Stage 1/3; package-management conveniences in Stage 7
+must not postpone module support in the first useful processor. General N/M typed
+ports, arbitrary computed property visibility, live property setters, generators
+and language-server completion are extensions after the first release.
 
 FLOW-2 routing, FLOW-3 registration, FLOW-4 workspace editing and FLOW-5 terminal properties are delivered.
 The remaining processing stage is FLOW-6. Editors depend on the unified catalog definition registration
