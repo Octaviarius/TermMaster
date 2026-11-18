@@ -1,3 +1,4 @@
+#include "PathEditor.h"
 #include "TimestampPreviewEditor.h"
 
 #include <QAbstractItemView>
@@ -845,7 +846,9 @@ private:
         emit valueChanged();
     }
 };
-const QStringList builtins {"boolCheckBox",
+const QStringList builtins {"filePath",
+                            "directoryPath",
+                            "boolCheckBox",
                             "stringLineEdit",
                             "enumCombo",
                             "integer",
@@ -903,6 +906,10 @@ SettingsFieldEditor* SettingsWidgetRegistry::create(const SettingsSchema::Field&
     if (!field.widget.isEmpty() && !builtins.contains(field.widget))
     {
         throw std::invalid_argument(("Unknown settings widget: " + field.widget).toStdString());
+    }
+    if (field.widget == "filePath" || field.widget == "directoryPath")
+    {
+        return new PathEditor(field, parent);
     }
     if (field.widget == "timestampPreview")
     {

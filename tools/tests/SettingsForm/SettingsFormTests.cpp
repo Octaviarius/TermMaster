@@ -8,6 +8,7 @@
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFile>
+#include <QFileDialog>
 #include <QFontDatabase>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -90,6 +91,74 @@ private:
             QVERIFY(QFontDatabase::addApplicationFont(root + "/Fonts/arial.ttf") >= 0);
         }
 #endif
+    }
+
+    Q_SLOT void pathEditorsKeepRawDraftsAndOwnTheirDialogs()
+    {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        QFile input(temporary.filePath("input.txt"));
+        QVERIFY(input.open(QIODevice::WriteOnly));
+        QCOMPARE(input.write("fixture"), qint64(7));
+        input.close();
+        SettingsWidgetRegistry registry;
+        for (const auto& mode : {QString("open"), QString("save"), QString("directory")})
+        {
+            const QString         hint = mode == "directory" ? "directoryPath" : "filePath";
+            SettingsSchema::Field field;
+            field.widget = hint;
+            field.type   = "string";
+            field.title  = "Path";
+            field.presentation.insert("mode", mode);
+            auto editor = std::unique_ptr<SettingsFieldEditor>(registry.create(field, nullptr));
+            editor->show();
+            QSignalSpy    changes(editor.get(), &SettingsFieldEditor::valueChanged);
+            const QString raw = "  relative folder/terminal-{direction}.txt  ";
+            editor->setValue(raw);
+            QCOMPARE(editor->value().toString(), raw);
+            QCOMPARE(changes.size(), 0);
+            auto* line   = editor->findChild<QLineEdit*>("pathText");
+            auto* browse = editor->findChild<QToolButton*>("browsePath");
+            QVERIFY(line && browse);
+            QCOMPARE(editor->primaryControl(), line);
+            line->setText("manual Unicode путь/{direction}.txt");
+            QCOMPARE(editor->value().toString(), line->text());
+            QCOMPARE(changes.size(), 1);
+            QTRY_COMPARE(browse->height(), SettingsFieldEditor::controlVisualHeight(line));
+
+            const QString selected = hint == "directoryPath" ? temporary.path() :
+                                     mode == "save"          ? temporary.filePath("new.txt") :
+                                                               input.fileName();
+            editor->setValue(selected);
+            changes.clear();
+            browse->click();
+            auto* dialog = editor->findChild<QFileDialog*>("pathDialog");
+            QVERIFY(dialog);
+            QCOMPARE(dialog->fileMode(),
+                     hint == "directoryPath" ? QFileDialog::Directory :
+                     mode == "save"          ? QFileDialog::AnyFile :
+                                               QFileDialog::ExistingFile);
+            QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
+            QTRY_VERIFY(!editor->findChild<QFileDialog*>("pathDialog"));
+            QCOMPARE(editor->value().toString(), selected);
+            QCOMPARE(changes.size(), 0);
+            QVERIFY(!QFile::exists(temporary.filePath("new.txt")));
+
+            browse->click();
+            dialog = editor->findChild<QFileDialog*>("pathDialog");
+            QVERIFY(dialog);
+            dialog->selectFile(selected);
+            QVERIFY(QMetaObject::invokeMethod(dialog, "accept"));
+            QTRY_VERIFY(!editor->findChild<QFileDialog*>("pathDialog"));
+            QCOMPARE(editor->value().toString(), selected);
+            QVERIFY(!QFile::exists(temporary.filePath("new.txt")));
+
+            browse->click();
+            QPointer<QFileDialog> owned = editor->findChild<QFileDialog*>("pathDialog");
+            QVERIFY(owned);
+            editor.reset();
+            QVERIFY(owned.isNull());
+        }
     }
 
     Q_SLOT void variantDraftsValidationAndAtomicApply()

@@ -198,10 +198,24 @@ Root `x-groups` is an ordered sequence of `{id, title, order}` mappings. A field
 `x-widget` selects an editor hint. `x-widget-options` is a mapping forwarded in
 the field's presentation data for a custom editor. Missing groups are created using
 their IDs as titles. Built-in hints include `boolCheckBox`, `stringLineEdit`,
-`enumCombo`, `integer`, `hexInteger`, `number`, `password`, `multiline`, `yaml`, `fontFamily`, and `color`; field types
+`enumCombo`, `integer`, `hexInteger`, `number`, `password`, `multiline`, `yaml`,
+`fontFamily`, `color`, `filePath`, and `directoryPath`; field types
 and `enum` can also select standard controls automatically. These flat annotations
 are presentation hints; JSON Schema remains authoritative for validation. The old
 nested `x-ui` annotations are rejected and are not aliases for the flat names.
+
+File and directory paths use `x-widget: filePath` or `x-widget: directoryPath`.
+Both retain a plain editable string beside a browse button. File widgets accept
+`x-widget-options: {mode: open}` (default, existing input file) or `{mode: save}`
+(output path, including a new filename). Optional `title` and Qt `filter` strings
+customize the chooser. Directory widgets select existing directories. The chooser
+changes only the draft; it does not create, truncate or write a file. Cancellation
+leaves the field unchanged. Manual text preserves relative paths, spaces and
+substitution tokens for validation/interpretation by the owning component.
+Path semantics are selected through descriptors, never guessed from field names.
+Recording endpoints use save mode; console working directories use directory mode.
+The console shell selector keeps editable suggestions and adds its own executable
+chooser. Browse dialogs are owned by their editor and close when it is destroyed.
 
 The `fontFamily` editor uses a native dropdown of installed font families and a
 presentation-only All fonts / Monospaced / Proportional filter. Each row shows the
@@ -660,3 +674,9 @@ palette highlight/text pair. The following native captures use the same
 
 No files were downloaded, no hardware was opened and no elevation was requested.
 Release was not rebuilt. Earlier font-button captures document the superseded UI.
+
+SET-38 verification passed six affected Release suites (application, schema,
+forms, console plugin, Lineflow editor and terminal processing). Follow-up form
+and console tests passed with open/save/directory selection, cancellation and
+editor destruction covered using temporary files. Native recording and shell
+captures passed and were inspected at 100%/200%. Release and Debug builds passed.

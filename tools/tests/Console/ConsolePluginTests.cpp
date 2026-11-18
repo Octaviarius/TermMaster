@@ -8,6 +8,7 @@
 #include <QLineEdit>
 #include <QPainter>
 #include <QTest>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <stdexcept>
@@ -265,6 +266,7 @@ private slots:
         layout->addStretch();
         auto* combo = editor->widget()->findChild<QComboBox*>("consoleShellCombo");
         QVERIFY(combo && combo->isEditable());
+        QVERIFY(editor->widget()->findChild<QToolButton*>("browseShell"));
 #ifdef Q_OS_WIN
         QVERIFY(combo->findText("pwsh.exe") >= 0);
         QVERIFY(combo->findText("cmd.exe") >= 0);

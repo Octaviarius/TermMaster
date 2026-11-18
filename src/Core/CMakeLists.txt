@@ -64,6 +64,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Gui/Settings/SettingsFieldEditor.cpp
     inc/Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h
     src/Gui/Settings/SettingsWidgetRegistry.cpp
+    src/Gui/Settings/PathEditor.h
+    src/Gui/Settings/PathEditor.cpp
     inc/Termaster/Core/Gui/Settings/SettingsFormModel.h
     src/Gui/Settings/SettingsFormModel.cpp
     inc/Termaster/Core/Gui/Settings/SettingsFormWidget.h

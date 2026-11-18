@@ -44,7 +44,7 @@ content:
       default: ''
       maxLength: 32767
       x-settings-path: transport/workingDirectory
-      x-widget: stringLineEdit
+      x-widget: directoryPath
       x-group: launch
       x-order: 2
     environment:
