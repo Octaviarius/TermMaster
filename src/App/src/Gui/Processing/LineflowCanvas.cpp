@@ -288,7 +288,10 @@ void LineflowCanvas::paintEvent(QPaintEvent*)
             painter.setBrush(palette().brush(QPalette::Button));
             painter.setPen(QPen(palette().color(QPalette::Mid), 1));
             painter.drawRoundedRect(open, 3, 3);
-            Icons::icon("Lineflow").paint(&painter, open.adjusted(3, 3, -3, -3));
+            Icons::icon(item.index.data(LineflowEditorModel::CompositionKindRole).toString() == "codeflow" ?
+                            "Codeflow" :
+                            "Lineflow")
+                .paint(&painter, open.adjusted(3, 3, -3, -3));
         }
         if (!linked)
         {

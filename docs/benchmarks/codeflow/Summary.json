@@ -1,0 +1,58 @@
+{
+  "date": "2026-11-18",
+  "configuration": "Release",
+  "toolchain": "Qt 6.12.0 / MSVC2022 x64 / Windows 11",
+  "runs": 3,
+  "measurement": "Median of synthetic sequential packet runs; no transport or rendering throughput claim",
+  "cases": {
+    "native.bypass": {
+      "startupms": 0.8656,
+      "stopms": 2.4756,
+      "1KiB": {
+        "p50packetms": 0.1344,
+        "p95packetms": 0.1801,
+        "throughputMiBps": 6.807581201264254,
+        "packetsps": 6970.963150094596
+      },
+      "64KiB": {
+        "p50packetms": 0.1951,
+        "p95packetms": 0.2467,
+        "throughputMiBps": 284.1877912924861,
+        "packetsps": 4547.004660679778
+      }
+    },
+    "shared": {
+      "startupms": 162.3062,
+      "stopms": 3.3161,
+      "1KiB": {
+        "p50packetms": 0.7458,
+        "p95packetms": 0.8924,
+        "throughputMiBps": 1.260817287829586,
+        "packetsps": 1291.076902737496
+      },
+      "64KiB": {
+        "p50packetms": 1.1186,
+        "p95packetms": 1.27,
+        "throughputMiBps": 54.15479954492639,
+        "packetsps": 866.4767927188223
+      }
+    },
+    "single": {
+      "startupms": 162.8595,
+      "stopms": 3.1482,
+      "1KiB": {
+        "p50packetms": 0.4044,
+        "p95packetms": 0.5403,
+        "throughputMiBps": 2.267228674323752,
+        "packetsps": 2321.6421625075222
+      },
+      "64KiB": {
+        "p50packetms": 0.5701,
+        "p95packetms": 0.6647,
+        "throughputMiBps": 104.71467345776229,
+        "packetsps": 1675.4347753241966
+      }
+    }
+  },
+  "coldDescribeMs": 164.2767
+}

@@ -13,7 +13,8 @@ class ThreadedProcessor final : public Processor
 public:
     static std::shared_ptr<Processor> create(std::shared_ptr<const ProcessorRegistry::Prepared> prepared,
                                              const QVariantMap&                                 overrides = {},
-                                             QString*                                           error     = nullptr);
+                                             QString*                                           error     = nullptr,
+                                             const QString&                                     directory = {});
 
     ~ThreadedProcessor() override;
     Q_DISABLE_COPY_MOVE(ThreadedProcessor)

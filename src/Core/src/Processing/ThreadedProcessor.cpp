@@ -68,7 +68,8 @@ struct ThreadedProcessor::State : std::enable_shared_from_this<State>
     // The following state belongs exclusively to the worker thread.
     std::shared_ptr<Processor> processor;
     std::deque<Input>          inputs;
-    QEventLoop*                loop                = nullptr;
+    QEventLoop*                loop = nullptr;
+    QString                    directory;
     bool                       cancellationStarted = false;
     bool                       cleaned             = false;
     bool                       retryQueued         = false;
@@ -87,7 +88,7 @@ struct ThreadedProcessor::State : std::enable_shared_from_this<State>
             const bool retained = nativeJoin.captureCurrentThread(&startupError);
             if (!stopping && retained)
             {
-                processor = prepared->instantiate(overrides, &startupError);
+                processor = prepared->instantiate(overrides, &startupError, directory);
                 if (processor)
                 {
                     configuration = processor->configuration();
@@ -321,7 +322,8 @@ ThreadedProcessor::~ThreadedProcessor()
 
 std::shared_ptr<Processor> ThreadedProcessor::create(std::shared_ptr<const ProcessorRegistry::Prepared> prepared,
                                                      const QVariantMap&                                 overrides,
-                                                     QString*                                           error)
+                                                     QString*                                           error,
+                                                     const QString&                                     directory)
 {
     if (error)
     {
@@ -346,6 +348,7 @@ std::shared_ptr<Processor> ThreadedProcessor::create(std::shared_ptr<const Proce
     state->outputNames   = prepared->outputNames();
     state->prepared      = std::move(prepared);
     state->overrides     = overrides;
+    state->directory     = directory;
     state->ownerContext  = new QObject;
     state->workerContext = new QObject;
     auto facade          = std::shared_ptr<ThreadedProcessor>(new ThreadedProcessor(state));

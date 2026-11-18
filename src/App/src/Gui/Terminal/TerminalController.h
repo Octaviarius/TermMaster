@@ -78,6 +78,7 @@ public:
     bool                    saveSettings(SettingsDialog& dialog, QString* error);
     void addDefaultSettingsPages(SettingsDialog& dialog, const QString& scope, SettingsOverlay settings);
     void applySettings();
+    bool controlProcessing(const QString& definition, bool restart, QString* error = nullptr);
 
     QVariantMap   workspaceSettings() const override;
     void          showMessage(const QString& message) override;
@@ -119,6 +120,7 @@ private:
     {
         std::shared_ptr<Processor> processor;
         QVariantMap                lineRecording;
+        QStringList                definitions;
     };
     struct ConnectionDraft
     {

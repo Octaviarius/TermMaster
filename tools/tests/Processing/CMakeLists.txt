@@ -3,6 +3,19 @@ find_package(Qt6 REQUIRED COMPONENTS
     Widgets
 )
 
+qt_add_executable(CodeflowTests
+    CodeflowTests.cpp
+)
+target_compile_features(CodeflowTests PRIVATE cxx_std_20)
+target_link_libraries(CodeflowTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME CodeflowTests COMMAND CodeflowTests -o -,txt)
+set_tests_properties(CodeflowTests PROPERTIES
+    TIMEOUT 90
+)
+
 qt_add_executable(ThreadedProcessorTests
     ThreadedProcessorTests.cpp
 )
@@ -249,3 +262,11 @@ target_link_libraries(TapProcessorTests PRIVATE
     Qt6::Test
 )
 add_test(NAME TapProcessorTests COMMAND TapProcessorTests)
+
+if(Python3_Interpreter_FOUND)
+    add_test(NAME PythonSdkTests
+        COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_SOURCE_DIR}/tools/tests/Python/SdkTests.py"
+    )
+    set_tests_properties(PythonSdkTests PROPERTIES TIMEOUT 90)
+endif()
+add_dependencies(CodeflowTests PythonRuntime)

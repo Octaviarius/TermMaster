@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-18",
+  "feature": "FLOW-6",
+  "toolchain": "Windows 11, Qt 6.12.0, MSVC2022 x64",
+  "releaseCtest": {
+    "passed": 65,
+    "failed": 0,
+    "seconds": 111.28
+  },
+  "finalAffectedSuites": [
+    "CodeflowAppTests",
+    "CodeflowTests",
+    "PythonSdkTests",
+    "CodeflowEditorTests",
+    "WorkspaceTests",
+    "ProcessorCatalogTests",
+    "LineflowPersistenceTests"
+  ],
+  "finalAffectedResult": "passed; runtime/App/editor/SDK rerun after final logging and editor refinements",
+  "sdkCompatibility": [
+    "CPython 3.13",
+    "CPython 3.14.4"
+  ],
+  "nativeWindowsGui": {
+    "editorScales": [
+      1,
+      2
+    ],
+    "appPublicationAndLifecycle": "5 passed, 0 failed"
+  },
+  "builds": {
+    "Release": "Termaster built",
+    "Debug": "Termaster built"
+  },
+  "fixtures": "Synthetic byte packets and local TCP loopback; no real device commands or external network tests",
+  "limitations": [
+    "External CPython/venv must be installed separately",
+    "Trusted scripts; no sandbox or Python heap quota",
+    "Offline local package install only; dependencies supplied separately",
+    "Source and catalog use separate explicit transactions with partial-save reporting",
+    "General N/M typed ports, application scripting and LSP remain outside this stage"
+  ]
+}

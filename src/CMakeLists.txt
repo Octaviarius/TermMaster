@@ -68,6 +68,7 @@ add_subdirectory(ConsoleTerminal)
 add_subdirectory(SocketTerminal)
 
 add_dependencies(Termaster
+    PythonRuntime
     TermasterHelp
     SerialTerminal
     ConsoleTerminal

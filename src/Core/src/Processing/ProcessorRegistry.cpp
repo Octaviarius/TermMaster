@@ -13,6 +13,7 @@
 #include <QScopeGuard>
 #include <QThread>
 #include <QTimer>
+#include <QUuid>
 #include <Termaster/Core/Processing/Lineflow.h>
 #include <Termaster/Core/Processing/LineflowEndpoint.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
@@ -25,6 +26,8 @@
 
 namespace
 {
+thread_local ProcessorRegistry::ExecutionContext executionContext;
+
 Q_LOGGING_CATEGORY(registryLog, "termaster.processing.registry")
 Q_LOGGING_CATEGORY(registryLogTrace, "termaster.processing.registry.trace", QtInfoMsg)
 
@@ -1877,8 +1880,26 @@ QVariantMap ProcessorRegistry::Prepared::configuration() const
 {
     return _configuration;
 }
-std::shared_ptr<Processor> ProcessorRegistry::Prepared::instantiate(const QVariantMap& overrides, QString* error) const
+ProcessorRegistry::ExecutionContext ProcessorRegistry::currentExecution()
 {
+    return executionContext;
+}
+
+std::shared_ptr<Processor> ProcessorRegistry::Prepared::instantiate(const QVariantMap& overrides,
+                                                                    QString*           error,
+                                                                    const QString&     directory) const
+{
+    const bool root = executionContext.id.isEmpty();
+    if (root)
+    {
+        executionContext = {QUuid::createUuid().toString(QUuid::WithoutBraces), directory};
+    }
+    const auto executionScope = qScopeGuard([root] {
+        if (root)
+        {
+            executionContext = {};
+        }
+    });
     if (error)
     {
         error->clear();

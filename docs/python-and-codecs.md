@@ -1,359 +1,268 @@
 # Python processors and Codeflow
 
-Status: proposed design, not a delivered Python API. The examples below describe
-an SDK to implement. Native processors, Lineflow, generated settings and Tap are
-already delivered. Implementation stages are tracked only in the
-[roadmap](roadmap.md#flow-6-codeflow).
+Status: the declarative SDK, external-process runtime, workspace publication,
+Codeflow editor, isolated packet tests and declared child RPC are implemented.
+Release acceptance results and measured limits are recorded below and in
+[FLOW-6](roadmap.md#flow-6-python-processors-and-codeflow). General application
+scripting is separate from the processing SDK.
 
-## Product model
+## Ownership and execution
 
-Python is the execution language/provider. Codeflow is a reusable Processor
-implemented by a Python class; it is not a second terminal model. Codeflow can be
-placed inside Lineflow or Tap and can expose a paired terminal-compatible 2x2
-interface. Native processing remains usable without Python.
+Codeflow is a Python-authored Processor in the existing registry. It can occur in
+Lineflow and Tap, including a terminal-compatible paired interface. Native-only
+processing never starts Python. Core owns the asynchronous Processor adapter and
+protocol; App owns the editor, workspace publication and environment actions;
+`src/Python/Runtime/termaster` owns the SDK. CPython is an external executable,
+not an embedded Core dependency or a persistent service.
 
-A script author subclasses `Processor`, declares `Property`, `Input` and `Output`
-descriptors, and attaches methods with `@handles`. No handwritten JSON Schema,
-YAML manifest or Qt code is required for script parameters or ports. The SDK
-extracts an immutable description, from which Core generates the existing settings
-schema and port metadata. App retains persistence and orchestration ownership.
+Each independent instantiated processing diagram owns a separate helper process.
+Codeflow occurrences within that diagram share one interpreter/environment and
+own independent instances. Creating the same prepared diagram twice creates two
+helpers. Mixing Python executables within one diagram is rejected. Compatible
+standard-library, installed third-party and native extension modules can import
+normally. This does not guarantee compatibility with every wheel or Python ABI.
 
-Implementation boundaries: a Python processing plugin owns interpreter discovery,
-SDK/runtime integration and Python-specific editing support. Core keeps the generic
-Processor contract, descriptor validation and reusable settings UI without a Python
-dependency. App owns workspace source persistence, publication and execution
-orchestration. Plugins use the host SDK rather than linking a static Core copy;
-editor/runtime factories retain their owners through destruction and cancellation.
+```mermaid
+flowchart LR
+    UI[App editor and workspace] --> Registry[Core registry and metadata]
+    Registry --> Worker[Processing worker and native children]
+    Worker <-->|Bounded JSON headers and raw byte packets| Host[Diagram-owned CPython process]
+    Host --> A[Codeflow instance A]
+    Host --> B[Codeflow instance B]
+    Host <-->|Declared asynchronous child RPC| Worker
+```
 
-## Proposed author API
+Python and imported modules run with normal user permissions: this is not a
+sandbox. Script file/network side effects cannot be rolled back. Host termination
+bounds blocked Python/native-extension execution, not arbitrary Python heap
+allocation. There is no general Python memory quota. Windows host descendants are
+owned through a kill-on-close job. Native child cancellation remains authoritative;
+killing Python does not forcibly interrupt a C++ child.
+
+## Author API
 
 ```python
 import zlib
 from termaster import Processor, Property, Input, Output, handles
 
-
 class ZlibCodec(Processor):
-    level = Property(
-        int, default=6, minimum=0, maximum=9,
-        title="Compression level", group="Compression",
-        help="Compression level used for outgoing packets.",
-    )
-
+    level = Property(int, default=6, minimum=0, maximum=9,
+                     title="Compression level", group="Compression")
     rx_in = Input(bytes, title="Compressed", flow="rx")
     rx_out = Output(bytes, title="Payload", flow="rx")
     tx_in = Input(bytes, title="Payload", flow="tx")
     tx_out = Output(bytes, title="Compressed", flow="tx")
 
     @handles(rx_in, output=rx_out)
-    def decode(self, data: bytes):
+    def decode(self, data):
         return zlib.decompress(data)
 
     @handles(tx_in, output=tx_out)
-    def encode(self, data: bytes):
+    def encode(self, data):
         return zlib.compress(data, level=self.level)
 ```
 
-Each placement creates an independent instance. Fields such as `self.level` expose
-typed, validated configuration, rather than descriptor objects. State belongs to
-that instance; module globals must not become the supported state-sharing API.
-Optional `start()` and `stop()` hooks initialize and release runtime resources.
-They may be async. The base class binds configuration, context and ports before
-calling `start()`; authors do not need a custom constructor for ordinary scripts.
-An optional class decorator can supply display title, group and help text; the
-class name is the default processor title.
+Descriptor names are stable IDs; titles are labels. Inherited descriptors and
+handlers are collected without constructing an instance. A named `className`
+selects a concrete subclass; otherwise discovery requires one unambiguous concrete
+leaf subclass. Imports execute during deliberate Check/Test/Apply, never merely
+to browse catalog metadata. Custom constructors are rejected: use `start()`.
+The optional `@processor(title=...)` decorator supplies the display title;
+the class name is the default title.
 
-A handler receives owned bytes for one whole input packet. Its return contract is:
+The first release supports one input/output or paired two-input/two-output byte
+ports. Paired ports require one Rx and one Tx in each direction; runtime index 0
+is Rx and index 1 is Tx, regardless of declaration order. Rx means device to
+terminal; Tx means terminal to device. Canvas rotation does not rename these lanes.
+Every input requires exactly one handler. General N/M and structured ports remain
+outside this editor/runtime contract.
 
-| Return/action | Meaning |
+| Handler result | Packet effect |
 | --- | --- |
-| `bytes`, `bytearray`, `memoryview` | One packet on the decorator's output; copy mutable/borrowed data into owned storage. |
+| `bytes`, `bytearray`, `memoryview` | One owned packet. |
 | `b""` | One explicit empty packet. |
-| `None` | No output for this input; useful for filtering or explicit buffering. |
-| Bounded `list`/`tuple` of byte buffers | Several distinct packets on the declared output. |
-| `self.other_out.emit(data)` and return `None` | Explicit routing, fan-out or unsolicited output on a declared port. |
-| `str`, arbitrary objects, mixed emit-plus-return | A concrete contract error; no implicit text encoding or duplicate publication. |
+| `None` | No packet. |
+| `list` or `tuple` of byte buffers | Several distinct packets, in order. |
+| `self.outgoing.emit(data)` then `None` | Explicit routing on a declared output. |
 
-Generators and async generators are deferred until a bounded streaming contract
-exists. Async handlers use the same result contract. Expansion, packet count,
-pending bytes and time budgets apply to both returns and explicit emissions.
-`self.ctx` supplies task-local packet information, scoped logging, cancellation,
-owned timers and declared child processors. It does not implicitly expose transport
-ownership, terminal widgets or a QApplication. Callback data must not be borrowed
-from Qt buffers after an invocation completes.
+Sync and async handlers share this contract. Strings, generators and arbitrary
+objects are errors. Mixing returned packets with explicit emission is an error;
+per-invocation outputs are validated before publication. NUL bytes and packet
+boundaries are preserved. Transport chunks are not automatically whole protocol
+messages: explicit framing or bounded instance state performs accumulation.
 
-## Properties and variants
-
-Descriptors use familiar Python types and optional constraints:
+## Properties and generated settings
 
 ```python
+from enum import Enum
 from pathlib import Path
 from termaster import Property
 
-prefix = Property(str, default="", title="Prefix")
-enabled = Property(bool, default=True)
-width = Property(int, default=2, minimum=1, maximum=8, step=1)
-ratio = Property(float, default=1.0, minimum=0.0)
-letter_case = Property(str, default="upper",
-                       choices={"upper": "Uppercase", "lower": "Lowercase"})
-polynomial = Property(int, default=0x1021, minimum=0, maximum=0xFFFF,
-                      widget="hexInteger", title="Polynomial")
+class Encoding(Enum):
+    FIXED = "fixed"
+    VARIABLE = "variable"
+
+encoding = Property(Encoding, default=Encoding.FIXED)
+width = Property(int, default=2, minimum=1, maximum=8, step=1,
+                 when=encoding.is_(Encoding.FIXED))
 output_file = Property(Path, default="packets.bin", mode="save")
 working_directory = Property(Path, default=".", kind="directory")
-
-encoding = Property(str, default="fixed",
-                    choices={"fixed": "Fixed", "varint": "Varint"})
-fixed_width = Property(int, default=2, minimum=1, maximum=8,
-                       when=encoding.is_("fixed"))
-max_bytes = Property(int, default=10, minimum=1, maximum=10,
-                     when=encoding.is_("varint"))
+polynomial = Property(int, default=0x1021, minimum=0, maximum=0xffff,
+                      widget="hexInteger", title="Polynomial")
 ```
 
-Python Enum classes can supply choices with typed enum values. Titles default to
-readable sentence case from attribute names; explicit titles preserve acronyms.
-Group, order, help, read-only presentation and registered widget hints map to the
-existing form contract. Path fields use the shared picker and retain raw relative
-configuration; the runtime Path value resolves from the workspace directory.
-Color editing can use a string Property with `widget="color"`. Complex dictionaries
-and lists use the existing YAML/custom editor contract initially.
+Place those declarations inside the Processor class. Supported types are `bool`,
+`int`, `float`, `str`, `Path` and scalar-valued Enum classes. Configuration is typed
+and immutable per instance; assigning to a Property raises an error. Paths retain
+raw relative defaults/settings and resolve to runtime `Path` values from the
+workspace directory. Process-wide cwd is unchanged.
 
-The first conditional-property implementation supports one finite string/enum
-selector with equality conditions, matching existing oneOf capabilities. It does
-not promise arbitrary computed visibility or execute Python getters during paint.
-Unsupported conditions receive an explicit descriptor error. Numeric configuration
-continues to honor Core's exact numeric validation range. Python data processing
-itself can use arbitrary-size integers.
+Properties support `choices`, `minimum`, `maximum`, `step`, `title`, `group`,
+`help`, `order`, `read_only`, `widget` and widget options. Numeric settings and
+constraints stay within the exact numeric range of the shared schema validator;
+ordinary Python computations can still use larger integers. Conditions support
+one unconditional finite string/enum selector and equality via `selector.is_(...)`.
+Arbitrary expressions or several discriminators receive a descriptor error.
 
-Attribute names are stable parameter IDs. Changing a title does not rename stored
-configuration. Values remain immutable within an active revision initially; Apply
-prepares a replacement instance/graph. Live setters and change hooks are a later
-extension, not a second mutation path into settings persistence.
+Discovery returns a Draft 7 root schema and a version-1
+`termaster.settings-schema` envelope, plain defaults, ports and declared child
+metadata. The existing settings forms render these descriptors. A running revision
+is replaced rather than mutated. Source descriptor drift requires another explicit
+check/publication before the changed revision can run.
 
-## Ports and direction
+## Lifecycle, context and child processors
 
-Input/Output specify port direction. `flow="rx"` and `flow="tx"` specify the
-logical terminal lane, not the Python object's direction or current visual side.
-Rx goes from device to display, Tx from terminal to device. The example therefore
-decodes Rx and encodes Tx within one 4-pole node. Canvas flipping changes physical
-placement using the existing routing contract; it must not swap handler meanings.
+The SDK binds configuration, ports and `self.ctx` before `start()`. `start()` and
+`stop()` can be async. Packet admission waits for startup. Different input lanes
+may interleave at await points; Python does not introduce a thread per node.
+Cancellation stops admission, cancels/joins startup, packet invocations and owned
+tasks, and awaits `stop()` before acknowledging Python quiescence. A noncooperative
+hook or handler is terminated by the application-side host watchdog.
 
-Descriptor attribute names are stable IDs, while `title` labels the data carried
-at the port. The initial release supports 1x1 and paired 2x2 Codeflow shapes in the
-current Lineflow canvas. Every input requires one handler. Omitted handling is a
-validation error; an explicit pass-through template is available.
-
-Initial port payload type is `bytes`, matching the common Processor contract.
-Text, JSON or frames may be documented as content hints, but dictionaries or
-strings must not silently cross native byte ports. General N-input/M-output shapes
-and structured typed links require separate graph/editor work; Core's larger port
-count allowance alone does not establish delivered canvas support.
-
-## Codeflow composition
-
-Control flow stays ordinary Python: conditions, loops, state and async waits.
-Registered native processors and reusable Lineflow blocks become declared child
-handles, rather than additional control-flow cards in Lineflow:
+`ctx.currentpacket` is an immutable map of `request`, `port` and owned `data` during
+a handler. `ctx.log(message, level="info")` emits bounded diagnostics.
+`ctx.create_task(coroutine)` owns async work; `ctx.timer(seconds, callback,
+repeat=False)` owns a positive-delay timer. Owned tasks can emit unsolicited output;
+they must keep their own buffering bounded. `ctx.cancelled` reports stopping state.
+Raw payloads are not automatically logged. stdout/native fd-1 output is redirected
+to diagnostics before user imports and cannot corrupt the dedicated binary channel.
 
 ```python
 from termaster import Processor, Input, Output, Node, handles
 
-
-class DecodeAndFilter(Processor):
-    incoming = Input(bytes)
-    outgoing = Output(bytes)
-    decoder = Node("native.base64-decoder", alphabet="standard")
+class DecodeAndPace(Processor):
+    incoming = Input()
+    outgoing = Output()
+    decoder = Node("native.hex-decoder")
+    pacer = Node("native.pacer", byteDelayMs=10)
 
     @handles(incoming, output=outgoing)
-    async def process(self, data: bytes):
-        packets = await self.decoder.process(data)
-        return [packet for packet in packets if packet]
+    async def process(self, data):
+        decoded = await self.decoder.process(data)
+        result = []
+        for packet in decoded:
+            result.extend(await self.pacer.process(packet))
+        return result
 ```
 
-The shown `Node.process` shorthand is for 1x1 children and returns a bounded list
-of byte packets, including zero outputs. A multiport child uses explicit named
-ports/results. Declarations provide dependency IDs to the existing provider
-preparation API; factories and plugin leases are retained before execution.
-Undeclared arbitrary runtime registry access is not a supported escape hatch.
+`Node` declares a catalog dependency and fixed child configuration. Registry
+preparation retains factories/plugin leases before execution. `Node.process(data)`
+returns a bounded list of owned bytes, including zero outputs. Explicit paired
+calls use `await self.child.process(data, port=1, with_ports=True)` and return
+immutable objects with `.data` and `.port`. Calls can be awaited from `start()`;
+the host continues servicing RPC while lifecycle operations are pending. Temporary
+child backpressure is retried fairly on the graph worker, with at most 256 pending
+calls and four packet byte budgets in the queue. Invocation/startup deadlines still
+apply. Await sequential calls when their order matters.
+Undeclared dynamic registry access is not exposed.
 
-Native children stay on the composition's existing processing worker. Python
-awaits their asynchronous completion; no GUI blocking, nested Qt event loops or
-thread-per-node policy is introduced. Different input ports may have pending
-async invocations with FIFO/backpressure per port. Shared state can interleave at
-await points; no concurrent Python threads mutate an instance by default. Waiting
-for another packet on an already occupied input must not deadlock admission: such
-protocols need explicit buffering/state or owned background tasks that release
-the input invocation. Cancellation stops admission, timers and child requests and
-waits for native quiescence before releasing provider leases.
+Protocol version 1 uses a bounded JSON header followed by raw bytes, with no pickle
+or base64 packet encoding. Header/source/description bounds are 4 MiB/2 MiB/1 MiB;
+default Processor limits are 1 MiB and 1,024 output chunks. Admission, diagnostics,
+unsolicited output and IPC queues are bounded. Startup, packet and stop grace
+budgets are configurable from 20 to 30,000 ms. A timed-out shared helper faults
+its diagram; terminal transport remains separate.
 
-## Runtime ownership and the required execution-mode decision
+## Editor, environments and persistence
 
-A worker thread is insufficient to guarantee a deadline for arbitrary Python and
-native extension calls. Embedded CPython cannot safely force-stop a blocked C
-extension, recover the application from its crash, or unload arbitrary extension
-modules. Per-node subinterpreters do not provide general module compatibility.
+Open **Tools / New Codeflow…**, the Lineflow Codeflow creation action, or the
+existing node's composition editor. Choose a source file and Python executable,
+set the class name, and edit the source. The native Qt editor provides line
+numbers, Python highlighting, indentation, comment toggle, bracket matching,
+find/replace, zoom and clickable traceback lines. It uses QPlainTextEdit-based
+editing; QScintilla and language-server completion are not dependencies.
 
-The recommended production option is a normal, version-pinned CPython execution
-process owned by an active processing graph, with one selected environment. It is
-not a persistent service or a replacement App backend. Codeflow instances in the
-same graph share that host but own separate state. Independent graph hosts can use
-different environments and execute independently of the interpreter GIL. Mixed
-environments in one graph are rejected initially rather than spawning unbounded
-per-node hosts. Killing a timed-out host faults that graph; transport remains open.
+Check loads a descriptor and refreshes Properties/Ports. Test runs a separate
+instance with HEX or UTF-8/Latin-1 text, selected Rx/Tx input, explicit empty/NUL
+packets and separate output/diagnostics. Tests do not access terminal transport.
+Save writes source atomically with external-change detection; Apply checks, saves
+and publishes the catalog revision. Restart/Stop target affected processing through
+App without transferring transport ownership. Save can succeed while publication
+fails; that partial outcome is reported. Source and catalog files are not one
+cross-file atomic transaction.
 
-This option introduces local IPC and an execution helper, which is an architectural
-exception to the current repository rule. It is a recommendation requiring an
-explicit implementation decision; this planning work does not authorize or create
-that infrastructure. The alternative is an embedded Python plugin with cooperative
-cancellation and no hard-stop guarantee for native calls. The first implementation
-stage must settle this choice before runtime infrastructure is written.
+The source file field is an explicit managed or external location; browsing an
+external file does not silently copy it. Catalog definitions live under
+`<workspace-file>.d/processors/` and keep source snapshot, digest and checked metadata.
+Relative source references resolve from the workspace directory. Saved external
+files are checked against their published digest before execution. Imported helper
+files and dynamic external reads are not immutable source snapshots. Relative
+imports such as `from .helpers import decode` use a private package namespace per
+entry revision, preventing two local helper packages from aliasing accidentally.
 
-With process execution, Core owns a bounded asynchronous Processor adapter;
-App selects environments and resource context; the Python module owns interpreter
-objects and its SDK. A dedicated bounded binary channel carries IDs, port IDs,
-owned byte packets, output frames, completion and cancellation. Do not use pickle
-for host messages, base64 for bulk bytes, or mix control frames with stdout.
-Requests carry revision/invocation generations; stale responses are discarded.
-Native module writes to stdout/stderr remain diagnostics, not protocol traffic.
+The Python field selects an existing interpreter/venv. The environment action runs
+that interpreter's `-m venv` and selects the resulting executable. Local package
+installation runs the selected interpreter's `-m pip install --no-index --no-deps`
+with explicitly selected distribution files. Dependencies must already be installed
+or supplied separately. There is no automatic registry download, environment
+creation on workspace opening, bundled interpreter or runtime module allowlist.
+Package building/import still executes ordinary package code with user permissions.
 
-One host can batch transfers while preserving each packet's boundary. Native-only
-paths do not start Python. Performance checks must measure startup, cold imports,
-small-packet latency, throughput, paired flow fairness and cancellation; a Python
-loop per byte must not be presented as equivalent to a vectorized/native codec.
+## Verification and remaining scope
 
-Lifecycle: stopped -> starting -> running -> stopping -> stopped, with faulted and
-timed-out outcomes. Limits cover startup/import, packet execution, queued work,
-output bytes/packets, diagnostics and stop grace. An application-side watchdog
-remains independent of Python execution. Cooperative stop runs hooks and cancels
-owned async tasks first; a process host can then be terminated after its grace
-period. Owned child-process cleanup must be part of that host's lifecycle.
-OS memory limits are exposed only where implemented. A hard Python-host stop does
-not forcibly stop C++ native children; their existing cancellation contract remains
-authoritative. File/network effects already performed by a script cannot be rolled
-back. Arbitrary modules execute with normal user permissions, not in a sandbox.
+Acceptance fixtures are `tools/tests/Python/SdkTests.py` and
+`tools/tests/Processing/CodeflowTests.cpp`; the Release benchmark is
+`tools/benchmarks/Codeflow/CodeflowProfile.cpp`. They use synthetic packets and local
+fixtures. On 2026-11-18, all 65 configured Release CTest suites passed (111.28 s).
+After the final source-list canonicalization, all seven affected runtime, catalog,
+workspace and editor suites passed again. The final editor adjustment was checked
+with both App/editor suites. SDK tests also passed separately on CPython 3.14.4;
+the configured runtime/profile used CPython 3.13. Native Windows editor captures
+were inspected at 100% and 200%, and all App Codeflow acceptance cases passed on
+the Windows platform plugin.
 
-## Module loading and environments
+The acceptance covers binary NUL/0xff, empty and multiple output packets,
+independent/shared host identity, blocked Python/native-extension deadlines,
+owned Windows subprocess cleanup, startup RPC, nested child readiness/backpressure,
+cooperative cancellation, mutable external-source conflicts, repeated publication,
+workspace reload, and transport continuity through processing Stop/fault/Restart.
+Release and Debug applications build with Qt 6.12/MSVC2022. No real-device commands
+or external network acceptance were used.
 
-Support the standard library, workspace packages and installed third-party
-packages, including compatible native extensions. No module allowlist is proposed.
-Compatibility still depends on Python ABI, architecture, platform libraries and
-package requirements; "any module" must not mean every wheel works in every runtime.
+Three Release runs of the synthetic profile produced these medians. Times include
+adapter/event-loop overhead; they are not terminal rendering or hardware throughput.
 
-Use the selected interpreter/venv explicitly. Installing packages uses that
-interpreter's `-m pip`, never an unrelated pip found on PATH. Package installation
-is an explicit environment action, not configuration-time CMake downloading or an
-automatic consequence of opening a workspace. Downloads must use physical network
-adapters as required by the project. Dependencies are not installed by this plan.
+| Path | 1 KiB packet p50 / p95 | 64 KiB throughput | Startup / stop |
+| --- | --- | --- | --- |
+| Native Bypass | 0.134 / 0.180 ms | 284.2 MiB/s | 0.87 / 2.48 ms |
+| One Python occurrence | 0.404 / 0.540 ms | 104.7 MiB/s | 162.9 / 3.15 ms |
+| Two Python occurrences, shared process | 0.746 / 0.892 ms | 54.2 MiB/s | 162.3 / 3.32 ms |
 
-Local script packages support standard relative imports such as
-`from .helpers import decode`. Give each script package an isolated import namespace
-so two scripts' `helpers.py` files do not alias accidentally. Third-party module
-state may still be shared within one graph host; instance isolation is not module
-isolation. A fresh graph host is the safe import-reset boundary; do not use
-`importlib.reload` as a universal native-module unloading strategy.
+Cold metadata inspection was 164.3 ms. The separate zlib cold-import timer measured
+only the import inside Python (0.065 ms), not interpreter startup. Paired Rx/Tx
+completed about 3,270 packets/s with 250 verified packets per lane per run.
+Raw runs are [Run 1](benchmarks/codeflow/Run1.json),
+[Run 2](benchmarks/codeflow/Run2.json), and [Run 3](benchmarks/codeflow/Run3.json).
 
-Cache compilation by source revision and runtime version; compile/import outside
-the per-packet path. Repeated packets reuse an instance. Restart/Apply creates a
-fresh approved revision and resets its state. Entry source is pinned; arbitrary
-dynamic imports or external file reads cannot be promised as immutable snapshots.
-
-## Descriptor discovery and publication
-
-Class decorators and inherited Properties require loading Python classes. Module
-imports can run arbitrary top-level code even without constructing an instance.
-Therefore catalog browsing, workspace opening and syntax highlighting must not
-import a script simply to paint its name or properties.
-
-A deliberate Check/Apply/Add action loads the module in the selected discovery
-runtime, collects inherited descriptors without instantiating Processor, and
-returns plain bounded metadata. Import errors or timeouts include file/line
-tracebacks. Static syntax checking can run automatically without imports.
-
-Workspace catalog YAML retains a validated metadata/source-digest snapshot;
-occurrence values stay in existing definition/session configuration layers.
-Metadata is derived from the class, not a separately hand-maintained user schema.
-Provider validate checks the snapshot and structure without running user code;
-prepare may compile but cannot create live runtime instances. Runtime startup
-compares the actual descriptor with the approved snapshot before accepting data.
-Changed ports/schema require explicit republication; they cannot mutate a live
-Processor's shape. Failed checks retain existing drafts and the running revision.
-
-## Storage and naming
-
-Managed defaults:
-
-```text
-lab.termaster
-lab.termaster.d/
-  processors/<safe-catalog-id>.yaml
-  scripts/<script-id>/
-    main.py
-    helpers.py
-  python/environments/<environment-id>/
-```
-
-The scripts directory is workspace-owned. Stable IDs determine directories and
-catalog filenames; display names never become paths. New editor templates are
-named Codeflow 1, Codeflow 2, etc.; the template class is `Codeflow`. A named class
-can supply the base display title with numeric occurrence suffixes, consistent
-with the existing naming policy. Do not use random word names.
-
-Linking an existing `.py` file anywhere in the filesystem is supported by design.
-Store an explicit external reference, absolute or workspace-relative, and do not
-copy/move it silently. Provide Save As / Copy into workspace / Open containing
-folder. An unavailable script retains its catalog identity, path and cached
-metadata with a concrete diagnostic. It does not silently become Bypass.
-
-Main source editing is a draft. Managed source/metadata saves extend the existing
-bounded workspace transaction. External source uses conflict detection and atomic
-single-file replacement; a cross-volume external source plus workspace catalog
-update cannot be promised as one filesystem-atomic transaction. Pin the validated
-revision before activation and report partial save failures concretely. Relative
-resource paths and Property(Path) values use the workspace directory; Python
-package imports use script/package location. Do not change process-wide cwd.
-
-## Editor and interaction
-
-Use a dedicated Codeflow editor opened by double-click or the existing node mini
-button. Keep the terminal display/connection alive when its editor opens. Layout:
-source in the center; a compact Properties/Ports preview; a Test pane with separate
-input, output and diagnostics. Show file, dirty state, active revision, Python
-environment and running/faulted status. Toolbars group Save, Check, Test, Apply and
-Restart/Stop, with shortcuts local to the editor rather than terminal key input.
-
-Prefer a mature Qt code editor with a Python lexer (QScintilla is the leading
-candidate); verify its Qt 6.12/MSVC build, Unicode/DPI behavior, dependency size and
-license before pinning it. The current project is GPLv3; the exact dependency
-license still requires review. QPlainTextEdit plus QSyntaxHighlighter remains a
-standard-Qt fallback if the ready-made integration is unsuitable. No custom text
-renderer or embedded web application is needed for the first editor.
-
-Required conveniences: line numbers, Python syntax colors, multiline strings and
-f-strings, indentation guides, auto-indent, Tab/Shift-Tab, comment toggle, bracket
-matching, search/replace, undo/redo, zoom, error markers and clickable tracebacks.
-Class/property/port templates reduce typing. Static completion and language-server
-integration are later work; completion must not import arbitrary user modules.
-
-Properties/Ports preview refreshes after successful descriptor checks, while
-preserving draft values. Test supports Rx/Tx selection, HEX/text input, explicit
-encoding, empty/NUL packets and expected outputs without touching real devices.
-Tests run in a separate runtime instance so they do not mutate live script state.
-Diagnostics show traceback, port, invocation, duration and revision; logs are
-bounded/tagged and do not dump routine packet payloads.
-
-## Verification boundaries
-
-Verify descriptor inheritance, typed properties, conditions, ports and metadata
-changes; NUL/empty/split data; output expansion and ordering; async child calls;
-import failures and native modules; infinite Python loops and blocked native calls;
-queue pressure, reload races, source-save conflicts, workspace replacement and
-shutdown. Never advertise a hard deadline with only cooperative embedded execution.
-Use synthetic streams and local fixtures by default, not real-device commands.
+Deferred work includes general application scripting, general N/M typed ports,
+computed visibility, mutable live settings, generators/streaming, language-server
+completion, automatic package resolution and general OS memory quotas. Stream
+codec routing continues through the existing
+[terminal processing](terminal-processing.md) packet contract.
 
 ## Stream codecs and packet input
 
-Native byte codecs, framing and terminal Lineflow are already delivered. Python
-codecs use that same packet contract and the same separate Rx/Tx directions.
-Transport reads remain arbitrary byte chunks; explicit framing nodes or bounded
-script state perform accumulation. Preserve keyboard/paste/mouse/focus/reply
-output distinctions and display-only local echo. No script response is fed back
-into received data implicitly. See [terminal processing](terminal-processing.md)
-and [terminal emulation](terminal-emulation.md).
+Codeflow currently consumes whole byte packets through the processing contract.
+Existing native framing and codec nodes can be declared as children or composed
+in Lineflow. The separate P8 command-input codec selector and general stream-codec
+integration remain planned; this implementation does not add that input UI.

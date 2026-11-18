@@ -83,13 +83,13 @@ mode, not a new terminal backend.
 
 ## P7: Python integration
 
-- [ ] Integrate Python for application scripting and Python-authored stream codecs.
-- [ ] Define interpreter ownership, script/module lifetime, error reporting and
-      execution limits without blocking the GUI.
+- [x] Implement Python-authored packet processors through the Codeflow SDK and external runtime.
+- [x] Define diagram-owned interpreter lifetime, bounded IPC, diagnostics and execution deadlines.
+- [x] Complete Codeflow integration/visual/performance acceptance.
+- [ ] Add general application scripting beyond the processing SDK.
 
-See [Python processors and Codeflow](python-and-codecs.md). This is the next
-processing priority; the ordered implementation plan is in FLOW-6. Runtime
-implementation follows approval of the execution-mode decision.
+See [Python processors and Codeflow](python-and-codecs.md). Implementation and remaining acceptance are tracked in FLOW-6. The selected
+execution mode is a diagram-owned external CPython process.
 
 ## P8: Stream codecs and packet input
 
@@ -201,41 +201,35 @@ Rx/Tx and different terminals must remain independent even when sharing a block.
 
 ## FLOW-6: Python processors and Codeflow
 
-This is the next processing priority. The declarative Python class API and runtime
-choices are detailed in [Python processors and Codeflow](python-and-codecs.md).
-The stages below replace the earlier coarse Codeflow checklist; runtime remains
-unimplemented. Their order is by dependency, not a schedule estimate.
+Implementation contracts are recorded in [Python processors and Codeflow](python-and-codecs.md).
+The selected mode is an external CPython process per independently instantiated
+diagram; Codeflow occurrences within that diagram share one environment.
 
-- [x] Record the proposed Processor/Property/port API, module/environment model,
-      source storage, editor behavior and execution-mode trade-offs.
-- [ ] Stage 1 — settle execution mode; prototype runtime/module compatibility and
-      Qt code-editor integration on the actual toolchain. Do not implement a local
-      IPC/helper architecture without explicit approval of that exception.
-- [ ] Stage 2 — implement the Python SDK: inherited Property/Input/Output/handles,
-      immutable descriptor snapshots and generation into existing settings forms;
-      support 1x1 and paired 2x2 byte ports with strict validation.
-- [ ] Stage 3 — deliver the vertical processing path: open an external .py file,
-      select its environment, load a class, create independent state, process Rx/Tx bytes, enforce admission/output/time limits and stop/error
-      lifecycle without disconnecting transport or touching widgets from workers.
-- [ ] Stage 4 — deliver usable code editing with Python highlighting, indentation,
-      diagnostics, parameter/port preview and isolated synthetic packet tests.
-- [ ] Stage 5 — integrate managed/external source files, workspace catalog publication,
-      path pickers, conflict-safe saves and explicit revision replacement/restart.
-- [ ] Stage 6 — expose declared native/Lineflow child handles to async Codeflow;
-      implement cancellation, provider leases, ordering and bounded composition.
-- [ ] Stage 7 — finish environment/package UI, compatibility checks, cold/hot performance,
-      shutdown/reload acceptance, bundled help/examples and dependency notices.
+- [x] Record the declarative Processor/Property/port API, source revisions and ownership.
+- [x] Stage 1 — select diagram-owned process execution, external interpreter/venv selection
+      and the standard Qt source editor without an embedded runtime dependency.
+- [x] Stage 2 — implement inherited descriptors, immutable typed configuration,
+      generated settings forms, conditions and validated 1x1/paired 2x2 byte ports.
+- [x] Stage 3 — implement the processing path with independent instances, raw-byte IPC,
+      per-lane admission, output limits, deadlines, errors and cooperative/forced stop.
+- [x] Stage 4 — provide source editing, diagnostics, Properties/Ports previews and
+      isolated synthetic packet tests with explicit input encoding and lane selection.
+- [x] Stage 5 — integrate explicit source paths, conflict-detected atomic source saves,
+      checked catalog publication, source digests and processing restart/stop.
+- [x] Stage 6 — expose declared native/Lineflow child handles through asynchronous RPC,
+      including startup calls, retained providers and cancellation/quiescence.
+- [x] Stage 7 implementation — add explicit venv creation, offline local-package installation,
+      bundled help and synthetic SDK/Core/Release-profile acceptance fixtures.
+- [x] Complete final affected Release suites and record compatibility/lifecycle results.
+- [x] Complete native editor/terminal visual acceptance at supported display scales.
+- [x] Run the Release profile and record actual cold/hot throughput, paired fairness and shutdown results.
+- [x] Build final Release and Debug applications and record remaining limitations.
 
-Each implementation stage must have a usable acceptance fixture. Basic environment
-selection and imports belong to Stage 1/3; package-management conveniences in Stage 7
-must not postpone module support in the first useful processor. General N/M typed
-ports, arbitrary computed property visibility, live property setters, generators
-and language-server completion are extensions after the first release.
-
-FLOW-2 routing, FLOW-3 registration, FLOW-4 workspace editing and FLOW-5 terminal properties are delivered.
-The remaining processing stage is FLOW-6. Editors depend on the unified catalog definition registration
-and update contracts. Python execution remains part of P7/FLOW-6.
-The earlier unrelated P5/P6 milestones do not block this processing sequence.
+General application scripting, arbitrary N/M typed ports, computed visibility,
+live property setters, generators, language-server completion, automatic dependency
+resolution and general Python heap quotas remain extensions. Source/catalog saves
+are separate transactions; managed-copy conveniences are not implied by path editing.
+Native-only diagrams remain independent of Python. P5/P6 do not block this work.
 
 ## FLOW-7: Processing timing and compact terminal controls
 
