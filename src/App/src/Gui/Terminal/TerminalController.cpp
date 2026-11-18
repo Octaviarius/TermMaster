@@ -188,6 +188,7 @@ struct TerminalController::Runtime
     std::unique_ptr<ProcessingRouter>     processing;
     std::unique_ptr<TerminalLineRecorder> lineRecorder;
     QVariantMap                           processingConfiguration;
+    QStringList                           processingDefinitions;
     QPointer<TerminalProcessingPanel>     processingPanel;
     bool                                  processingUpdate = false;
     bool                                  processingOpen   = false;
@@ -4004,6 +4005,10 @@ std::optional<TerminalController::PreparedProcessing> TerminalController::_prepa
     const QString directory = workspace ? workspace->filePath().parent().toString() : QString {};
     for (const auto& property : *properties)
     {
+        if (!result.definitions.contains(property.type))
+        {
+            result.definitions.append(property.type);
+        }
         auto configuration = property.configuration;
         if ((property.type == "@initial" || property.type == "@final") && configuration.value("enabled").toBool())
         {
@@ -4054,13 +4059,50 @@ std::optional<TerminalController::PreparedProcessing> TerminalController::_prepa
         fail(error, "Terminal Lineflow requires a 2x2 processor");
         return std::nullopt;
     }
-    auto instance = ThreadedProcessor::create(prepared, runtimeOverrides, error);
+    auto instance = ThreadedProcessor::create(prepared, runtimeOverrides, error, directory);
     if (!self || !processors || !instance)
     {
         return std::nullopt;
     }
     result.processor = std::move(instance);
     return result;
+}
+
+bool TerminalController::controlProcessing(const QString& definition, bool restart, QString* error)
+{
+    const QPointer<TerminalController> self(this);
+    bool                               found = false;
+    for (const auto& id : terminalIds())
+    {
+        const auto item = _terminals.find(id);
+        if (item == _terminals.end() || !item->second->processingDefinitions.contains(definition))
+        {
+            continue;
+        }
+        found = true;
+        if (restart)
+        {
+            if (!_configureProcessing(*item->second, error))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            const QPointer<ProcessingRouter> router(item->second->processing.get());
+            _stopLineRecorder(*item->second);
+            router->fail(ProcessingRouter::Direction::Rx, tr("Processing stopped from Codeflow editor"));
+            if (router)
+            {
+                router->fail(ProcessingRouter::Direction::Tx, tr("Processing stopped from Codeflow editor"));
+            }
+        }
+        if (!self)
+        {
+            return fail(error, tr("Terminal controller closed while controlling Codeflow."));
+        }
+    }
+    return found || fail(error, tr("No active terminal diagram uses this Codeflow."));
 }
 
 void TerminalController::setProcessorFavorites(ProcessorFavorites& favorites)
@@ -4099,6 +4141,7 @@ bool TerminalController::_configureProcessing(Runtime& terminal, QString* error)
     }
 
     _setLineRecorder(*live, prepared->lineRecording);
+    live->processingDefinitions = prepared->definitions;
     live->processing->replaceDuplex(std::move(prepared->processor));
     live = liveTerminal();
     if (!live || live->settings.value("processing").toMap() != configuration)
@@ -4247,6 +4290,7 @@ bool TerminalController::_applyProcessing(const QString&     id,
     }
     live->processingUpdate = false;
     _setLineRecorder(*live, prepared->lineRecording, true);
+    live->processingDefinitions = prepared->definitions;
     live->processing->replaceDuplex(std::move(prepared->processor));
     live = liveTerminal();
     if (!live)

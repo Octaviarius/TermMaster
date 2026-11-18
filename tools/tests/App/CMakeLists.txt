@@ -96,3 +96,25 @@ add_test(NAME FavoritesEditorTests COMMAND FavoritesEditorTests)
 set_tests_properties(FavoritesEditorTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
 )
+
+qt_add_executable(CodeflowAppTests
+    CodeflowAppTests.cpp
+)
+target_compile_features(CodeflowAppTests PRIVATE cxx_std_20)
+target_include_directories(CodeflowAppTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/App/src"
+)
+target_link_libraries(CodeflowAppTests PRIVATE
+    App
+    Qt6::Network
+    Qt6::Test
+)
+target_compile_definitions(CodeflowAppTests PRIVATE
+    TERMASTER_SOCKET_PLUGIN_FILE="$<TARGET_FILE:SocketTerminal>"
+)
+add_dependencies(CodeflowAppTests SocketTerminal PythonRuntime)
+add_test(NAME CodeflowAppTests COMMAND CodeflowAppTests -o -,txt)
+set_tests_properties(CodeflowAppTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+    TIMEOUT 60
+)

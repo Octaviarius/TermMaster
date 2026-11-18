@@ -2,6 +2,7 @@
 #include "Gui/Help/ThirdPartyDialog.h"
 #include "Gui/Main/EditActions.h"
 #include "Gui/Main/MainWindow.h"
+#include "Gui/Processing/CodeflowEditorDialog.h"
 #include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorFavorites.h"
 #include "Gui/Session/SessionPicker.h"
@@ -44,6 +45,7 @@
 #include <Termaster/Core/Logging/Logging.h>
 #include <Termaster/Core/NumberedName.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
+#include <Termaster/Core/Processing/Codeflow.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/Session.h>
@@ -116,6 +118,8 @@ struct App::Data
     QPointer<ThirdPartyDialog>                      thirdPartyWindow;
     QPointer<LineflowEditorDialog>                  lineflowWindow;
     QPointer<QAction>                               lineflowAction;
+    QPointer<QAction>                               codeflowAction;
+    QMap<QString, QPointer<CodeflowEditorDialog>>   codeflowWindows;
     QPointer<SettingsDialog>                        settingsWindow;
     QMap<SettingsContext, QPointer<SettingsDialog>> settingsWindows;
     QPointer<QAction>                               createSessionAction;
@@ -194,6 +198,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
 
     _data = std::make_unique<Data>(options);
     registerNativeProcessors(_data->plugins.processors(), "core.processing");
+    Codeflow::registerProvider(_data->plugins.processors());
     _data->settingsWidgets.registerWidget("commandShortcuts", [this](const SettingsSchema::Field&, QWidget* parent) {
         return new ShortcutEditor(_data->commands, _data->shortcuts, parent);
     });
@@ -219,6 +224,13 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
             if (_data->lineflowWindow)
             {
                 _data->lineflowWindow->releaseEditors();
+            }
+            for (const auto& dialog : _data->codeflowWindows)
+            {
+                if (dialog)
+                {
+                    dialog->releaseEditors();
+                }
             }
             const auto dialogs = _data->settingsWindows.values();
             for (const auto& dialog : dialogs)
@@ -246,6 +258,10 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
                     {
                         _data->lineflowWindow->selectBlock(id);
                     }
+                }
+                else if (kind == "codeflow")
+                {
+                    _showCodeflowEditor(id);
                 }
                 else
                 {
@@ -276,6 +292,7 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
 App::~App()
 {
     _data->help.reset();
+    _closeCodeflowEditors();
     delete _data->lineflowWindow.data();
     QObject::disconnect(_data->terminals.get(), nullptr, this, nullptr);
     _data->window->removeEventFilter(this);
@@ -456,6 +473,7 @@ bool App::restoreLastWorkspace(QString* error)
         _closeSettings(SettingsContext::Terminal);
         _data->session.reset();
         _closeSettings(SettingsContext::Workspace);
+        _closeCodeflowEditors();
         delete _data->lineflowWindow.data();
         _data->workspace = std::move(candidate);
         _configureLogging();
@@ -556,6 +574,7 @@ bool App::closeWorkspace(QString* error)
     {
         return false;
     }
+    _closeCodeflowEditors();
     delete _data->lineflowWindow.data();
     _data->processorFavorites.reset();
     qCInfo(appWorkspaceLog) << "Workspace closed";
@@ -856,6 +875,15 @@ void App::_setupActions()
                                        "management");
     _data->lineflowAction->setToolTip(tr("Edit reusable workspace processor blocks"));
     connect(_data->lineflowAction, &QAction::triggered, this, &App::_showLineflowEditor);
+    _data->codeflowAction = _addAction("Workspace.Codeflow",
+                                       tr("New Codeflow…"),
+                                       Icons::icon("Codeflow"),
+                                       {},
+                                       "tools",
+                                       "management");
+    _data->codeflowAction->setToolTip(tr("Create or link a Python processor"));
+    connect(_data->codeflowAction, &QAction::triggered, this, [this] { _showCodeflowEditor(); });
+
     auto* contents = _addAction("Help.Contents",
                                 tr("Help contents"),
                                 QApplication::style()->standardIcon(QStyle::SP_DialogHelpButton),
@@ -895,6 +923,115 @@ void App::_showPluginManager()
     _data->pluginWindow->show();
     _data->pluginWindow->raise();
     _data->pluginWindow->activateWindow();
+}
+
+void App::_closeCodeflowEditors()
+{
+    const auto editors = _data->codeflowWindows;
+    _data->codeflowWindows.clear();
+    for (const auto& editor : editors)
+    {
+        delete editor.data();
+    }
+}
+
+void App::_showCodeflowEditor(const QString& id)
+{
+    if (!_data->workspace)
+    {
+        return;
+    }
+    if (const auto existing = _data->codeflowWindows.value(id))
+    {
+        existing->show();
+        existing->raise();
+        existing->activateWindow();
+        return;
+    }
+    auto definition = _data->workspace->processorDefinitions().value(id).toMap();
+    if (!id.isEmpty() && definition.value("kind").toString() != "codeflow")
+    {
+        _data->window->showMessage(tr("Codeflow definition is unavailable: %1").arg(id));
+        return;
+    }
+    if (id.isEmpty())
+    {
+        QSet<QString> names;
+        for (const auto& value : _data->workspace->processorDefinitions().values())
+        {
+            names.insert(value.toMap().value("name").toString());
+        }
+        definition.insert("name", numberedName("Codeflow", names));
+    }
+    const QPointer<Workspace> workspace(_data->workspace.get());
+    auto                      key    = std::make_shared<QString>(id);
+    auto*                     editor = new CodeflowEditorDialog(
+        definition,
+        _data->settingsWidgets,
+        [this, workspace, key](const QVariantMap& baseline, const QVariantMap& requested, QString* error) {
+            if (!workspace || _data->workspace.get() != workspace)
+            {
+                if (error)
+                {
+                    *error = tr("The script workspace is no longer open.");
+                }
+                return false;
+            }
+            const auto current = workspace->processorDefinitions().values();
+            const auto id      = requested.value("id").toString();
+            if ((!baseline.value("id").toString().isEmpty() && current.value(id).toMap() != baseline)
+                || (baseline.value("id").toString().isEmpty() && current.contains(id)))
+            {
+                if (error)
+                {
+                    *error = tr("The Codeflow definition changed in another editor.");
+                }
+                return false;
+            }
+            const auto candidate = requested;
+            auto       draft     = current;
+            draft.insert(id, candidate);
+            if (!WorkspaceProcessingEdit::apply(*workspace,
+                                                _data->session.get(),
+                                                _data->plugins.processors(),
+                                                current,
+                                                draft,
+                                                {},
+                                                error))
+            {
+                return false;
+            }
+            if (const auto window = _data->codeflowWindows.take(*key))
+            {
+                _data->codeflowWindows.insert(id, window);
+            }
+            *key = id;
+            return true;
+        },
+        _data->window.get());
+    editor->setDefaultDirectory(_data->workspace->filePath().toString() + ".d/scripts");
+    editor->setWorkspaceDirectory(_data->workspace->filePath().parent().toString());
+    editor->setDefinitions(_data->workspace->processorDefinitions().values());
+    editor->setAttribute(Qt::WA_DeleteOnClose);
+    _data->codeflowWindows.insert(id, editor);
+    connect(editor, &CodeflowEditorDialog::helpRequested, this, [this] {
+        _data->help->showTopic("processing.codeflow");
+    });
+    connect(editor, &CodeflowEditorDialog::restartRequested, this, [this](const QString& target) {
+        QString error;
+        if (!_data->terminals->controlProcessing(target, true, &error))
+        {
+            _data->window->showMessage(error);
+        }
+    });
+    connect(editor, &CodeflowEditorDialog::stopRequested, this, [this](const QString& target) {
+        QString error;
+        if (!_data->terminals->controlProcessing(target, false, &error))
+        {
+            _data->window->showMessage(error);
+        }
+    });
+    editor->show();
 }
 
 void App::_showLineflowEditor()
@@ -949,7 +1086,15 @@ void App::_showLineflowEditor()
                 &LineflowEditorDialog::compositionEditorRequested,
                 this,
                 [this](const QString& id, const QString& kind) {
-                    _data->window->showMessage(tr("No editor is registered for composition %1 (%2).").arg(id, kind));
+                    if (kind == "codeflow")
+                    {
+                        _showCodeflowEditor(id);
+                    }
+                    else
+                    {
+                        _data->window->showMessage(
+                            tr("No editor is registered for composition %1 (%2).").arg(id, kind));
+                    }
                 });
         _data->lineflowWindow->setAttribute(Qt::WA_DeleteOnClose);
     }
@@ -1099,6 +1244,7 @@ bool App::_activateWorkspace(std::unique_ptr<Workspace> candidate, QString* erro
     _closeSettings(SettingsContext::Terminal);
     _data->session.reset();
     _closeSettings(SettingsContext::Workspace);
+    _closeCodeflowEditors();
     delete _data->lineflowWindow.data();
     _data->workspace = std::move(candidate);
     _configureLogging();
@@ -1178,6 +1324,10 @@ void App::_bindWorkspaceProcessors()
 void App::_updateWorkspace()
 {
     const bool open = bool(_data->workspace);
+    if (_data->codeflowAction)
+    {
+        _data->codeflowAction->setEnabled(open);
+    }
     if (_data->lineflowAction)
     {
         _data->lineflowAction->setEnabled(open);

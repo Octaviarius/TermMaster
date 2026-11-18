@@ -359,10 +359,26 @@ private:
             {
                 if (diagnosticBytes < 65536)
                 {
-                    const auto text  = header.value("message").toString().left(4096);
-                    diagnosticBytes += text.toUtf8().size();
-                    diagnostics     += text + "\n";
-                    qCInfo(pythonLog).noquote() << text;
+                    const auto text   = header.value("message").toString().left(4096);
+                    diagnosticBytes  += text.toUtf8().size() + 1;
+                    diagnostics      += text + "\n";
+                    const auto level  = header.value("level").toString();
+                    if (level == "debug" || level == "trace")
+                    {
+                        qCDebug(pythonTrace).noquote() << text;
+                    }
+                    else if (level == "warning" || level == "warn")
+                    {
+                        qCWarning(pythonLog).noquote() << text;
+                    }
+                    else if (level == "error" || level == "critical")
+                    {
+                        qCCritical(pythonLog).noquote() << text;
+                    }
+                    else
+                    {
+                        qCInfo(pythonLog).noquote() << text;
+                    }
                 }
             }
             else if (blockingRequests.contains(request) && (op == "ready" || op == "described" || op == "error"))
@@ -1105,8 +1121,8 @@ QVariantMap Codeflow::definition(const QString&     id,
                   QString::fromLatin1(
                       QCryptographicHash::hash(source.value("code").toString().toUtf8(), QCryptographicHash::Sha256)
                           .toHex()));
-    QStringList inputs;
-    QStringList outputs;
+    QVariantList inputs;
+    QVariantList outputs;
     for (const auto& port : description.value("inputs").toList())
     {
         inputs.append(port.toMap().value("title").toString());
@@ -1133,7 +1149,7 @@ QVariantMap Codeflow::definition(const QString&     id,
         {   "outputCount",                                              outputs.size()},
         {    "inputNames",                                                      inputs},
         {   "outputNames",                                                     outputs},
-        {    "references",                                                  references},
+        {    "references",                               QVariant(references).toList()},
         {        "editor",          QVariantMap {{"helpTopic", "processing.codeflow"}}}
     };
 }

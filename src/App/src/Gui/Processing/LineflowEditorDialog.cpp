@@ -130,6 +130,8 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
     auto* duplicate   = tool(blockBar, "copy", tr("Duplicate block"), "duplicateBlock");
     auto* rename      = tool(blockBar, "sliders-horizontal", tr("Rename block"), "renameBlock");
     auto* removeBlock = tool(blockBar, "trash", tr("Remove block definition; keep references"), "removeBlock");
+    auto* addCodeflow = tool(blockBar, "Codeflow", tr("Create Python Codeflow"), "addCodeflow");
+    connect(addCodeflow, &QAction::triggered, this, [this] { emit compositionEditorRequested({}, "codeflow"); });
     layout->addWidget(blockBar);
     _dockHost = new QMainWindow(this);
     _dockHost->setWindowFlags(Qt::Widget);

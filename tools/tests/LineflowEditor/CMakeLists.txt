@@ -46,3 +46,21 @@ target_link_libraries(ProcessorFavoritesTests PRIVATE
     Qt6::Test
 )
 add_test(NAME ProcessorFavoritesTests COMMAND ProcessorFavoritesTests)
+
+qt_add_executable(CodeflowEditorTests
+    CodeflowEditorTests.cpp
+)
+target_compile_features(CodeflowEditorTests PRIVATE cxx_std_20)
+target_include_directories(CodeflowEditorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/App/src"
+)
+target_link_libraries(CodeflowEditorTests PRIVATE
+    App
+    Qt6::Test
+    Qt6::Widgets
+)
+add_test(NAME CodeflowEditorTests COMMAND CodeflowEditorTests)
+set_tests_properties(CodeflowEditorTests PROPERTIES
+    TIMEOUT 90
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+)
