@@ -689,3 +689,28 @@ Later stages:
 - [x] Reduce native group frames to one pixel with a lower-contrast neutral palette blend.
 - [x] Verify Release application/schema/form suites and native 100%/200% presentation.
 - [x] Build the final Debug application and bundled plugins.
+
+## FLOW-28: Unified terminal Lineflow, boundaries and observation branches
+
+Priorities are ordered by dependency; reusable one-line compositions remain supported.
+
+### 1. Unified terminal selection
+
+- [x] Replace terminal Simplex/Duplex modes with Bypass/Lineflow and one 2x2 selection.
+- [x] Retain one terminal-local diagram and filter the selector to supported topology.
+- [x] Update routing, session/refactoring and lifecycle tests without legacy readers.
+
+### 2. Fixed Lineflow endpoints and recording
+
+- [x] Add configurable initial/final boundaries outside the processor palette.
+- [x] Record byte packets with opt-in files, formats, directions, rotation and bounded I/O.
+- [x] Record terminal text only after rows become immutable history; join soft wraps.
+- [x] Offer optional active-screen flush at recording stop and handle errors without disconnecting transport.
+- [x] Verify raw NUL/ESC data separately from rendered text, cancellation and file ownership.
+
+### 3. Tap and composition editing
+
+- [x] Add a 1x1 Tap that forwards original packets unchanged and processes owned copies in a bounded private branch.
+- [x] Open the appropriate editor for every supported composition by double-click or a compact node button.
+- [x] Preserve branch identity, per-instance configuration, refactoring, duplication and provider lifetimes.
+- [x] Verify native 100%/200% editor presentation, affected Release suites and final Debug build.

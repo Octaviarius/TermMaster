@@ -1,0 +1,132 @@
+Internal ctest changing into directory: F:/DEVELOPING/Octaviarius/TermMaster/build/Desktop_Qt_6_12_0_MSVC2022_64bit-Release
+Test project F:/DEVELOPING/Octaviarius/TermMaster/build/Desktop_Qt_6_12_0_MSVC2022_64bit-Release
+      Start  1: PluginIntegrationTests
+ 1/63 Test  #1: PluginIntegrationTests ...........   Passed    1.94 sec
+      Start  2: PluginWindowTests
+ 2/63 Test  #2: PluginWindowTests ................   Passed    0.68 sec
+      Start  3: SettingsTests
+ 3/63 Test  #3: SettingsTests ....................   Passed    0.51 sec
+      Start  4: CommandTests
+ 4/63 Test  #4: CommandTests .....................   Passed    0.04 sec
+      Start  5: IconTests
+ 5/63 Test  #5: IconTests ........................   Passed    0.16 sec
+      Start  6: AppTests
+ 6/63 Test  #6: AppTests .........................   Passed   36.50 sec
+      Start  7: CommandEditorTests
+ 7/63 Test  #7: CommandEditorTests ...............   Passed    0.24 sec
+      Start  8: AdvancedSenderTests
+ 8/63 Test  #8: AdvancedSenderTests ..............   Passed    1.37 sec
+      Start  9: FavoritesEditorTests
+ 9/63 Test  #9: FavoritesEditorTests .............   Passed    0.14 sec
+      Start 10: WorkspaceTests
+10/63 Test #10: WorkspaceTests ...................   Passed    1.43 sec
+      Start 11: SessionTests
+11/63 Test #11: SessionTests .....................   Passed    1.51 sec
+      Start 12: SettingsSchemaTests
+12/63 Test #12: SettingsSchemaTests ..............   Passed    0.05 sec
+      Start 13: SettingsFormTests
+13/63 Test #13: SettingsFormTests ................   Passed    1.75 sec
+      Start 14: TerminalDisplayTests
+14/63 Test #14: TerminalDisplayTests .............   Passed    0.50 sec
+      Start 15: VtParserTests
+15/63 Test #15: VtParserTests ....................   Passed    0.06 sec
+      Start 16: TerminalScreenTests
+16/63 Test #16: TerminalScreenTests ..............   Passed    0.21 sec
+      Start 17: TerminalInputTests
+17/63 Test #17: TerminalInputTests ...............   Passed    0.04 sec
+      Start 18: TerminalGraphicsTests
+18/63 Test #18: TerminalGraphicsTests ............   Passed    0.05 sec
+      Start 19: SerialDeviceTests
+19/63 Test #19: SerialDeviceTests ................   Passed    4.38 sec
+      Start 20: SerialPluginTests
+20/63 Test #20: SerialPluginTests ................   Passed    0.06 sec
+      Start 21: PortClassificationTests
+21/63 Test #21: PortClassificationTests ..........   Passed    0.03 sec
+      Start 22: ThreadedSerialDeviceTests
+22/63 Test #22: ThreadedSerialDeviceTests ........   Passed    1.17 sec
+      Start 23: ConsoleDeviceTests
+23/63 Test #23: ConsoleDeviceTests ...............   Passed    0.88 sec
+      Start 24: ConsoleEnvironmentTests
+24/63 Test #24: ConsoleEnvironmentTests ..........   Passed    0.15 sec
+      Start 25: ConsolePluginTests
+25/63 Test #25: ConsolePluginTests ...............   Passed    0.05 sec
+      Start 26: ConsoleHostProtocolTests
+26/63 Test #26: ConsoleHostProtocolTests .........   Passed    0.03 sec
+      Start 27: ConsoleElevationTests
+27/63 Test #27: ConsoleElevationTests ............   Passed    4.16 sec
+      Start 28: SocketDeviceTests
+28/63 Test #28: SocketDeviceTests ................   Passed    4.75 sec
+      Start 29: SocketPluginTests
+29/63 Test #29: SocketPluginTests ................   Passed    0.05 sec
+      Start 30: SocketSettingsTests
+30/63 Test #30: SocketSettingsTests ..............   Passed    0.33 sec
+      Start 31: CommandInputTests
+31/63 Test #31: CommandInputTests ................   Passed    0.15 sec
+      Start 32: ThreadedProcessorTests
+32/63 Test #32: ThreadedProcessorTests ...........   Passed    1.33 sec
+      Start 33: DuplexProcessorTests
+33/63 Test #33: DuplexProcessorTests .............   Passed    1.48 sec
+      Start 34: ProcessingTests
+34/63 Test #34: ProcessingTests ..................   Passed    2.68 sec
+      Start 35: ProcessorDefaultsTests
+35/63 Test #35: ProcessorDefaultsTests ...........   Passed    0.04 sec
+      Start 36: ProcessorCatalogTests
+36/63 Test #36: ProcessorCatalogTests ............   Passed    0.77 sec
+      Start 37: ProcessorRefactoringTests
+37/63 Test #37: ProcessorRefactoringTests ........   Passed    0.11 sec
+      Start 38: FramerProcessorTests
+38/63 Test #38: FramerProcessorTests .............   Passed    0.03 sec
+      Start 39: TimedFramerProcessorTests
+39/63 Test #39: TimedFramerProcessorTests ........   Passed    0.70 sec
+      Start 40: PatternFramerProcessorTests
+40/63 Test #40: PatternFramerProcessorTests ......   Passed    0.06 sec
+      Start 41: CodecProcessorTests
+41/63 Test #41: CodecProcessorTests ..............   Passed    0.72 sec
+      Start 42: CompressionProcessorTests
+42/63 Test #42: CompressionProcessorTests ........   Passed    0.10 sec
+      Start 43: GateProcessorTests
+43/63 Test #43: GateProcessorTests ...............   Passed    0.17 sec
+      Start 44: TimestampProcessorTests
+44/63 Test #44: TimestampProcessorTests ..........   Passed    0.08 sec
+      Start 45: ProcessorPropertiesTests
+45/63 Test #45: ProcessorPropertiesTests .........   Passed    0.54 sec
+      Start 46: PacerProcessorTests
+46/63 Test #46: PacerProcessorTests ..............   Passed    3.08 sec
+      Start 47: LengthProcessorTests
+47/63 Test #47: LengthProcessorTests .............   Passed    0.35 sec
+      Start 48: ChecksumProcessorTests
+48/63 Test #48: ChecksumProcessorTests ...........   Passed    0.15 sec
+      Start 49: StuffingProcessorTests
+49/63 Test #49: StuffingProcessorTests ...........   Passed    0.09 sec
+      Start 50: ProcessorFamilyTests
+50/63 Test #50: ProcessorFamilyTests .............   Passed    0.43 sec
+      Start 51: LineflowEndpointTests
+51/63 Test #51: LineflowEndpointTests ............   Passed    0.32 sec
+      Start 52: TapProcessorTests
+52/63 Test #52: TapProcessorTests ................   Passed    0.26 sec
+      Start 53: CompiledFormatTests
+53/63 Test #53: CompiledFormatTests ..............   Passed    0.03 sec
+      Start 54: ProcessingRoutingTests
+54/63 Test #54: ProcessingRoutingTests ...........   Passed    2.85 sec
+      Start 55: LineflowPersistenceTests
+55/63 Test #55: LineflowPersistenceTests .........   Passed    3.92 sec
+      Start 56: LineflowEditorTests
+56/63 Test #56: LineflowEditorTests ..............   Passed    2.68 sec
+      Start 57: TerminalProcessingTests
+57/63 Test #57: TerminalProcessingTests ..........   Passed    1.00 sec
+      Start 58: ProcessorFavoritesTests
+58/63 Test #58: ProcessorFavoritesTests ..........   Passed    0.17 sec
+      Start 59: LoggerTests
+59/63 Test #59: LoggerTests ......................   Passed    0.38 sec
+      Start 60: LoggingTests
+60/63 Test #60: LoggingTests .....................   Passed    0.16 sec
+      Start 61: HelpSourceTests
+61/63 Test #61: HelpSourceTests ..................   Passed    0.14 sec
+      Start 62: HelpBrowserTests
+62/63 Test #62: HelpBrowserTests .................   Passed    0.87 sec
+      Start 63: ProcessorTutorialTests
+63/63 Test #63: ProcessorTutorialTests ...........   Passed    0.09 sec
+
+100% tests passed, 0 tests failed out of 63
+
+Total Test time (real) =  89.31 sec
