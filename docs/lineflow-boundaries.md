@@ -105,3 +105,7 @@ The final Debug application and bundled transport plugins were built successfull
 The FLOW-29 boundary presentation update passed the complete Release editor suite
 and native 100%/200% checks. Captures above reflect the ordinary fixed block
 presentation. The final Debug application was rebuilt.
+
+Boundary property groups use the same names as their diagram blocks. Recording
+choices use sentence case with conventional acronyms (JSONL, HEX, LF, CRLF);
+only presentation labels change, while stored values remain unchanged.

@@ -339,7 +339,7 @@ content:
       x-order: 7
     flushEvery:
       type: integer
-      title: Flush every records
+      title: Flush interval (records)
       minimum: 1
       maximum: 1024
       default: 1
@@ -349,6 +349,8 @@ content:
       type: string
       title: Format
       enum: [jsonl, binary, hex]
+      x-widget-options:
+        variantTitles: {jsonl: JSONL, binary: Binary, hex: HEX}
       default: jsonl
       x-order: 4
 )";
@@ -358,13 +360,17 @@ content:
       type: string
       title: Direction
       enum: [both, rx, tx]
+      x-widget-options:
+        variantTitles: {both: Both, rx: Rx, tx: Tx}
       default: both
       x-order: 9
 )";
     }
     if (!allowLines)
     {
-        result.replace("      default: packets", "      enum: [packets]\n      default: packets");
+        result.replace(
+            "      default: packets",
+            "      enum: [packets]\n      x-widget-options:\n        variantTitles: {packets: Packets}\n      default: packets");
         return result + packetProperties;
     }
 
@@ -389,6 +395,8 @@ content:
           type: string
           title: Line ending
           enum: [lf, crlf]
+          x-widget-options:
+            variantTitles: {lf: LF, crlf: CRLF}
           default: lf
           x-order: 10
         trimTrailingSpaces:
