@@ -228,3 +228,24 @@ target_link_libraries(ProcessorFamilyTests PRIVATE
     Qt6::Widgets
 )
 add_test(NAME ProcessorFamilyTests COMMAND ProcessorFamilyTests)
+
+qt_add_executable(LineflowEndpointTests
+    LineflowEndpointTests.cpp
+)
+target_link_libraries(LineflowEndpointTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME LineflowEndpointTests COMMAND LineflowEndpointTests)
+
+qt_add_executable(TapProcessorTests
+    TapProcessorTests.cpp
+)
+target_include_directories(TapProcessorTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/Core/src/Processing"
+)
+target_link_libraries(TapProcessorTests PRIVATE
+    Core
+    Qt6::Test
+)
+add_test(NAME TapProcessorTests COMMAND TapProcessorTests)

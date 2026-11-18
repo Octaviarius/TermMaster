@@ -23,6 +23,8 @@ qt_add_library(App STATIC
     src/Gui/Processing/LineflowCanvas.cpp
     src/Gui/Processing/LineflowEditorDialog.h
     src/Gui/Processing/LineflowEditorDialog.cpp
+    src/Terminal/TerminalLineRecorder.h
+    src/Terminal/TerminalLineRecorder.cpp
     src/Terminal/ProcessingRouter.h
     src/Terminal/ProcessingRouter.cpp
     src/Terminal/AdvancedSender.h

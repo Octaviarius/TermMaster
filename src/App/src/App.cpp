@@ -235,6 +235,23 @@ App::App(int& argc, char** argv, const Options& options) : QApplication(argc, ar
         },
         this);
     _data->terminals->setProcessorRegistry(_data->plugins.processors());
+    connect(_data->terminals.get(),
+            &TerminalController::compositionEditorRequested,
+            this,
+            [this](const QString& id, const QString& kind) {
+                if (kind == "lineflow" || kind == "tap")
+                {
+                    _showLineflowEditor();
+                    if (_data->lineflowWindow)
+                    {
+                        _data->lineflowWindow->selectBlock(id);
+                    }
+                }
+                else
+                {
+                    _data->window->showMessage(tr("No editor is registered for composition type %1.").arg(kind));
+                }
+            });
     _data->plugins.setHost(_data->terminals.get());
     _data->help = std::make_unique<HelpController>(commands(), _data->plugins, _data->window.get(), this);
     connect(_data->terminals.get(), &TerminalController::selectionChanged, this, [this] {
@@ -928,6 +945,12 @@ void App::_showLineflowEditor()
                 _data->window->showMessage(error);
             }
         });
+        connect(_data->lineflowWindow,
+                &LineflowEditorDialog::compositionEditorRequested,
+                this,
+                [this](const QString& id, const QString& kind) {
+                    _data->window->showMessage(tr("No editor is registered for composition %1 (%2).").arg(id, kind));
+                });
         _data->lineflowWindow->setAttribute(Qt::WA_DeleteOnClose);
     }
     _data->lineflowWindow->show();

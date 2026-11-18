@@ -23,7 +23,8 @@ public:
         InputNamesRole,
         OutputNamesRole,
         FlippedRole,
-        UnavailableRole
+        UnavailableRole,
+        CompositionKindRole
     };
     LineflowEditorModel(QVariantMap definitions, ProcessorRegistry& registry, QObject* parent = nullptr);
     QVariantMap     definitions() const;

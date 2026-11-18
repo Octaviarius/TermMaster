@@ -3,7 +3,7 @@
 #include <QString>
 #include <QVariantMap>
 
-/** Terminal-owned processing profiles. Inactive selections and diagrams remain persisted. */
+/** Terminal-owned processing Lineflow. Its selection and diagram remain persisted in Bypass. */
 class TerminalProcessing final
 {
 public:
@@ -11,6 +11,6 @@ public:
     static bool        validateMode(const QVariantMap& configuration, QString* error);
     static QVariantMap active(const QVariantMap& configuration);
     static bool        sameActive(const QVariantMap& left, const QVariantMap& right);
-    static QString     rootId(const QString& direction);
-    static QVariantMap diagram(const QVariantMap& configuration, const QString& direction);
+    static QString     rootId();
+    static QVariantMap diagram(const QVariantMap& configuration);
 };

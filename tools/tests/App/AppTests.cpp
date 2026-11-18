@@ -386,6 +386,32 @@ public:
     }
 };
 
+/** Canonical terminal-local graph with independent processing nodes on both lanes. */
+static QVariantMap terminalInplaceDiagram(QVariantList nodes)
+{
+    const auto root = TerminalProcessing::rootId();
+    return {
+        {root,
+         QVariantMap {{"id", root},
+                      {"name", "Inplace"},
+                      {"kind", "lineflow"},
+                      {"source", QVariantMap {{"channels", 2}, {"nodes", nodes}}}}}
+    };
+}
+
+static QVariantMap terminalLaneProcessing(QVariantMap receive, QVariantMap transmit)
+{
+    receive.insert("name", "Receive");
+    receive.insert("lane", "rx");
+    transmit.insert("name", "Transmit");
+    transmit.insert("lane", "tx");
+    return {
+        {    "mode",                                                              "lineflow"},
+        {"lineflow",                                      QVariantMap {{"type", "@inplace"}}},
+        { "inplace", QVariantMap {{"lineflow", terminalInplaceDiagram({receive, transmit})}}}
+    };
+}
+
 class AppTests final : public QObject
 {
     Q_OBJECT
@@ -5151,6 +5177,374 @@ content:
         QVERIFY(!registry.type("workspace.pipeline"));
     }
 
+    Q_SLOT void terminalRenderedLineRecording_data()
+    {
+        QTest::addColumn<bool>("flushScreen");
+        QTest::addColumn<bool>("closeTerminal");
+        QTest::newRow("disconnect-flush") << true << false;
+        QTest::newRow("close-flush") << true << true;
+        QTest::newRow("disconnect-history-only") << false << false;
+        QTest::newRow("close-history-only") << false << true;
+    }
+
+    Q_SLOT void terminalRenderedLineRecording()
+    {
+        QFETCH(bool, flushScreen);
+        QFETCH(bool, closeTerminal);
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Rendered.termaster")), "Rendered lines", &error));
+        QVERIFY(_app.createSession("Rendered lines", &error));
+        auto& host                       = _app.pluginHost();
+        auto& controller                 = static_cast<TerminalController&>(host);
+        auto  probe                      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                 = true;
+        probe->allowance                 = 1024 * 1024;
+        const auto               cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("renderedFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "renderedFixture";
+        type.title  = "Rendered fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Rendered fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        QVERIFY(_app.createTerminal("renderedFixture", {}, "Rendered", &error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        auto* panel   = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
+        QVERIFY(display && panel);
+        const auto size = display->terminalSize();
+        QVERIFY(size.width() >= 16 && size.height() >= 4);
+
+        // Existing history precedes the recording subscription and must never be replayed.
+        QByteArray before;
+        for (int row = 0; row < size.height() + 2; ++row)
+        {
+            before += "BeforeRecording\r\n";
+        }
+        probe->injectReceive(before);
+        QTRY_VERIFY(display->historyLineCount() > 0);
+        probe->injectReceive("\033[2J\033[H");
+        QTRY_COMPARE(display->screen().cursorLine(), display->historyLineCount());
+
+        const auto        filePath = temporary.filePath("lines.txt");
+        const QVariantMap endpoint {
+            {           "enabled",        true},
+            {     "recordingMode",     "lines"},
+            {         "direction",        "rx"},
+            {              "file",    filePath},
+            {        "lineEnding",        "lf"},
+            {"trimTrailingSpaces",        true},
+            {       "flushScreen", flushScreen}
+        };
+        const auto root        = TerminalProcessing::rootId();
+        auto       definitions = terminalInplaceDiagram({});
+        auto       definition  = definitions.value(root).toMap();
+        auto       source      = definition.value("source").toMap();
+        source.insert("final", endpoint);
+        definition.insert("source", source);
+        definitions.insert(root, definition);
+        const QVariantMap processing {
+            {    "mode",                              "lineflow"},
+            {"lineflow",      QVariantMap {{"type", "@inplace"}}},
+            { "inplace", QVariantMap {{"lineflow", definitions}}}
+        };
+        QVERIFY(controller.selectedSettings().setValue("processing", processing));
+        controller.applySettings();
+        QVERIFY(_app.saveSession(&error));
+        const auto contents = [&] {
+            QFile file(filePath);
+            return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray {};
+        };
+        QTest::qWait(40);
+        QVERIFY(contents().isEmpty());
+        QCOMPARE(controller.selectedSettings().value("processing").toMap(), processing);
+
+        // Redraws remain editable screen content until their final row enters primary history.
+        probe->injectReceive("progress 10%");
+        QTRY_VERIFY(display->text().contains("progress 10%"));
+        probe->injectReceive("\r\033[2Kprogress 90%");
+        QTRY_VERIFY(display->text().contains("progress 90%"));
+        probe->injectReceive("\r\033[2K\033[32mRenderedFinal\033[0m   \r\n");
+        QTRY_VERIFY(display->text().contains("RenderedFinal"));
+        QTest::qWait(40);
+        QVERIFY(contents().isEmpty());
+
+        const QByteArray wrapped(size.width() + 5, 'W');
+        probe->injectReceive(wrapped + "\r\n");
+        QTest::qWait(30);
+        QVERIFY(contents().isEmpty());
+        QByteArray scrolling;
+        for (int row = 0; row < size.height() + 3; ++row)
+        {
+            scrolling += "Stable-" + QByteArray::number(row) + "\r\n";
+        }
+        probe->injectReceive(scrolling);
+        QTRY_VERIFY(contents().contains(wrapped + '\n'));
+        QCOMPARE(contents().count("RenderedFinal\n"), 1);
+        QCOMPARE(contents().count(wrapped + '\n'), 1);
+        QVERIFY(!contents().contains("BeforeRecording"));
+        QVERIFY(!contents().contains("progress"));
+        QVERIFY(!contents().contains('\033'));
+        QVERIFY(!contents().contains('\r'));
+
+        if (flushScreen && !closeTerminal)
+        {
+            // A concurrent writer vetoes an edited graph without retiring the active recorder.
+            panel->findChild<QToolButton*>("lineflowInplace")->click();
+            auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
+            QVERIFY(editor);
+            QVERIFY(!editor->model().insertNodeAt(root, 0, "native.gate", "rx", &error).isEmpty());
+            QFile disk(_app.session()->filePath().toString());
+            QVERIFY(disk.open(QIODevice::ReadOnly));
+            const auto original = disk.readAll();
+            disk.close();
+            QVERIFY(disk.open(QIODevice::WriteOnly));
+            const auto external = original + "\n# concurrent rendered writer\n";
+            QCOMPARE(disk.write(external), qint64(external.size()));
+            disk.close();
+            QVERIFY(!editor->applyDraft(&error));
+            QCOMPARE(controller.selectedSettings().value("processing").toMap(), processing);
+            QVERIFY(disk.open(QIODevice::WriteOnly));
+            QCOMPARE(disk.write(original), qint64(original.size()));
+            disk.close();
+            editor->close();
+        }
+
+        probe->injectReceive("PendingProgress\r\033[2KPendingFinal");
+        QTRY_VERIFY(display->text().contains("PendingFinal"));
+        QVERIFY(!contents().contains("PendingFinal"));
+        display->outputBytes("ReplyOnly", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_COMPARE(probe->output(), QByteArray("ReplyOnly"));
+        const auto attempts = probe->attempts.load();
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        display->setFocus();
+        if (closeTerminal)
+        {
+            host.closeSelectedTerminal();
+            QTRY_VERIFY(_app.terminalIds().isEmpty());
+        }
+        else
+        {
+            host.disconnectSelectedTerminal();
+            QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Closed);
+        }
+        // Lifecycle completion drains the worker file queue synchronously.
+        const auto recorded = contents();
+        QCOMPARE(recorded.count("RenderedFinal\n"), 1);
+        QCOMPARE(recorded.count(wrapped + '\n'), 1);
+        QCOMPARE(recorded.count("PendingFinal\n"), flushScreen ? 1 : 0);
+        for (int row = 0; row < size.height() + 3; ++row)
+        {
+            const auto count = recorded.count("Stable-" + QByteArray::number(row) + '\n');
+            if (flushScreen)
+            {
+                QCOMPARE(count, 1);
+            }
+            else
+            {
+                QVERIFY(count <= 1);
+            }
+        }
+        QVERIFY(!recorded.contains("PendingProgress"));
+        QVERIFY(!recorded.contains("ReplyOnly"));
+        QVERIFY(!recorded.contains("BeforeRecording"));
+        QVERIFY(!recorded.contains('\033'));
+        QCOMPARE(probe->attempts.load(), attempts);
+        Settings persisted(_app.session()->filePath(), {"termaster.session", "Termaster session"});
+        QVERIFY(persisted.load(&error));
+        if (!closeTerminal)
+        {
+            QCOMPARE(controller.selectedSettings().value("processing").toMap(), processing);
+        }
+        const QDir logs(_app.paths().logsDirectory().toString());
+        for (const auto& name : logs.entryList(QDir::Files))
+        {
+            QFile log(logs.filePath(name));
+            QVERIFY(log.open(QIODevice::ReadOnly));
+            const auto bytes = log.readAll();
+            QVERIFY(!bytes.contains("RenderedFinal"));
+            QVERIFY(!bytes.contains("PendingFinal"));
+        }
+    }
+
+    Q_SLOT void terminalRenderedLineRecordingFailurePreservesConnection()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(
+            _app.createWorkspace(Path(temporary.filePath("RecordingFailure.termaster")), "Recording failure", &error));
+        QVERIFY(_app.createSession("Recording failure", &error));
+        auto& host                       = _app.pluginHost();
+        auto  probe                      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                 = true;
+        probe->allowance                 = 1024 * 1024;
+        const auto               cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("lineFailureFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "lineFailureFixture";
+        type.title  = "Line failure fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Line failure fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        const auto root        = TerminalProcessing::rootId();
+        auto       definitions = terminalInplaceDiagram({});
+        auto       definition  = definitions.value(root).toMap();
+        auto       source      = definition.value("source").toMap();
+        // A directory passes bounded configuration validation but cannot be opened as a file.
+        source.insert("final",
+                      QVariantMap {
+                          {      "enabled",             true},
+                          {"recordingMode",          "lines"},
+                          {    "direction",             "rx"},
+                          {         "file", temporary.path()},
+                          {  "flushScreen",             true}
+        });
+        definition.insert("source", source);
+        definitions.insert(root, definition);
+        const QVariantMap processing {
+            {    "mode",                              "lineflow"},
+            {"lineflow",      QVariantMap {{"type", "@inplace"}}},
+            { "inplace", QVariantMap {{"lineflow", definitions}}}
+        };
+        QVERIFY2(_app.createTerminal("lineFailureFixture",
+                                     {
+                                         {"processing", processing}
+        },
+                                     "Failure",
+                                     &error),
+                 qPrintable(error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        QVERIFY(display);
+        QByteArray bytes;
+        for (int row = 0; row < display->terminalSize().height() + 2; ++row)
+        {
+            bytes += "StillDisplayed\r\n";
+        }
+        probe->injectReceive(bytes);
+        QTRY_VERIFY(display->text().contains("StillDisplayed"));
+        QTRY_VERIFY(display->historyLineCount() > 0);
+        QTest::qWait(80);
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
+        QVERIFY(host.connectionRequested("lineFailureFixture"));
+        QCOMPARE(probe->attempts.load(), 1);
+        display->outputBytes("StillWritable", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_COMPARE(probe->output(), QByteArray("StillWritable"));
+        host.disconnectSelectedTerminal();
+        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Closed);
+    }
+
+    Q_SLOT void terminalInitialProcessingFailureRejectsTraffic_data()
+    {
+        QTest::addColumn<QVariantMap>("processing");
+        QTest::newRow("unavailable-root") << QVariantMap {
+            {    "mode",                                      "lineflow"},
+            {"lineflow", QVariantMap {{"type", "unavailable.processor"}}}
+        };
+        QTest::newRow("unavailable-inplace-node") << terminalLaneProcessing(
+            QVariantMap {
+                {"type", "unavailable.processor"}
+        },
+            QVariantMap {{"type", "native.gate"}});
+        auto invalidMode = terminalLaneProcessing(
+            QVariantMap {
+                {"type", "native.gate"}
+        },
+            QVariantMap {{"type", "native.gate"}});
+        invalidMode.insert("mode", "unknown");
+        QTest::newRow("invalid-mode") << invalidMode;
+    }
+
+    Q_SLOT void terminalInitialProcessingFailureRejectsTraffic()
+    {
+        QFETCH(QVariantMap, processing);
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(
+            _app.createWorkspace(Path(temporary.filePath("Unavailable.termaster")), "Unavailable processing", &error));
+        QVERIFY(_app.createSession("Unavailable processing", &error));
+        auto& host                       = _app.pluginHost();
+        auto& controller                 = static_cast<TerminalController&>(host);
+        auto  probe                      = std::make_shared<ReconnectDevice::Probe>();
+        probe->available                 = true;
+        probe->allowance                 = 1024 * 1024;
+        const auto               cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType("unavailableProcessingFixture");
+        });
+        PluginHost::TerminalType type;
+        type.id     = "unavailableProcessingFixture";
+        type.title  = "Unavailable processing fixture";
+        type.plugin = "Synthetic";
+        type.settingsSchema
+            = "version: 1\ntype: termaster.settings-schema\ndescription: Unavailable processing fixture\ncontent:\n  type: object\n  properties: {}\n";
+        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        host.registerTerminalType(std::move(type));
+        QVERIFY2(_app.createTerminal("unavailableProcessingFixture",
+                                     {
+                                         {"processing",                                                 processing},
+                                         {     "input", QVariantMap {{"mode", "buffered"}, {"terminator", "crlf"}}}
+        },
+                                     "Unavailable processing",
+                                     &error),
+                 qPrintable(error));
+        _app.mainWindow().activateWindow();
+        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
+        host.connectSelectedTerminal();
+        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
+        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
+        auto* panel   = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
+        auto* editor  = _app.mainWindow().findChild<CommandEditor*>("commandEditor");
+        auto* draft   = editor ? editor->findChild<QPlainTextEdit*>("commandDraft") : nullptr;
+        QVERIFY(display && panel && editor && draft);
+
+        // Preparation failure must reject every admission path instead of installing an empty bypass router.
+        probe->injectReceive("ForbiddenReceive");
+        display->outputBytes("ForbiddenReply", TerminalDisplay::OutputKind::Reply, {});
+        draft->setPlainText("ForbiddenBufferedCommand");
+        QTest::keyClick(draft, Qt::Key_Return);
+        QTest::qWait(120);
+        QVERIFY(!display->text().contains("ForbiddenReceive"));
+        QVERIFY(probe->output().isEmpty());
+        QCOMPARE(probe->backendState.load(), SerialDevice::State::Open);
+        QVERIFY(host.connectionRequested("unavailableProcessingFixture"));
+        QCOMPARE(probe->attempts.load(), 1);
+        QCOMPARE(controller.selectedSettings().value("processing").toMap(), processing);
+
+        auto* mode = panel->findChild<QComboBox*>("processingMode");
+        QVERIFY(mode);
+        mode->setCurrentIndex(mode->findData("bypass"));
+        emit mode->activated(mode->currentIndex());
+        QVERIFY2(panel->applyDraft(&error), qPrintable(error));
+        QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("bypass"));
+        probe->injectReceive("RecoveredReceive");
+        QTRY_VERIFY(display->text().contains("RecoveredReceive"));
+        display->outputBytes("RecoveredReply", TerminalDisplay::OutputKind::Reply, {});
+        QTRY_COMPARE(probe->output(), QByteArray("RecoveredReply"));
+        draft->setPlainText("RecoveredCommand");
+        QTest::keyClick(draft, Qt::Key_Return);
+        QTRY_COMPARE(probe->output(), QByteArray("RecoveredReplyRecoveredCommand\r\n"));
+        QCOMPARE(probe->backendState.load(), SerialDevice::State::Open);
+        QCOMPARE(probe->attempts.load(), 1);
+        QVERIFY(host.connectionRequested("unavailableProcessingFixture"));
+    }
+
     Q_SLOT void terminalProcessingFaultPreservesConnection_data()
     {
         QTest::addColumn<bool>("receiveFault");
@@ -5191,9 +5585,8 @@ content:
         QVERIFY(_app.createTerminal("faultFixture",
                                     {
                                         {"processing",
-                                         QVariantMap {{"mode", "simplex"},
-                                                      {"rx", receiveFault ? decoder : gate},
-                                                      {"tx", receiveFault ? gate : decoder}}}
+                                         terminalLaneProcessing(receiveFault ? decoder : gate,
+                                         receiveFault ? gate : decoder)}
         },
                                     "Fault",
                                     &error));
@@ -5224,12 +5617,14 @@ content:
         if (receiveFault)
         {
             display->outputBytes("opposite", TerminalDisplay::OutputKind::Reply, {});
-            QTRY_COMPARE(probe->output(), QByteArray("opposite"));
+            QTest::qWait(30);
+            QVERIFY(probe->output().isEmpty());
         }
         else
         {
             probe->injectReceive("opposite");
-            QTRY_VERIFY(display->text().contains("opposite"));
+            QTest::qWait(30);
+            QVERIFY(!display->text().contains("opposite"));
         }
         QTest::qWait(1200);
         QTRY_COMPARE(probe->attempts.load(), 1);
@@ -5416,14 +5811,13 @@ content:
             {         "type",               "native.hex-decoder"},
             {"configuration", QVariantMap {{"accumulate", true}}}
         };
-        QVERIFY(
-            _app.createTerminal("processingFixture",
-                                {
-                                    {"processing", QVariantMap {{"mode", "simplex"}, {"rx", decoder}, {"tx", decoder}}},
-                                    {     "input",          QVariantMap {{"mode", "buffered"}, {"terminator", "crlf"}}}
+        QVERIFY(_app.createTerminal("processingFixture",
+                                    {
+                                        {"processing", terminalLaneProcessing(decoder, decoder)},
+                                        {"input", QVariantMap {{"mode", "buffered"}, {"terminator", "crlf"}}}
         },
-                                "Processing",
-                                &error));
+                                    "Processing",
+                                    &error));
         _app.mainWindow().activateWindow();
         QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
         host.connectSelectedTerminal();
@@ -5446,61 +5840,20 @@ content:
         QTRY_VERIFY(display->text().contains('A'));
         QTRY_COMPARE(probe->output(), QByteArray("B"));
 
-        // Rx-only edits preserve the Tx decoder's buffered nibble and running transport.
         auto* processingPanel = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
         QVERIFY(processingPanel);
-        auto* rxSelection = processingPanel->findChild<QComboBox*>("rxProcessor");
-        QVERIFY(rxSelection);
-        probe->clearOutput();
-        display->outputBytes("4", TerminalDisplay::OutputKind::Reply, {});
-        QTest::qWait(30);
-        QVERIFY(processingPanel->applyDraft(&error));
-        rxSelection->setCurrentIndex(rxSelection->findData("native.gate"));
-        emit rxSelection->activated(rxSelection->currentIndex());
-        QVERIFY2(processingPanel->applyDraft(&error), qPrintable(error));
-        display->outputBytes("2", TerminalDisplay::OutputKind::Reply, {});
-        QTRY_COMPARE(probe->output(), QByteArray("B"));
-        QTRY_COMPARE(selectedDeviceState(_app), SerialDevice::State::Open);
-        rxSelection->setCurrentIndex(rxSelection->findData("native.hex-decoder"));
-        emit rxSelection->activated(rxSelection->currentIndex());
-        QVERIFY2(processingPanel->applyDraft(&error), qPrintable(error));
-        QCOMPARE(_app.session()
-                     ->objects()
-                     .value(static_cast<TerminalController&>(host).selectedTerminal())
-                     .toMap()
-                     .value("settings")
-                     .toMap()
-                     .value("processing")
-                     .toMap()
-                     .value("rx")
-                     .toMap()
-                     .value("type")
-                     .toString(),
-                 QString("native.hex-decoder"));
 
-        // A workspace block is selectable through the same controller boundary.
-        QVERIFY(
-            _app.workspace()->setProcessorDefinition("identity",
-                                                     {
-                                                         {    "id","identity"                                                                   },
-                                                         {  "name",                                        "Identity"},
-                                                         {  "kind",                                        "lineflow"},
-                                                         {"source",
-                                                          QVariantMap {
-                                                          {"nodes",
-                                                          QVariantList {QVariantMap {{"name", "pass"},
-                                                          {"type", "native.gate"}}}}}                                }
-        },
-                                                     &error));
-        auto&             controller = static_cast<TerminalController&>(host);
-        const QVariantMap identity {
-            {"type", "identity"}
-        };
+        // A workspace graph is selectable through the same controller boundary.
+        const auto identityDefinitions = terminalInplaceDiagram({});
+        auto       identityDefinition  = identityDefinitions.value(TerminalProcessing::rootId()).toMap();
+        identityDefinition.insert("id", "identity");
+        identityDefinition.insert("name", "Identity");
+        QVERIFY(_app.workspace()->setProcessorDefinition("identity", identityDefinition, &error));
+        auto& controller = static_cast<TerminalController&>(host);
         QVERIFY(controller.selectedSettings().setValue("processing",
                                                        QVariantMap {
-                                                           {"mode", "simplex"},
-                                                           {  "rx",  identity},
-                                                           {  "tx",  identity}
+                                                           {    "mode",                         "lineflow"},
+                                                           {"lineflow", QVariantMap {{"type", "identity"}}}
         }));
         controller.applySettings();
         QTest::qWait(30);
@@ -5520,10 +5873,10 @@ content:
 
         // A shared two-lane definition is selected once and drives both device directions.
         QVERIFY2(_app.workspace()
-                     ->setProcessorDefinition("duplex.fixture",
+                     ->setProcessorDefinition("routing.fixture",
                                               {
-                                                  {    "id","duplex.fixture"                                                            },
-                                                  {  "name",                                        "Duplex fixture"},
+                                                  {    "id","routing.fixture"                                                            },
+                                                  {  "name",                                       "Routing fixture"},
                                                   {  "kind",                                              "lineflow"},
                                                   {"source",
                                                    QVariantMap {{"channels", 2},
@@ -5543,12 +5896,12 @@ content:
                                               &error),
                  qPrintable(error));
         auto* processingMode  = processingPanel->findChild<QComboBox*>("processingMode");
-        auto* sharedSelection = processingPanel->findChild<QComboBox*>("duplexProcessor");
+        auto* sharedSelection = processingPanel->findChild<QComboBox*>("lineflowProcessor");
         QVERIFY(processingMode && sharedSelection);
-        processingMode->setCurrentIndex(processingMode->findData("duplex"));
+        processingMode->setCurrentIndex(processingMode->findData("lineflow"));
         emit processingMode->activated(processingMode->currentIndex());
-        QVERIFY(sharedSelection->findData("duplex.fixture") >= 0);
-        sharedSelection->setCurrentIndex(sharedSelection->findData("duplex.fixture"));
+        QVERIFY(sharedSelection->findData("routing.fixture") >= 0);
+        sharedSelection->setCurrentIndex(sharedSelection->findData("routing.fixture"));
         emit sharedSelection->activated(sharedSelection->currentIndex());
         QVERIFY2(processingPanel->applyDraft(&error), qPrintable(error));
         QTest::qWait(30);
@@ -5558,10 +5911,9 @@ content:
         display->outputBytes("B", TerminalDisplay::OutputKind::Reply, {});
         QTRY_VERIFY(display->text().contains('A'));
         QTRY_COMPARE(probe->output(), QByteArray("42"));
-        QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("duplex.fixture"));
-        QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("duplex"));
-        QCOMPARE(controller.selectedSettings().value("processing/rx/type").toString(), QString("identity"));
-        QCOMPARE(controller.selectedSettings().value("processing/tx/type").toString(), QString("identity"));
+        QCOMPARE(controller.selectedSettings().value("processing/lineflow/type").toString(),
+                 QString("routing.fixture"));
+        QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("lineflow"));
         host.disconnectSelectedTerminal();
         host.connectSelectedTerminal();
         QTest::qWait(30);
@@ -5609,12 +5961,7 @@ content:
              QVariantMap {{"pattern", "<(?<header>[A-Z]):(?<payload>[^>]+)>"},
              {"outputTemplate", "${payload}abcdef${header}END"}}}
         };
-        QVERIFY(controller.selectedSettings().setValue("processing",
-                                                       QVariantMap {
-                                                           {"mode", "simplex"},
-                                                           {  "rx",    framed},
-                                                           {  "tx",    framed}
-        }));
+        QVERIFY(controller.selectedSettings().setValue("processing", terminalLaneProcessing(framed, framed)));
         controller.applySettings();
         QTest::qWait(30);
         display->clear();
@@ -5633,97 +5980,6 @@ content:
         QVERIFY(host.connectionRequested("processingFixture"));
         QVERIFY(_app.closeWorkspace(&error));
         QTRY_VERIFY(registry.canRemoveOwner("core.processing"));
-    }
-
-    Q_SLOT void dormantProcessingEditsPreserveDuplexState()
-    {
-        QTemporaryDir temporary;
-        QString       error;
-        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Dormant.termaster")), "Dormant", &error));
-        QVERIFY(_app.createSession("Dormant profiles", &error));
-        auto& host                       = _app.pluginHost();
-        auto& controller                 = static_cast<TerminalController&>(host);
-        auto  probe                      = std::make_shared<ReconnectDevice::Probe>();
-        probe->available                 = true;
-        const auto               cleanup = qScopeGuard([&] {
-            _closeTemporaryWorkspace();
-            host.unregisterTerminalType("dormantFixture");
-        });
-        PluginHost::TerminalType type;
-        type.id     = "dormantFixture";
-        type.title  = "Dormant fixture";
-        type.plugin = "Synthetic";
-        type.settingsSchema
-            = "version: 1\ntype: termaster.settings-schema\ndescription: Dormant fixture\ncontent:\n  type: object\n  properties: {}\n";
-        type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
-        host.registerTerminalType(std::move(type));
-        const QVariantMap codec {
-            {    "id",                 "dormant.codec"                      },
-            {  "name",                                       "Dormant codec"},
-            {  "kind",                                            "lineflow"},
-            {"source",
-             QVariantMap {{"channels", 2},
-             {"nodes",
-             QVariantList {QVariantMap {{"name", "codec"},
-             {"type", "native.hex-codec"},
-             {"configuration", QVariantMap {{"decodeAccumulate", true}}},
-             {"lane", "duplex"}}}}}                                         }
-        };
-        QVERIFY(_app.workspace()->setProcessorDefinition("dormant.codec", codec, &error));
-        QVERIFY(_app.createTerminal("dormantFixture",
-                                    {
-                                        {"processing",
-                                         QVariantMap {{"mode", "duplex"},
-                                                      {"duplex", QVariantMap {{"type", "dormant.codec"}}},
-                                                      {"rx", QVariantMap {{"type", "unavailable.dormant"}}}}}
-        },
-                                    "Dormant",
-                                    &error));
-        _app.mainWindow().activateWindow();
-        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
-        host.connectSelectedTerminal();
-        QVERIFY(probe->hasDevice());
-        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
-        auto* display = _app.mainWindow().findChild<TerminalDisplay*>("terminalDisplay");
-        auto* panel   = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
-        QVERIFY(display && panel);
-        probe->injectReceive("6");
-        QTest::qWait(30);
-        QVERIFY(display->text().isEmpty());
-        QVERIFY(_app.workspace()->removeProcessorDefinition("dormant.codec", &error));
-        QVERIFY(!_app.plugins().processors().type("dormant.codec"));
-        // The receive profile is dormant while the shared HEX codec accumulates packets.
-        panel->findChild<QToolButton*>("rxInplace")->click();
-        auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
-        QVERIFY(editor);
-        QVERIFY(!editor->model().insertNode("terminal.inplace.rx", 0, "native.gate", &error).isEmpty());
-        QVERIFY2(editor->applyDraft(&error), qPrintable(error));
-        editor->close();
-        QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), QString("duplex"));
-        QCOMPARE(controller.selectedSettings().value("processing/rx/type").toString(), QString("@inplace"));
-        QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("dormant.codec"));
-        probe->injectReceive("6");
-        QTRY_COMPARE(display->text(), QString("f"));
-        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
-
-        QVERIFY(_app.workspace()->setProcessorDefinition("dormant.codec", codec, &error));
-        _app.mainWindow().activateWindow();
-        QTRY_COMPARE(QApplication::activeWindow(), &_app.mainWindow());
-        host.disconnectSelectedTerminal();
-        host.connectSelectedTerminal();
-        display->clear();
-        probe->injectReceive("6");
-        QTest::qWait(30);
-        QVERIFY(display->text().isEmpty());
-        QVERIFY(controller.selectedSettings().setValue("processing/tx",
-                                                       QVariantMap {
-                                                           {"type", "another.unavailable.dormant"}
-        }));
-        controller.applySettings();
-        probe->injectReceive("7");
-        QTRY_COMPARE(display->text(), QString("g"));
-        QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
-        QVERIFY(_app.saveSession(&error));
     }
 
     Q_SLOT void terminalProcessingWorkerFactoriesQueueGuiLifecycleChanges()
@@ -5795,11 +6051,22 @@ content:
             return std::make_unique<ReentrantProcessor>();
         };
         registry.registerType("reentrant-owner", std::move(processor));
+        auto reentrantDefinition = terminalInplaceDiagram({
+                                                              QVariantMap {{"name", "Reentrant"},
+                                                                           {"type", "reentrant.processor"},
+                                                                           {"lane", "rx"}}
+        })
+                                       .value(TerminalProcessing::rootId())
+                                       .toMap();
+        reentrantDefinition.insert("id", "reentrant.graph");
+        reentrantDefinition.insert("name", "Reentrant graph");
+        QVERIFY(_app.workspace()->setProcessorDefinition("reentrant.graph", reentrantDefinition, &error));
+
         QVERIFY(_app.createTerminal("reentrantFixture",
                                     {
                                         {"processing",
-                                         QVariantMap {{"mode", "simplex"},
-                                                      {"rx", QVariantMap {{"type", "reentrant.processor"}}}}}
+                                         QVariantMap {{"mode", "lineflow"},
+                                                      {"lineflow", QVariantMap {{"type", "reentrant.graph"}}}}}
         },
                                     "Reentrant",
                                     &error));
@@ -5818,16 +6085,16 @@ content:
 
         QVERIFY(_app.createTerminal("reentrantFixture",
                                     {
-                                        {"processing", QVariantMap {{"mode", "simplex"}}}
+                                        {"processing", QVariantMap {{"mode", "bypass"}}}
         },
                                     "Nested",
                                     &error));
         auto* panel = _app.mainWindow().findChild<TerminalProcessingPanel*>("terminalProcessing");
         QVERIFY(panel);
-        auto* selection = panel->findChild<QComboBox*>("rxProcessor");
-        QVERIFY(selection && selection->findData("reentrant.processor") >= 0);
+        auto* selection = panel->findChild<QComboBox*>("lineflowProcessor");
+        QVERIFY(selection && selection->findData("reentrant.graph") >= 0);
         replaceDuringFactory = true;
-        selection->setCurrentIndex(selection->findData("reentrant.processor"));
+        selection->setCurrentIndex(selection->findData("reentrant.graph"));
         emit selection->activated(selection->currentIndex());
         QTRY_VERIFY2(nestedSaved, qPrintable(error));
         QVERIFY(factoryOnWorker.load());
@@ -5863,33 +6130,25 @@ content:
             = "version: 1\ntype: termaster.settings-schema\ndescription: Removal fixture\ncontent:\n  type: object\n  properties: {}\n";
         type.createDevice = [probe] { return std::make_unique<ReconnectDevice>(probe); };
         host.registerTerminalType(std::move(type));
-        const QString     root = "terminal.inplace.rx";
-        const QVariantMap definitions {
-            {root,
-             QVariantMap {{"id", root},
-                          {"name", "Inplace"},
-                          {"kind", "lineflow"},
-                          {"source",
-                           QVariantMap {
-                               {"nodes",
-                                QVariantList {QVariantMap {{"name", "HEX Encoder"}, {"type", "native.hex-encoder"}},
-                                              QVariantMap {{"name", "Gate"}, {"type", "native.gate"}}}}}}}}
-        };
+        const auto        root        = TerminalProcessing::rootId();
+        const auto        definitions = terminalInplaceDiagram({
+            QVariantMap {{"name", "HEX Encoder"}, {"type", "native.hex-encoder"}, {"lane", "rx"}},
+            QVariantMap {       {"name", "Gate"},        {"type", "native.gate"}, {"lane", "rx"}}
+        });
         const QVariantMap gateOverride {
             {"enabled",       true},
             {"unknown", "retained"}
         };
         const QVariantMap initial {
-            {   "mode",          "simplex"                       },
-            {     "rx",
+            {    "mode",       "lineflow"                        },
+            {"lineflow",
              QVariantMap {{"type", "@inplace"},
              {"unknown", "selection metadata"},
              {"overrides",
              QVariantMap {{"HEX Encoder", QVariantMap {{"letterCase", "lower"}, {"separator", ""}}},
              {"Gate", gateOverride}}}}                           },
-            {     "tx",     QVariantMap {{"type", "native.gate"}}},
-            {"inplace",         QVariantMap {{"rx", definitions}}},
-            {"unknown",                     "processing metadata"}
+            { "inplace",  QVariantMap {{"lineflow", definitions}}},
+            { "unknown",                    "processing metadata"}
         };
         QVERIFY2(_app.createTerminal("removalFixture",
                                      {
@@ -5910,7 +6169,7 @@ content:
         QVERIFY(display && panel);
         probe->injectReceive("A");
         QTRY_COMPARE(display->text(), QString("41"));
-        panel->findChild<QToolButton*>("rxInplace")->click();
+        panel->findChild<QToolButton*>("lineflowInplace")->click();
         auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
         QVERIFY(editor);
         QVERIFY(editor->model().removeNode(root, "HEX Encoder", &error));
@@ -5943,15 +6202,14 @@ content:
         disk.close();
         QVERIFY2(editor->applyDraft(&error), qPrintable(error));
         const auto committed = controller.selectedSettings().value("processing").toMap();
-        const auto selection = committed.value("rx").toMap();
+        const auto selection = committed.value("lineflow").toMap();
         QCOMPARE(selection.value("overrides").toMap(),
                  QVariantMap({
                      {"Retained gate", gateOverride}
         }));
-        QCOMPARE(selection.value("unknown"), initial.value("rx").toMap().value("unknown"));
-        QCOMPARE(committed.value("tx"), initial.value("tx"));
+        QCOMPARE(selection.value("unknown"), initial.value("lineflow").toMap().value("unknown"));
         QCOMPARE(committed.value("unknown"), initial.value("unknown"));
-        QCOMPARE(committed.value("inplace").toMap().value("rx").toMap(), editor->model().definitions());
+        QCOMPARE(committed.value("inplace").toMap().value("lineflow").toMap(), editor->model().definitions());
         display->clear();
         probe->injectReceive("C");
         QTRY_COMPARE(display->text(), QString("C"));
@@ -6009,34 +6267,19 @@ content:
             return std::make_unique<ReconnectDevice>(probe);
         };
         host.registerTerminalType(std::move(type));
-        const auto diagram = [](const QString& direction, QVariantList nodes) {
-            const auto root = "terminal.inplace." + direction;
-            return QVariantMap {
-                {root,
-                 QVariantMap {{"id", root},
-                              {"name", "Inplace"},
-                              {"kind", "lineflow"},
-                              {"source",
-                               QVariantMap {{"channels", direction == "duplex" ? 2 : 1}, {"nodes", nodes}}}}}
-            };
-        };
-        const auto        firstRx  = diagram("rx",
-                                             {
-                                                 QVariantMap {{"name", "decode"}, {"type", "native.hex-decoder"}}
+        const auto        firstDiagram  = terminalInplaceDiagram({
+            QVariantMap {{"name", "decode"}, {"type", "native.hex-decoder"}, {"lane", "rx"}}
         });
-        const auto        secondRx = diagram("rx",
-                                             {
-                                                 QVariantMap {{"name", "encode"},
-                                                              {"type", "native.hex-encoder"},
-                                                              {"configuration", QVariantMap {{"separator", ""}}}}
+        const auto        secondDiagram = terminalInplaceDiagram({
+            QVariantMap {{"name", "encode"},
+                         {"type", "native.hex-encoder"},
+                         {"lane", "rx"},
+                         {"configuration", QVariantMap {{"separator", ""}}}}
         });
-        const auto        shared   = diagram("duplex", {});
         const QVariantMap initial {
-            {   "mode",                                         "simplex"},
-            {     "rx",                QVariantMap {{"type", "@inplace"}}},
-            {     "tx",             QVariantMap {{"type", "native.gate"}}},
-            { "duplex",                QVariantMap {{"type", "@inplace"}}},
-            {"inplace", QVariantMap {{"rx", firstRx}, {"duplex", shared}}}
+            {    "mode",                               "lineflow"},
+            {"lineflow",       QVariantMap {{"type", "@inplace"}}},
+            { "inplace", QVariantMap {{"lineflow", firstDiagram}}}
         };
         QVERIFY2(_app.createTerminal("inplaceFixture",
                                      {
@@ -6087,22 +6330,18 @@ content:
         if (!capture.isEmpty())
         {
             QApplication::processEvents();
-            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("Simplex.png")));
+            QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("Lineflow.png")));
         }
-        QVERIFY(!registry.type("terminal.inplace.rx"));
+        QVERIFY(!registry.type("terminal.inplace.lineflow"));
         QVERIFY(_app.workspace()->processorDefinitions().values().isEmpty());
 
-        // Bypass ignores unavailable selections in all inactive directions.
+        // Bypass ignores the retained unavailable selection.
         const QVariantMap unavailable {
             {"type", "missing.processor"}
         };
         QVERIFY2(_app.createTerminal("inplaceFixture",
                                      {
-                                         {"processing",
-                                          QVariantMap {{"mode", "bypass"},
-                                                       {"rx", unavailable},
-                                                       {"tx", unavailable},
-                                                       {"duplex", unavailable}}}
+                                         {"processing", QVariantMap {{"mode", "bypass"}, {"lineflow", unavailable}}}
         },
                                      "Second",
                                      &error),
@@ -6117,7 +6356,7 @@ content:
         QTRY_COMPARE(probes.at(1)->output(), QByteArray("raw"));
         auto secondConfiguration = initial;
         auto secondDiagrams      = initial.value("inplace").toMap();
-        secondDiagrams.insert("rx", secondRx);
+        secondDiagrams.insert("lineflow", secondDiagram);
         secondConfiguration.insert("inplace", secondDiagrams);
         QVERIFY(controller.selectedSettings().setValue("processing", secondConfiguration));
         controller.applySettings();
@@ -6127,40 +6366,37 @@ content:
         QVERIFY(_app.saveSession(&error));
         tabs->setCurrentIndex(0);
         QCOMPARE(_app.selectedTerminal(), firstId);
-        QCOMPARE(controller.selectedSettings().value("processing/inplace/rx").toMap(), firstRx);
+        QCOMPARE(controller.selectedSettings().value("processing/inplace/lineflow").toMap(), firstDiagram);
 
-        panel->findChild<QToolButton*>("rxInplace")->click();
+        panel->findChild<QToolButton*>("lineflowInplace")->click();
         auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
         QVERIFY(editor);
-        QVERIFY(!editor->model().insertNode("terminal.inplace.rx", 1, "native.gate", &error).isEmpty());
+        QVERIFY(!editor->model().insertNodeAt(TerminalProcessing::rootId(), 1, "native.gate", "rx", &error).isEmpty());
         QVERIFY2(editor->applyDraft(&error), qPrintable(error));
         editor->close();
-        const auto editedRx = controller.selectedSettings().value("processing/inplace/rx").toMap();
-        QVERIFY(editedRx != firstRx);
+        const auto editedDiagram = controller.selectedSettings().value("processing/inplace/lineflow").toMap();
+        QVERIFY(editedDiagram != firstDiagram);
         auto* mode = panel->findChild<QComboBox*>("processingMode");
         QVERIFY(mode);
-        for (const auto& selected : {QString("duplex"), QString("simplex")})
+        for (const auto& selected : {QString("bypass"), QString("lineflow")})
         {
             mode->setCurrentIndex(mode->findData(selected));
             emit mode->activated(mode->currentIndex());
             QCOMPARE(controller.selectedSettings().value("processing/mode").toString(), selected);
-            QCOMPARE(controller.selectedSettings().value("processing/inplace/rx").toMap(), editedRx);
-            QCOMPARE(controller.selectedSettings().value("processing/inplace/duplex").toMap(), shared);
-            QCOMPARE(controller.selectedSettings().value("processing/duplex/type").toString(), QString("@inplace"));
-            if (selected == "duplex" && !capture.isEmpty())
-            {
-                QApplication::processEvents();
-                QVERIFY(_app.mainWindow().grab().save(QDir(capture).filePath("Duplex.png")));
-                panel->findChild<QToolButton*>("duplexInplace")->click();
-                auto* duplexEditor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
-                QVERIFY(duplexEditor);
-                QCOMPARE(duplexEditor->model().selectedBlock(), QString("terminal.inplace.duplex"));
-                duplexEditor->setFixedSize(1100, 760);
-                QApplication::processEvents();
-                QVERIFY(duplexEditor->grab().save(QDir(capture).filePath("InplaceEditor.png")));
-                duplexEditor->close();
-                QApplication::processEvents();
-            }
+            QCOMPARE(controller.selectedSettings().value("processing/inplace/lineflow").toMap(), editedDiagram);
+            QCOMPARE(controller.selectedSettings().value("processing/lineflow/type").toString(), QString("@inplace"));
+        }
+        if (!capture.isEmpty())
+        {
+            panel->findChild<QToolButton*>("lineflowInplace")->click();
+            auto* inplaceEditor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
+            QVERIFY(inplaceEditor);
+            QCOMPARE(inplaceEditor->model().selectedBlock(), TerminalProcessing::rootId());
+            inplaceEditor->setFixedSize(1100, 760);
+            QApplication::processEvents();
+            QVERIFY(inplaceEditor->grab().save(QDir(capture).filePath("InplaceEditor.png")));
+            inplaceEditor->close();
+            QApplication::processEvents();
         }
 
         // A concurrent disk writer prevents both persistence and runtime replacement.
@@ -6188,9 +6424,8 @@ content:
         panel->propertiesWidget()->findChild<QPushButton*>("revertProcessing")->click();
         tabs->setCurrentIndex(1);
         QCOMPARE(_app.selectedTerminal(), secondId);
-        QCOMPARE(controller.selectedSettings().value("processing/inplace/rx").toMap(), secondRx);
-        QVERIFY(!registry.type("terminal.inplace.rx"));
-        QVERIFY(!registry.type("terminal.inplace.duplex"));
+        QCOMPARE(controller.selectedSettings().value("processing/inplace/lineflow").toMap(), secondDiagram);
+        QVERIFY(!registry.type("terminal.inplace.lineflow"));
         const auto sessionFile = _app.session()->filePath();
         QVERIFY(_app.closeWorkspace(&error));
         QVERIFY(_app.openWorkspace(workspaceFile, &error));
@@ -6198,8 +6433,10 @@ content:
         QCOMPARE(_app.terminalIds().size(), 2);
         Settings persisted(sessionFile, {"termaster.session", "Termaster session"});
         QVERIFY(persisted.load(&error));
-        QCOMPARE(persisted.value("objects/" + firstId + "/settings/processing/inplace/rx").toMap(), editedRx);
-        QCOMPARE(persisted.value("objects/" + secondId + "/settings/processing/inplace/rx").toMap(), secondRx);
+        QCOMPARE(persisted.value("objects/" + firstId + "/settings/processing/inplace/lineflow").toMap(),
+                 editedDiagram);
+        QCOMPARE(persisted.value("objects/" + secondId + "/settings/processing/inplace/lineflow").toMap(),
+                 secondDiagram);
         for (const auto& probe : probes)
         {
             if (probe->hasDevice())
@@ -6207,7 +6444,7 @@ content:
                 QTRY_COMPARE(probe->backendState.load(), SerialDevice::State::Open);
             }
         }
-        QVERIFY(!registry.type("terminal.inplace.rx"));
+        QVERIFY(!registry.type("terminal.inplace.lineflow"));
     }
 
     Q_SLOT void connectionShortcutsRespectFocusedTerminalAndRebinding()
@@ -6968,20 +7205,22 @@ int main(int argc, char* argv[])
                     }
                     if (scenario == "nestedProcessing")
                     {
-                        const auto        root = TerminalProcessing::rootId("rx");
+                        const auto        root = TerminalProcessing::rootId();
                         const QVariantMap gate {
                             {"name",        "Gate"},
                             {"type", "native.gate"}
                         };
                         const QVariantMap nestedNode {
                             {     "name",       "Inner"},
-                            {"reference", "local.inner"}
+                            {"reference", "local.inner"},
+                            {     "lane",          "rx"}
                         };
                         const QVariantMap innerSource {
                             {"nodes", QVariantList {gate}}
                         };
                         const QVariantMap outerSource {
-                            {"nodes", QVariantList {nestedNode}}
+                            {"channels",                         2},
+                            {   "nodes", QVariantList {nestedNode}}
                         };
                         const QVariantMap innerDefinition {
                             {    "id", "local.inner"},
@@ -7000,14 +7239,14 @@ int main(int argc, char* argv[])
                             {"local.inner", innerDefinition}
                         };
                         QVariantMap processing;
-                        processing.insert("mode", "simplex");
-                        processing.insert("rx",
+                        processing.insert("mode", "lineflow");
+                        processing.insert("lineflow",
                                           QVariantMap {
                                               {"type", "@inplace"}
                         });
                         processing.insert("inplace",
                                           QVariantMap {
-                                              {"rx", definitions}
+                                              {"lineflow", definitions}
                         });
                         settings.insert("processing", processing);
                         for (int index = 0; index < 5; ++index)
@@ -7090,8 +7329,8 @@ int main(int argc, char* argv[])
                     if (scenario == "consoleInplace")
                     {
                         auto* panel = app.mainWindow().findChild<TerminalProcessingPanel*>();
-                        panel->findChild<QComboBox*>("processingMode")->setCurrentIndex(2);
-                        panel->findChild<QToolButton*>("duplexInplace")->click();
+                        panel->findChild<QComboBox*>("processingMode")->setCurrentIndex(1);
+                        panel->findChild<QToolButton*>("lineflowInplace")->click();
                         auto* editor = panel->findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
                         if (!editor || !editor->isVisible())
                         {

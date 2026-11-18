@@ -82,10 +82,14 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Processing/ProcessorBlocks.cpp
     inc/Termaster/Core/Processing/Lineflow.h
     src/Processing/Lineflow.cpp
+    inc/Termaster/Core/Processing/LineflowEndpoint.h
+    src/Processing/LineflowEndpoint.cpp
     inc/Termaster/Core/Processing/NativeProcessors.h
     src/Processing/NativeProcessors.cpp
     src/Processing/Nodes/Bypass.h
     src/Processing/Nodes/Bypass.cpp
+    src/Processing/Nodes/Tap.h
+    src/Processing/Nodes/Tap.cpp
     src/Processing/Nodes/Stub.h
     src/Processing/Nodes/Stub.cpp
     src/Processing/Nodes/Pacer.h

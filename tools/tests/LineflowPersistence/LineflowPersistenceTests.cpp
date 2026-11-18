@@ -44,7 +44,7 @@ QVariantMap objects()
                       {"opaque", "retained"},
                       {"settings",
                        QVariantMap {{"processing",
-                                     QVariantMap {{"rx",
+                                     QVariantMap {{"lineflow",
                                                    QVariantMap {{"type", "root"},
                                                                 {"overrides",
                                                                  QVariantMap {{"branch/old",
@@ -60,7 +60,7 @@ QVariantMap overrideMap(Session& session)
         .toMap()
         .value("processing")
         .toMap()
-        .value("rx")
+        .value("lineflow")
         .toMap()
         .value("overrides")
         .toMap();

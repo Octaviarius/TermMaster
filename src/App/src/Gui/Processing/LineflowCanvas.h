@@ -3,6 +3,7 @@
 #include <QAbstractItemView>
 
 class LineflowEditorModel;
+class QToolButton;
 
 /** Native-style canvas over the authoritative draft model. Layout is derived, never persisted. */
 class LineflowCanvas final : public QAbstractItemView
@@ -20,12 +21,14 @@ public:
         QRect   label;
     };
     explicit LineflowCanvas(LineflowEditorModel& model, QWidget* parent = nullptr);
-    QRect       visualRect(const QModelIndex& index) const override;
-    void        scrollTo(const QModelIndex& index, ScrollHint hint = EnsureVisible) override;
-    QModelIndex indexAt(const QPoint& point) const override;
-    QList<Port> ports(const QModelIndex& index) const;
-    bool        dropIndicatorVisible() const;
-    void        expandAll();
+    QRect         visualRect(const QModelIndex& index) const override;
+    void          scrollTo(const QModelIndex& index, ScrollHint hint = EnsureVisible) override;
+    QModelIndex   indexAt(const QPoint& point) const override;
+    QList<Port>   ports(const QModelIndex& index) const;
+    bool          dropIndicatorVisible() const;
+    void          expandAll();
+    Q_SIGNAL void endpointActivated(const QString& endpoint);
+    Q_SIGNAL void openComposition(const QModelIndex& index);
 
 protected:
     QModelIndex moveCursor(CursorAction action, Qt::KeyboardModifiers modifiers) override;
@@ -54,6 +57,8 @@ private:
         QRect       rect;
     };
     LineflowEditorModel& _draft;
+    QToolButton*         _initial = nullptr;
+    QToolButton*         _final   = nullptr;
     int                  _dropRow = -1;
     QString              _dropLane;
     QStringList          _dropOrder;
@@ -62,6 +67,8 @@ private:
     int                  _stageGap() const;
     int                  _bodyHeight() const;
     QRect                _flipRect(const QRect& rect) const;
+    QRect                _openRect(const QModelIndex& index, const QRect& rect) const;
+    void                 _positionEndpoints();
     int                  _contentWidth() const;
     QList<Item>          _items() const;
     void                 _appendLinked(QList<Item>& items, const QModelIndex& parent, const QRect& card, int& y) const;

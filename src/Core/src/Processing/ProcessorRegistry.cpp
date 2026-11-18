@@ -1,3 +1,5 @@
+#include "Nodes/Tap.h"
+
 #include <QCoreApplication>
 #include <QDeadlineTimer>
 #include <QDebug>
@@ -12,6 +14,7 @@
 #include <QThread>
 #include <QTimer>
 #include <Termaster/Core/Processing/Lineflow.h>
+#include <Termaster/Core/Processing/LineflowEndpoint.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/SettingsSchema.h>
 #include <algorithm>
@@ -667,7 +670,7 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
         throw std::invalid_argument("Invalid processor defaults");
     }
     entry->type.defaults = entry->schema->activeValues(entry->defaults);
-    if (definition.kind == "lineflow")
+    if ((definition.kind == "lineflow" || definition.kind == "tap"))
     {
         const auto channels = definition.source.value("channels", 1);
         if (channels.typeId() != QMetaType::Int && channels.typeId() != QMetaType::LongLong
@@ -679,9 +682,34 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
         {
             throw std::invalid_argument("Lineflow channels must be 1 or 2");
         }
+        if (definition.kind == "tap" && channels.toInt() != 1)
+        {
+            throw std::invalid_argument("Tap copy composition must have one channel");
+        }
         entry->type.inputCount  = channels.toInt();
         entry->type.outputCount = channels.toInt();
-        const auto nodes        = definition.source.value("nodes");
+        for (const auto& endpoint : {"initial", "final"})
+        {
+            if (definition.source.contains(endpoint)
+                && definition.source.value(endpoint).typeId() != QMetaType::QVariantMap)
+            {
+                throw std::invalid_argument("Lineflow endpoint configuration must be a mapping");
+            }
+            if (QString::fromLatin1(endpoint) == "initial"
+                && definition.source.value(endpoint).toMap().value("recordingMode").toString() == "lines")
+            {
+                throw std::invalid_argument("Rendered line recording is only valid at a final endpoint");
+            }
+            QString error;
+            if (!LineflowEndpoint::resolveConfiguration(definition.source.value(endpoint).toMap(),
+                                                        {},
+                                                        channels.toInt(),
+                                                        &error))
+            {
+                throw std::invalid_argument(error.toStdString());
+            }
+        }
+        const auto nodes = definition.source.value("nodes");
         if (nodes.typeId() != QMetaType::QVariantList || nodes.toList().size() > 256)
         {
             throw std::invalid_argument("Lineflow nodes require a list of at most 256 nodes");
@@ -696,7 +724,8 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
             const auto node = value.toMap();
             const auto name = node.value("name").toString();
             if (node.value("name").typeId() != QMetaType::QString || name.isEmpty() || name.size() > 256
-                || name != name.trimmed() || name.contains(QChar::Null) || name.contains('/') || names.contains(name))
+                || name != name.trimmed() || name.contains(QChar::Null) || name.contains('/') || name == "@initial"
+                || name == "@final" || names.contains(name))
             {
                 throw std::invalid_argument("Lineflow node names must be unique and contain no slash or NUL");
             }
@@ -732,7 +761,7 @@ std::shared_ptr<ProcessorRegistry::Entry> ProcessorRegistry::_definitionEntry(co
     entry->type.references.removeDuplicates();
     QStringList inputDefaults;
     QStringList outputDefaults;
-    if (definition.kind == "lineflow")
+    if ((definition.kind == "lineflow" || definition.kind == "tap"))
     {
         inputDefaults  = entry->type.inputCount == 1 ? QStringList {"Input"} : QStringList {"Device Rx", "Terminal Tx"};
         outputDefaults = entry->type.outputCount == 1 ? QStringList {"Output"} :
@@ -1099,7 +1128,7 @@ bool ProcessorRegistry::validatePublicationDraft(const QString&     owner,
         }
         for (const auto& entry : entries)
         {
-            if (!entry->saved || entry->type.kind != "lineflow")
+            if (!entry->saved || (entry->type.kind != "lineflow" && entry->type.kind != "tap"))
             {
                 continue;
             }
@@ -1226,8 +1255,8 @@ void ProcessorRegistry::registerType(const QString& owner, Type type)
     }
     Definition definition {type.id,
                            type.title,
-                           QStringLiteral("native"),
-                           {},
+                           type.kind,
+                           type.definition,
                            type.settingsSchema,
                            type.defaults,
                            type.editor,
@@ -1278,7 +1307,7 @@ bool ProcessorRegistry::unregisterType(const QString& owner, const QString& id, 
 void ProcessorRegistry::registerProvider(const QString& owner, const QString& id, Provider provider)
 {
     if (owner.isEmpty() || owner.contains(QChar::Null) || !validId(id) || id == "native" || id == "lineflow"
-        || !provider.prepare || _providers.contains(id))
+        || id == "tap" || !provider.prepare || _providers.contains(id))
     {
         throw std::invalid_argument("Processor provider requires valid owner, unique kind and preparation callback");
     }
@@ -1388,7 +1417,7 @@ bool ProcessorRegistry::_available(const QString& id, QSet<QString>& visiting, Q
             return "Processor reference cycle: " + key;
         }
         QString problem;
-        if (entry->saved && entry->type.kind != "lineflow")
+        if (entry->saved && (entry->type.kind != "lineflow" && entry->type.kind != "tap"))
         {
             const auto provider = _providers.value(entry->type.kind);
             if (!provider)
@@ -1418,7 +1447,7 @@ bool ProcessorRegistry::_available(const QString& id, QSet<QString>& visiting, Q
                 }
             }
         }
-        if (problem.isEmpty() && entry->saved && entry->type.kind == "lineflow")
+        if (problem.isEmpty() && entry->saved && (entry->type.kind == "lineflow" || entry->type.kind == "tap"))
         {
             for (const auto& value : entry->type.definition.value("nodes").toList())
             {
@@ -1590,7 +1619,8 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
             QVariantMap            base;
             QStringList            paths;
             std::vector<Tree>      children;
-            bool                   composite = false;
+            bool                   composite        = false;
+            int                    endpointChannels = 0;
         };
         qsizetype                                                                   expandedBytes = 0;
         QSet<QString>                                                               visiting;
@@ -1627,13 +1657,36 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
             Tree tree;
             tree.entry     = entry;
             tree.base      = *base;
-            tree.composite = entry->saved && entry->type.kind == "lineflow";
+            tree.composite = entry->saved && (entry->type.kind == "lineflow" || entry->type.kind == "tap");
             if (!tree.composite)
             {
                 return tree;
             }
             visiting.insert(target);
             const auto leave = qScopeGuard([&] { visiting.remove(target); });
+            for (const auto& endpoint : {"initial", "final"})
+            {
+                if (++count > 256)
+                {
+                    fail(error, "Processor property expansion exceeds 256 nodes");
+                    return std::nullopt;
+                }
+                Tree child;
+                child.name              = '@' + QString::fromLatin1(endpoint);
+                child.entry             = std::make_shared<Entry>();
+                child.entry->type.id    = child.name;
+                child.entry->type.title = QString::fromLatin1(endpoint) == "initial" ? QStringLiteral("Initial") :
+                                                                                       QStringLiteral("Final");
+                child.entry->type.settingsSchema = LineflowEndpoint::settingsSchema(entry->type.inputCount,
+                                                                                    QString::fromLatin1(endpoint)
+                                                                                        == "final");
+                child.entry->schema    = std::make_shared<const SettingsSchema>(child.entry->type.settingsSchema);
+                child.entry->defaults  = LineflowEndpoint::defaults(entry->type.inputCount);
+                child.base             = entry->type.definition.value(endpoint).toMap();
+                child.endpointChannels = entry->type.inputCount;
+                tree.paths.append(child.name);
+                tree.children.push_back(std::move(child));
+            }
             for (const auto& value : entry->type.definition.value("nodes").toList())
             {
                 const auto node    = value.toMap();
@@ -1657,6 +1710,9 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
                 }
                 tree.children.push_back(std::move(*child));
             }
+            auto finalEndpoint = std::move(tree.children[1]);
+            tree.children.erase(tree.children.begin() + 1);
+            tree.children.push_back(std::move(finalEndpoint));
             return tree;
         };
         const auto tree = expand(id, storedConfiguration, 1);
@@ -1679,6 +1735,11 @@ std::optional<QList<ProcessorRegistry::PropertyNode>> ProcessorRegistry::propert
                     merged(merged(node.entry->defaults, node.base), effectiveOverrides));
                 for (const auto& configuration : {inherited, effective})
                 {
+                    if (node.endpointChannels
+                        && !LineflowEndpoint::resolveConfiguration(configuration, {}, node.endpointChannels, error))
+                    {
+                        return false;
+                    }
                     const auto errors = node.entry->schema->validate(configuration);
                     if (!errors.isEmpty())
                     {
@@ -2049,7 +2110,7 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
     result->_outputNames = entry->type.outputNames;
     visiting.insert(id);
     const auto leave = qScopeGuard([&] { visiting.remove(id); });
-    if (entry->saved && entry->type.kind == "lineflow")
+    if (entry->saved && (entry->type.kind == "lineflow" || entry->type.kind == "tap"))
     {
         struct Child
         {
@@ -2099,112 +2160,171 @@ std::shared_ptr<const ProcessorRegistry::Prepared> ProcessorRegistry::_prepare(c
                                                        0,
                                 node.value("flipped", false).toBool()});
         }
+        // A Tap additionally owns the independently executing copy Lineflow.
+        instances += entry->type.kind == "tap" ? 3 : 2;
+        if (instances > limits.maxInstances)
+        {
+            fail(error, "Processor expansion limits exceeded by Lineflow endpoints");
+            return {};
+        }
+        for (const auto& endpoint : {"initial", "final"})
+        {
+            const auto name                  = '@' + QString::fromLatin1(endpoint);
+            const auto endpointConfiguration = LineflowEndpoint::
+                resolveConfiguration(entry->type.definition.value(endpoint).toMap(),
+                                     effective->value("overrides").toMap().value(name).toMap(),
+                                     entry->type.inputCount,
+                                     error);
+            if (!endpointConfiguration)
+            {
+                return {};
+            }
+            if (endpointConfiguration->value("enabled").toBool()
+                && endpointConfiguration->value("recordingMode").toString() == "lines")
+            {
+                fail(error, "Rendered line recording requires the terminal root final endpoint");
+                return {};
+            }
+        }
+        result->_paths.prepend(QStringLiteral("@initial"));
+        result->_paths.append(QStringLiteral("@final"));
         result->_composite   = true;
         const auto paths     = result->_paths;
         const auto defaults  = effective->value("overrides").toMap();
         const auto snapshot  = result->_configuration;
-        result->_instantiate = ownerFactory(_lifetime->owner,
-                                            [lifetime = _lifetime,
-                                             lease,
-                                             entry,
-                                             children = std::move(children),
-                                             paths,
-                                             defaults,
-                                             snapshot,
-                                             limits](const QVariantMap& overrides,
-                                                     QString*           error) -> std::shared_ptr<Processor> {
-                                                auto values = merged(defaults, overrides);
-                                                for (auto it = values.cbegin(); it != values.cend(); ++it)
-                                                {
-                                                    if (!paths.contains(it.key())
-                                                        || it.value().typeId() != QMetaType::QVariantMap)
-                                                    {
-                                                        fail(error,
-                                                             "Unknown processor occurrence or invalid override map: "
-                                                                 + it.key());
-                                                        return {};
-                                                    }
-                                                }
-                                                auto finalConfiguration = snapshot;
-                                                finalConfiguration.insert("overrides", values);
-                                                const auto errors = entry->schema->validate(finalConfiguration);
-                                                if (!errors.isEmpty())
-                                                {
-                                                    fail(error,
-                                                         "Invalid composite processor configuration: "
-                                                             + errors.first().message);
-                                                    return {};
-                                                }
-                                                std::vector<std::shared_ptr<Processor>> nodes;
-                                                for (const auto& child : children)
-                                                {
-                                                    QVariantMap childOverrides;
-                                                    if (child.prepared->_composite)
-                                                    {
-                                                        for (auto it = values.cbegin(); it != values.cend(); ++it)
-                                                        {
-                                                            if (it.key().startsWith(child.name + '/'))
-                                                            {
-                                                                childOverrides.insert(it.key().mid(child.name.size()
-                                                                                                   + 1),
-                                                                                      it.value());
-                                                            }
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        childOverrides = values.value(child.name).toMap();
-                                                    }
-                                                    auto instance = child.prepared->instantiate(childOverrides, error);
-                                                    if (!instance)
-                                                    {
-                                                        return {};
-                                                    }
-                                                    nodes.push_back(std::move(instance));
-                                                }
-                                                auto configuration = snapshot;
-                                                configuration.insert("overrides", values);
-                                                QStringList       nodeNames;
-                                                std::vector<int>  lanes;
-                                                std::vector<bool> flipped;
-                                                for (const auto& child : children)
-                                                {
-                                                    nodeNames.append(child.name);
-                                                    lanes.push_back(child.lane);
-                                                    flipped.push_back(child.flipped);
-                                                }
-                                                Type::Factory factory =
-                                                    [nodes       = std::move(nodes),
-                                                     nodeNames   = std::move(nodeNames),
-                                                     lanes       = std::move(lanes),
-                                                     flipped     = std::move(flipped),
-                                                     inputNames  = entry->type.inputNames,
-                                                     outputNames = entry->type.outputNames,
-                                                     channels = entry->type.inputCount](const QVariantMap&       config,
-                                                                                        const Processor::Limits& limits,
-                                                                                        QString*) mutable
-                                                    -> std::unique_ptr<Processor> {
-                                                    return Lineflow::compose(std::move(nodes),
-                                                                             config,
-                                                                             limits,
-                                                                             std::move(nodeNames),
-                                                                             channels,
-                                                                             std::move(lanes),
-                                                                             std::move(flipped),
-                                                                             inputNames,
-                                                                             outputNames);
-                                                };
-                                                return _create(factory,
-                                                               configuration,
-                                                               limits,
-                                                               lease,
-                                                               lifetime,
-                                                               entry->type.inputCount,
-                                                               entry->type.outputCount,
-                                                               entry->type.inputNames,
-                                                               entry->type.outputNames,
-                                                               error);
-                                            });
+        result->_instantiate = ownerFactory(
+            _lifetime->owner,
+            [lifetime = _lifetime,
+             lease,
+             entry,
+             children = std::move(children),
+             paths,
+             defaults,
+             snapshot,
+             limits](const QVariantMap& overrides, QString* error) -> std::shared_ptr<Processor> {
+                auto values = merged(defaults, overrides);
+                for (auto it = values.cbegin(); it != values.cend(); ++it)
+                {
+                    if (!paths.contains(it.key()) || it.value().typeId() != QMetaType::QVariantMap)
+                    {
+                        fail(error, "Unknown processor occurrence or invalid override map: " + it.key());
+                        return {};
+                    }
+                }
+                auto finalConfiguration = snapshot;
+                finalConfiguration.insert("overrides", values);
+                const auto errors = entry->schema->validate(finalConfiguration);
+                if (!errors.isEmpty())
+                {
+                    fail(error, "Invalid composite processor configuration: " + errors.first().message);
+                    return {};
+                }
+                std::vector<std::shared_ptr<Processor>> nodes;
+                for (const auto& child : children)
+                {
+                    QVariantMap childOverrides;
+                    if (child.prepared->_composite)
+                    {
+                        for (auto it = values.cbegin(); it != values.cend(); ++it)
+                        {
+                            if (it.key().startsWith(child.name + '/'))
+                            {
+                                childOverrides.insert(it.key().mid(child.name.size() + 1), it.value());
+                            }
+                        }
+                    }
+                    else
+                    {
+                        childOverrides = values.value(child.name).toMap();
+                    }
+                    auto instance = child.prepared->instantiate(childOverrides, error);
+                    if (!instance)
+                    {
+                        return {};
+                    }
+                    nodes.push_back(std::move(instance));
+                }
+                auto configuration = snapshot;
+                configuration.insert("overrides", values);
+                for (const auto& endpoint : {"initial", "final"})
+                {
+                    const auto name     = '@' + QString::fromLatin1(endpoint);
+                    const auto resolved = LineflowEndpoint::resolveConfiguration(entry->type.definition.value(endpoint)
+                                                                                     .toMap(),
+                                                                                 values.value(name).toMap(),
+                                                                                 entry->type.inputCount,
+                                                                                 error);
+                    if (!resolved)
+                    {
+                        return {};
+                    }
+                    auto processor = LineflowEndpoint::create(*resolved, entry->type.inputCount, limits, error);
+                    if (!processor)
+                    {
+                        return {};
+                    }
+                    if (name == "@initial")
+                    {
+                        nodes.insert(nodes.begin(), std::move(processor));
+                    }
+                    else
+                    {
+                        nodes.push_back(std::move(processor));
+                    }
+                }
+                QStringList       nodeNames;
+                std::vector<int>  lanes;
+                std::vector<bool> flipped;
+                for (const auto& child : children)
+                {
+                    nodeNames.append(child.name);
+                    lanes.push_back(child.lane);
+                    flipped.push_back(child.flipped);
+                }
+                nodeNames.prepend(QStringLiteral("@initial"));
+                nodeNames.append(QStringLiteral("@final"));
+                const int endpointLane = entry->type.inputCount == 2 ? 2 : 0;
+                lanes.insert(lanes.begin(), endpointLane);
+                lanes.push_back(endpointLane);
+                flipped.insert(flipped.begin(), false);
+                flipped.push_back(false);
+                Type::Factory factory = [nodes       = std::move(nodes),
+                                         nodeNames   = std::move(nodeNames),
+                                         lanes       = std::move(lanes),
+                                         flipped     = std::move(flipped),
+                                         inputNames  = entry->type.inputNames,
+                                         outputNames = entry->type.outputNames,
+                                         channels    = entry->type.inputCount,
+                                         tap         = entry->type.kind
+                                                    == "tap"](const QVariantMap&       config,
+                                                      const Processor::Limits& limits,
+                                                      QString* error) mutable -> std::unique_ptr<Processor> {
+                    auto branch = Lineflow::compose(std::move(nodes),
+                                                    config,
+                                                    limits,
+                                                    std::move(nodeNames),
+                                                    channels,
+                                                    std::move(lanes),
+                                                    std::move(flipped),
+                                                    inputNames,
+                                                    outputNames);
+                    if (tap)
+                    {
+                        return Tap::compose(std::move(branch), config, limits, error);
+                    }
+                    return branch;
+                };
+                return _create(factory,
+                               configuration,
+                               limits,
+                               lease,
+                               lifetime,
+                               entry->type.inputCount,
+                               entry->type.outputCount,
+                               entry->type.inputNames,
+                               entry->type.outputNames,
+                               error);
+            });
         return result;
     }
     Type::Factory                                factory = entry->type.create;

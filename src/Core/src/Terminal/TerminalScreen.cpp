@@ -340,6 +340,14 @@ void TerminalScreen::setLimits(int columns, int rows, int history)
                 lines.append(_blankLine());
             }
         }
+        if (_historyRowHandler && (&lines == &_primary || !_alternate))
+        {
+            const int newBase = std::max(0, int(lines.size()) - _rows);
+            for (int index = oldBase; index < newBase; ++index)
+            {
+                _historyRowHandler(lines[index]);
+            }
+        }
         // Trim before widening cells, keeping transient allocations bounded too.
         const int excess = std::max(0, int(lines.size()) - (_rows + historyLimit));
         if (excess)
@@ -478,6 +486,26 @@ const QVector<TerminalScreen::Line>& TerminalScreen::lines() const
 {
     return _lines;
 }
+int TerminalScreen::historyLineCount() const
+{
+    return _screenTop();
+}
+QString TerminalScreen::lineText(const Line& line)
+{
+    QString   result;
+    const int count = line.softWrapped && line.wrappedColumns > 0 ?
+                          std::min(line.wrappedColumns, int(line.cells.size())) :
+                          int(line.cells.size());
+    for (int column = 0; column < count; ++column)
+    {
+        const auto& cell = line.cells[column];
+        if (cell.width)
+        {
+            result += cell.text;
+        }
+    }
+    return result;
+}
 int TerminalScreen::cursorLine() const
 {
     return _screenTop() + _row;
@@ -573,6 +601,10 @@ QByteArray TerminalScreen::takeOutput()
 void TerminalScreen::setReplyHandler(ReplyHandler handler)
 {
     _replyHandler = std::move(handler);
+}
+void TerminalScreen::setHistoryRowHandler(HistoryRowHandler handler)
+{
+    _historyRowHandler = std::move(handler);
 }
 void TerminalScreen::setExtensionHandler(std::function<void(const VtParser::Sequence&)> handler)
 {
@@ -696,7 +728,11 @@ void TerminalScreen::_scroll(int count, bool down)
         int base = _screenTop();
         if (!down && _top == 0 && _bottom == _rows - 1 && !_alternate)
         {
-            _historyCells += _lines[_screenTop()].cells.size();
+            if (_historyRowHandler)
+            {
+                _historyRowHandler(_lines[base]);
+            }
+            _historyCells += _lines[base].cells.size();
             _lines.append(_blankLine());
             _trim();
         }

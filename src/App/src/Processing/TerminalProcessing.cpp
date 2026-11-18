@@ -8,11 +8,11 @@ QString TerminalProcessing::mode(const QVariantMap& configuration)
 bool TerminalProcessing::validateMode(const QVariantMap& configuration, QString* error)
 {
     const auto value = configuration.value("mode", QStringLiteral("bypass"));
-    if (value.typeId() != QMetaType::QString || !QStringList {"bypass", "simplex", "duplex"}.contains(value.toString()))
+    if (value.typeId() != QMetaType::QString || !QStringList {"bypass", "lineflow"}.contains(value.toString()))
     {
         if (error)
         {
-            *error = QStringLiteral("Processing mode must be Bypass, Simplex or Duplex");
+            *error = QStringLiteral("Processing mode must be Bypass or Lineflow");
         }
         return false;
     }
@@ -23,26 +23,16 @@ QVariantMap TerminalProcessing::active(const QVariantMap& configuration)
 {
     QVariantMap result;
     const auto  selected = mode(configuration);
-    if (selected == "simplex")
+    if (selected == "lineflow")
     {
-        for (const auto& key : {QStringLiteral("rx"), QStringLiteral("tx")})
-        {
-            if (configuration.contains(key))
-            {
-                result.insert(key, configuration.value(key));
-            }
-        }
-    }
-    else if (selected == "duplex")
-    {
-        result.insert("duplex", configuration.value("duplex", QVariantMap {}));
+        result.insert("lineflow", configuration.value("lineflow", QVariantMap {}));
     }
     return result;
 }
 
-QString TerminalProcessing::rootId(const QString& direction)
+QString TerminalProcessing::rootId()
 {
-    return "terminal.inplace." + direction;
+    return QStringLiteral("terminal.inplace.lineflow");
 }
 
 bool TerminalProcessing::sameActive(const QVariantMap& left, const QVariantMap& right)
@@ -52,29 +42,22 @@ bool TerminalProcessing::sameActive(const QVariantMap& left, const QVariantMap& 
     {
         return false;
     }
-    for (auto it = selections.cbegin(); it != selections.cend(); ++it)
-    {
-        if (it.value().toMap().value("type") == "@inplace" && diagram(left, it.key()) != diagram(right, it.key()))
-        {
-            return false;
-        }
-    }
-    return true;
+    return selections.value("lineflow").toMap().value("type") != "@inplace" || diagram(left) == diagram(right);
 }
 
-QVariantMap TerminalProcessing::diagram(const QVariantMap& configuration, const QString& direction)
+QVariantMap TerminalProcessing::diagram(const QVariantMap& configuration)
 {
     const auto diagrams = configuration.value("inplace").toMap();
-    if (diagrams.contains(direction))
+    if (diagrams.contains("lineflow"))
     {
-        return diagrams.value(direction).toMap();
+        return diagrams.value("lineflow").toMap();
     }
-    const auto        id = rootId(direction);
+    const auto        id = rootId();
     const QVariantMap definition {
-        {    "id",                                                                                    id},
-        {  "name",                                                             QStringLiteral("Inplace")},
-        {  "kind",                                                            QStringLiteral("lineflow")},
-        {"source", QVariantMap {{"channels", direction == "duplex" ? 2 : 1}, {"nodes", QVariantList {}}}}
+        {    "id",                                                        id},
+        {  "name",                                 QStringLiteral("Inplace")},
+        {  "kind",                                QStringLiteral("lineflow")},
+        {"source", QVariantMap {{"channels", 2}, {"nodes", QVariantList {}}}}
     };
     return {
         {id, definition}

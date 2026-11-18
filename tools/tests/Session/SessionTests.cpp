@@ -96,7 +96,8 @@ private slots:
             {  "name",                                                                                  "Pipeline"},
             {  "kind",                                                                                  "lineflow"},
             {"source",
-             QVariantMap {{"nodes", QVariantList {QVariantMap {{"name", "branch"}, {"reference", "leaf-block"}}}}}}
+             QVariantMap {{"channels", 2},
+             {"nodes", QVariantList {QVariantMap {{"name", "branch"}, {"reference", "leaf-block"}}}}}             }
         };
         QVERIFY(workspace.setProcessorDefinition("leaf-block", leaf));
         QVERIFY(workspace.setProcessorDefinition("pipeline", root));
@@ -112,13 +113,13 @@ private slots:
         };
         const auto terminal = [](const QVariantMap& overrides) {
             return QVariantMap {
-                {    "type",                                             "terminal"                            },
-                {  "module",                                                            "unknown.future.module"},
+                {    "type",                                              "terminal"                            },
+                {  "module",                                                             "unknown.future.module"},
                 {"settings",
                  QVariantMap {
                  {"processing",
-                 QVariantMap {{"rx", QVariantMap {{"type", "pipeline"}, {"overrides", overrides}}},
-                 {"tx", QVariantMap {{"type", "pipeline"}, {"overrides", QVariantMap {}}}}}}}                  }
+                 QVariantMap {{"mode", "lineflow"},
+                 {"lineflow", QVariantMap {{"type", "pipeline"}, {"overrides", overrides}}}}}}                  }
             };
         };
         // Write the whole map: occurrence paths contain '/' and are not Settings paths.
@@ -130,13 +131,12 @@ private slots:
         const auto processing = [&loaded](const QString& object) {
             return loaded.objects().value(object).toMap().value("settings").toMap().value("processing").toMap();
         };
-        const auto firstRx  = processing("first").value("rx").toMap();
-        const auto secondRx = processing("second").value("rx").toMap();
-        QCOMPARE(firstRx.value("overrides").toMap(), firstOverrides);
-        QCOMPARE(secondRx.value("overrides").toMap(), secondOverrides);
-        QVERIFY(processing("first").value("tx").toMap().value("overrides").toMap().isEmpty());
-        QVERIFY(firstRx.value("overrides").toMap().contains("branch/leaf"));
-        QVERIFY(!firstRx.value("overrides").toMap().contains("branch"));
+        const auto firstSelection  = processing("first").value("lineflow").toMap();
+        const auto secondSelection = processing("second").value("lineflow").toMap();
+        QCOMPARE(firstSelection.value("overrides").toMap(), firstOverrides);
+        QCOMPARE(secondSelection.value("overrides").toMap(), secondOverrides);
+        QVERIFY(firstSelection.value("overrides").toMap().contains("branch/leaf"));
+        QVERIFY(!firstSelection.value("overrides").toMap().contains("branch"));
 
         ProcessorRegistry registry;
         QString           error;
@@ -146,8 +146,8 @@ private slots:
         QVERIFY2(registry.publishDefinitions("workspace", *definitions, &error), qPrintable(error));
         auto prepared = registry.prepare("pipeline", {}, Processor::Limits {}, &error);
         QVERIFY2(prepared, qPrintable(error));
-        auto first  = prepared->instantiate(firstRx.value("overrides").toMap(), &error);
-        auto second = prepared->instantiate(secondRx.value("overrides").toMap(), &error);
+        auto first  = prepared->instantiate(firstSelection.value("overrides").toMap(), &error);
+        auto second = prepared->instantiate(secondSelection.value("overrides").toMap(), &error);
         QVERIFY2(first, qPrintable(error));
         QVERIFY2(second, qPrintable(error));
         QCOMPARE(first->configuration().value("overrides").toMap(), firstOverrides);

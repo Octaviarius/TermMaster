@@ -8,6 +8,11 @@
 
 namespace
 {
+bool nativeComposition(const QVariantMap& definition)
+{
+    const auto kind = definition.value("kind").toString();
+    return kind == "lineflow" || kind == "tap";
+}
 void reject(const QString& message)
 {
     throw std::runtime_error(message.toStdString());
@@ -16,7 +21,7 @@ void reject(const QString& message)
 bool validName(const QString& name)
 {
     return !name.isEmpty() && name.size() <= 256 && name == name.trimmed() && !name.contains('/')
-        && !name.contains(QChar::Null);
+        && !name.contains(QChar::Null) && name != "@initial" && name != "@final";
 }
 
 QVariantList nodes(const QVariantMap& definitions, const QString& id)
@@ -86,7 +91,7 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
         QMap<QString, QMap<QString, QString>> names;
         for (auto it = originalDefinitions.cbegin(); it != originalDefinitions.cend(); ++it)
         {
-            if (it.value().toMap().value("kind").toString() == "lineflow")
+            if (nativeComposition(it.value().toMap()))
             {
                 for (const auto& value : nodes(originalDefinitions, it.key()))
                 {
@@ -123,7 +128,7 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
         for (const auto& rename : renames)
         {
             if (!finalDraftDefinitions.contains(rename.block)
-                || finalDraftDefinitions.value(rename.block).toMap().value("kind").toString() != "lineflow")
+                || !nativeComposition(finalDraftDefinitions.value(rename.block).toMap()))
             {
                 reject("Renamed Lineflow definition was removed or replaced");
             }
@@ -153,7 +158,7 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
                 reject("Processor occurrence overrides must be a map");
             }
             const auto overrides = value.toMap();
-            if (originalDefinitions.value(root).toMap().value("kind").toString() != "lineflow")
+            if (!nativeComposition(originalDefinitions.value(root).toMap()))
             {
                 return overrides;
             }
@@ -179,9 +184,19 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
                     {
                         reject("Processor occurrence address exceeds depth bounds");
                     }
-                    if (originalDefinitions.value(block).toMap().value("kind").toString() != "lineflow")
+                    if (!nativeComposition(originalDefinitions.value(block).toMap()))
                     {
                         translated.append(parts.mid(index));
+                        break;
+                    }
+                    if (parts[index] == "@initial" || parts[index] == "@final")
+                    {
+                        if (index != parts.size() - 1)
+                        {
+                            reject("Lineflow endpoint occurrence cannot have descendants: " + it.key());
+                        }
+                        retained &= nativeComposition(finalDraftDefinitions.value(block).toMap());
+                        translated.append(parts[index]);
                         break;
                     }
                     QVariantMap oldNode;
@@ -237,7 +252,7 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
                 defaults.insert("overrides", rewrite(it.key(), defaults.value("overrides")));
                 definition.insert("defaults", defaults);
             }
-            if (definition.value("kind").toString() == "lineflow")
+            if (nativeComposition(definition))
             {
                 auto source   = definition.value("source").toMap();
                 auto children = source.value("nodes").toList();
@@ -267,7 +282,7 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
             auto settings   = object.value("settings").toMap();
             auto processing = settings.value("processing").toMap();
             bool changed    = false;
-            for (const auto& direction : {"rx", "tx", "duplex"})
+            for (const auto& direction : {"lineflow"})
             {
                 auto selection        = processing.value(direction).toMap();
                 bool selectionChanged = false;
@@ -293,7 +308,7 @@ std::optional<ProcessorRefactoring::Result> ProcessorRefactoring::transform(cons
             }
             auto diagrams        = processing.value("inplace").toMap();
             bool diagramsChanged = false;
-            for (const auto& direction : {QStringLiteral("rx"), QStringLiteral("tx"), QStringLiteral("duplex")})
+            for (const auto& direction : {QStringLiteral("lineflow")})
             {
                 if (!diagrams.contains(direction))
                 {

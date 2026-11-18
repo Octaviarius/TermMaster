@@ -3,12 +3,13 @@
 #include "Gui/Processing/ProcessorFavorites.h"
 #include "Gui/Processing/ProcessorSelector.h"
 #include "Gui/Terminal/TerminalProcessingPanel.h"
+#include "Processing/TerminalProcessing.h"
 #include "Terminal/ProcessingRouter.h"
+#include "Terminal/TerminalLineRecorder.h"
 
-#include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
-#include <QHBoxLayout>
+#include <QFile>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -16,15 +17,15 @@
 #include <QSignalSpy>
 #include <QSplitter>
 #include <QTableWidget>
+#include <QTemporaryDir>
 #include <QTest>
-#include <QTimer>
 #include <QToolButton>
-#include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
+#include <Termaster/Core/Processing/LineflowEndpoint.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 
@@ -32,331 +33,240 @@ namespace
 {
 void select(QComboBox* combo, const QString& id)
 {
+    QVERIFY(combo);
     const auto row = combo->findData(id);
     QVERIFY(row >= 0);
     combo->setCurrentIndex(row);
     emit combo->activated(row);
 }
-QVariantMap block()
+QVariantMap block(int channels = 1)
 {
     return {
-        {    "id",                                                           "test.protocol"                  },
-        {  "name",                                                                           "Device protocol"},
-        {  "kind",                                                                                  "lineflow"},
-        { "group",                                                                                 "Protocols"},
+        {    "id",                 "test.protocol"                  },
+        {  "name",                                 "Device protocol"},
+        {  "kind",                                        "lineflow"},
+        { "group",                                       "Protocols"},
         {"source",
-         QVariantMap {{"nodes",
-         QVariantList {QVariantMap {{"name", "Traffic gate"}, {"type", "native.gate"}},
-         QVariantMap {{"name", "Hex encoding"}, {"type", "native.hex-encoder"}}}}}                            }
+         QVariantMap {{"channels", channels},
+         {"nodes",
+         QVariantList {QVariantMap {{"name", "Traffic gate"}, {"type", "native.gate"}, {"lane", "rx"}},
+         QVariantMap {{"name", "Hex encoding"},
+         {"type", "native.hex-encoder"},
+         {"lane", "rx"}}}}}                                         }
+    };
+}
+bool publish(ProcessorRegistry& registry, QString* error)
+{
+    const auto definitions = ProcessorRegistry::parseDefinitions(
+        {
+            {"test.protocol", block(2)}
+    },
+        error);
+    return definitions && registry.publishDefinitions("workspace", *definitions, error);
+}
+QVariantMap configuration(bool enabled = true)
+{
+    return {
+        {    "mode","lineflow"       },
+        {"lineflow",
+         QVariantMap {{"type", "test.protocol"},
+         {"overrides",
+         QVariantMap {{"Traffic gate", QVariantMap {{"enabled", enabled}, {"unknown", 17}}}}},
+         {"custom", "retained"}}}
     };
 }
 } // namespace
+
 class TerminalProcessingTests : public QObject
 {
     Q_OBJECT
 private:
-    Q_SLOT void hiddenPropertiesArePreparedFromLatestConfigurationOnShow()
+    Q_SLOT void lineRecorderDoesNotReplayHistoryOrCreateAFileForAnUnflushedScreen()
     {
-        ProcessorRegistry registry;
-        registerNativeProcessors(registry, "native");
-        SettingsWidgetRegistry editors;
-        ProcessingRouter       router;
-        const QVariantMap      initial {
-            {"mode",                             "simplex"},
-            {  "rx", QVariantMap {{"type", "native.gate"}}}
-        };
-        QVariantMap             applied;
-        TerminalProcessingPanel panel(registry,
-                                      editors,
-                                      router,
-                                      initial,
-                                      [&](const QVariantMap&, const QVariantMap& value, QString*) {
-                                          applied = value;
-                                          return true;
-                                      });
-        auto*                   properties = panel.propertiesWidget();
-        QVERIFY(properties->findChildren<SettingsFieldEditor*>().isEmpty());
-        auto changed   = initial;
-        auto selection = changed.value("rx").toMap();
-        selection.insert("overrides",
-                         QVariantMap {
-                             {"enabled", false},
-                             {"unknown",    17}
-        });
-        changed.insert("rx", selection);
-        panel.setConfiguration(changed);
-        QVERIFY(properties->findChildren<SettingsFieldEditor*>().isEmpty());
-        properties->show();
-        auto* editor = properties->findChild<SettingsFieldEditor*>("/enabled");
-        QVERIFY(editor);
-        QCOMPARE(editor->value(), QVariant(false));
-        properties->hide();
-        editor->setValue(true);
-        emit editor->valueChanged();
-        properties->show();
-        QCOMPARE(properties->findChild<SettingsFieldEditor*>("/enabled"), editor);
-        QCOMPARE(editor->value(), QVariant(true));
-        QVERIFY(panel.applyDraft());
-        QCOMPARE(applied.value("rx").toMap().value("overrides").toMap().value("unknown"), QVariant(17));
-        panel.releaseEditors();
-        QVERIFY(properties->findChildren<SettingsFieldEditor*>().isEmpty());
+        QTemporaryDir   temporary;
+        TerminalDisplay display;
+        display.resize(300, 100);
+        display.show();
+        QCoreApplication::processEvents();
+        display.receive(QByteArray("old history\r\n").repeated(display.terminalSize().height() + 2));
+        auto configuration = LineflowEndpoint::defaults(2);
+        configuration.insert("enabled", true);
+        configuration.insert("recordingMode", "lines");
+        configuration.insert("direction", "rx");
+        configuration.insert("flushScreen", false);
+        const auto file = temporary.filePath("lines.txt");
+        configuration.insert("file", file);
+        TerminalLineRecorder recorder(display, configuration);
+        display.receive("active");
+        QString error;
+        QVERIFY2(recorder.stop(&error), qPrintable(error));
+        QVERIFY(!QFile::exists(file));
     }
-    Q_SLOT void sharedSelectionFiltersShapesAndPersistsOneInstanceConfiguration()
+
+    Q_SLOT void lineRecorderDropsIncompleteSoftWrapWithoutScreenFlush()
+    {
+        QTemporaryDir   temporary;
+        TerminalDisplay display;
+        display.resize(300, 100);
+        display.show();
+        QCoreApplication::processEvents();
+        auto configuration = LineflowEndpoint::defaults(2);
+        configuration.insert("enabled", true);
+        configuration.insert("recordingMode", "lines");
+        configuration.insert("direction", "rx");
+        configuration.insert("flushScreen", false);
+        const auto file = temporary.filePath("lines.txt");
+        configuration.insert("file", file);
+        TerminalLineRecorder recorder(display, configuration);
+        const auto           size = display.terminalSize();
+        display.receive(QByteArray(size.width() * (size.height() + 1) + 3, 'x'));
+        QVERIFY(display.historyLineCount() > 0);
+        QString error;
+        QVERIFY2(recorder.stop(&error), qPrintable(error));
+        QVERIFY(!QFile::exists(file));
+    }
+
+    Q_SLOT void lineRecorderFlushesAlternateSnapshotAndPreservesUntrimmedSpacing()
+    {
+        QTemporaryDir   temporary;
+        TerminalDisplay display;
+        display.resize(300, 100);
+        display.show();
+        QCoreApplication::processEvents();
+        auto configuration = LineflowEndpoint::defaults(2);
+        configuration.insert("enabled", true);
+        configuration.insert("recordingMode", "lines");
+        configuration.insert("direction", "rx");
+        configuration.insert("lineEnding", "crlf");
+        configuration.insert("trimTrailingSpaces", false);
+        const auto file = temporary.filePath("lines-{direction}.txt");
+        configuration.insert("file", file);
+        TerminalLineRecorder recorder(display, configuration);
+        display.receive("primary\x1b[?1049h\x1b[31mALT\x1b[0m");
+        const auto expected = QByteArray("ALT") + QByteArray(display.terminalSize().width() - 3, ' ') + "\r\n";
+        QString    error;
+        QVERIFY2(recorder.stop(&error), qPrintable(error));
+        QFile output(temporary.filePath("lines-rx.txt"));
+        QVERIFY(output.open(QIODevice::ReadOnly));
+        QCOMPARE(output.readAll(), expected);
+        output.close();
+        // Stopping must release the writer lease before another recording begins.
+        configuration.insert("append", false);
+        TerminalLineRecorder second(display, configuration);
+        QVERIFY2(second.stop(&error), qPrintable(error));
+    }
+
+    Q_SLOT void renderedLogicalLineLimitFailsWithoutTruncatingOrCreatingAFile()
+    {
+        QTemporaryDir   temporary;
+        TerminalDisplay display;
+        display.setAppearance({
+            {"scrollbackLines", 1}
+        });
+        display.resize(200, 80);
+        display.show();
+        QCoreApplication::processEvents();
+        auto configuration = LineflowEndpoint::defaults(2);
+        configuration.insert("enabled", true);
+        configuration.insert("recordingMode", "lines");
+        configuration.insert("direction", "rx");
+        configuration.insert("flushScreen", false);
+        const auto file = temporary.filePath("lines.txt");
+        configuration.insert("file", file);
+        TerminalLineRecorder recorder(display, configuration);
+        QSignalSpy           failed(&recorder, &TerminalLineRecorder::error);
+        display.receive(QByteArray(1024 * 1024 + 4096, 'x'));
+        QTRY_COMPARE(failed.count(), 1);
+        QString error;
+        QVERIFY(!recorder.stop(&error));
+        QVERIFY(error.contains("1 MiB"));
+        QVERIFY(!QFile::exists(file));
+    }
+
+    Q_SLOT void validatesCanonicalModeAndComparesOnlyActiveLineflow()
+    {
+        QString error;
+        QVERIFY(TerminalProcessing::validateMode({}, &error));
+        QVERIFY(TerminalProcessing::validateMode(configuration(), &error));
+        QVERIFY(!TerminalProcessing::validateMode(
+            {
+                {"mode", "invalid"}
+        },
+            &error));
+        QVERIFY(!TerminalProcessing::validateMode(
+            {
+                {"mode", 1}
+        },
+            &error));
+        auto first  = configuration();
+        auto second = configuration(false);
+        QVERIFY(!TerminalProcessing::sameActive(first, second));
+        first.insert("mode", "bypass");
+        second.insert("mode", "bypass");
+        QVERIFY(TerminalProcessing::sameActive(first, second));
+        const auto root = TerminalProcessing::rootId();
+        QCOMPARE(root, QString("terminal.inplace.lineflow"));
+        QCOMPARE(TerminalProcessing::diagram({}).value(root).toMap().value("source").toMap().value("channels"), 2);
+    }
+
+    Q_SLOT void selectorFiltersShapesAndRetainsDormantSelection()
     {
         ProcessorRegistry registry;
         registerNativeProcessors(registry, "native");
         QString error;
-        auto    definition = block();
-        definition.insert("source",
-                          QVariantMap {
-                              {"channels",               2},
-                              {   "nodes", QVariantList {}}
-        });
-        auto definitions = ProcessorRegistry::parseDefinitions(
-            {
-                {"test.protocol", definition}
-        },
-            &error);
-        QVERIFY2(definitions, qPrintable(error));
-        QVERIFY2(registry.publishDefinitions("workspace", *definitions, &error), qPrintable(error));
-        SettingsWidgetRegistry editors;
-        ProcessingRouter       router;
-        QVariantMap            applied;
-        Settings               preferences(QString {});
-        ProcessorFavorites     favorites(preferences.node("processing"));
-        QVERIFY(favorites.setIds({"native.hex-encoder", "test.protocol", "missing.processor"}));
-        TerminalProcessingPanel panel(
-            registry,
-            editors,
-            router,
-            {},
-            [&](const QVariantMap&, const QVariantMap& draft, QString*) {
-                applied = draft;
-                return true;
-            },
-            nullptr,
-            &favorites);
+        QVERIFY2(publish(registry, &error), qPrintable(error));
+        SettingsWidgetRegistry  editors;
+        ProcessingRouter        router;
+        QVariantMap             applied;
+        TerminalProcessingPanel panel(registry,
+                                      editors,
+                                      router,
+                                      {},
+                                      [&](const QVariantMap&, const QVariantMap& draft, QString*) {
+                                          applied = draft;
+                                          return true;
+                                      });
         panel.show();
-        auto* rx     = panel.findChild<QComboBox*>("rxProcessor");
-        auto* shared = panel.findChild<QComboBox*>("duplexProcessor");
-        auto* mode   = panel.findChild<QComboBox*>("processingMode");
-        QVERIFY(rx && shared && mode);
+        auto* mode     = panel.findChild<QComboBox*>("processingMode");
+        auto* selector = panel.findChild<QComboBox*>("lineflowProcessor");
+        QVERIFY(mode && selector);
+        QCOMPARE(mode->count(), 2);
+        QVERIFY(!panel.findChild<QComboBox*>("processingPropertyDirection"));
+        QVERIFY(!panel.findChild<QComboBox*>("rxProcessor"));
+        QVERIFY(!panel.findChild<QComboBox*>("txProcessor"));
         QCOMPARE(mode->currentData().toString(), QString("bypass"));
-        QVERIFY(!rx->isVisible() && !shared->isVisible());
-        QCOMPARE(rx->findData("test.protocol"), -1);
-        QVERIFY(shared->findData("test.protocol") >= 0);
-        QCOMPARE(shared->findData("native.hex-encoder"), -1);
-        select(mode, "duplex");
-        shared->showPopup();
-        auto* sharedTree = shared->findChild<QTreeWidget*>("processorSelectorTree");
-        QVERIFY(sharedTree);
-        for (QTreeWidgetItemIterator it(sharedTree); *it; ++it)
-        {
-            QVERIFY((*it)->data(0, Qt::UserRole).toString() != "native.hex-encoder");
-        }
-        QVERIFY(
-            !sharedTree->findItems("Unavailable: missing.processor", Qt::MatchExactly | Qt::MatchRecursive).isEmpty());
-        QCOMPARE(favorites.ids(), QStringList({"native.hex-encoder", "test.protocol", "missing.processor"}));
-        shared->hidePopup();
-        QVERIFY(shared->isVisible());
-        QVERIFY(!rx->isVisible());
-        select(shared, "test.protocol");
-        QVERIFY2(panel.applyDraft(&error), qPrintable(error));
-        QCOMPARE(applied.value("duplex").toMap().value("type").toString(), QString("test.protocol"));
-        QCOMPARE(applied.value("mode").toString(), QString("duplex"));
-        select(mode, "simplex");
-        select(rx, "native.gate");
-        QVERIFY2(panel.applyDraft(&error), qPrintable(error));
-        QCOMPARE(applied.value("duplex").toMap().value("type").toString(), QString("test.protocol"));
-        QCOMPARE(applied.value("mode").toString(), QString("simplex"));
-        QCOMPARE(applied.value("rx").toMap().value("type").toString(), QString("native.gate"));
+        QVERIFY(!selector->isVisible());
+        QCOMPARE(selector->findData("native.hex-encoder"), -1);
+        QVERIFY(selector->findData("test.protocol") >= 0);
+        select(mode, "lineflow");
+        QCOMPARE(applied.value("lineflow").toMap().value("type").toString(), QString("@inplace"));
+        QVERIFY(applied.value("inplace").toMap().value("lineflow").toMap().contains(TerminalProcessing::rootId()));
+        select(selector, "test.protocol");
+        const auto selected = applied.value("lineflow");
+        select(mode, "bypass");
+        QCOMPARE(applied.value("lineflow"), selected);
+        select(mode, "lineflow");
+        QCOMPARE(applied.value("lineflow"), selected);
+        QCOMPARE(selector->findData("native.bypass"), -1);
     }
 
-    Q_SLOT void modeProfilesAndInplaceDiagramsSurviveSwitchFailureAndRevert()
+    Q_SLOT void persistenceFailureAndExternalChangesRequireRevert()
     {
         ProcessorRegistry registry;
         registerNativeProcessors(registry, "native");
-        SettingsWidgetRegistry editors;
-        ProcessingRouter       router;
-        const auto             diagram = [](const QString& direction, int channels) {
-            const auto id = "terminal.inplace." + direction;
-            return QVariantMap {
-                {id,
-                 QVariantMap {{"id", id},
-                              {"name", "Inplace"},
-                              {"kind", "lineflow"},
-                              {"source", QVariantMap {{"channels", channels}, {"nodes", QVariantList {}}}}}}
-            };
-        };
-        const QVariantMap diagrams {
-            {    "rx",     diagram("rx", 1)},
-            {    "tx",     diagram("tx", 1)},
-            {"duplex", diagram("duplex", 2)}
-        };
-        const QVariantMap initial {
-            {   "mode",                                                                               "bypass"},
-            {     "rx", QVariantMap {{"type", "native.gate"}, {"overrides", QVariantMap {{"enabled", false}}}}},
-            {     "tx",                                           QVariantMap {{"type", "native.hex-encoder"}}},
-            { "duplex",                                             QVariantMap {{"type", "native.hex-codec"}}},
-            {"inplace",                                                                               diagrams}
-        };
+        QString error;
+        QVERIFY2(publish(registry, &error), qPrintable(error));
+        SettingsWidgetRegistry  editors;
+        ProcessingRouter        router;
+        auto                    initial = configuration();
         QVariantMap             applied;
-        bool                    accept = true;
-        int                     calls  = 0;
+        bool                    accept = false;
         TerminalProcessingPanel panel(registry,
                                       editors,
                                       router,
                                       initial,
                                       [&](const QVariantMap&, const QVariantMap& draft, QString* error) {
-                                          ++calls;
                                           if (!accept)
-                                          {
-                                              *error = "Synthetic mode persistence failure";
-                                              return false;
-                                          }
-                                          applied = draft;
-                                          return true;
-                                      });
-        auto*                   mode = panel.findChild<QComboBox*>("processingMode");
-        QVERIFY(mode);
-        select(mode, "simplex");
-        QCOMPARE(calls, 1);
-        QCOMPARE(applied.value("mode").toString(), QString("simplex"));
-        QCOMPARE(applied.value("rx"), initial.value("rx"));
-        QCOMPARE(applied.value("duplex"), initial.value("duplex"));
-        QCOMPARE(applied.value("inplace").toMap(), diagrams);
-        select(mode, "duplex");
-        QCOMPARE(calls, 2);
-        QCOMPARE(applied.value("mode").toString(), QString("duplex"));
-        QCOMPARE(applied.value("rx"), initial.value("rx"));
-        QCOMPARE(applied.value("tx"), initial.value("tx"));
-        const auto committed = applied;
-        accept               = false;
-        select(mode, "bypass");
-        QCOMPARE(calls, 3);
-        QCOMPARE(applied, committed);
-        panel.propertiesWidget()->show();
-        QVERIFY(panel.propertiesWidget()->findChild<QLabel*>("processingError")->text().contains("Synthetic"));
-        panel.propertiesWidget()->findChild<QPushButton*>("revertProcessing")->click();
-        QCOMPARE(mode->currentData().toString(), QString("duplex"));
-        accept = true;
-        select(mode, "bypass");
-        QCOMPARE(calls, 4);
-        QCOMPARE(applied.value("mode").toString(), QString("bypass"));
-        QCOMPARE(applied.value("rx"), initial.value("rx"));
-        QCOMPARE(applied.value("tx"), initial.value("tx"));
-        QCOMPARE(applied.value("duplex"), initial.value("duplex"));
-        QCOMPARE(applied.value("inplace").toMap(), diagrams);
-    }
-
-    Q_SLOT void inlineEditorsSaveLocallyAndCancelWithoutPublishing()
-    {
-        ProcessorRegistry registry;
-        registerNativeProcessors(registry, "native");
-        SettingsWidgetRegistry  editors;
-        ProcessingRouter        router;
-        QVariantMap             applied;
-        int                     calls = 0;
-        bool                    allow = true;
-        TerminalProcessingPanel panel(registry,
-                                      editors,
-                                      router,
-                                      {},
-                                      [&](const QVariantMap&, const QVariantMap& draft, QString* error) {
-                                          ++calls;
-                                          if (!allow)
-                                          {
-                                              *error = "Synthetic inline persistence failure";
-                                              return false;
-                                          }
-                                          applied = draft;
-                                          return true;
-                                      });
-        select(panel.findChild<QComboBox*>("processingMode"), "simplex");
-        auto* rx = panel.findChild<QComboBox*>("rxProcessor");
-        select(rx, "@inplace");
-        QCOMPARE(applied.value("rx").toMap().value("type").toString(), QString("@inplace"));
-        const auto beforeCancel = applied;
-        const auto beforeCalls  = calls;
-        panel.findChild<QToolButton*>("rxInplace")->click();
-        auto* editor = panel.findChild<LineflowEditorDialog*>();
-        QVERIFY(editor);
-        QVERIFY(editor->windowTitle().startsWith("Inplace"));
-        QCOMPARE(editor->model().selectedBlock(), QString("terminal.inplace.rx"));
-        QCOMPARE(editor->model().blockChannels("terminal.inplace.rx"), 1);
-        QVERIFY(!editor->model().insertNode("terminal.inplace.rx", 0, "native.gate").isEmpty());
-        editor->reject();
-        QCOMPARE(calls, beforeCalls);
-        QCOMPARE(applied, beforeCancel);
-        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-        panel.findChild<QToolButton*>("rxInplace")->click();
-        editor = panel.findChild<LineflowEditorDialog*>();
-        QVERIFY(editor);
-        QCOMPARE(editor->model().rowCount(), 0);
-        QVERIFY(!editor->model().insertNode("terminal.inplace.rx", 0, "native.gate").isEmpty());
-        QString error;
-        allow = false;
-        QVERIFY(!editor->applyDraft(&error));
-        QVERIFY(error.contains("Synthetic"));
-        QCOMPARE(applied, beforeCancel);
-        allow = true;
-        QVERIFY2(editor->applyDraft(&error), qPrintable(error));
-        QCOMPARE(calls, beforeCalls + 2);
-        const auto definitions = applied.value("inplace").toMap().value("rx").toMap();
-        QVERIFY(definitions.contains("terminal.inplace.rx"));
-        QCOMPARE(definitions.value("terminal.inplace.rx")
-                     .toMap()
-                     .value("source")
-                     .toMap()
-                     .value("nodes")
-                     .toList()
-                     .size(),
-                 1);
-        QVERIFY(!registry.type("terminal.inplace.rx"));
-        QCOMPARE(applied.value("rx").toMap().value("type").toString(), QString("@inplace"));
-        editor->reject();
-        select(panel.findChild<QComboBox*>("txProcessor"), "@inplace");
-        select(panel.findChild<QComboBox*>("processingMode"), "duplex");
-        select(panel.findChild<QComboBox*>("duplexProcessor"), "@inplace");
-        const auto diagrams = applied.value("inplace").toMap();
-        for (const auto& direction : {QStringLiteral("rx"), QStringLiteral("tx"), QStringLiteral("duplex")})
-        {
-            const auto id     = "terminal.inplace." + direction;
-            const auto source = diagrams.value(direction).toMap().value(id).toMap().value("source").toMap();
-            QCOMPARE(source.value("channels").toInt(), direction == "duplex" ? 2 : 1);
-            QVERIFY(!registry.type(id));
-        }
-    }
-
-    Q_SLOT void selectionsAndPrivateProperties()
-    {
-        ProcessorRegistry registry;
-        registerNativeProcessors(registry, "native");
-        QString error;
-        auto    definitions = ProcessorRegistry::parseDefinitions(
-            {
-                {"test.protocol", block()}
-        },
-            &error);
-        QVERIFY2(definitions.has_value(), qPrintable(error));
-        QVERIFY2(registry.publishDefinitions("workspace", *definitions, &error), qPrintable(error));
-        SettingsWidgetRegistry  editors;
-        ProcessingRouter        router;
-        QVariantMap             applied;
-        bool                    allow = false;
-        int                     calls = 0;
-        TerminalProcessingPanel panel(registry,
-                                      editors,
-                                      router,
-                                      {},
-                                      [&](const QVariantMap& baseline, const QVariantMap& draft, QString* error) {
-                                          ++calls;
-                                          if (!baseline.isEmpty())
-                                          {
-                                              *error = "Unexpected baseline";
-                                              return false;
-                                          }
-                                          if (!allow)
                                           {
                                               *error = "Synthetic persistence failure";
                                               return false;
@@ -364,137 +274,196 @@ private:
                                           applied = draft;
                                           return true;
                                       });
-        auto*                   rx = panel.findChild<QComboBox*>("rxProcessor");
-        auto*                   tx = panel.findChild<QComboBox*>("txProcessor");
-        QVERIFY(rx && tx);
-        QCOMPARE(rx->currentData().toString(), QString("native.bypass"));
-        select(rx, "test.protocol");
-        panel.propertiesWidget()->show();
-        auto* table = panel.propertiesWidget()->findChild<QTableWidget*>("processingPropertyTable");
-        QVERIFY(table);
-        QCOMPARE(table->item(0, 0)->text(), QString("Traffic gate"));
-        auto* gate = panel.propertiesWidget()->findChild<SettingsFieldEditor*>("Traffic gate/enabled");
-        QVERIFY(gate);
-        gate->setValue(false);
-        emit gate->valueChanged();
-        QVERIFY(!panel.applyDraft(&error));
-        QCOMPARE(error, QString("Synthetic persistence failure"));
-        QCOMPARE(calls, 2);
+        auto*                   mode = panel.findChild<QComboBox*>("processingMode");
+        select(mode, "bypass");
         QVERIFY(applied.isEmpty());
-        allow = true;
-        QVERIFY(panel.applyDraft(&error));
-        QCOMPARE(applied.value("rx").toMap().value("overrides").toMap().value("Traffic gate").toMap().value("enabled"),
-                 QVariant(false));
-        QVERIFY(!applied.contains("tx"));
-        QCOMPARE(registry.type("native.gate")->defaults.value("enabled"), QVariant(true));
-        QCOMPARE(tx->currentData().toString(), QString("native.bypass"));
+        QVERIFY(panel.propertiesWidget()->findChild<QLabel*>("processingError")->text().contains("Synthetic"));
+        panel.propertiesWidget()->findChild<QPushButton*>("revertProcessing")->click();
+        QCOMPARE(mode->currentData().toString(), QString("lineflow"));
+        panel.propertiesWidget()->show();
+        auto* editor = panel.propertiesWidget()->findChild<SettingsFieldEditor*>("Traffic gate/enabled");
+        QVERIFY(editor);
+        editor->setValue(false);
+        emit editor->valueChanged();
+        auto external = initial;
+        external.insert("external", true);
+        panel.setConfiguration(external);
+        QVERIFY(!panel.applyDraft(&error));
+        QVERIFY(error.contains("changed"));
+        panel.propertiesWidget()->findChild<QPushButton*>("revertProcessing")->click();
+        accept = true;
+        select(mode, "bypass");
+        QCOMPARE(applied.value("external"), true);
+        QCOMPARE(applied.value("lineflow"), initial.value("lineflow"));
     }
-    Q_SLOT void resetAndDirectionDrafts()
+
+    Q_SLOT void hiddenPropertiesUseLatestConfigurationAndRetainUnknownOverrides()
     {
         ProcessorRegistry registry;
         registerNativeProcessors(registry, "native");
-        SettingsWidgetRegistry editors;
-        ProcessingRouter       router;
-        const QVariantMap      initial {
-            {"mode",                                                                              "simplex"},
-            {  "rx", QVariantMap {{"type", "native.gate"}, {"overrides", QVariantMap {{"enabled", false}}}}}
-        };
+        QString error;
+        QVERIFY2(publish(registry, &error), qPrintable(error));
+        SettingsWidgetRegistry  editors;
+        ProcessingRouter        router;
         QVariantMap             applied;
         TerminalProcessingPanel panel(registry,
                                       editors,
                                       router,
-                                      initial,
-                                      [&](const QVariantMap&, const QVariantMap& value, QString*) {
-                                          applied = value;
+                                      configuration(),
+                                      [&](const QVariantMap&, const QVariantMap& draft, QString*) {
+                                          applied = draft;
                                           return true;
                                       });
+        auto*                   properties = panel.propertiesWidget();
+        QVERIFY(properties->findChildren<SettingsFieldEditor*>().isEmpty());
+        panel.setConfiguration(configuration(false));
+        properties->show();
+        auto* editor = properties->findChild<SettingsFieldEditor*>("Traffic gate/enabled");
+        QVERIFY(editor);
+        QCOMPARE(editor->value(), false);
+        editor->setValue(true);
+        emit editor->valueChanged();
+        QVERIFY2(panel.applyDraft(&error), qPrintable(error));
+        QCOMPARE(applied.value("lineflow")
+                     .toMap()
+                     .value("overrides")
+                     .toMap()
+                     .value("Traffic gate")
+                     .toMap()
+                     .value("unknown"),
+                 17);
+        QCOMPARE(applied.value("lineflow").toMap().value("custom").toString(), QString("retained"));
+        panel.releaseEditors();
+        QVERIFY(properties->findChildren<SettingsFieldEditor*>().isEmpty());
+    }
+
+    Q_SLOT void resetRemovesOnlyFieldOverrideAndReselectKeepsSelectionMetadata()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        QString error;
+        QVERIFY2(publish(registry, &error), qPrintable(error));
+        SettingsWidgetRegistry  editors;
+        ProcessingRouter        router;
+        QVariantMap             applied;
+        int                     calls = 0;
+        TerminalProcessingPanel panel(registry,
+                                      editors,
+                                      router,
+                                      configuration(false),
+                                      [&](const QVariantMap&, const QVariantMap& draft, QString*) {
+                                          ++calls;
+                                          applied = draft;
+                                          return true;
+                                      });
+        select(panel.findChild<QComboBox*>("lineflowProcessor"), "test.protocol");
+        QCOMPARE(calls, 0);
         panel.propertiesWidget()->show();
-        auto* reset = panel.propertiesWidget()->findChild<QToolButton*>("reset_/enabled");
+        auto* reset = panel.propertiesWidget()->findChild<QToolButton*>("reset_Traffic gate/enabled");
         QVERIFY(reset);
         reset->click();
-        QVERIFY(reset->isHidden());
-        auto* tx = panel.findChild<QComboBox*>("txProcessor");
-        select(tx, "native.hex-encoder");
-        QVERIFY(panel.applyDraft());
-        QVERIFY(!applied.value("rx").toMap().contains("overrides"));
-        QCOMPARE(applied.value("tx").toMap().value("type").toString(), QString("native.hex-encoder"));
+        QVERIFY(panel.applyDraft(&error));
+        QCOMPARE(calls, 1);
+        const auto selection = applied.value("lineflow").toMap();
+        QCOMPARE(selection.value("custom").toString(), QString("retained"));
+        const auto gate = selection.value("overrides").toMap().value("Traffic gate").toMap();
+        QVERIFY(!gate.contains("enabled"));
+        QCOMPARE(gate.value("unknown"), 17);
     }
+
+    Q_SLOT void inplaceEditorKeepsTwoChannelsAndSavesLocally()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        SettingsWidgetRegistry  editors;
+        ProcessingRouter        router;
+        QVariantMap             applied;
+        bool                    accept = true;
+        int                     calls  = 0;
+        TerminalProcessingPanel panel(registry,
+                                      editors,
+                                      router,
+                                      {},
+                                      [&](const QVariantMap&, const QVariantMap& draft, QString* error) {
+                                          ++calls;
+                                          if (!accept)
+                                          {
+                                              *error = "Synthetic persistence failure";
+                                              return false;
+                                          }
+                                          applied = draft;
+                                          return true;
+                                      });
+        select(panel.findChild<QComboBox*>("processingMode"), "lineflow");
+        const auto before      = applied;
+        const auto beforeCalls = calls;
+        auto*      button      = panel.findChild<QToolButton*>("lineflowInplace");
+        QVERIFY(button);
+        button->click();
+        auto* editor = panel.findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
+        QVERIFY(editor);
+        const auto root = TerminalProcessing::rootId();
+        QCOMPARE(editor->model().selectedBlock(), root);
+        QCOMPARE(editor->model().blockChannels(root), 2);
+        QString error;
+        QVERIFY(!editor->model().insertNode(root, 0, "native.gate", &error).isEmpty());
+        editor->reject();
+        QCOMPARE(applied, before);
+        QCOMPARE(calls, beforeCalls);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        button->click();
+        editor = panel.findChild<LineflowEditorDialog*>("inplaceLineflowEditor");
+        QVERIFY(editor);
+        QCOMPARE(editor->model().rowCount(), 0);
+        QVERIFY(!editor->model().insertNode(root, 0, "native.gate", &error).isEmpty());
+        accept = false;
+        QVERIFY(!editor->applyDraft(&error));
+        QCOMPARE(applied, before);
+        accept = true;
+        QVERIFY2(editor->applyDraft(&error), qPrintable(error));
+        QVERIFY(!registry.type(root));
+        QCOMPARE(applied.value("lineflow").toMap().value("type").toString(), QString("@inplace"));
+        QCOMPARE(applied.value("inplace")
+                     .toMap()
+                     .value("lineflow")
+                     .toMap()
+                     .value(root)
+                     .toMap()
+                     .value("source")
+                     .toMap()
+                     .value("nodes")
+                     .toList()
+                     .size(),
+                 1);
+    }
+
     Q_SLOT void unavailableSelectionIsRetained()
     {
         ProcessorRegistry      registry;
         SettingsWidgetRegistry editors;
         ProcessingRouter       router;
         const QVariantMap      initial {
-            {"mode",                                "simplex"},
-            {  "rx", QVariantMap {{"type", "missing.plugin"}}}
+            {    "mode",                               "lineflow"},
+            {"lineflow", QVariantMap {{"type", "missing.plugin"}}}
         };
         TerminalProcessingPanel panel(registry,
                                       editors,
                                       router,
                                       initial,
                                       [](const QVariantMap&, const QVariantMap&, QString*) { return false; });
-        QCOMPARE(panel.findChild<QComboBox*>("rxProcessor")->currentData().toString(), QString("missing.plugin"));
+        QCOMPARE(panel.findChild<QComboBox*>("lineflowProcessor")->currentData().toString(), QString("missing.plugin"));
         panel.propertiesWidget()->show();
         QVERIFY(!panel.propertiesWidget()->findChild<QLabel*>("processingError")->text().isEmpty());
-    }
-    Q_SLOT void reselectAndExternalRevertPreserveScope()
-    {
-        ProcessorRegistry registry;
-        registerNativeProcessors(registry, "native");
-        SettingsWidgetRegistry editors;
-        ProcessingRouter       router;
-        const QVariantMap      initial {
-            {"mode","simplex"       },
-            {  "rx",
-             QVariantMap {{"type", "native.gate"},
-             {"overrides", QVariantMap {{"enabled", false}}},
-             {"custom", "retained"}}}
-        };
-        int                     calls = 0;
-        QVariantMap             latest;
-        TerminalProcessingPanel panel(registry,
-                                      editors,
-                                      router,
-                                      initial,
-                                      [&](const QVariantMap& baseline, const QVariantMap&, QString*) {
-                                          ++calls;
-                                          latest = baseline;
-                                          return true;
-                                      });
-        select(panel.findChild<QComboBox*>("rxProcessor"), "native.gate");
-        QVERIFY(panel.applyDraft());
-        QCOMPARE(calls, 0);
-        panel.propertiesWidget()->show();
-        auto* editor = panel.propertiesWidget()->findChild<SettingsFieldEditor*>("/enabled");
-        QVERIFY(editor);
-        editor->setValue(true);
-        emit              editor->valueChanged();
-        const QVariantMap external {
-            {"mode",                                    "simplex"},
-            {  "rx", QVariantMap {{"type", "native.hex-encoder"}}}
-        };
-        panel.setConfiguration(external);
-        editor->setValue(false);
-        emit    editor->valueChanged();
-        QString error;
-        QVERIFY(!panel.applyDraft(&error));
-        QVERIFY(!error.isEmpty());
-        auto* revert = panel.propertiesWidget()->findChild<QPushButton*>("revertProcessing");
-        QVERIFY(revert);
-        revert->click();
-        QCOMPARE(panel.findChild<QComboBox*>("rxProcessor")->currentData().toString(), QString("native.hex-encoder"));
-        select(panel.findChild<QComboBox*>("txProcessor"), "native.gate");
-        QVERIFY(panel.applyDraft());
-        QCOMPARE(calls, 1);
-        QCOMPARE(latest, external);
     }
 
     Q_SLOT void editorsAreReleasedSynchronously()
     {
         ProcessorRegistry      registry;
         ProcessorCatalog::Type type;
-        type.id    = "custom";
-        type.title = "Custom";
+        type.inputCount  = 2;
+        type.outputCount = 2;
+        type.id          = "custom";
+        type.title       = "Custom";
         type.settingsSchema
             = "version: 1\ntype: termaster.settings-schema\ndescription: Custom\ncontent:\n  type: object\n  properties:\n    value:\n      type: boolean\n      default: true\n      x-widget: custom-widget\n";
         type.create = [](const QVariantMap&, const Processor::Limits&, QString*) {
@@ -526,8 +495,8 @@ private:
                                       editors,
                                       router,
                                       {
-                                          {"mode",                        "simplex"},
-                                          {  "rx", QVariantMap {{"type", "custom"}}}
+                                          {    "mode",                       "lineflow"},
+                                          {"lineflow", QVariantMap {{"type", "custom"}}}
         },
                                       [](const QVariantMap&, const QVariantMap&, QString*) { return true; });
         panel.propertiesWidget()->show();
@@ -554,7 +523,7 @@ private:
                                                 panel = nullptr;
                                                 return true;
                                             });
-        select(panel->findChild<QComboBox*>("rxProcessor"), "native.gate");
+        select(panel->findChild<QComboBox*>("processingMode"), "lineflow");
         QVERIFY(!panel);
     }
 
@@ -632,7 +601,7 @@ private:
         QVERIFY(favorites.setIds({"missing.processor"}));
         QCOMPARE(selector.currentData().toString(), QString("native.gate"));
         QVERIFY(selector.findData("native.stub") >= 0);
-        QCOMPARE(selector.count(), 21);
+        QCOMPARE(selector.count(), 22);
         QCOMPARE(resets.count(), 0);
         selector.showPopup();
         QCOMPARE(tree->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("@inplace"));
@@ -772,7 +741,7 @@ private:
         QString error;
         auto    definitions = ProcessorRegistry::parseDefinitions(
             {
-                {"test.protocol", block()}
+                {"test.protocol", block(2)}
         },
             &error);
         QVERIFY(registry.publishDefinitions("workspace", *definitions, &error));
@@ -786,10 +755,7 @@ private:
         },
             &error);
         QVERIFY2(rxInstance, qPrintable(error));
-        router.replace(ProcessingRouter::Direction::Rx, std::move(rxInstance));
-        auto txInstance = registry.create("native.gate", {}, {}, &error);
-        QVERIFY2(txInstance, qPrintable(error));
-        router.replace(ProcessingRouter::Direction::Tx, std::move(txInstance));
+        router.replaceDuplex(std::move(rxInstance));
         QWidget window;
         window.setFixedSize(1100, 650);
         auto* layout   = new QVBoxLayout(&window);
@@ -806,11 +772,10 @@ private:
             editors,
             router,
             {
-                {"mode",                                                          "simplex"                        },
-                {  "rx",
+                {    "mode",                                                 "lineflow"               },
+                {"lineflow",
                  QVariantMap {{"type", "test.protocol"},
-                 {"overrides", QVariantMap {{"Hex encoding", QVariantMap {{"letterCase", "lower"}}}}}}             },
-                {  "tx",                                                      QVariantMap {{"type", "native.gate"}}}
+                 {"overrides", QVariantMap {{"Hex encoding", QVariantMap {{"letterCase", "lower"}}}}}}},
         },
             [](const QVariantMap&, const QVariantMap&, QString*) { return true; },
             &window);

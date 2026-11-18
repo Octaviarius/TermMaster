@@ -48,6 +48,8 @@ public:
                          ProcessorFavorites*     favorites = nullptr);
     ~LineflowEditorDialog() override;
     LineflowEditorModel& model();
+    bool                 selectBlock(const QString& id);
+    Q_SIGNAL void        compositionEditorRequested(const QString& id, const QString& kind);
     HelpSource::Topic    helpContext() const;
     bool                 applyDraft(QString* error = nullptr);
     void                 releaseEditors();
@@ -103,6 +105,8 @@ private:
     void _refreshCatalog();
     void _select();
     void _showProperties(const QModelIndex& index);
+    void _showEndpoint(const QString& name);
+    void _openComposition(const QModelIndex& index);
     void _clearProperties();
     bool _flush(Draft& draft, QString* error);
     void _message(const QString& message);

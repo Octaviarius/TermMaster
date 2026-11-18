@@ -30,6 +30,7 @@ public:
         Focus,
         Reply
     };
+    using CommittedLineHandler = std::function<void(const QString&, bool softWrapped)>;
     Q_ENUM(OutputKind)
     explicit TerminalDisplay(QWidget* parent = nullptr);
     ~TerminalDisplay() override;
@@ -40,17 +41,20 @@ public:
     QString               text() const;
     const TerminalScreen& screen() const;
     QSize                 terminalSize() const;
-    Q_SIGNAL void         terminalSizeChanged(int columns, int rows);
-    Q_SIGNAL void         outputBytes(const QByteArray& bytes, OutputKind kind, const QByteArray& echo);
-    Q_SIGNAL void         selectionChanged();
-    Q_SIGNAL void         textChanged();
-    bool                  hasSelection() const;
-    bool                  hasContent() const;
-    Q_SLOT void           copy();
-    Q_SLOT void           paste();
-    Q_SLOT void           selectAll();
-    Q_SIGNAL void         titleChanged(const QString& title);
-    Q_SIGNAL void         linkActivated(const QUrl& url);
+    int                   historyLineCount() const;
+    /** Future immutable primary source rows; borrowed text is valid only during this callback. Do not reenter. */
+    void          setCommittedLineHandler(CommittedLineHandler handler);
+    Q_SIGNAL void terminalSizeChanged(int columns, int rows);
+    Q_SIGNAL void outputBytes(const QByteArray& bytes, OutputKind kind, const QByteArray& echo);
+    Q_SIGNAL void selectionChanged();
+    Q_SIGNAL void textChanged();
+    bool          hasSelection() const;
+    bool          hasContent() const;
+    Q_SLOT void   copy();
+    Q_SLOT void   paste();
+    Q_SLOT void   selectAll();
+    Q_SIGNAL void titleChanged(const QString& title);
+    Q_SIGNAL void linkActivated(const QUrl& url);
 
 protected:
     bool     event(QEvent* event) override;

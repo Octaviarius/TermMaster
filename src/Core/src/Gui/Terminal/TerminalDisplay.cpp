@@ -216,6 +216,21 @@ const TerminalScreen& TerminalDisplay::screen() const
 {
     return _screen;
 }
+int TerminalDisplay::historyLineCount() const
+{
+    return _screen.historyLineCount();
+}
+void TerminalDisplay::setCommittedLineHandler(CommittedLineHandler handler)
+{
+    if (!handler)
+    {
+        _screen.setHistoryRowHandler({});
+        return;
+    }
+    _screen.setHistoryRowHandler([handler = std::move(handler)](const TerminalScreen::Line& line) {
+        handler(TerminalScreen::lineText(line), line.softWrapped);
+    });
+}
 QSize TerminalDisplay::terminalSize() const
 {
     return _terminalSize;
