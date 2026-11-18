@@ -72,6 +72,8 @@ qt_add_library(${PROJECT_NAME} STATIC
     src/Gui/Settings/SettingsFormWidget.cpp
     inc/Termaster/Core/SettingsOverlay.h
     src/SettingsOverlay.cpp
+    inc/Termaster/Core/Processing/Codeflow.h
+    src/Processing/Codeflow.cpp
     inc/Termaster/Core/Processing/Processor.h
     inc/Termaster/Core/Processing/ProcessorCatalog.h
     inc/Termaster/Core/Processing/ProcessorRegistry.h
@@ -307,6 +309,7 @@ qt_add_resources(Core "processorIcons"
         "Res/Icons/ProcessorComposite4.svg"
         "Res/Icons/Processing.svg"
         "Res/Icons/Lineflow.svg"
+        "Res/Icons/Codeflow.svg"
 )
 
 # Use the platform zlib when available; the selected Qt kit also provides its bundled headers.
@@ -322,5 +325,14 @@ else()
     set_property(TARGET Qt6::ZlibPrivate PROPERTY IMPORTED_GLOBAL TRUE)
     target_link_libraries(Core PRIVATE
         Qt6::ZlibPrivate
+    )
+endif()
+
+target_compile_definitions(Core PRIVATE
+    TERMASTER_PYTHON_RUNTIME="${CMAKE_SOURCE_DIR}/src/Python/Runtime"
+)
+if(Python3_EXECUTABLE)
+    target_compile_definitions(Core PRIVATE
+        TERMASTER_PYTHON_DEFAULT="${Python3_EXECUTABLE}"
     )
 endif()

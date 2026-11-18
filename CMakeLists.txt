@@ -22,10 +22,26 @@ include(cmake/Valijson.cmake)
 include(cmake/Pcre2.cmake)
 include(cmake/Fmt.cmake)
 include(cmake/Help.cmake)
+find_package(Python3 COMPONENTS Interpreter QUIET)
+add_custom_target(PythonRuntime ALL
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Python/Runtime"
+        "${CMAKE_BINARY_DIR}/Python"
+    VERBATIM
+)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/Python/Runtime/"
+    DESTINATION Python
+    FILES_MATCHING PATTERN "*.py"
+)
 
 add_subdirectory(tools/HelpCompiler)
 add_subdirectory(src)
 add_subdirectory(components/yaml-cpp)
+
+option(TERMASTER_BUILD_CODEFLOW_BENCHMARKS "Build Codeflow process benchmarks" OFF)
+if(TERMASTER_BUILD_CODEFLOW_BENCHMARKS)
+    add_subdirectory(tools/benchmarks/Codeflow)
+endif()
 
 option(TERMASTER_BUILD_FORMAT_BENCHMARKS "Build formatting benchmarks" OFF)
 if(TERMASTER_BUILD_FORMAT_BENCHMARKS)

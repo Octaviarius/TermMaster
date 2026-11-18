@@ -42,6 +42,13 @@ public:
         QVariantMap inheritedConfiguration;
         QVariantMap configuration;
     };
+    struct ExecutionContext
+    {
+        QString id;
+        QString directory;
+    };
+    /** Calling-thread context while constructing one independent execution tree. */
+    static ExecutionContext currentExecution();
     class Prepared
     {
     public:
@@ -58,7 +65,9 @@ public:
         /** Immutable snapshot: instantiate on its intended QObject owner thread.
          * Factory calls may use any thread; each call builds independent state without catalog access.
          */
-        std::shared_ptr<Processor> instantiate(const QVariantMap& overrides = {}, QString* error = nullptr) const;
+        std::shared_ptr<Processor> instantiate(const QVariantMap& overrides = {},
+                                               QString*           error     = nullptr,
+                                               const QString&     directory = {}) const;
 
     private:
         friend class ProcessorRegistry;
