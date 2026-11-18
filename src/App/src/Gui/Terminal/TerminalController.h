@@ -23,6 +23,7 @@ class SettingsSchema;
 class Session;
 class Workspace;
 class SettingsDialog;
+class CommandEditor;
 class TerminalDisplay;
 class QAction;
 class QToolButton;
@@ -74,6 +75,7 @@ public:
     QStringList             terminalIds() const;
     SettingsOverlay         selectedSettings();
     void                    addSettingsPages(SettingsDialog& dialog);
+    bool                    saveSettings(SettingsDialog& dialog, QString* error);
     void addDefaultSettingsPages(SettingsDialog& dialog, const QString& scope, SettingsOverlay settings);
     void applySettings();
 
@@ -112,6 +114,11 @@ private:
         std::shared_ptr<SettingsSchema> defaultSchema;
     };
     struct Runtime;
+    struct ConnectionDraft
+    {
+        std::shared_ptr<Settings> values;
+        QVariantMap               baseline;
+    };
     struct RegisteredAction
     {
         Action            registration;
@@ -135,6 +142,7 @@ private:
     QPointer<TerminalDisplay>                   _shortcutCandidate;
     int                                         _shortcutCandidateKey = 0;
     QPointer<SettingsDialog>                    _creation;
+    QHash<SettingsDialog*, ConnectionDraft>     _connectionDrafts;
 
     int                                      _batchDepth            = 0;
     bool                                     _batchSelectionChanged = false;
@@ -170,7 +178,10 @@ private:
     void     _refreshHostActions(const QString& id);
     bool     _actionChecked(const QString& command, const Runtime* terminal) const;
     bool     _activeWindow() const;
-    bool     _materialize(const QString& id, QString* error);
+    bool     _materialize(const QString&   id,
+                          QString*         error,
+                          TerminalDisplay* display = nullptr,
+                          CommandEditor*   editor  = nullptr);
     void     _restore();
     bool     _rememberTabOrder(QString* error = nullptr);
     void     _registerAction(Action action, ActionContainer* menu);

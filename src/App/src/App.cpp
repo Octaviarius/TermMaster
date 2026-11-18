@@ -1806,6 +1806,11 @@ void App::_showSettings(SettingsContext context)
                 {
                     return _data->workspace && _data->workspace->sync(error);
                 }
+                if (context == SettingsContext::Terminal)
+                {
+                    auto* dialog = _data->settingsWindows.value(context).data();
+                    return dialog && _data->terminals->saveSettings(*dialog, error);
+                }
                 return _data->session && (_data->terminals->capturePresentation(error) && _data->session->sync(error));
             },
             context == SettingsContext::Terminal ? _data->terminals->selectedWindow() : _data->window.get());
@@ -1813,6 +1818,16 @@ void App::_showSettings(SettingsContext context)
         dialog->setProperty("settingsContext", int(context));
         _data->settingsWindow = dialog;
         _data->settingsWindows.insert(context, dialog);
+        connect(dialog, &SettingsDialog::closing, this, [this, context, dialog] {
+            if (_data->settingsWindows.value(context) == dialog)
+            {
+                _data->settingsWindows.remove(context);
+            }
+            if (_data->settingsWindow == dialog)
+            {
+                _data->settingsWindow = nullptr;
+            }
+        });
         const auto schema = [](const QString& resource) {
             QFile file(":/Termaster/App/" + resource);
             if (!file.open(QIODevice::ReadOnly))
@@ -1920,6 +1935,6 @@ QString App::selectedTerminal() const
 
 void App::_closeSettings(SettingsContext context)
 {
-    delete _data->settingsWindows.value(context).data();
-    _data->settingsWindows.remove(context);
+    const auto dialog = _data->settingsWindows.take(context);
+    delete dialog.data();
 }

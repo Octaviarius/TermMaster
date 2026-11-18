@@ -12,6 +12,7 @@ class SettingsSchema;
 class SettingsWidgetRegistry;
 class SettingsFormModel;
 class SettingsFormWidget;
+class QComboBox;
 class QLabel;
 class QDialogButtonBox;
 class QLineEdit;
@@ -26,18 +27,27 @@ class SettingsDialog final : public QDialog
     Q_OBJECT
 public:
     SettingsDialog(SettingsWidgetRegistry& registry, std::function<bool(QString*)> persist, QWidget* parent = nullptr);
-    void               addPage(const QString&                        id,
-                               const QString&                        category,
-                               const QString&                        title,
-                               const QString&                        description,
-                               std::shared_ptr<const SettingsSchema> schema,
-                               Settings::Node                        target);
-    void               addPage(const QString&                        id,
-                               const QString&                        category,
-                               const QString&                        title,
-                               const QString&                        description,
-                               std::shared_ptr<const SettingsSchema> schema,
-                               SettingsOverlay                       target);
+    ~SettingsDialog() override;
+    void addPage(const QString&                        id,
+                 const QString&                        category,
+                 const QString&                        title,
+                 const QString&                        description,
+                 std::shared_ptr<const SettingsSchema> schema,
+                 Settings::Node                        target);
+    void addPage(const QString&                        id,
+                 const QString&                        category,
+                 const QString&                        title,
+                 const QString&                        description,
+                 std::shared_ptr<const SettingsSchema> schema,
+                 SettingsOverlay                       target);
+    /** Alternative forms share one navigation entry; inactive drafts are retained and never applied. */
+    void               addPageVariant(const QString&                        id,
+                                      const QString&                        choice,
+                                      const QString&                        label,
+                                      std::shared_ptr<const SettingsSchema> schema,
+                                      SettingsOverlay                       target);
+    QString            pageChoice(const QString& id) const;
+    void               setPageChoice(const QString& id, const QString& choice);
     void               setVisible(bool visible) override;
     bool               hasHeightForWidth() const override;
     bool               selectPage(const QString& id);
@@ -45,10 +55,17 @@ public:
     HelpSource::Topic  helpContext() const;
     SettingsFormModel* pageModel(const QString& id) const;
     void               refreshInheritedValues();
+    Q_SIGNAL void      closing();
     Q_SIGNAL void      applied();
     Q_SIGNAL void      helpRequested();
 
 private:
+    struct Variant
+    {
+        QString             choice;
+        SettingsFormModel*  model;
+        SettingsFormWidget* form;
+    };
     struct Page
     {
         QString             id;
@@ -58,6 +75,9 @@ private:
         SettingsFormModel*  model;
         SettingsFormWidget* form;
         QWidget*            widget;
+        QComboBox*          choices = nullptr;
+        QString             originalChoice;
+        QList<Variant>      variants;
     };
     enum Role
     {

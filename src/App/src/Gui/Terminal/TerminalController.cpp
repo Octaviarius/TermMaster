@@ -1313,7 +1313,10 @@ bool TerminalController::createTerminal(const QString&     type,
     refreshTerminalActions();
     return true;
 }
-bool TerminalController::_materialize(const QString& id, QString* error)
+bool TerminalController::_materialize(const QString&   id,
+                                      QString*         error,
+                                      TerminalDisplay* retainedDisplay,
+                                      CommandEditor*   retainedEditor)
 {
     if (!_session || _terminals.contains(id))
     {
@@ -1346,7 +1349,7 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         {
             return fail(error, "Terminal device factory returned null");
         }
-        terminal->display = new TerminalDisplay;
+        terminal->display = retainedDisplay ? retainedDisplay : new TerminalDisplay;
         terminal->display->setObjectName("terminalDisplay");
         terminal->display->setProperty("terminalId", id);
         connect(terminal->display, &QObject::destroyed, this, [this, display = terminal->display.data()] {
@@ -1359,7 +1362,10 @@ bool TerminalController::_materialize(const QString& id, QString* error)
                               terminal->display.data();
         if (!terminal->panel)
         {
-            delete terminal->display.data();
+            if (!retainedDisplay)
+            {
+                delete terminal->display.data();
+            }
             return fail(error, "Terminal panel factory returned null");
         }
         auto* content   = terminal->panel.data();
@@ -1376,7 +1382,8 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         terminalLayout->addWidget(content, 1);
         split->addWidget(terminalArea);
         layout->addWidget(split, 1);
-        terminal->editor = new CommandEditor(terminalArea);
+        terminal->editor = retainedEditor ? retainedEditor : new CommandEditor(terminalArea);
+        terminal->editor->setParent(terminalArea);
         terminal->editor->setSettings(terminal->settings.value("input").toMap());
         if (terminal->advanced)
         {
@@ -1411,7 +1418,18 @@ bool TerminalController::_materialize(const QString& id, QString* error)
     }
     catch (const std::exception& exception)
     {
-        delete terminal->display.data();
+        if (retainedDisplay)
+        {
+            retainedDisplay->setParent(nullptr);
+        }
+        else
+        {
+            delete terminal->display.data();
+        }
+        if (retainedEditor)
+        {
+            retainedEditor->setParent(nullptr);
+        }
         return fail(error, QString::fromUtf8(exception.what()));
     }
     auto* device  = terminal->device.get();
@@ -1583,9 +1601,10 @@ bool TerminalController::_materialize(const QString& id, QString* error)
         router,
         &ProcessingRouter::error,
         this,
-        [this, id](ProcessingRouter::Direction direction, const QString& error) {
+        [this, id, expected = QPointer<ProcessingRouter>(router)](ProcessingRouter::Direction direction,
+                                                                  const QString&              error) {
             const auto it = _terminals.find(id);
-            if (it == _terminals.end())
+            if (it == _terminals.end() || !expected || it->second->processing.get() != expected)
             {
                 return;
             }
@@ -4261,14 +4280,168 @@ void TerminalController::addSettingsPages(SettingsDialog& dialog)
                        "Overrides for the selected terminal.",
                        _appearanceSchema(),
                        terminal->settings);
+        ConnectionDraft draft;
+        draft.values     = std::make_shared<Settings>(QString {});
+        draft.baseline   = _session->objects().value(terminal->id).toMap();
+        const auto local = draft.baseline.value("settings").toMap();
+        draft.values->setValue(terminal->type, local);
+        auto target = SettingsOverlay(_session->settings(), draft.values->node(terminal->type));
         dialog.addPage("terminal.connection",
                        "Terminal",
                        "Connection",
-                       "Transport settings take effect on the next connection.",
+                       "Changing type stops the connection. Connect explicitly after applying the new settings.",
                        _types.at(terminal->type).schema,
-                       terminal->settings);
+                       target);
+        dialog.addPageVariant("terminal.connection",
+                              terminal->type,
+                              _types.at(terminal->type).registration.title,
+                              _types.at(terminal->type).schema,
+                              target);
+        for (const auto& [id, type] : _types)
+        {
+            if (id != terminal->type)
+            {
+                dialog.addPageVariant("terminal.connection",
+                                      id,
+                                      type.registration.title,
+                                      type.schema,
+                                      SettingsOverlay(_session->settings(), draft.values->node(id)));
+            }
+        }
+        _connectionDrafts.insert(&dialog, std::move(draft));
+        connect(&dialog, &QObject::destroyed, this, [this, key = &dialog] { _connectionDrafts.remove(key); });
     }
 }
+
+bool TerminalController::saveSettings(SettingsDialog& dialog, QString* error)
+{
+    const auto draft = _connectionDrafts.find(&dialog);
+    const auto id    = dialog.property("terminalId").toString();
+    const auto type  = dialog.pageChoice("terminal.connection");
+    if (!_session || draft == _connectionDrafts.end() || !_terminals.contains(id) || !_types.contains(type))
+    {
+        return fail(error, tr("The terminal or selected type is no longer available."));
+    }
+    auto       definition = _session->objects().value(id).toMap();
+    const auto original   = definition;
+    const auto oldType    = _terminals.at(id)->type;
+    const bool changed    = type != oldType;
+    const auto baseline   = draft->baseline;
+    if (definition.value("type") != baseline.value("type") || definition.value("module") != baseline.value("module")
+        || definition.value("settings").toMap().value("transport")
+               != baseline.value("settings").toMap().value("transport"))
+    {
+        return fail(error, tr("Terminal connection settings changed externally; reopen settings before applying."));
+    }
+    for (const auto& field : _types.at(oldType).schema->fields())
+    {
+        if (lookup(definition.value("settings").toMap(), field.settingsPath)
+            != lookup(baseline.value("settings").toMap(), field.settingsPath))
+        {
+            return fail(error,
+                        tr("Terminal settings changed externally at %1; reopen settings before applying.")
+                            .arg(field.settingsPath));
+        }
+    }
+    const auto local     = draft->values->node(type);
+    const auto candidate = SettingsOverlay(_session->settings(), local);
+    if (!_validate(_types.at(type), candidate, error))
+    {
+        return false;
+    }
+    auto settings = definition.value("settings").toMap();
+    if (changed)
+    {
+        settings.remove("transport");
+    }
+    for (const auto& field : _types.at(type).schema->fields())
+    {
+        if (local.contains(field.settingsPath))
+        {
+            put(settings, field.settingsPath.split('/'), 0, local.value(field.settingsPath));
+        }
+        else
+        {
+            removePath(settings, field.settingsPath.split('/'));
+        }
+    }
+    definition.insert("settings", settings);
+    definition.insert("type", type);
+    definition.insert("module", _types.at(type).registration.plugin);
+    if (!capturePresentation(error))
+    {
+        return false;
+    }
+    definition.insert("connected", changed ? false : _terminals.at(id)->connectionRequested);
+    if (!_session->objects().setValue(id, definition, error))
+    {
+        return false;
+    }
+    if (!_session->sync(error))
+    {
+        _session->objects().setValue(id, original);
+        return false;
+    }
+    if (changed)
+    {
+        _beginBatch();
+        const auto                       finish  = qScopeGuard([this] { _endBatch(); });
+        auto&                            old     = *_terminals.at(id);
+        const QPointer<TerminalTabGroup> group   = old.group;
+        const int                        index   = group ? group->tabs().indexOf(old.panel) : -1;
+        const QPointer<TerminalDisplay>  display = old.display;
+        const QPointer<CommandEditor>    editor  = old.editor;
+        old.processingUpdate                     = true;
+        old.connectionRequested                  = false;
+        old.reconnect.stop();
+        old.device->setCallbacks({});
+        old.advanced->stop();
+        display->setFocusProxy(nullptr);
+        display->disconnect(this);
+        editor->disconnect(this);
+        display->setParent(nullptr);
+        editor->setParent(nullptr);
+        _close(id, true);
+        if (!_materialize(id, error, display, editor))
+        {
+            // Restore the prior definition and reattach the retained common widgets.
+            auto rollback = original;
+            rollback.insert("connected", false);
+            _session->objects().setValue(id, rollback);
+            QString    rollbackError;
+            const bool restored = _materialize(id, &rollbackError, display, editor);
+            if (restored && group && index >= 0)
+            {
+                group->tabs().tabBar()->moveTab(group->tabs().indexOf(_terminals.at(id)->panel), index);
+            }
+            QString persistenceError;
+            if (!_session->sync(&persistenceError))
+            {
+                rollbackError += "\n" + persistenceError;
+            }
+            if (!restored)
+            {
+                delete display.data();
+                delete editor.data();
+            }
+            if (!rollbackError.isEmpty() && error)
+            {
+                *error += "\n" + rollbackError;
+            }
+            return false;
+        }
+        auto& replacement = *_terminals.at(id);
+        if (group && index >= 0)
+        {
+            const int placed = group->tabs().indexOf(replacement.panel);
+            group->tabs().tabBar()->moveTab(placed, index);
+        }
+        _changed(id);
+    }
+    draft->baseline = definition;
+    return true;
+}
+
 void TerminalController::applySettings()
 {
     for (const auto& [id, terminal] : _terminals)

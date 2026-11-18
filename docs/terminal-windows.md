@@ -45,7 +45,8 @@ flowchart TD
 ```
 
 A TerminalWorkspace owns a bounded tree of QSplitters and TerminalTabGroups.
-A framed group owns its QTabWidget, compact toolbar row and status bar. Each tab is the
+A group uses a one-pixel Qt-painted frame whose neutral color blends the Window
+and Mid palette roles equally. It owns its QTabWidget, compact toolbar row and status bar. Each tab is the
 presentation of one existing terminal page. The controller retains authoritative
 runtime ownership; a page belongs to exactly one group's native stacked layout.
 

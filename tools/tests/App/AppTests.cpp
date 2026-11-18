@@ -684,7 +684,8 @@ private:
         workspace.show();
         QTest::qWait(60);
         QVERIFY(qobject_cast<QFrame*>(group));
-        QVERIFY(group->contentsRect().left() >= 2);
+        QCOMPARE(group->lineWidth(), 1);
+        QCOMPARE(group->contentsRect().left(), 1);
         QVERIFY(
             group->contentsRect().contains(QRect(group->toolbar().mapTo(group, QPoint()), group->toolbar().size())));
         QVERIFY(group->contentsRect().contains(group->statusBar().geometry()));
@@ -2171,7 +2172,7 @@ content:
         auto* group = controller.terminalGroup(_app.selectedTerminal());
         QVERIFY(group);
         QVERIFY(group->styleSheet().isEmpty());
-        QCOMPARE(group->frameWidth(), 2);
+        QCOMPARE(group->frameWidth(), 1);
         QVERIFY(!_app.session()->isDirty());
         QVERIFY(controller.moveTerminal(_app.selectedTerminal(), group, Qt::Edge(0), -1, &error));
         QVERIFY(!_app.session()->isDirty());
@@ -3213,6 +3214,257 @@ content:
         QCOMPARE(_app.settings().values(), savedSettings);
         QCOMPARE(_app.session(), savedSession);
         QCOMPARE(_app.workspace(), savedWorkspace);
+    }
+
+    Q_SLOT void terminalTypeSettingsRetainIdentityAndCommonWidgets_data()
+    {
+        QTest::addColumn<bool>("secondary");
+        QTest::newRow("main") << false;
+        QTest::newRow("secondary") << true;
+    }
+
+    Q_SLOT void terminalTypeSettingsRetainIdentityAndCommonWidgets()
+    {
+        QFETCH(bool, secondary);
+        QTemporaryDir temporary;
+        QString       error;
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Types.termaster")), "Types", &error));
+        QVERIFY(_app.createSession("Type changes", &error));
+        auto&                    host       = _app.pluginHost();
+        auto&                    controller = static_cast<TerminalController&>(host);
+        const auto               probe      = std::make_shared<ReconnectDevice::Probe>();
+        PluginHost::TerminalType first;
+        first.id             = "typeFirst";
+        first.title          = "First transport";
+        first.plugin         = "Synthetic";
+        first.settingsSchema = R"(version: 1
+type: termaster.settings-schema
+description: Type switch fixture
+content:
+  type: object
+  required: [endpoint]
+  properties:
+    endpoint:
+      title: Endpoint
+      type: string
+      minLength: 1
+      default: ''
+      x-settings-path: transport/endpoint
+)";
+        first.createDevice   = [probe] { return std::make_unique<ReconnectDevice>(probe); };
+        auto second          = first;
+        second.id            = "typeSecond";
+        second.title         = "Second transport";
+        host.registerTerminalType(first);
+        host.registerTerminalType(second);
+        auto broken        = second;
+        broken.id          = "typeBroken";
+        broken.title       = "Unavailable panel";
+        broken.createPanel = [](QWidget*, const QVariantMap&, QWidget*) -> QWidget* { return nullptr; };
+        host.registerTerminalType(broken);
+        const auto cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            host.unregisterTerminalType(first.id);
+            host.unregisterTerminalType(second.id);
+            host.unregisterTerminalType(broken.id);
+        });
+        QVERIFY2(_app.createTerminal(first.id,
+                                     {
+                                         { "transport",      QVariantMap {{"endpoint", "old"}, {"unknown", 42}}},
+                                         {     "input", QVariantMap {{"mode", "buffered"}, {"localEcho", true}}},
+                                         {"processing",         QVariantMap {{"mode", "bypass"}, {"future", 7}}}
+        },
+                                     "Retained name",
+                                     &error),
+                 qPrintable(error));
+        const auto id        = _app.selectedTerminal();
+        const auto sessionId = _app.session()->id();
+        const auto order     = _app.session()->presentation().value("tabOrder");
+        if (secondary)
+        {
+            QVERIFY(controller.detachTerminal(id, &error));
+        }
+        auto*                     group   = controller.terminalGroup(id);
+        auto*                     page    = group->tabs().currentWidget();
+        QPointer<TerminalDisplay> display = page->findChild<TerminalDisplay*>("terminalDisplay");
+        QPointer<QPlainTextEdit>  input   = page->findChild<QPlainTextEdit*>("commandDraft");
+        QVERIFY(display && input);
+        display->receive("retained-history");
+        input->setPlainText("unsent draft");
+        group->window()->activateWindow();
+        display->setFocus();
+        QApplication::processEvents();
+        const auto processing   = controller.selectedSettings().value("processing");
+        const auto openSettings = [&]() -> SettingsDialog* {
+            controller.showSelectedTerminalSettings();
+            return group->window()->findChild<SettingsDialog*>("settingsDialog");
+        };
+        QPointer<SettingsDialog> dialog = openSettings();
+        QVERIFY(dialog);
+        QCOMPARE(dialog->pageChoice("terminal.connection"), first.id);
+        dialog->pageModel("terminal.connection")->setValue("endpoint", "first draft");
+        dialog->setPageChoice("terminal.connection", second.id);
+        dialog->pageModel("terminal.connection")->setValue("endpoint", "new");
+        dialog->setPageChoice("terminal.connection", first.id);
+        QCOMPARE(dialog->pageModel("terminal.connection")->value("endpoint").toString(), QString("first draft"));
+        dialog->setPageChoice("terminal.connection", second.id);
+        QCOMPARE(dialog->pageModel("terminal.connection")->value("endpoint").toString(), QString("new"));
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("type").toString(), first.id);
+        dialog->reject();
+        QTRY_VERIFY(dialog.isNull());
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("type").toString(), first.id);
+        group->window()->activateWindow();
+        display->setFocus();
+        QApplication::processEvents();
+        controller.connectSelectedTerminal();
+        QTRY_COMPARE(probe->attempts.load(), 1);
+        dialog = openSettings();
+        QVERIFY(dialog);
+        dialog->setPageChoice("terminal.connection", second.id);
+        auto* apply = dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply);
+        apply->click();
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("type").toString(), first.id);
+        dialog->pageModel("terminal.connection")->setValue("endpoint", "new");
+        dialog->pageModel("terminal.display")->setValue("fontSize", 19.0);
+        const auto sessionFile = _app.session()->filePath().toString();
+        const auto backup      = sessionFile + ".saved";
+        QVERIFY(QFile::rename(sessionFile, backup));
+        QVERIFY(QDir().mkdir(sessionFile));
+        apply->click();
+        const bool unchanged = _app.session()->objects().value(id).toMap().value("type").toString() == first.id
+                            && controller.connectionRequested(first.id);
+        QVERIFY(QDir().rmdir(sessionFile));
+        QVERIFY(QFile::rename(backup, sessionFile));
+        QVERIFY(unchanged);
+        QVERIFY(!dialog->findChild<QLabel*>("settingsError")->text().isEmpty());
+        apply->click();
+        QVERIFY2(dialog->findChild<QLabel*>("settingsError")->text().isEmpty(),
+                 qPrintable(dialog->findChild<QLabel*>("settingsError")->text()));
+        QCOMPARE(_app.selectedTerminal(), id);
+        QCOMPARE(controller.terminalGroup(id), group);
+        QCOMPARE(group->tabs().count(), 1);
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("type").toString(), second.id);
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("name").toString(), QString("Retained name"));
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("connected").toBool(), false);
+        QCOMPARE(_app.session()->presentation().value("tabOrder"), order);
+        QCOMPARE(controller.selectedSettings().value("processing"), processing);
+        QCOMPARE(controller.selectedSettings().value("transport/endpoint").toString(), QString("new"));
+        QVERIFY(!controller.selectedSettings().contains("transport/unknown"));
+        QCOMPARE(controller.selectedSettings().value("appearance/fontSize").toDouble(), 19.0);
+        QVERIFY(display && input);
+        QCOMPARE(group->tabs().currentWidget()->findChild<TerminalDisplay*>("terminalDisplay"), display.data());
+        QCOMPARE(input->toPlainText(), QString("unsent draft"));
+        QVERIFY(display->screen().text().contains("retained-history"));
+        QVERIFY(!controller.connectionRequested(second.id));
+        QTest::qWait(40);
+        QCOMPARE(probe->attempts.load(), 1);
+        // An external connection edit wins over a stale dialog draft.
+        dialog->pageModel("terminal.connection")->setValue("endpoint", "stale");
+        QVERIFY(controller.selectedSettings().setValue("transport/endpoint", "external"));
+        apply->click();
+        QCOMPARE(controller.selectedSettings().value("transport/endpoint").toString(), QString("external"));
+        QVERIFY(!dialog->findChild<QLabel*>("settingsError")->text().isEmpty());
+        QVERIFY(controller.selectedSettings().setValue("transport/endpoint", "new"));
+        // Same-type edits also use the isolated draft.
+        dialog->pageModel("terminal.connection")->setValue("endpoint", "edited");
+        apply->click();
+        QCOMPARE(controller.selectedSettings().value("transport/endpoint").toString(), QString("edited"));
+        dialog->setPageChoice("terminal.connection", broken.id);
+        dialog->pageModel("terminal.connection")->setValue("endpoint", "broken");
+        apply->click();
+        QVERIFY(!dialog->findChild<QLabel*>("settingsError")->text().isEmpty());
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("type").toString(), second.id);
+        QVERIFY(display && input);
+        QVERIFY(display->text().contains("retained-history"));
+        QCOMPARE(input->toPlainText(), QString("unsent draft"));
+        dialog->setPageChoice("terminal.connection", second.id);
+        apply->click();
+        if (qEnvironmentVariableIsSet("TERMASTER_TYPE_CAPTURE"))
+        {
+            dialog->grab().save(qEnvironmentVariable("TERMASTER_TYPE_CAPTURE"));
+        }
+        delete dialog.data();
+        QVERIFY(_app.closeSession(&error));
+        QVERIFY(_app.openSession(sessionId, &error));
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("type").toString(), second.id);
+        QCOMPARE(_app.terminalIds(), QStringList {id});
+        QCOMPARE(probe->attempts.load(), 1);
+    }
+
+    Q_SLOT void terminalTypeSettingsBundledDescriptors()
+    {
+        QTemporaryDir temporary;
+        QString       error;
+        QStringList   files;
+        const auto    cleanup = qScopeGuard([&] {
+            _closeTemporaryWorkspace();
+            for (const auto* id : {"SerialTerminal", "ConsoleTerminal", "SocketTerminal"})
+            {
+                _app.plugins().setEnabled(id, false);
+            }
+            for (const auto& file : files)
+            {
+                QFile::remove(file);
+            }
+            _app.plugins().rescan();
+        });
+        QVERIFY(QDir().mkpath(_app.plugins().directory()));
+        for (const auto* source :
+             {TERMASTER_SOCKET_PLUGIN_FILE, TERMASTER_SERIAL_PLUGIN_FILE, TERMASTER_CONSOLE_PLUGIN_FILE})
+        {
+            const auto file = QDir(_app.plugins().directory()).filePath(QFileInfo(source).fileName());
+            QVERIFY(QFile::copy(source, file));
+            files.append(file);
+        }
+        QVERIFY(_app.plugins().rescan(&error));
+        for (const auto* id : {"SerialTerminal", "ConsoleTerminal", "SocketTerminal"})
+        {
+            QVERIFY2(_app.plugins().setEnabled(id, true, &error), qPrintable(error));
+        }
+        QVERIFY(_app.createWorkspace(Path(temporary.filePath("Types.termaster")), "Types", &error));
+        QVERIFY(_app.createSession("Types", &error));
+        QVERIFY(_app.createTerminal("serial",
+                                    {
+                                        {"transport", QVariantMap {{"portName", "COM999"}}}
+        },
+                                    "Terminal 1",
+                                    &error));
+        const auto id         = _app.selectedTerminal();
+        auto&      controller = static_cast<TerminalController&>(_app.pluginHost());
+        controller.showSelectedTerminalSettings();
+        auto* dialog = _app.mainWindow().findChild<SettingsDialog*>("settingsDialog");
+        QVERIFY(dialog);
+        const auto capture = qEnvironmentVariable("TERMASTER_TYPE_BUNDLED_CAPTURE");
+        if (!capture.isEmpty())
+        {
+            QTest::qWait(80);
+            QVERIFY(dialog->grab().save(capture + "-Serial.png"));
+        }
+        dialog->setPageChoice("terminal.connection", "socket");
+        auto* socket = dialog->pageModel("terminal.connection");
+        QVERIFY(socket->schema().fields().size() > 4);
+        socket->setValue("host", "127.0.0.1");
+        socket->setValue("port", 5000);
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        QVERIFY2(dialog->findChild<QLabel*>("settingsError")->text().isEmpty(),
+                 qPrintable(dialog->findChild<QLabel*>("settingsError")->text()));
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("type").toString(), QString("socket"));
+        if (!capture.isEmpty())
+        {
+            QTest::qWait(60);
+            QVERIFY(dialog->grab().save(capture + "-Socket.png"));
+        }
+        dialog->setPageChoice("terminal.connection", "console");
+        dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Apply)->click();
+        QVERIFY2(dialog->findChild<QLabel*>("settingsError")->text().isEmpty(),
+                 qPrintable(dialog->findChild<QLabel*>("settingsError")->text()));
+        QCOMPARE(_app.session()->objects().value(id).toMap().value("type").toString(), QString("console"));
+        QVERIFY(!controller.connectionRequested("console"));
+        if (!capture.isEmpty())
+        {
+            QTest::qWait(60);
+            QVERIFY(dialog->grab().save(capture + "-Console.png"));
+        }
     }
 
     Q_SLOT void generatedSettingsDialog()

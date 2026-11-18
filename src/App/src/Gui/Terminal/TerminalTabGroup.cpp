@@ -20,8 +20,6 @@
 #include <QRegion>
 #include <QRubberBand>
 #include <QStatusBar>
-#include <QStyleOptionFrame>
-#include <QStylePainter>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QToolBar>
@@ -29,6 +27,7 @@
 #include <QUuid>
 #include <QVBoxLayout>
 #include <QWheelEvent>
+#include <QtWidgets/qdrawutil.h>
 #include <Termaster/Core/Gui/Icons.h>
 #include <algorithm>
 
@@ -129,7 +128,7 @@ TerminalTabGroup::TerminalTabGroup(QString id, QWidget* parent) :
     setObjectName("terminalTabGroup");
     setAcceptDrops(true);
     setFrameStyle(QFrame::Box | QFrame::Plain);
-    setLineWidth(2);
+    setLineWidth(1);
     _tabs = new TerminalTabs(this);
     _tabs->setObjectName("terminalTabs");
     _tabs->setDocumentMode(true);
@@ -524,14 +523,15 @@ bool TerminalTabGroup::eventFilter(QObject* watched, QEvent* event)
 
 void TerminalTabGroup::paintEvent(QPaintEvent*)
 {
-    // Use Qt's frame primitive with a local palette: an ancestor stylesheet
-    // would repolish every hidden terminal descendant during reparenting.
-    QStyleOptionFrame frame;
-    initStyleOption(&frame);
-    frame.palette.setBrush(QPalette::WindowText, palette().brush(QPalette::Mid));
-
-    QStylePainter painter(this);
-    painter.drawControl(QStyle::CE_ShapedFrame, frame);
+    // Qt's frame helper respects the explicit color even when the Windows style
+    // overrides palette roles. Avoid repolishing the terminal descendants.
+    const auto   background = palette().color(QPalette::Window);
+    const auto   mid        = palette().color(QPalette::Mid);
+    const QColor border((background.red() + mid.red()) / 2,
+                        (background.green() + mid.green()) / 2,
+                        (background.blue() + mid.blue()) / 2);
+    QPainter     painter(this);
+    qDrawPlainRoundedRect(&painter, rect(), 4, 4, border, lineWidth());
 }
 
 void TerminalTabGroup::_refreshHiddenTabs()
