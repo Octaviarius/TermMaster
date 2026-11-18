@@ -1,0 +1,85 @@
+{
+  "cases": {
+    "native.bypass": {
+      "1KiB": {
+        "elapsedMs": 142.6942,
+        "p50packetms": 0.1344,
+        "p95packetms": 0.1743,
+        "packetBytes": 1024,
+        "packets": 1000,
+        "packetsps": 7007.993317177573,
+        "throughputMiBps": 6.8437434738062235
+      },
+      "64KiB": {
+        "elapsedMs": 21.9925,
+        "p50packetms": 0.1951,
+        "p95packetms": 0.2467,
+        "packetBytes": 65536,
+        "packets": 100,
+        "packetsps": 4547.004660679778,
+        "throughputMiBps": 284.1877912924861
+      },
+      "startupms": 0.8065,
+      "stopms": 2.4756
+    },
+    "shared": {
+      "1KiB": {
+        "elapsedMs": 774.5451,
+        "p50packetms": 0.7453,
+        "p95packetms": 0.8898,
+        "packetBytes": 1024,
+        "packets": 1000,
+        "packetsps": 1291.080403194081,
+        "throughputMiBps": 1.2608207062442198
+      },
+      "64KiB": {
+        "elapsedMs": 116.0386,
+        "p50packetms": 1.1258,
+        "p95packetms": 1.3399,
+        "packetBytes": 65536,
+        "packets": 100,
+        "packetsps": 861.7822000610141,
+        "throughputMiBps": 53.86138750381338
+      },
+      "startupms": 161.8911,
+      "stopms": 3.3024
+    },
+    "single": {
+      "1KiB": {
+        "elapsedMs": 435.9267,
+        "p50packetms": 0.4044,
+        "p95packetms": 0.5518,
+        "packetBytes": 1024,
+        "packets": 1000,
+        "packetsps": 2293.9636411350807,
+        "throughputMiBps": 2.2401988682959773
+      },
+      "64KiB": {
+        "elapsedMs": 59.686,
+        "p50packetms": 0.5701,
+        "p95packetms": 0.6477,
+        "packetBytes": 65536,
+        "packets": 100,
+        "packetsps": 1675.4347753241966,
+        "throughputMiBps": 104.71467345776229
+      },
+      "coldimportms": 0.0652,
+      "startupms": 162.8595,
+      "stopms": 3.0668
+    }
+  },
+  "coldDescribeMs": 163.6925,
+  "configuration": "Release",
+  "measurement": "single-run synthetic sequential packets",
+  "pairedRxTx": {
+    "elapsedMs": 152.921,
+    "maxCompletionSkewMs": 0.3649,
+    "p50packetms": 0.5488,
+    "p95packetms": 0.6736,
+    "packetsps": 3269.6621131172305,
+    "rxPackets": 250,
+    "txPackets": 250
+  },
+  "python": "C:/Users/octaviarius/.local/bin/python3.13.exe",
+  "totalms": 2600.2907
+}

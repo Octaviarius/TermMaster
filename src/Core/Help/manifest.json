@@ -57,6 +57,12 @@
         "title": "Tap observation branch",
         "parent": "processing.lineflow",
         "file": "Tap.md"
+      },
+      {
+        "id": "processing.codeflow",
+        "title": "Python Codeflow",
+        "parent": "processing",
+        "file": "Codeflow.md"
       }
     ]
   }

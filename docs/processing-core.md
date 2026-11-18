@@ -1,9 +1,10 @@
 # Processing core
 
 `Processor` is the shared asynchronous byte processing contract. Native elementary
-processors and `Lineflow` implement that contract. A future `Codeflow` composition
-can implement the same interface around a Python runtime; no interpreter, script
-execution or control-flow language is delivered in this stage.
+processors, Lineflow and the delivered Codeflow provider implement this interface.
+Codeflow uses a diagram-owned external Python process; see
+[Python processors](python-and-codecs.md). The original core milestone introduced
+no interpreter or script execution; those capabilities belong to FLOW-6.
 
 The core is independent of terminal widgets and transports. Workspace definitions
 are reusable configuration, while each instantiated pipeline owns separate stream
@@ -23,7 +24,7 @@ flowchart LR
     R --> P[Validated immutable preparation]
     P --> Root[Terminal Lineflow instance: two lanes]
     Root --> N[Native and nested Processor instances]
-    F[Future Codeflow composition] -. same Processor contract .-> N
+    F[Codeflow Python provider] -->|Same Processor contract| N
 ```
 
 ## Paired native families
@@ -259,7 +260,8 @@ the host registry, verifies unload refusal during a live/cancelling instance and
 verifies automatic factory removal before unload. Workspace tests verify unknown
 metadata and unavailable-type roundtrips and atomic failure preservation.
 
-Production editing UI, Python execution and Codeflow runtime remain separate work.
+The subsequent editing UI and Python runtime are documented in
+[Lineflow editor](lineflow-editor.md) and [Python processors](python-and-codecs.md).
 Terminal routing is described below. Verification uses synthetic bytes without serial hardware,
 external network acceptance or elevation.
 
@@ -298,9 +300,10 @@ Catalog notifications let future selectors and editors refresh without polling.
 A dedicated processor plugin is not required.
 
 Each entry has an ID, display name, kind, defaults, settings schema and editor
-metadata. Provider-defined source and explicit dependencies support future Python
-and Codeflow editors through the same publication path. Providers validate source
-and prepare an instance factory; user code executes only in the resulting runtime.
+metadata. Provider-defined source and explicit dependencies support Codeflow
+through the same publication path. Providers validate cached metadata and prepare
+an instance factory. Python imports execute during explicit descriptor discovery
+and runtime startup; metadata browsing does not execute source.
 No Python interpreter or production code editor is introduced by this milestone.
 Providers use `PluginHost::registerProcessorProvider` during startup. Their source
 validator must not execute the authored program. Preparation may compile or parse
@@ -337,14 +340,15 @@ workspace switching and collision rejection without losing the active session.
 The independent SDK consumer was rebuilt from a clean external build and its
 explicit acceptance reported three passes without skips. Changed C++ files were
 clang-formatted; local documentation links and `git diff --check` passed.
-That milestone did not change visual layout. Python execution remains future work;
-the subsequent [Lineflow editor](lineflow-editor.md) delivers workspace editing.
+That milestone did not change visual layout. Its subsequent Python provider is
+described in [Python processors](python-and-codecs.md); the
+[Lineflow editor](lineflow-editor.md) delivers workspace editing.
 
 ## Follow-up delivery order
 
 The single implementation checklist is in [the roadmap](roadmap.md#flow-3-unified-processor-registration).
 Terminal selectors, private properties and routing are described in
-[terminal processing](terminal-processing.md). Codeflow remains future work.
+[terminal processing](terminal-processing.md). Codeflow is delivered through the [Python provider](python-and-codecs.md).
 
 ```mermaid
 flowchart LR
