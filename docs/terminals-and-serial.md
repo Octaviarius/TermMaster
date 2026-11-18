@@ -76,6 +76,45 @@ Menu and toolbar share icon-bearing terminal actions. Visibility and eligibility
 on the active window, session, selected terminal type and connection state;
 execution resolves and validates the current target again.
 
+## Changing an existing terminal type
+
+Terminal / Settings / Connection contains a Type selector populated from the
+currently registered terminal factories. Each type keeps a separate in-dialog
+connection draft and uses its provider's original generated settings form.
+Switching the selector does not modify the session or open a connection. Inactive
+forms are neither validated nor applied; Cancel discards all connection drafts.
+
+Apply validates the selected form, preserves unrelated object/settings fields,
+and saves the new type, provider and connection configuration before replacing
+the runtime. A failed save leaves the existing connection intact. Concurrent
+connection edits are rejected with a reload message. Changing type replaces the
+old transport mapping; unknown values in unrelated settings remain preserved.
+Same-type edits retain unknown transport fields and apply on the next connection.
+
+A successful type change stops the previous transport and pending producers,
+joins its workers, and creates the new disconnected runtime in the same group,
+window and tab position. The stable object ID, display/history, command editor
+and its unsent text are retained; appearance, input and processing configuration
+remain attached to the same session object. Processing is re-created when the
+new transport connects. Explicit Connect is required; applying a different type
+never starts a process or opens a device/network endpoint. A panel-construction
+failure restores the prior definition and common widgets disconnected, reporting
+any rollback persistence failure.
+
+Release AppTests, SettingsSchemaTests and SettingsFormTests pass. Synthetic
+main/secondary-window checks cover Cancel, inactive drafts, validation, save failure,
+external edits, failed panel rollback, retained display/input identity and session
+reload. Bundled Serial, Socket and Console descriptors are switched without opening
+hardware/network connections or launching a console. Native Windows checks pass at
+100% and 200% scaling; connection forms and subtle group frames were visually
+inspected ([Serial](images/terminal-types/Serial100.png),
+[Socket](images/terminal-types/Socket100.png),
+[groups at 100%](images/terminal-types/Groups100.png) and
+[groups at 200%](images/terminal-types/Groups200.png)).
+The final Debug application and bundled plugins were built without Debug tests.
+Settings dialogs unregister before native focus changes during teardown
+to prevent reentrant deletion in secondary windows.
+
 ## Serial transport
 
 SerialByteDevice validates configuration before opening. States are Closed,

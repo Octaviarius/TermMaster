@@ -1,5 +1,6 @@
 #include "SettingsDialog.h"
 
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -92,6 +93,12 @@ SettingsDialog::SettingsDialog(SettingsWidgetRegistry&       registry,
     _updateButtons();
 }
 
+SettingsDialog::~SettingsDialog()
+{
+    // Unregister the surface before QDialog's destructor changes native focus.
+    emit closing();
+}
+
 void SettingsDialog::addPage(const QString&                        id,
                              const QString&                        category,
                              const QString&                        title,
@@ -120,6 +127,103 @@ void SettingsDialog::addPage(const QString&                        id,
         throw std::invalid_argument("Settings page target is invalid");
     }
     _addPage(id, category, title, description, new SettingsFormModel(std::move(schema), std::move(target), this));
+}
+
+void SettingsDialog::addPageVariant(const QString&                        id,
+                                    const QString&                        choice,
+                                    const QString&                        label,
+                                    std::shared_ptr<const SettingsSchema> schema,
+                                    SettingsOverlay                       target)
+{
+    if (choice.trimmed().isEmpty() || label.trimmed().isEmpty() || !schema || !target.isValid())
+    {
+        throw std::invalid_argument("Settings variants require a choice, label, schema and valid target");
+    }
+    for (auto& page : _pages)
+    {
+        if (page.id != id)
+        {
+            continue;
+        }
+        if (!page.choices)
+        {
+            page.choices = new QComboBox(page.widget);
+            page.choices->setObjectName(id + ".type");
+            page.choices->setAccessibleName(tr("Terminal type"));
+            auto* row = new QHBoxLayout;
+            row->addWidget(new QLabel(tr("Type"), page.widget));
+            row->addWidget(page.choices, 1);
+            static_cast<QVBoxLayout*>(page.widget->layout())->insertLayout(2, row);
+            page.originalChoice = choice;
+            page.variants.append({choice, page.model, page.form});
+            page.choices->addItem(label, choice);
+            connect(page.choices, &QComboBox::currentIndexChanged, this, [this, id] {
+                for (auto& item : _pages)
+                {
+                    if (item.id != id)
+                    {
+                        continue;
+                    }
+                    const auto selected = item.choices->currentData().toString();
+                    for (const auto& variant : item.variants)
+                    {
+                        const bool active = variant.choice == selected;
+                        variant.form->setVisible(active);
+                        if (active)
+                        {
+                            item.model = variant.model;
+                            item.form  = variant.form;
+                        }
+                    }
+                }
+                _error->clear();
+                _filterPages();
+                _updateButtons();
+            });
+            return;
+        }
+        if (page.choices->findData(choice) >= 0)
+        {
+            throw std::invalid_argument("Settings variant choices must be unique");
+        }
+        auto* model = new SettingsFormModel(std::move(schema), std::move(target), this);
+        auto* form  = new SettingsFormWidget(*model, _registry, page.widget);
+        static_cast<QVBoxLayout*>(page.widget->layout())->addWidget(form, 1);
+        form->hide();
+        page.variants.append({choice, model, form});
+        page.choices->addItem(label, choice);
+        connect(model, &SettingsFormModel::validationChanged, this, &SettingsDialog::_updateButtons);
+        connect(model, &SettingsFormModel::dirtyChanged, this, &SettingsDialog::_updateButtons);
+        return;
+    }
+    throw std::invalid_argument("Unknown settings variant page");
+}
+
+QString SettingsDialog::pageChoice(const QString& id) const
+{
+    for (const auto& page : _pages)
+    {
+        if (page.id == id && page.choices)
+        {
+            return page.choices->currentData().toString();
+        }
+    }
+    return {};
+}
+
+void SettingsDialog::setPageChoice(const QString& id, const QString& choice)
+{
+    for (const auto& page : _pages)
+    {
+        if (page.id == id && page.choices)
+        {
+            const int index = page.choices->findData(choice);
+            if (index >= 0)
+            {
+                page.choices->setCurrentIndex(index);
+            }
+        }
+    }
 }
 
 void SettingsDialog::setVisible(bool visible)
@@ -331,6 +435,24 @@ void SettingsDialog::_filterPages()
     const QString query    = _search->text().trimmed();
     for (const auto& page : _pages)
     {
+        for (int row = 0; row < _treeModel->rowCount(); ++row)
+        {
+            auto* category = _treeModel->item(row);
+            for (int child = 0; child < category->rowCount(); ++child)
+            {
+                auto* item = category->child(child);
+                if (item->data(PageIdRole).toString() != page.id)
+                {
+                    continue;
+                }
+                QStringList search {page.category, page.title, page.description};
+                for (const auto& field : page.model->schema().fields())
+                {
+                    search << field.key << field.title << field.settingsPath << field.description << field.group;
+                }
+                item->setData(search.join('\n'), SearchRole);
+            }
+        }
         const bool wholePage = page.category.contains(query, Qt::CaseInsensitive)
                             || page.title.contains(query, Qt::CaseInsensitive)
                             || page.description.contains(query, Qt::CaseInsensitive);
@@ -384,7 +506,8 @@ bool SettingsDialog::_apply()
     // so this dialog's base edits do not appear as concurrent inherited changes.
     for (auto page = _pages.crbegin(); page != _pages.crend(); ++page)
     {
-        if (page->model->isDirty())
+        if (page->model->isDirty()
+            || (page->choices && page->choices->currentData().toString() != page->originalChoice))
         {
             targets.append(&*page);
         }
@@ -435,8 +558,12 @@ bool SettingsDialog::_apply()
         return false;
     }
     _pendingPersistence = false;
-    for (const auto& page : _pages)
+    for (auto& page : _pages)
     {
+        if (page.choices)
+        {
+            page.originalChoice = page.choices->currentData().toString();
+        }
         if (!page.model->isDirty())
         {
             page.model->reload();
@@ -453,7 +580,8 @@ void SettingsDialog::_updateButtons()
     bool dirty = false;
     for (const auto& page : _pages)
     {
-        dirty = dirty || page.model->isDirty();
+        dirty = dirty || page.model->isDirty()
+             || (page.choices && page.choices->currentData().toString() != page.originalChoice);
     }
     _buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
     _buttons->button(QDialogButtonBox::Apply)->setEnabled(dirty || _pendingPersistence);

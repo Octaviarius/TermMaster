@@ -415,10 +415,10 @@ Delivered as compiled Qt Help packages with native offline navigation and contex
 - [x] Collect selected Qt module and bundled-component notices; exclude project-owned artwork.
 - [x] Package a versioned dependency manifest and verbatim license/NOTICE texts.
 - [x] Add the Third-party components page with credits, source links and license viewing.
-- [ ] Verify packaged offline availability and exact notice coverage for shipped components.
+- [x] Verify packaged offline availability and exact notice coverage for shipped components.
 
-HELP-2 compilation is performed without automated tests or native visual verification,
-as requested. Release deployment coverage remains a packaging acceptance task.
+The Windows x64 Release package includes the notice bundle and compiled help;
+packaging acceptance is complete.
 
 ## PERF-1: Application performance investigation
 
@@ -678,4 +678,14 @@ Later stages:
 - [x] Route diagnostics to the active terminal group or workspace page without discarding context.
 - [x] Keep View / Status bar scoped to the selected group, including secondary windows.
 - [x] Verify Release application/schema/form suites and native 100%/200% captures.
+- [x] Build the final Debug application and bundled plugins.
+
+## APP-37: Existing terminal type selection and subtle group frames
+
+- [x] Select any registered terminal type in the existing terminal Connection page.
+- [x] Preserve separate connection drafts and validate/apply only the selected form.
+- [x] Save before replacing the transport, preserve identity/common widgets and leave the new type disconnected.
+- [x] Handle save failures, concurrent changes and failed panel reconstruction.
+- [x] Reduce native group frames to one pixel with a lower-contrast neutral palette blend.
+- [x] Verify Release application/schema/form suites and native 100%/200% presentation.
 - [x] Build the final Debug application and bundled plugins.
