@@ -210,6 +210,131 @@ class CodeflowTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void inlineNativeCatalogAndRoundtrip()
+    {
+        Fixture fixture;
+        int     count = 0;
+        for (const auto& type : fixture.registry.types())
+        {
+            if (Codeflow::isInline(type.id))
+            {
+                ++count;
+                QCOMPARE(type.group, QString("General"));
+                QCOMPARE(type.editor.value("inlineCode").toBool(), true);
+                QCOMPARE(type.editor.value("channels").toInt(), type.inputCount);
+                QCOMPARE(type.editor.value("helpTopic").toString(), QString("processing.codeflow"));
+                const auto baseline = Codeflow::inlineDefinition("draft", "Custom", type.inputCount, type.defaults);
+                QCOMPARE(baseline.value("kind").toString(), QString("codeflow"));
+                QCOMPARE(baseline.value("source").toMap().value("description").toMap().value("inputs").toList().size(),
+                         type.inputCount);
+                const auto configuration = Codeflow::inlineConfiguration(baseline);
+                QVERIFY(!configuration.value("source").toMap().contains("digest"));
+                QCOMPARE(Codeflow::inlineConfiguration(
+                             Codeflow::inlineDefinition("draft", "Custom", type.inputCount, configuration)),
+                         configuration);
+            }
+        }
+        QCOMPARE(count, 2);
+        const auto embedded = Codeflow::inlineDefinition("draft",
+                                                         "Custom",
+                                                         1,
+                                                         {
+                                                             {"source",
+                                                              QVariantMap {{"code", Codeflow::templateSource(1)},
+                                                                           {"file", "missing.py"},
+                                                                           {"digest", "old"}}}
+        });
+        QVERIFY(!embedded.value("source").toMap().contains("file"));
+        QVERIFY(!embedded.value("source").toMap().contains("digest"));
+        QVERIFY(!Codeflow::isInline("native.bypass"));
+        QCOMPARE(fixture.registry.type("native.python-code")->title, QString::fromUtf8("Python Code (1×1)"));
+        QCOMPARE(fixture.registry.type("native.duplex-python-code")->title, QString::fromUtf8("Python Code (2×2)"));
+    }
+
+    void inlineNativeBinaryAndPairedPackets()
+    {
+        Fixture fixture;
+        for (const auto& id : QStringList {"native.python-code", "native.duplex-python-code"})
+        {
+            const auto prepared = fixture.registry.prepare(id,
+                                                           {
+                                                               {"parameters", QVariantMap {{"prefix", "P"}}}
+            },
+                                                           {},
+                                                           &fixture.error);
+            QVERIFY2(prepared, qPrintable(fixture.error));
+            const auto processor = fixture.instantiate(prepared);
+            QVERIFY2(processor, qPrintable(fixture.error));
+            const auto rx = invoke(*processor, QByteArray("\0x", 2));
+            QVERIFY2(rx->completed && rx->error.isEmpty(), qPrintable(rx->error));
+            QCOMPARE(rx->joined(), QByteArray("P\0x", 3));
+            QCOMPARE(rx->outputs.first().port, 0);
+            if (processor->inputCount() == 2)
+            {
+                const auto tx = invoke(*processor, {}, 1);
+                QVERIFY2(tx->completed && tx->error.isEmpty(), qPrintable(tx->error));
+                QCOMPARE(tx->outputs.size(), 1);
+                QVERIFY(tx->outputs.first().bytes.isEmpty());
+                QCOMPARE(tx->outputs.first().port, 1);
+            }
+        }
+    }
+
+    void inlineNativeOccurrencesShareHostButNotState()
+    {
+        Fixture    fixture;
+        const auto code = source(
+            "self.count = getattr(self, 'count', 0) + 1\n        return data + str(os.getpid()).encode() + b':' + str(self.count).encode() + b'|'",
+            {},
+            "import os");
+        const auto checked = fixture.definition(code);
+        QVERIFY2(!checked.isEmpty(), qPrintable(fixture.error));
+        const auto         configuration = Codeflow::inlineConfiguration(checked);
+        const QVariantList nodes {
+            QVariantMap { {"name", "first"}, {"type", "native.python-code"}, {"configuration", configuration}},
+            QVariantMap {{"name", "second"}, {"type", "native.python-code"}, {"configuration", configuration}}
+        };
+        const QVariantMap graph {
+            {    "id",                        "graph"},
+            {  "name",                        "Graph"},
+            {  "kind",                     "lineflow"},
+            {"source", QVariantMap {{"nodes", nodes}}}
+        };
+        QVERIFY2(fixture.publish({
+                     {"graph", graph}
+        }),
+                 qPrintable(fixture.error));
+        const auto prepared = fixture.registry.prepare("graph", {}, {}, &fixture.error);
+        QVERIFY2(prepared, qPrintable(fixture.error));
+        const auto processor = fixture.instantiate(prepared);
+        QVERIFY2(processor, qPrintable(fixture.error));
+        for (int iteration = 1; iteration <= 2; ++iteration)
+        {
+            const auto result = invoke(*processor, {});
+            QVERIFY2(result->completed && result->error.isEmpty(), qPrintable(result->error));
+            const auto parts = result->joined().split('|');
+            QCOMPARE(parts.size(), 3);
+            QCOMPARE(parts[0], parts[1]);
+            QCOMPARE(parts[0].split(':').last().toInt(), iteration);
+            QVERIFY(parts[0].split(':').first().toLongLong() > 0);
+        }
+    }
+
+    void inlineNativeChildrenRejectedExplicitly()
+    {
+        Fixture    fixture;
+        const auto checked = fixture.definition(source("return data", "    child = Node('native.bypass')\n"));
+        QVERIFY2(!checked.isEmpty(), qPrintable(fixture.error));
+        const auto prepared = fixture.registry.prepare("native.python-code",
+                                                       Codeflow::inlineConfiguration(checked),
+                                                       {},
+                                                       &fixture.error);
+        QVERIFY2(prepared, qPrintable(fixture.error));
+        const auto processor = fixture.instantiate(prepared);
+        QVERIFY(!processor);
+        QVERIFY2(fixture.error.contains("does not support declared Node children"), qPrintable(fixture.error));
+    }
+
     void initTestCase()
     {
         QVERIFY2(!Codeflow::defaultPython().isEmpty(), "A selected CPython interpreter is required");

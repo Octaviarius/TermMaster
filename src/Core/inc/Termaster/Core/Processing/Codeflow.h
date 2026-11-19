@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QVariantMap>
+#include <Termaster/Core/Processing/ProcessorCatalog.h>
 #include <atomic>
 #include <memory>
 
@@ -10,9 +11,16 @@ class ProcessorRegistry;
 class Codeflow
 {
 public:
-    static QString defaultPython();
-    static QString hostScript();
-    static QString templateSource(int channels = 2);
+    static QString                defaultPython();
+    static QString                hostScript();
+    static QString                templateSource(int channels = 2);
+    static bool                   isInline(const QString& id);
+    static QVariantMap            inlineDefinition(const QString&     id,
+                                                   const QString&     title,
+                                                   int                channels,
+                                                   const QVariantMap& configuration);
+    static QVariantMap            inlineConfiguration(const QVariantMap& definition);
+    static ProcessorCatalog::Type inlineType(int channels);
     /** Blocking inspection for a worker thread; never call on the GUI thread. */
     static QVariantMap inspect(const QVariantMap&                source,
                                QString*                          error     = nullptr,
