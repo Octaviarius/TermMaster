@@ -1415,6 +1415,10 @@ bool TerminalController::_materialize(const QString&   id,
                 },
                 terminalArea,
                 _processorFavorites);
+            if (const auto* workspace = _workspace ? _workspace() : nullptr)
+            {
+                terminal->processingPanel->setWorkspaceDirectory(workspace->filePath().parent().toString());
+            }
             connect(terminal->processingPanel,
                     &TerminalProcessingPanel::compositionEditorRequested,
                     this,

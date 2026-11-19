@@ -1,3 +1,4 @@
+#include "Gui/Processing/CodeflowEditorDialog.h"
 #include "Gui/Processing/LineflowEditorDialog.h"
 #include "Gui/Processing/ProcessorCatalogTree.h"
 #include "Gui/Processing/ProcessorFavorites.h"
@@ -7,12 +8,15 @@
 #include "Terminal/ProcessingRouter.h"
 #include "Terminal/TerminalLineRecorder.h"
 
+#include <QAction>
 #include <QComboBox>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QSplitter>
@@ -25,6 +29,7 @@
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
+#include <Termaster/Core/Processing/Codeflow.h>
 #include <Termaster/Core/Processing/LineflowEndpoint.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
@@ -81,6 +86,73 @@ class TerminalProcessingTests : public QObject
 {
     Q_OBJECT
 private:
+    Q_SLOT void directInlinePythonEditsTerminalDraftWithoutPublishing()
+    {
+        ProcessorRegistry registry;
+        registerNativeProcessors(registry, "native");
+        if (!registry.type("native.duplex-python-code"))
+        {
+            registry.registerType("native", Codeflow::inlineType(2));
+        }
+        SettingsWidgetRegistry editors;
+        ProcessingRouter       router;
+        QVariantMap            applied;
+        const QVariantMap      configuration {
+            {    "mode",                                                   "lineflow"                        },
+            {"lineflow",
+             QVariantMap {{"type", "native.duplex-python-code"}, {"overrides", QVariantMap {{"future", 73}}}}}
+        };
+        TerminalProcessingPanel panel(registry,
+                                      editors,
+                                      router,
+                                      configuration,
+                                      [&](const QVariantMap&, const QVariantMap& candidate, QString*) {
+                                          applied = candidate;
+                                          return true;
+                                      });
+        QTemporaryDir           directory;
+        QVERIFY(directory.isValid());
+        panel.setWorkspaceDirectory(directory.path());
+        panel.show();
+        panel.findChild<QToolButton*>("processingPropertiesToggle")->setChecked(true);
+        auto* edit = panel.propertiesWidget()->findChild<QPushButton*>("editPythonCode_");
+        QVERIFY(edit);
+        edit->click();
+        auto* dialog = panel.findChild<CodeflowEditorDialog*>("terminalInlinePythonEditor");
+        QVERIFY(dialog);
+        QVERIFY(dialog->findChild<QLineEdit*>("codeflowName")->isReadOnly());
+        QVERIFY(!dialog->findChild<QLineEdit*>("codeflowFile")->isVisible());
+        QVERIFY(applied.isEmpty());
+        if (!Codeflow::defaultPython().isEmpty() && QFileInfo::exists(Codeflow::hostScript()))
+        {
+            auto* source = dialog->findChild<QPlainTextEdit*>("codeflowSource");
+            QVERIFY(source);
+            source->appendPlainText("# terminal occurrence draft");
+            QAction* apply = nullptr;
+            for (auto* action : dialog->findChildren<QAction*>())
+            {
+                if (action->text() == "Apply")
+                {
+                    apply = action;
+                }
+            }
+            QVERIFY(apply);
+            apply->trigger();
+            QTRY_COMPARE_WITH_TIMEOUT(dialog->findChild<QLabel*>("codeflowStatus")->text(),
+                                      QString("Applied to diagram draft"),
+                                      6000);
+            QVERIFY(applied.isEmpty());
+            QString error;
+            QVERIFY2(panel.applyDraft(&error), qPrintable(error));
+            const auto overrides = applied.value("lineflow").toMap().value("overrides").toMap();
+            QCOMPARE(overrides.value("future").toInt(), 73);
+            QVERIFY(overrides.value("source").toMap().value("code").toString().contains("terminal occurrence draft"));
+            QVERIFY(!overrides.value("source").toMap().contains("file"));
+        }
+        panel.releaseEditors();
+        QVERIFY(!panel.findChild<CodeflowEditorDialog*>());
+    }
+
     Q_SLOT void lineRecorderDoesNotReplayHistoryOrCreateAFileForAnUnflushedScreen()
     {
         QTemporaryDir   temporary;
@@ -601,7 +673,7 @@ private:
         QVERIFY(favorites.setIds({"missing.processor"}));
         QCOMPARE(selector.currentData().toString(), QString("native.gate"));
         QVERIFY(selector.findData("native.stub") >= 0);
-        QCOMPARE(selector.count(), 22);
+        QCOMPARE(selector.count(), 23);
         QCOMPARE(resets.count(), 0);
         selector.showPopup();
         QCOMPARE(tree->topLevelItem(0)->data(0, Qt::UserRole).toString(), QString("@inplace"));

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QHash>
+#include <QList>
 #include <QPointer>
 #include <QVariantMap>
 #include <QWidget>
@@ -12,6 +13,7 @@ class ProcessorRegistry;
 class SettingsWidgetRegistry;
 class ProcessingRouter;
 class LineflowEditorDialog;
+class CodeflowEditorDialog;
 class QComboBox;
 class ProcessorSelector;
 class ProcessorFavorites;
@@ -38,6 +40,7 @@ public:
     QWidget*      propertiesWidget() const;
     void          setConfiguration(const QVariantMap& configuration);
     void          releaseEditors();
+    void          setWorkspaceDirectory(QString directory);
     bool          applyDraft(QString* error = nullptr);
 
 protected:
@@ -45,6 +48,8 @@ protected:
 
 private:
     struct NodeDraft;
+    QString                                 _workspaceDirectory;
+    QList<QPointer<CodeflowEditorDialog>>   _codeEditors;
     QHash<QObject*, QPointer<QToolButton>>  _resetControls;
     ProcessorRegistry&                      _registry;
     SettingsWidgetRegistry&                 _editors;
@@ -72,4 +77,9 @@ private:
     void                                    _showProperties();
     bool                                    _flush(QString* error);
     void                                    _diagnostics();
+    void                                    _editInline(const QString&     path,
+                                                        const QString&     type,
+                                                        const QString&     title,
+                                                        int                channels,
+                                                        const QVariantMap& configuration);
 };

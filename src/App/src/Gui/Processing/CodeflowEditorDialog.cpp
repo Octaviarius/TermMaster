@@ -347,6 +347,9 @@ protected:
 
 struct CodeflowEditorDialog::Data
 {
+    int                                   inlineChannels = 0;
+    QFormLayout*                          fields         = nullptr;
+    QAction*                              restart        = nullptr;
     QVariantMap                           baseline;
     QVariantMap                           cleanMetadata;
     QVariantMap                           cleanParameters;
@@ -403,7 +406,14 @@ struct CodeflowEditorDialog::Data
                 storedFile = relative;
             }
         }
-        result.insert("file", storedFile);
+        if (inlineChannels)
+        {
+            result.remove("file");
+        }
+        else
+        {
+            result.insert("file", storedFile);
+        }
         result.insert("startupTimeoutMs", startupTimeout->value());
         result.insert("timeoutMs", packetTimeout->value());
         result.insert("stopTimeoutMs", stopTimeout->value());
@@ -501,22 +511,36 @@ CodeflowEditorDialog::CodeflowEditorDialog(QVariantMap             definition,
         item->setShortcut(shortcut);
         item->setShortcutContext(Qt::WidgetWithChildrenShortcut);
         connect(item, &QAction::triggered, this, std::move(callback));
+        return item;
     };
-    action(tr("Save"), QStyle::SP_DialogSaveButton, QKeySequence::Save, [this] { _save(); });
+    action(tr("Save"), QStyle::SP_DialogSaveButton, QKeySequence::Save, [this] {
+        if (_data->inlineChannels)
+        {
+            _check(true);
+        }
+        else
+        {
+            _save();
+        }
+    });
     action(tr("Check"), QStyle::SP_DialogApplyButton, QKeySequence("Ctrl+Return"), [this] { _check(); });
     action(tr("Test"), QStyle::SP_MediaPlay, QKeySequence("Ctrl+T"), [this] { _test(); });
     action(tr("Apply"), QStyle::SP_DialogOkButton, QKeySequence("Ctrl+Shift+Return"), [this] { _check(true); });
     toolbar->addSeparator();
-    action(tr("Restart"), QStyle::SP_BrowserReload, {}, [this] { emit restartRequested(_data->id); });
+    d.restart = action(tr("Restart"), QStyle::SP_BrowserReload, {}, [this] { emit restartRequested(_data->id); });
     action(tr("Stop"), QStyle::SP_MediaStop, {}, [this] {
         if (_data->cancelled)
         {
             _data->cancelled->store(true);
         }
-        emit stopRequested(_data->id);
+        if (!_data->inlineChannels)
+        {
+            emit stopRequested(_data->id);
+        }
     });
     action(tr("Help"), QStyle::SP_DialogHelpButton, QKeySequence::HelpContents, [this] { emit helpRequested(); });
     auto* fields = new QFormLayout;
+    d.fields     = fields;
     fields->setLabelAlignment(Qt::AlignRight);
     d.name      = new QLineEdit(definition.value("name", "Codeflow 1").toString(), this);
     d.file      = new QLineEdit(d.originalSource.value("file").toString(), this);
@@ -769,6 +793,30 @@ CodeflowEditorDialog::~CodeflowEditorDialog()
     }
     releaseEditors();
 }
+void CodeflowEditorDialog::setInlineMode(int channels)
+{
+    if (channels != 1 && channels != 2)
+    {
+        qWarning("Inline Codeflow requires one or two channels");
+        return;
+    }
+    auto&      d     = *_data;
+    const bool clean = !d.isDirty();
+    d.inlineChannels = channels;
+    if (d.originalSource.contains("file") && d.originalSource.contains("code") && !d.editor->document()->isModified())
+    {
+        d.editor->setPlainText(d.originalSource.value("code").toString());
+    }
+    d.fields->setRowVisible(d.file->parentWidget(), false);
+    d.name->setReadOnly(true);
+    d.restart->setVisible(false);
+    d.checkedDigest.clear();
+    d.status->setText(tr("Inline Python source — changes apply to the diagram draft."));
+    if (clean)
+    {
+        d.cleanMetadata = d.metadata();
+    }
+}
 void CodeflowEditorDialog::setDefinitions(QVariantMap definitions)
 {
     _data->testDefinitions = std::move(definitions);
@@ -777,7 +825,7 @@ void CodeflowEditorDialog::setDefaultDirectory(QString directory)
 {
     const bool wasClean = !_data->isDirty();
     _data->directory    = std::move(directory);
-    if (_data->file->text().isEmpty())
+    if (!_data->inlineChannels && _data->file->text().isEmpty())
     {
         _data->file->setText(QDir(_data->directory).filePath(_data->id + "/main.py"));
     }
@@ -790,7 +838,7 @@ void CodeflowEditorDialog::setWorkspaceDirectory(QString directory)
 {
     const bool wasClean       = !_data->isDirty();
     _data->workspaceDirectory = std::move(directory);
-    if (!_data->file->text().isEmpty() && QDir::isRelativePath(_data->file->text())
+    if (!_data->inlineChannels && !_data->file->text().isEmpty() && QDir::isRelativePath(_data->file->text())
         && !_data->editor->document()->isModified())
     {
         QFile source(QDir(_data->workspaceDirectory).filePath(_data->file->text()));
@@ -948,7 +996,8 @@ void CodeflowEditorDialog::_check(bool applyAfter)
         state.checkedDigest = revision;
         state.message(tr("Descriptor check succeeded. Module top-level code ran in the selected interpreter."));
         state.status->setText(
-            tr("Checked draft revision %1 — not published").arg(QString::fromLatin1(revision.toHex().left(12))));
+            (state.inlineChannels ? tr("Checked inline draft %1") : tr("Checked draft revision %1 — not published"))
+                .arg(QString::fromLatin1(revision.toHex().left(12))));
         if (applyAfter)
         {
             _apply();
@@ -1094,7 +1143,20 @@ void CodeflowEditorDialog::_apply()
         d.message(tr("Check the current source and correct property errors before applying."));
         return;
     }
-    if (!_save())
+    if (d.inlineChannels
+        && (d.description.value("inputs").toList().size() != d.inlineChannels
+            || d.description.value("outputs").toList().size() != d.inlineChannels))
+    {
+        d.message(tr("Inline Python interface must remain %1 input(s) and %1 output(s).").arg(d.inlineChannels));
+        return;
+    }
+    if (d.inlineChannels && !d.description.value("nodes").toMap().isEmpty())
+    {
+        d.message(tr(
+            "Declared Node children require a published workspace Codeflow. Inline Python Code uses only Python modules and handlers."));
+        return;
+    }
+    if (!d.inlineChannels && !_save())
     {
         return;
     }
@@ -1108,16 +1170,31 @@ void CodeflowEditorDialog::_apply()
     QString error;
     if (!d.apply || !d.apply(d.baseline, candidate, &error))
     {
-        d.message(
-            tr("Source saved, but publication failed: %1. The catalog revision remains unchanged; retry Apply after resolving the cause.")
-                .arg(error));
-        d.status->setText(tr("Partial save — source saved, catalog publication failed."));
+        if (d.inlineChannels)
+        {
+            d.message(tr("Diagram draft update failed: %1. The source draft is retained.").arg(error));
+            d.status->setText(tr("Inline source was not applied."));
+        }
+        else
+        {
+            d.message(
+                tr("Source saved, but publication failed: %1. The catalog revision remains unchanged; retry Apply after resolving the cause.")
+                    .arg(error));
+            d.status->setText(tr("Partial save — source saved, catalog publication failed."));
+        }
         return;
+    }
+    if (d.inlineChannels)
+    {
+        d.editor->document()->setModified(false);
     }
     d.baseline        = candidate;
     d.cleanMetadata   = d.metadata();
     d.cleanParameters = d.parameters();
-    d.status->setText(tr("Published catalog revision %1").arg(QString::fromLatin1(d.checkedDigest.toHex().left(12))));
+    d.status->setText(
+        d.inlineChannels ?
+            tr("Applied to diagram draft") :
+            tr("Published catalog revision %1").arg(QString::fromLatin1(d.checkedDigest.toHex().left(12))));
 }
 void CodeflowEditorDialog::_test()
 {

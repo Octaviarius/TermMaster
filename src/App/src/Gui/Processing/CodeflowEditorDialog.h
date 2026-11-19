@@ -18,6 +18,7 @@ public:
     void          reject() override;
     void          setDefaultDirectory(QString directory);
     void          setDefinitions(QVariantMap definitions);
+    void          setInlineMode(int channels);
     void          setWorkspaceDirectory(QString directory);
     QVariantMap   definition() const;
     void          releaseEditors();

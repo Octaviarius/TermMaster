@@ -64,3 +64,22 @@ set_tests_properties(CodeflowEditorTests PROPERTIES
     TIMEOUT 90
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
 )
+
+qt_add_executable(InlinePythonCodeTests
+    InlinePythonCodeTests.cpp
+)
+target_compile_features(InlinePythonCodeTests PRIVATE cxx_std_20)
+target_include_directories(InlinePythonCodeTests PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/App/src"
+)
+target_link_libraries(InlinePythonCodeTests PRIVATE
+    App
+    Qt6::Test
+    Qt6::Widgets
+)
+add_dependencies(InlinePythonCodeTests PythonRuntime)
+add_test(NAME InlinePythonCodeTests COMMAND InlinePythonCodeTests -o -,txt)
+set_tests_properties(InlinePythonCodeTests PROPERTIES
+    TIMEOUT 90
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+)

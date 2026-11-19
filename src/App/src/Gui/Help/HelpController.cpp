@@ -1,5 +1,6 @@
 #include "HelpController.h"
 
+#include "../Processing/CodeflowEditorDialog.h"
 #include "../Processing/LineflowEditorDialog.h"
 #include "../Settings/SettingsDialog.h"
 
@@ -57,6 +58,11 @@ void HelpController::showContext(QWidget* context)
             topic = settings->helpContext();
             break;
         }
+        if (qobject_cast<CodeflowEditorDialog*>(widget))
+        {
+            topic.id = "processing.codeflow";
+            break;
+        }
         if (auto* lineflow = qobject_cast<LineflowEditorDialog*>(widget))
         {
             topic = lineflow->helpContext();
@@ -99,6 +105,12 @@ bool HelpController::eventFilter(QObject* watched, QEvent* event)
         {
             settings->setProperty("helpConnected", true);
             connect(settings, &SettingsDialog::helpRequested, this, [this, settings] { showContext(settings); });
+        }
+        if (auto* codeflow = qobject_cast<CodeflowEditorDialog*>(watched);
+            codeflow && !codeflow->property("helpConnected").toBool())
+        {
+            codeflow->setProperty("helpConnected", true);
+            connect(codeflow, &CodeflowEditorDialog::helpRequested, this, [this] { showTopic("processing.codeflow"); });
         }
         if (auto* lineflow = qobject_cast<LineflowEditorDialog*>(watched);
             lineflow && !lineflow->property("helpConnected").toBool())

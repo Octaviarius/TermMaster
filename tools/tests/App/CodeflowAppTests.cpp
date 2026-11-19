@@ -20,6 +20,7 @@
 #include <QTimer>
 #include <Termaster/App/App.h>
 #include <Termaster/Core/CommandRegistry.h>
+#include <Termaster/Core/Gui/Help/HelpBrowser.h>
 #include <Termaster/Core/Gui/Terminal/TerminalDisplay.h>
 #include <Termaster/Core/Plugin/PluginManager.h>
 #include <Termaster/Core/Processing/Codeflow.h>
@@ -54,6 +55,21 @@ private:
         QPointer<CodeflowEditorDialog> editor = _app.mainWindow().findChild<CodeflowEditorDialog*>();
         QVERIFY(editor);
         QTRY_VERIFY(editor->isVisible());
+        QAction* helpAction = nullptr;
+        for (auto* action : editor->findChildren<QAction*>())
+        {
+            if (action->text() == "Help")
+            {
+                helpAction = action;
+            }
+        }
+        QVERIFY(helpAction);
+        helpAction->trigger();
+        auto* help = _app.mainWindow().findChild<HelpBrowser*>("helpBrowser");
+        QVERIFY(help);
+        QTRY_COMPARE(help->currentTopic(), QString("processing.codeflow"));
+        help->window()->hide();
+        editor->activateWindow();
         auto* source = editor->findChild<QPlainTextEdit*>("codeflowSource");
         auto* name   = editor->findChild<QLineEdit*>("codeflowName");
         auto* file   = editor->findChild<QLineEdit*>("codeflowFile");

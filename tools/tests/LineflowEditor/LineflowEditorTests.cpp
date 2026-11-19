@@ -1084,14 +1084,14 @@ private slots:
             }
             return ids.size();
         };
-        QCOMPARE(nativeCount(catalog), 21);
+        QCOMPARE(nativeCount(catalog), 22);
         QVERIFY(contains(catalog, "native.hex-encoder"));
         QVERIFY(!contains(catalog, "fixture.duplex"));
         const auto paired = dialog.model().createBlock("Paired", 2);
         dialog.model().setSelectedBlock(paired);
         QVERIFY(contains(catalog, "native.hex-encoder"));
         QVERIFY(contains(catalog, "fixture.duplex"));
-        QCOMPARE(nativeCount(catalog), 28);
+        QCOMPARE(nativeCount(catalog), 30);
         QVERIFY(contains(catalog, "native.duplex-bypass"));
         dialog.model().setSelectedBlock("root");
         QVERIFY(!contains(catalog, "fixture.duplex"));
@@ -1112,7 +1112,7 @@ private slots:
         QVERIFY(selector.currentText().contains("Unavailable"));
         QVERIFY(!contains(tree, "native.hex-encoder"));
         QVERIFY(contains(tree, "fixture.duplex"));
-        QCOMPARE(nativeCount(tree), 7);
+        QCOMPARE(nativeCount(tree), 8);
         QVERIFY(contains(tree, "native.duplex-bypass"));
         QCOMPARE(changed.count(), 0);
         selector.setInplaceAvailable(true);

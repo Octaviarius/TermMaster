@@ -1014,9 +1014,6 @@ void App::_showCodeflowEditor(const QString& id)
     editor->setDefinitions(_data->workspace->processorDefinitions().values());
     editor->setAttribute(Qt::WA_DeleteOnClose);
     _data->codeflowWindows.insert(id, editor);
-    connect(editor, &CodeflowEditorDialog::helpRequested, this, [this] {
-        _data->help->showTopic("processing.codeflow");
-    });
     connect(editor, &CodeflowEditorDialog::restartRequested, this, [this](const QString& target) {
         QString error;
         if (!_data->terminals->controlProcessing(target, true, &error))
@@ -1096,6 +1093,7 @@ void App::_showLineflowEditor()
                             tr("No editor is registered for composition %1 (%2).").arg(id, kind));
                     }
                 });
+        _data->lineflowWindow->setWorkspaceDirectory(workspace->filePath().parent().toString());
         _data->lineflowWindow->setAttribute(Qt::WA_DeleteOnClose);
     }
     _data->lineflowWindow->show();
