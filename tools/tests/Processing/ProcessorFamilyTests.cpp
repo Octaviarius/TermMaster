@@ -279,9 +279,9 @@ private slots:
                 ++duplex;
             }
         }
-        QCOMPARE(unary, 21);
-        // Six paired families plus the native four-port Bypass.
-        QCOMPARE(duplex, 7);
+        QCOMPARE(unary, 22);
+        // Six paired families, the four-port Bypass and inline Python Code.
+        QCOMPARE(duplex, 8);
         const auto bypass = registry.type("native.duplex-bypass");
         QVERIFY(bypass);
         QCOMPARE(bypass->inputCount, 2);

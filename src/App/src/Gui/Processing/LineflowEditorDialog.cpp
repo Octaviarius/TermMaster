@@ -1,5 +1,6 @@
 #include "LineflowEditorDialog.h"
 
+#include "CodeflowEditorDialog.h"
 #include "LineflowCanvas.h"
 #include "ProcessorCatalogTree.h"
 
@@ -29,6 +30,7 @@
 #include <QVBoxLayout>
 #include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormWidget.h>
+#include <Termaster/Core/Processing/Codeflow.h>
 #include <Termaster/Core/Processing/LineflowEndpoint.h>
 #include <algorithm>
 #include <exception>
@@ -391,6 +393,10 @@ LineflowEditorDialog::LineflowEditorDialog(QVariantMap             definitions,
 LineflowEditorDialog::~LineflowEditorDialog()
 {
     emit dockLayoutChanged(dockLayout());
+    for (const auto& editor : std::as_const(_codeEditors))
+    {
+        delete editor.data();
+    }
     _clearProperties();
 }
 void LineflowEditorDialog::setVisible(bool visible)
@@ -414,6 +420,17 @@ LineflowEditorModel& LineflowEditorDialog::model()
     return *_model;
 }
 
+void LineflowEditorDialog::setWorkspaceDirectory(QString directory)
+{
+    _workspaceDirectory = std::move(directory);
+    for (const auto& editor : std::as_const(_codeEditors))
+    {
+        if (editor)
+        {
+            editor->setWorkspaceDirectory(_workspaceDirectory);
+        }
+    }
+}
 bool LineflowEditorDialog::selectBlock(const QString& id)
 {
     const int index = _blocks->findData(id);
@@ -441,11 +458,89 @@ void LineflowEditorDialog::_openComposition(const QModelIndex& index)
     {
         return;
     }
+    if (kind == "python-code")
+    {
+        _openInlineCode(index);
+        return;
+    }
     if ((kind == "lineflow" || kind == "tap") && selectBlock(target))
     {
         return;
     }
     emit compositionEditorRequested(target, kind);
+}
+
+void LineflowEditorDialog::_openInlineCode(const QModelIndex& index)
+{
+    const auto block  = index.data(LineflowEditorModel::BlockRole).toString();
+    const auto name   = index.data(LineflowEditorModel::NodeRole).toString();
+    const auto target = index.data(LineflowEditorModel::CatalogIdRole).toString();
+    if (!Codeflow::isInline(target))
+    {
+        return;
+    }
+    if (index.data(LineflowEditorModel::LinkedRole).toBool())
+    {
+        if (selectBlock(block))
+        {
+            for (int row = 0; row < _model->rowCount(); ++row)
+            {
+                const auto owned = _model->index(row, 0);
+                if (owned.data(LineflowEditorModel::NodeRole).toString() == name)
+                {
+                    _tree->setCurrentIndex(owned);
+                    _openInlineCode(owned);
+                    return;
+                }
+            }
+        }
+        return;
+    }
+    const auto key = block + '\n' + name;
+    if (const auto existing = _codeEditors.value(key))
+    {
+        existing->show();
+        existing->raise();
+        existing->activateWindow();
+        return;
+    }
+    const auto original = _model->node(block, name).value("configuration").toMap();
+    const int  channels = _model->processorShape(target).first;
+    auto       expected = std::make_shared<QVariantMap>(original);
+    auto*      editor   = new CodeflowEditorDialog(
+        Codeflow::inlineDefinition(key, name, channels, original),
+        _widgets,
+        [this, block, name, target, expected](const QVariantMap&, const QVariantMap& candidate, QString* error) {
+            const auto current = _model->node(block, name);
+            if (current.value("type").toString() != target || current.value("configuration").toMap() != *expected)
+            {
+                if (error)
+                {
+                    *error = tr("The Python operation was removed, renamed or changed. Reopen its editor.");
+                }
+                return false;
+            }
+            auto       configuration = *expected;
+            const auto replacement   = Codeflow::inlineConfiguration(candidate);
+            for (auto it = replacement.cbegin(); it != replacement.cend(); ++it)
+            {
+                configuration.insert(it.key(), it.value());
+            }
+            if (!_model->setNodeConfiguration(block, name, configuration, error))
+            {
+                return false;
+            }
+            *expected = configuration;
+            return true;
+        },
+        this);
+    editor->setObjectName("inlinePythonCodeEditor");
+    editor->setInlineMode(channels);
+    editor->setWorkspaceDirectory(_workspaceDirectory);
+    editor->setDefinitions(_model->definitions());
+    editor->setAttribute(Qt::WA_DeleteOnClose);
+    _codeEditors.insert(key, editor);
+    editor->show();
 }
 
 void LineflowEditorDialog::_showEndpoint(const QString& name)
@@ -865,6 +960,35 @@ void LineflowEditorDialog::_showProperties(const QModelIndex& index)
         _propertyLayout->addStretch();
         return;
     }
+    if (Codeflow::isInline(target))
+    {
+        auto* explanation
+            = new QLabel(tr("Python source and parameters belong to this operation. Apply the diagram to save them."),
+                         _properties);
+        explanation->setWordWrap(true);
+        _propertyLayout->addWidget(explanation);
+        auto* open = new QPushButton(tr("Edit Python Code…"), _properties);
+        open->setObjectName("editPythonCode");
+        open->setIcon(Icons::icon("Codeflow"));
+        connect(open, &QPushButton::clicked, this, [this, block, name] {
+            if (_model->selectedBlock() != block)
+            {
+                return;
+            }
+            for (int row = 0; row < _model->rowCount(); ++row)
+            {
+                const auto item = _model->index(row, 0);
+                if (item.data(LineflowEditorModel::NodeRole).toString() == name)
+                {
+                    _openInlineCode(item);
+                    return;
+                }
+            }
+        });
+        _propertyLayout->addWidget(open);
+        _propertyLayout->addStretch();
+        return;
+    }
     const auto key = block + '\n' + name;
     auto       it  = _drafts.find(key);
     if (it == _drafts.end())
@@ -1089,6 +1213,12 @@ void LineflowEditorDialog::_refreshActions()
 
 void LineflowEditorDialog::releaseEditors()
 {
+    const auto editors = _codeEditors;
+    _codeEditors.clear();
+    for (const auto& editor : editors)
+    {
+        delete editor.data();
+    }
     _select();
     _clearProperties();
     _active.clear();

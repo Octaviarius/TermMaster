@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-19",
+  "feature": "FLOW-11",
+  "configuration": "Release",
+  "toolchain": "Qt 6.12.0 / MSVC2022 x64 / Windows 11",
+  "ctest": {
+    "passed": 66,
+    "failed": 0,
+    "seconds": 111.25
+  },
+  "nativeWindowsScales": [
+    1,
+    2
+  ],
+  "builds": [
+    "Release Termaster",
+    "Debug Termaster"
+  ],
+  "coverage": [
+    "Native/General catalog entries 1x1 and 2x2",
+    "Byte/NUL/empty packets and independent state in a shared diagram host",
+    "Strict invalid embedded configuration rejection",
+    "Embedded source and typed parameters without separate catalog definitions or source files",
+    "Diagram Apply/Cancel boundaries, source reload and stale editor rejection",
+    "Terminal-local processing property drafts and unknown settings preservation",
+    "Inline and reusable Codeflow help context"
+  ],
+  "limits": [
+    "Inline Node catalog dependencies require a published Codeflow",
+    "External installed CPython/venv is required",
+    "Source, parameters and ports use the existing Codeflow packet contract"
+  ]
+}

@@ -421,9 +421,11 @@ public:
                     QVariantMap                            configuration,
                     ProcessorCatalog::Provider::References references,
                     Limits                                 limits,
-                    QString                                directory) :
+                    QString                                directory,
+                    QVariantMap                            reportedConfiguration = {}) :
         _host(std::move(host)), _source(std::move(source)), _configuration(std::move(configuration)), _limits(limits),
-        _directory(std::move(directory)), _id(QUuid::createUuid().toString(QUuid::WithoutBraces))
+        _directory(std::move(directory)), _id(QUuid::createUuid().toString(QUuid::WithoutBraces)),
+        _reportedConfiguration(std::move(reportedConfiguration))
     {
         _retryTimer.setInterval(1);
         connect(&_retryTimer, &QTimer::timeout, this, [this] { _retryCalls(); });
@@ -494,7 +496,7 @@ public:
     }
     QVariantMap configuration() const override
     {
-        return _configuration;
+        return _reportedConfiguration.isEmpty() ? _configuration : _reportedConfiguration;
     }
     int inputCount() const override
     {
@@ -608,6 +610,7 @@ private:
     Limits                                    _limits;
     QString                                   _directory;
     QString                                   _id;
+    QVariantMap                               _reportedConfiguration;
     QVariantMap                               _description;
     QVariantList                              _inputs;
     QVariantList                              _outputs;
@@ -883,7 +886,222 @@ private:
         }
     }
 };
+std::unique_ptr<Processor> createScript(const QVariantMap&                            source,
+                                        const QVariantMap&                            parameters,
+                                        const ProcessorCatalog::Provider::References& references,
+                                        const Processor::Limits&                      limits,
+                                        QString*                                      error,
+                                        const QVariantMap&                            reportedConfiguration = {})
+{
+    const auto execution = ProcessorRegistry::currentExecution();
+    auto       python    = source.value("python").toString();
+    if (python.isEmpty())
+    {
+        python = Codeflow::defaultPython();
+    }
+    graphHosts.removeIf([](const auto& entry) { return entry.value().expired(); });
+    auto host = graphHosts.value(execution.id).lock();
+    if (host && host->python != python)
+    {
+        fail(error, "Codeflow nodes in one diagram must use the same Python environment");
+        return {};
+    }
+    if (!host)
+    {
+        host = std::make_shared<Host>(python, limits.maxBytes);
+        if (!host->start(error))
+        {
+            return {};
+        }
+        graphHosts.insert(execution.id, host);
+    }
+    auto result = std::make_unique<ScriptProcessor>(host,
+                                                    source,
+                                                    parameters,
+                                                    references,
+                                                    limits,
+                                                    execution.directory,
+                                                    reportedConfiguration);
+    if (!result->start(error))
+    {
+        return {};
+    }
+    return result;
+}
+
+QVariantMap templateDescription(int channels)
+{
+    const QVariantMap property {
+        {           "type", "string"},
+        {          "title", "Prefix"},
+        {        "default",       ""},
+        {"x-settings-path", "prefix"},
+        {        "x-order",        0}
+    };
+    const QVariantMap schema {
+        {   "$schema", "http://json-schema.org/draft-07/schema#"},
+        {      "type",                                  "object"},
+        {"properties",        QVariantMap {{"prefix", property}}},
+        {  "required",                   QVariantList {"prefix"}}
+    };
+    const auto port = [](const QString& id, const QString& title, const QString& flow) {
+        return QVariantMap {
+            {   "id",      id},
+            {"title",   title},
+            { "flow",    flow},
+            { "type", "bytes"}
+        };
+    };
+    QVariantList inputs {port("incoming", "Data", "rx")};
+    QVariantList outputs {port("outgoing", "Data", "rx")};
+    if (channels == 2)
+    {
+        inputs  = {port("rx_in", "Wire", "rx"), port("tx_in", "Data", "tx")};
+        outputs = {port("rx_out", "Data", "rx"), port("tx_out", "Wire", "tx")};
+    }
+    return {
+        {"className",                   "Codeflow"},
+        {    "title",                   "Codeflow"},
+        {   "inputs",                       inputs},
+        {  "outputs",                      outputs},
+        {   "schema",                       schema},
+        { "defaults", QVariantMap {{"prefix", ""}}},
+        {    "nodes",               QVariantMap {}}
+    };
+}
 } // namespace
+
+bool Codeflow::isInline(const QString& id)
+{
+    return id == "native.python-code" || id == "native.duplex-python-code";
+}
+
+QVariantMap Codeflow::inlineDefinition(const QString&     id,
+                                       const QString&     title,
+                                       int                channels,
+                                       const QVariantMap& configuration)
+{
+    if (channels != 1 && channels != 2)
+    {
+        return {};
+    }
+    auto source = configuration.value("source").toMap();
+    source.remove("file");
+    source.remove("digest");
+    if (!source.contains("code"))
+    {
+        source.insert("code", templateSource(channels));
+    }
+    auto description = source.value("description").toMap();
+    if (description.isEmpty())
+    {
+        description = templateDescription(channels);
+    }
+    auto result         = definition(id, title, source, description);
+    auto embeddedSource = result.value("source").toMap();
+    embeddedSource.remove("digest");
+    result.insert("source", embeddedSource);
+    result.insert("defaults", configuration.value("parameters", description.value("defaults")));
+    return result;
+}
+
+QVariantMap Codeflow::inlineConfiguration(const QVariantMap& definition)
+{
+    auto source = definition.value("source").toMap();
+    source.remove("file");
+    source.remove("digest");
+    return {
+        {    "source",                               source},
+        {"parameters", definition.value("defaults").toMap()}
+    };
+}
+
+ProcessorCatalog::Type Codeflow::inlineType(int channels)
+{
+    ProcessorCatalog::Type type;
+    type.id          = channels == 1 ? "native.python-code" : "native.duplex-python-code";
+    type.title       = channels == 1 ? QString::fromUtf8("Python Code (1×1)") : QString::fromUtf8("Python Code (2×2)");
+    type.group       = "General";
+    type.inputCount  = channels;
+    type.outputCount = channels;
+    type.inputNames  = channels == 1 ? QStringList {"Data"} : QStringList {"Wire", "Data"};
+    type.outputNames = channels == 1 ? QStringList {"Data"} : QStringList {"Data", "Wire"};
+    type.editor      = {
+        {"inlineCode",                  true},
+        {  "channels",              channels},
+        { "helpTopic", "processing.codeflow"}
+    };
+    type.settingsSchema = SettingsSchema::serializeValue(QVariantMap {
+        {    "version",                                                                                                1},
+        {       "type",                                                                      "termaster.settings-schema"},
+        {"description",                                                            "Inline Python source and parameters"},
+        {    "content", QVariantMap {{"type", "object"}, {"properties", QVariantMap {}}, {"additionalProperties", true}}}
+    });
+    // Descriptor maps are occurrence snapshots. Keeping them out of catalog
+    // defaults avoids recursive overlays retaining fields from the template.
+    type.defaults       = {
+        {    "source", QVariantMap {{"code", templateSource(channels)}}},
+        {"parameters",                                   QVariantMap {}}
+    };
+    type.create = [channels](const QVariantMap& configuration, const Processor::Limits& limits, QString* error) {
+        for (const auto& key : {QStringLiteral("source"), QStringLiteral("parameters")})
+        {
+            if (configuration.contains(key) && configuration.value(key).typeId() != QMetaType::QVariantMap)
+            {
+                fail(error, "Inline Python Code " + key + " must be a mapping");
+                return std::unique_ptr<Processor> {};
+            }
+        }
+        const auto suppliedSource = configuration.value("source").toMap();
+        for (const auto& key : {QStringLiteral("code"),
+                                QStringLiteral("className"),
+                                QStringLiteral("python"),
+                                QStringLiteral("file"),
+                                QStringLiteral("digest")})
+        {
+            if (suppliedSource.contains(key) && suppliedSource.value(key).typeId() != QMetaType::QString)
+            {
+                fail(error, "Inline Python Code source." + key + " must be a string");
+                return std::unique_ptr<Processor> {};
+            }
+        }
+        if (suppliedSource.contains("description")
+            && suppliedSource.value("description").typeId() != QMetaType::QVariantMap)
+        {
+            fail(error, "Inline Python Code source.description must be a mapping");
+            return std::unique_ptr<Processor> {};
+        }
+        if (suppliedSource.contains("code")
+            && (suppliedSource.value("code").toString().isEmpty()
+                || suppliedSource.value("code").toString().toUtf8().size() > maxSource))
+        {
+            fail(error, "Inline Python Code source.code must contain 1 byte to 2 MiB of UTF-8 text");
+            return std::unique_ptr<Processor> {};
+        }
+        const auto baseline    = inlineDefinition({}, {}, channels, configuration);
+        const auto resolved    = inlineConfiguration(baseline);
+        const auto source      = resolved.value("source").toMap();
+        const auto description = source.value("description").toMap();
+        const auto inputs      = description.value("inputs").toList();
+        const auto outputs     = description.value("outputs").toList();
+        if (inputs.size() != channels || outputs.size() != channels)
+        {
+            fail(error, "Inline Python Code ports must match the selected 1x1 or 2x2 node");
+            return std::unique_ptr<Processor> {};
+        }
+        if (!description.value("nodes").toMap().isEmpty())
+        {
+            fail(error,
+                 "Inline Python Code does not support declared Node children; publish a workspace Codeflow instead");
+            return std::unique_ptr<Processor> {};
+        }
+        auto reported = configuration;
+        reported.insert("source", source);
+        reported.insert("parameters", resolved.value("parameters"));
+        return createScript(source, resolved.value("parameters").toMap(), {}, limits, error, reported);
+    };
+    return type;
+}
 
 QString Codeflow::defaultPython()
 {
@@ -1188,39 +1406,7 @@ void Codeflow::registerProvider(ProcessorRegistry& registry)
         return [source, references](const QVariantMap&       parameters,
                                     const Processor::Limits& limits,
                                     QString*                 error) -> std::unique_ptr<Processor> {
-            const auto execution = ProcessorRegistry::currentExecution();
-            auto       python    = source.value("python").toString();
-            if (python.isEmpty())
-            {
-                python = Codeflow::defaultPython();
-            }
-            graphHosts.removeIf([](const auto& entry) { return entry.value().expired(); });
-            auto host = graphHosts.value(execution.id).lock();
-            if (host && host->python != python)
-            {
-                fail(error, "Codeflow nodes in one diagram must use the same Python environment");
-                return {};
-            }
-            if (!host)
-            {
-                host = std::make_shared<Host>(python, limits.maxBytes);
-                if (!host->start(error))
-                {
-                    return {};
-                }
-                graphHosts.insert(execution.id, host);
-            }
-            auto result = std::make_unique<ScriptProcessor>(host,
-                                                            source,
-                                                            parameters,
-                                                            references,
-                                                            limits,
-                                                            execution.directory);
-            if (!result->start(error))
-            {
-                return {};
-            }
-            return result;
+            return createScript(source, parameters, references, limits, error);
         };
     };
     registry.registerProvider("builtin.python", "codeflow", std::move(provider));

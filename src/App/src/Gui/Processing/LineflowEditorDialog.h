@@ -8,6 +8,7 @@
 #include <Termaster/Core/Help/HelpSource.h>
 #include <map>
 
+class CodeflowEditorDialog;
 class QComboBox;
 class QLabel;
 class QLineEdit;
@@ -49,6 +50,7 @@ public:
     ~LineflowEditorDialog() override;
     LineflowEditorModel& model();
     bool                 selectBlock(const QString& id);
+    void                 setWorkspaceDirectory(QString directory);
     Q_SIGNAL void        compositionEditorRequested(const QString& id, const QString& kind);
     HelpSource::Topic    helpContext() const;
     bool                 applyDraft(QString* error = nullptr);
@@ -77,27 +79,29 @@ private:
             delete form.data();
         }
     };
-    ProcessorRegistry&                        _registry;
-    SettingsWidgetRegistry&                   _widgets;
-    Apply                                     _apply;
-    LineflowEditorModel*                      _model;
-    QComboBox*                                _blocks;
-    QComboBox*                                _groups;
-    LineflowCanvas*                           _tree;
-    QMainWindow*                              _dockHost;
-    QTimer*                                   _layoutSave;
-    QComboBox*                                _topology;
-    ProcessorCatalogTree*                     _catalog;
-    QLineEdit*                                _search;
-    QLineEdit*                                _name;
-    QLabel*                                   _error;
-    QWidget*                                  _properties;
-    QVBoxLayout*                              _propertyLayout;
-    QPointer<SettingsFormWidget>              _formWidget;
-    std::map<QString, std::unique_ptr<Draft>> _drafts;
-    QString                                   _active;
-    bool                                      _updating  = false;
-    bool                                      _resetting = false;
+    ProcessorRegistry&                            _registry;
+    SettingsWidgetRegistry&                       _widgets;
+    Apply                                         _apply;
+    LineflowEditorModel*                          _model;
+    QComboBox*                                    _blocks;
+    QComboBox*                                    _groups;
+    LineflowCanvas*                               _tree;
+    QMainWindow*                                  _dockHost;
+    QTimer*                                       _layoutSave;
+    QComboBox*                                    _topology;
+    ProcessorCatalogTree*                         _catalog;
+    QLineEdit*                                    _search;
+    QLineEdit*                                    _name;
+    QLabel*                                       _error;
+    QWidget*                                      _properties;
+    QVBoxLayout*                                  _propertyLayout;
+    QPointer<SettingsFormWidget>                  _formWidget;
+    std::map<QString, std::unique_ptr<Draft>>     _drafts;
+    QMap<QString, QPointer<CodeflowEditorDialog>> _codeEditors;
+    QString                                       _workspaceDirectory;
+    QString                                       _active;
+    bool                                          _updating  = false;
+    bool                                          _resetting = false;
 
     bool _geometryInitialized = false;
 
@@ -107,6 +111,7 @@ private:
     void _showProperties(const QModelIndex& index);
     void _showEndpoint(const QString& name);
     void _openComposition(const QModelIndex& index);
+    void _openInlineCode(const QModelIndex& index);
     void _clearProperties();
     bool _flush(Draft& draft, QString* error);
     void _message(const QString& message);

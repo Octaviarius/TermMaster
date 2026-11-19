@@ -102,6 +102,73 @@ class CodeflowEditorTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void inlineSaveAppliesWithoutFilesAndRetainsProperties()
+    {
+        if (!hasPython())
+        {
+            QSKIP("Python execution helper is unavailable");
+        }
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        auto original = fixture();
+        auto source   = original.value("source").toMap();
+        source.insert("file", directory.filePath("must-not-write.py"));
+        original.insert("source", source);
+        original.insert("defaults",
+                        QVariantMap {
+                            {"prefix", "saved"}
+        });
+        SettingsWidgetRegistry widgets;
+        QVariantMap            applied;
+        int                    applications = 0;
+        CodeflowEditorDialog dialog(original, widgets, [&](const QVariantMap&, const QVariantMap& candidate, QString*) {
+            applied = candidate;
+            ++applications;
+            return true;
+        });
+        dialog.setInlineMode(1);
+        dialog.setWorkspaceDirectory(directory.path());
+        dialog.show();
+        QVERIFY(field(dialog, "codeflowFile", 1)->isHidden() || !field(dialog, "codeflowFile", 1)->isVisible());
+        QVERIFY(field(dialog, "codeflowName", 0)->isReadOnly());
+        QVERIFY(!action(dialog, "Restart")->isVisible());
+        QSignalSpy stopped(&dialog, &CodeflowEditorDialog::stopRequested);
+        action(dialog, "Stop")->trigger();
+        QCOMPARE(stopped.size(), 0);
+        action(dialog, "Check")->trigger();
+        QTRY_VERIFY_WITH_TIMEOUT(dialog.findChild<SettingsFormModel*>(), 6000);
+        auto* form = dialog.findChild<SettingsFormModel*>();
+        QCOMPARE(form->value("prefix").toString(), QString("saved"));
+        form->setValue("prefix", "inline draft");
+        action(dialog, "Save")->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(applications, 1, 6000);
+        QVERIFY(!applied.value("source").toMap().contains("file"));
+        QCOMPARE(applied.value("defaults").toMap().value("prefix").toString(), QString("inline draft"));
+        QCOMPARE(dialog.findChild<QLabel*>("codeflowStatus")->text(), QString("Applied to diagram draft"));
+        QVERIFY(QDir(directory.path()).entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty());
+        QVERIFY(dialog.close());
+    }
+
+    void inlineApplyRejectsChangedInterface()
+    {
+        if (!hasPython())
+        {
+            QSKIP("Python execution helper is unavailable");
+        }
+        SettingsWidgetRegistry widgets;
+        bool                   called = false;
+        CodeflowEditorDialog   dialog(fixture(Codeflow::templateSource(2)),
+                                      widgets,
+                                      [&](const QVariantMap&, const QVariantMap&, QString*) {
+                                        called = true;
+                                        return true;
+                                      });
+        dialog.setInlineMode(1);
+        action(dialog, "Apply")->trigger();
+        QTRY_VERIFY_WITH_TIMEOUT(diagnosticContains(dialog, "must remain 1 input"), 6000);
+        QVERIFY(!called);
+    }
+
     void closingMetadataOrPropertyDraftRequiresConfirmation()
     {
         SettingsWidgetRegistry widgets;

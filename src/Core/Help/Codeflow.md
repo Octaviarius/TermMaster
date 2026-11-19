@@ -2,7 +2,20 @@
 
 Codeflow implements a reusable packet Processor as a Python class. Add it from
 **Tools / New Codeflow…** or the Lineflow Codeflow action. Existing Codeflow
-nodes open their dedicated editor. Native processors work without Python.
+nodes open their dedicated editor. Other native processors work without Python.
+
+## Inline Python Code
+
+For an occurrence-local script, drag **Native / General / Python Code (1×1)** or
+**Python Code (2×2)** into Lineflow. Double-click it, click its small editor button,
+or choose **Edit Python Code…** in the node properties. No separate reusable block
+or source file is needed. The selected variant fixes its port count.
+
+Save/Ctrl+S or Apply updates the diagram draft with the source and typed parameters.
+Apply the outer diagram to persist it. Different occurrences remain independent.
+The inline editor keeps Check/Test and local cancellation; it does not restart
+other active diagrams. Modules and SDK handlers work as in Codeflow. Declared
+`Node(...)` catalog dependencies require a published workspace Codeflow.
 
 ## Check, test and publish
 

@@ -2,6 +2,7 @@
 
 #include "../../Processing/TerminalProcessing.h"
 #include "../../Terminal/ProcessingRouter.h"
+#include "../Processing/CodeflowEditorDialog.h"
 #include "../Processing/LineflowEditorDialog.h"
 #include "../Processing/ProcessorSelector.h"
 
@@ -20,6 +21,7 @@
 #include <Termaster/Core/Gui/Settings/SettingsFieldEditor.h>
 #include <Termaster/Core/Gui/Settings/SettingsFormModel.h>
 #include <Termaster/Core/Gui/Settings/SettingsWidgetRegistry.h>
+#include <Termaster/Core/Processing/Codeflow.h>
 #include <Termaster/Core/Processing/ProcessorRefactoring.h>
 #include <Termaster/Core/Processing/ProcessorRegistry.h>
 #include <Termaster/Core/Settings.h>
@@ -50,6 +52,7 @@ QString stateName(ProcessingRouter::State state)
 struct TerminalProcessingPanel::NodeDraft
 {
     QString                            path;
+    QString                            type;
     std::unique_ptr<Settings>          inherited;
     std::unique_ptr<Settings>          local;
     std::unique_ptr<SettingsFormModel> model;
@@ -235,6 +238,19 @@ TerminalProcessingPanel::TerminalProcessingPanel(ProcessorRegistry&      registr
 
 TerminalProcessingPanel::~TerminalProcessingPanel()
 {
+    for (const auto& editor : _codeEditors)
+    {
+        if (editor)
+        {
+            editor->releaseEditors();
+            delete editor.data();
+        }
+    }
+    if (_inplaceEditor)
+    {
+        _inplaceEditor->releaseEditors();
+        delete _inplaceEditor.data();
+    }
     for (auto* timer : findChildren<QTimer*>())
     {
         timer->stop();
@@ -271,12 +287,37 @@ void TerminalProcessingPanel::setConfiguration(const QVariantMap& configuration)
     _showProperties();
 }
 
+void TerminalProcessingPanel::setWorkspaceDirectory(QString directory)
+{
+    _workspaceDirectory = std::move(directory);
+    if (_inplaceEditor)
+    {
+        _inplaceEditor->setWorkspaceDirectory(_workspaceDirectory);
+    }
+    for (const auto& editor : _codeEditors)
+    {
+        if (editor)
+        {
+            editor->setWorkspaceDirectory(_workspaceDirectory);
+        }
+    }
+}
+
 void TerminalProcessingPanel::releaseEditors()
 {
+    for (const auto& editor : _codeEditors)
+    {
+        if (editor)
+        {
+            editor->releaseEditors();
+            delete editor.data();
+        }
+    }
+    _codeEditors.clear();
     if (_inplaceEditor)
     {
         _inplaceEditor->releaseEditors();
-        _inplaceEditor->close();
+        delete _inplaceEditor.data();
     }
     QString error;
     if (!_flush(&error))
@@ -505,6 +546,7 @@ void TerminalProcessingPanel::_editInplace()
             return {true, transformed->definitions};
         },
         this);
+    editor->setWorkspaceDirectory(_workspaceDirectory);
     editor->setObjectName("inplaceLineflowEditor");
     editor->setWindowTitle(tr("Inplace · %1").arg(key));
     connect(editor,
@@ -629,6 +671,7 @@ void TerminalProcessingPanel::_showProperties()
             }
             auto node                 = std::make_unique<NodeDraft>();
             node->path                = property.path;
+            node->type                = property.type;
             node->inherited           = std::make_unique<Settings>(QString {});
             node->local               = std::make_unique<Settings>(QString {});
             const auto overrides      = selection.value("overrides").toMap();
@@ -648,6 +691,28 @@ void TerminalProcessingPanel::_showProperties()
                                                                               node->local->node({})));
             auto* model = node->model.get();
             _nodes.push_back(std::move(node));
+            if (Codeflow::isInline(property.type))
+            {
+                const auto metadata = registry->type(property.type);
+                const int  channels = metadata ? metadata->inputCount : 1;
+                const int  editRow  = _table->rowCount();
+                _table->insertRow(editRow);
+                _table->setSpan(editRow, 0, 1, 2);
+                auto* edit = new QPushButton(tr("Edit Python Code…"), _table);
+                edit->setObjectName("editPythonCode_" + property.path);
+                _table->setCellWidget(editRow, 0, edit);
+                connect(edit,
+                        &QPushButton::clicked,
+                        this,
+                        [this,
+                         path  = property.path,
+                         type  = property.type,
+                         title = property.title,
+                         channels,
+                         configuration = property.configuration] {
+                            _editInline(path, type, title, channels, configuration);
+                        });
+            }
             for (const auto& field : schema->fields())
             {
                 const auto fieldRow = _table->rowCount();
@@ -722,6 +787,102 @@ void TerminalProcessingPanel::_showProperties()
         _nodes.clear();
         _error->setText(QString::fromUtf8(exception.what()));
     }
+}
+
+void TerminalProcessingPanel::_editInline(const QString&     path,
+                                          const QString&     type,
+                                          const QString&     title,
+                                          int                channels,
+                                          const QVariantMap& configuration)
+{
+    QString error;
+    if (!_flush(&error))
+    {
+        _error->setText(error);
+        return;
+    }
+    NodeDraft* target = nullptr;
+    for (const auto& node : _nodes)
+    {
+        if (node->path == path && node->type == type)
+        {
+            target = node.get();
+        }
+    }
+    if (!target)
+    {
+        _error->setText(tr("The Python Code occurrence is no longer selected."));
+        return;
+    }
+    auto          expected  = std::make_shared<QVariantMap>(target->local->values());
+    const auto    inherited = target->inherited->values();
+    const QString selection = _draft.value("lineflow").toMap().value("type").toString();
+    QVariantMap   effective = configuration;
+    for (auto it = expected->begin(); it != expected->end(); ++it)
+    {
+        effective.insert(it.key(), it.value());
+    }
+    const auto definition = Codeflow::inlineDefinition("terminal-inline-" + path, title, channels, effective);
+    const QPointer<TerminalProcessingPanel> self(this);
+    auto*                                   editor = new CodeflowEditorDialog(
+        definition,
+        _editors,
+        [self, path, type, selection, expected, inherited](const QVariantMap&,
+                                                           const QVariantMap& candidate,
+                                                           QString*           error) {
+            if (!self)
+            {
+                return false;
+            }
+            if (self->_latest != self->_baseline || TerminalProcessing::mode(self->_draft) != "lineflow"
+                || self->_draft.value("lineflow").toMap().value("type").toString() != selection)
+            {
+                if (error)
+                {
+                    *error = QObject::tr("The terminal processing selection changed concurrently.");
+                }
+                return false;
+            }
+            if (!self->_flush(error))
+            {
+                return false;
+            }
+            NodeDraft* target = nullptr;
+            for (const auto& node : self->_nodes)
+            {
+                if (node->path == path && node->type == type)
+                {
+                    target = node.get();
+                }
+            }
+            if (!target || target->local->values() != *expected || target->inherited->values() != inherited)
+            {
+                if (error)
+                {
+                    *error = QObject::tr("The Python Code occurrence changed or was removed.");
+                }
+                return false;
+            }
+            const auto changes = Codeflow::inlineConfiguration(candidate);
+            if (!target->local->applyValues(changes, {}, error))
+            {
+                return false;
+            }
+            *expected = target->local->values();
+            if (!self->_flush(error))
+            {
+                return false;
+            }
+            self->_error->clear();
+            return true;
+        },
+        this);
+    editor->setInlineMode(channels);
+    editor->setWorkspaceDirectory(_workspaceDirectory);
+    editor->setObjectName("terminalInlinePythonEditor");
+    editor->setAttribute(Qt::WA_DeleteOnClose);
+    _codeEditors.append(editor);
+    editor->show();
 }
 
 void TerminalProcessingPanel::_diagnostics()

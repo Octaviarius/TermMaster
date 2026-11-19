@@ -14,6 +14,7 @@
 #include "Nodes/TimedFramer.h"
 #include "Nodes/Timestamp.h"
 
+#include <Termaster/Core/Processing/Codeflow.h>
 #include <Termaster/Core/Processing/NativeProcessors.h>
 #include <Termaster/Core/Processing/ProcessorCatalog.h>
 
@@ -158,6 +159,13 @@ void registerNativeProcessors(ProcessorCatalog& catalog, const QString& owner)
     QStringList registered;
     try
     {
+        for (const int channels : {1, 2})
+        {
+            auto       type = Codeflow::inlineType(channels);
+            const auto id   = type.id;
+            catalog.registerType(owner, std::move(type));
+            registered.append(id);
+        }
         ProcessorCatalog::Type tap;
         tap.id             = QStringLiteral("native.tap");
         tap.title          = QStringLiteral("Tap");

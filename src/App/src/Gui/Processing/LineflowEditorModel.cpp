@@ -6,6 +6,7 @@
 #include <QUuid>
 #include <Termaster/Core/Gui/Icons.h>
 #include <Termaster/Core/NumberedName.h>
+#include <Termaster/Core/Processing/Codeflow.h>
 #include <algorithm>
 
 namespace
@@ -1000,7 +1001,10 @@ void LineflowEditorModel::_append(QStandardItem* parent,
             column->setData(node.value("name"), NodeRole);
             column->setData(target, CatalogIdRole);
             const auto kind = definition.value("kind", metadata ? metadata->kind : QString {}).toString();
-            column->setData(kind == "native" ? QString {} : kind, CompositionKindRole);
+            column->setData(Codeflow::isInline(target) ? QString("python-code") :
+                            kind == "native"           ? QString {} :
+                                                         kind,
+                            CompositionKindRole);
             column->setData(linked, LinkedRole);
             column->setData(unavailable, UnavailableRole);
             column->setToolTip(unavailable ? reason : target);
