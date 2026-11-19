@@ -6,11 +6,37 @@ Release acceptance results and measured limits are recorded below and in
 [FLOW-6](roadmap.md#flow-6-python-processors-and-codeflow). General application
 scripting is separate from the processing SDK.
 
+## Inline Python Code nodes
+
+The Lineflow palette contains **Native / General / Python Code (1×1)** and
+**Python Code (2×2)**. Drag either into a compatible lane. Double-click the node,
+use its small editor button, or select **Edit Python Code…** in its properties.
+The editor stores checked source and typed parameters in that occurrence's
+configuration, without creating a workspace catalog definition or a `.py` file.
+
+Save/Ctrl+S and Apply in the inline editor update only the diagram draft. Apply
+the outer Lineflow editor to persist the complete diagram. Other occurrences
+retain their own code, parameters and instance state. Port count is fixed by the
+selected node variant; the paired variant requires Rx/Tx inputs and outputs.
+Inline scripts use the same diagram-owned Python process and execution limits.
+Temporary Check/Test work remains isolated from connected terminal transports.
+
+Inline scripts support Python modules and SDK properties/handlers, but declared
+`Node(...)` catalog dependencies require a published workspace Codeflow so their
+factories and plugin leases can be prepared before execution. The inline editor
+has no source-file save operation and no controls for restarting unrelated diagrams.
+
+Inline-node acceptance on 2026-11-19 passed all 66 configured Release CTest suites
+(111.25 s), including embedded-source validation, binary/empty Rx/Tx packets,
+independent occurrence state in one shared host, diagram Apply/Cancel boundaries,
+terminal-local settings, stale-edit rejection and Codeflow help routing. Native
+Windows captures at 100% and 200% were inspected. Final Release and Debug
+applications were built. See [acceptance record](benchmarks/inline-python/Acceptance.json).
+
 ## Ownership and execution
 
 Codeflow is a Python-authored Processor in the existing registry. It can occur in
-Lineflow and Tap, including a terminal-compatible paired interface. Native-only
-processing never starts Python. Core owns the asynchronous Processor adapter and
+Lineflow and Tap, including a terminal-compatible paired interface. Diagrams without Python Code or Codeflow never start Python. Core owns the asynchronous Processor adapter and
 protocol; App owns the editor, workspace publication and environment actions;
 `src/Python/Runtime/termaster` owns the SDK. CPython is an external executable,
 not an embedded Core dependency or a persistent service.

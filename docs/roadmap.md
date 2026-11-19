@@ -763,3 +763,11 @@ Priorities are ordered by dependency; reusable one-line compositions remain supp
 - [x] Keep an empty Tap branch as a pass-through line; remove Input recording parameters and retain Output recording of processed copies.
 - [x] Reject unresolved relative paths in standalone Core writers and invalid Tap Input recording explicitly.
 - [x] Verify six affected Release suites, empty Tap execution, native 100%/200% captures and final Debug build.
+
+## FLOW-11: Inline Python Code occurrences
+
+- [x] Register 1x1 and paired 2x2 Python Code entries under Native / General.
+- [x] Store checked source and typed parameters in each occurrence, using the diagram-owned runtime.
+- [x] Reuse the Python editor without requiring file saves or reusable catalog publication.
+- [x] Verify inline editing, persistence boundaries, binary processing and native rendering.
+- [x] Build final Release and Debug applications.
