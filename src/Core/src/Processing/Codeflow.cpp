@@ -1044,6 +1044,40 @@ ProcessorCatalog::Type Codeflow::inlineType(int channels)
         {"parameters",                                   QVariantMap {}}
     };
     type.create = [channels](const QVariantMap& configuration, const Processor::Limits& limits, QString* error) {
+        for (const auto& key : {QStringLiteral("source"), QStringLiteral("parameters")})
+        {
+            if (configuration.contains(key) && configuration.value(key).typeId() != QMetaType::QVariantMap)
+            {
+                fail(error, "Inline Python Code " + key + " must be a mapping");
+                return std::unique_ptr<Processor> {};
+            }
+        }
+        const auto suppliedSource = configuration.value("source").toMap();
+        for (const auto& key : {QStringLiteral("code"),
+                                QStringLiteral("className"),
+                                QStringLiteral("python"),
+                                QStringLiteral("file"),
+                                QStringLiteral("digest")})
+        {
+            if (suppliedSource.contains(key) && suppliedSource.value(key).typeId() != QMetaType::QString)
+            {
+                fail(error, "Inline Python Code source." + key + " must be a string");
+                return std::unique_ptr<Processor> {};
+            }
+        }
+        if (suppliedSource.contains("description")
+            && suppliedSource.value("description").typeId() != QMetaType::QVariantMap)
+        {
+            fail(error, "Inline Python Code source.description must be a mapping");
+            return std::unique_ptr<Processor> {};
+        }
+        if (suppliedSource.contains("code")
+            && (suppliedSource.value("code").toString().isEmpty()
+                || suppliedSource.value("code").toString().toUtf8().size() > maxSource))
+        {
+            fail(error, "Inline Python Code source.code must contain 1 byte to 2 MiB of UTF-8 text");
+            return std::unique_ptr<Processor> {};
+        }
         const auto baseline    = inlineDefinition({}, {}, channels, configuration);
         const auto resolved    = inlineConfiguration(baseline);
         const auto source      = resolved.value("source").toMap();
@@ -1061,7 +1095,10 @@ ProcessorCatalog::Type Codeflow::inlineType(int channels)
                  "Inline Python Code does not support declared Node children; publish a workspace Codeflow instead");
             return std::unique_ptr<Processor> {};
         }
-        return createScript(source, resolved.value("parameters").toMap(), {}, limits, error, resolved);
+        auto reported = configuration;
+        reported.insert("source", source);
+        reported.insert("parameters", resolved.value("parameters"));
+        return createScript(source, resolved.value("parameters").toMap(), {}, limits, error, reported);
     };
     return type;
 }

@@ -320,6 +320,75 @@ private slots:
         }
     }
 
+    void inlineMalformedConfiguration_data()
+    {
+        QTest::addColumn<QVariantMap>("configuration");
+        QTest::addColumn<QString>("reason");
+        QTest::newRow("source-string") << QVariantMap {
+            {"source", "invalid"}
+        } << QString("source must be a mapping");
+        QTest::newRow("source-null") << QVariantMap {
+            {"source", QVariant {}}
+        } << QString("source must be a mapping");
+        QTest::newRow("parameters-list") << QVariantMap {
+            {"parameters",
+             QVariantList {1}}
+        } << QString("parameters must be a mapping");
+        for (const auto& field : QStringList {"code", "className", "python", "file", "digest"})
+        {
+            QTest::newRow(qPrintable(field + "-number")) << QVariantMap {
+                {"source", QVariantMap {{field, 42}}}
+            } << QString("source." + field + " must be a string");
+        }
+        QTest::newRow("description-string") << QVariantMap {
+            {"source",
+             QVariantMap {{"description",
+                           "invalid"}}}
+        } << QString("source.description must be a mapping");
+        QTest::newRow("empty-code") << QVariantMap {
+            {"source",
+             QVariantMap {
+                 {"code", ""}}}
+        } << QString("source.code must contain");
+        QTest::newRow("oversized-code") << QVariantMap {
+            {"source",
+             QVariantMap {
+                 {"code",
+                  QString(2 * 1024 * 1024 + 1,
+                          'x')}}}
+        } << QString("source.code must contain");
+    }
+
+    void inlineMalformedConfiguration()
+    {
+        QFETCH(QVariantMap, configuration);
+        QFETCH(QString, reason);
+        Fixture    fixture;
+        const auto prepared = fixture.registry.prepare("native.python-code", configuration, {}, &fixture.error);
+        QVERIFY2(prepared, qPrintable(fixture.error));
+        const auto processor = fixture.instantiate(prepared);
+        QVERIFY2(!processor, "Malformed explicit inline configuration must not become the identity template");
+        QVERIFY2(fixture.error.contains(reason), qPrintable(fixture.error));
+    }
+
+    void inlineUnknownOuterConfigurationPreserved()
+    {
+        Fixture    fixture;
+        const auto prepared = fixture.registry.prepare("native.python-code",
+                                                       {
+                                                           {"extension", QVariantMap {{"retained", 7}}}
+        },
+                                                       {},
+                                                       &fixture.error);
+        QVERIFY2(prepared, qPrintable(fixture.error));
+        const auto processor = fixture.instantiate(prepared);
+        QVERIFY2(processor, qPrintable(fixture.error));
+        QCOMPARE(processor->configuration().value("extension").toMap().value("retained").toInt(), 7);
+        const auto result = invoke(*processor, QByteArray("\0", 1));
+        QVERIFY2(result->completed && result->error.isEmpty(), qPrintable(result->error));
+        QCOMPARE(result->joined(), QByteArray("\0", 1));
+    }
+
     void inlineNativeChildrenRejectedExplicitly()
     {
         Fixture    fixture;
